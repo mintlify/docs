@@ -1,0 +1,214 @@
+---
+title: "MDXContentController"
+description: "Documentation for MDXContentController, useMDXContentController, MDXContentContext, useMDXContent and MDXContentReducer"
+---
+
+## Summary
+
+MDXContentController is a component that combines state and components required to display MDXContent, Headers,
+Footers, and other additional content.
+
+## State
+
+The state of MDXContentController is managed in `useMDXContentController`.
+
+<CodeGroup>
+
+```tsx MDXContentController
+const ctx = useMDXContentController(props);
+```
+
+```tsx MDXContentControllerState
+export type MDXContentControllerState = {
+  apiBaseIndex: number;
+  apiComponents: ApiComponent[];
+  openApiPlaygroundProps: OpenApiPlaygroundProps;
+  pageMetadata: PageMetaTags;
+  isApi: boolean;
+  isBlogMode: boolean;
+  requestExample?: ReactNode;
+  responseExample?: ReactNode;
+  apiPlaygroundInputs: Record<string, any>;
+  tableOfContents: TableOfContentsSection[];
+  headings: HeadingType[];
+  currentSection: string | undefined;
+};
+```
+
+```tsx MDXContentState
+export type MDXContentState = MDXContentControllerState &
+  ApiPlaygroundType &
+  ParamGroupsType &
+  ContentWidthType;
+```
+
+</CodeGroup>
+
+### Hooks
+
+`useMDXContentController` triggers state updates and returns a `MDXContentContext` object.
+Hooks that affect `MDXContentState` are called from `useMDXContentController`.
+
+<Info>`useMDXContentController` calls other hooks that update state.</Info>
+
+New hooks can be added next to the existing ones in `useMDXContentController` or in a child component.
+
+<Tip>
+  Hooks, that should be called once in the tree or that are not exclusive to a
+  child component, should be added to `useMDXContentController`.
+</Tip>
+
+`eslint-plugin-react-hooks` should automatically check [these](https://reactjs.org/docs/hooks-rules.html) rules.
+
+<Warning>
+  Be careful not to introduce infinite loops when updating dependency arrays in
+  any hook that involves complex state.
+</Warning>
+
+### Usage
+
+Child components of `MDXContentContext.Provider` can access `state` and `dispatch` through `useMDXContent`.
+
+<Tip>Use `useMDXContent` to access the existing context.</Tip>
+
+<CodeGroup>
+
+```tsx useMDXContent
+const [state, dispatch] = useMDXContent();
+```
+
+```tsx MDXContentController
+export function MDXContentController({
+  children,
+  ...props
+}: MDXContentControllerProps) {
+  const ctx = useMDXContentController(props);
+  return (
+    <MDXContentContext.Provider value={ctx}>
+      ...
+      {children}
+      ...
+    </MDXContentContext.Provider>
+  );
+}
+```
+
+</CodeGroup>
+
+### Context
+
+The state is part of `MDXContentContext`,
+which consists of `MDXContentState` and a `dispatch` function that takes an action.
+
+<Tip>
+  Adding a new `MDXContentActionEnum` and a `MDXContentAction` can be done in
+  `MDXContentContext`.
+</Tip>
+
+An Action consists of a `MDXContentActionEnum`, used to determine the Action type, and a payload.
+
+<Info>Handling state logic of all defined actions is required.</Info>
+
+In `MDXContentReducer` the state update logic has to be handled for every action type,
+that has been added, otherwise there will be errors in the `MDXContentReducer` declaration.
+
+<CodeGroup>
+
+```tsx MDXContentActionEnum
+/**
+* Enumeration of action types that can be dispatched in MDXContentReducer.
+*/
+export enum MDXContentActionEnum {
+    SET_STATE,
+    SET_API_BASE_INDEX,
+    SET_IS_API,
+    // other action types
+    ...
+}
+```
+
+```tsx MDXContentAction
+/**
+* Actions that can be dispatched in the MDXContentReducer.
+*/
+export type MDXContentAction =
+| { type: MDXContentActionEnum.SET_STATE; payload: Partial<MDXContentState> }
+| { type: MDXContentActionEnum.SET_API_BASE_INDEX; payload: number }
+// other actions
+...
+```
+
+</CodeGroup>
+
+### Reducer
+
+`MDXContentReducer` consolidates state and update logic of MDXContentController.
+
+| Param    | Description              | Type               |
+| -------- | ------------------------ | ------------------ |
+| `State`  | current state            | `MDXContentState`  |
+| `Action` | state action to dispatch | `MDXContentAction` |
+
+Returns the updated `MDXContentState`.
+
+<Info>
+  A
+  [Reducer](https://beta.reactjs.org/learn/extracting-state-logic-into-a-reducer)
+  is used to extract all state logic.
+</Info>
+
+The state can be updated through `MDXContentReducer`'s dispatch function with actions defined in the `MDXContentAction` type.
+
+<CodeGroup>
+
+```tsx dispatch
+dispatch({
+  type: MDXContentActionEnum.SET_STATE,
+  payload: newState,
+});
+```
+
+```tsx MDXContentReducer
+/**
+* Consolidates state and update logic of MDXContentController.
+* @param state - current state.
+* @param action - state action to dispatch.
+* @returns MDXContentState - new state.
+*/
+export const MDXContentReducer: Reducer<MDXContentState, MDXContentAction> = (
+    state: MDXContentState,
+    action
+) => {
+    const type = action.type;
+    switch (type) {
+        case MDXContentActionEnum.SET_STATE:
+            return {
+            ...state,
+            ...action.payload,
+        };
+        // other cases
+        ...
+    }
+};
+
+export const useMDXContentReducer = () => useReducer(MDXContentReducer, initialState);
+```
+
+```tsx MDXContentContext
+export type MDXContentContextType = ReturnType<typeof useMDXContentReducer>;
+
+export const MDXContentContext = createContext<MDXContentContextType>([
+  initialState,
+  () => null,
+]);
+```
+
+</CodeGroup>
+
+### Debugging
+
+A `console.log` or breakpoint at the start of `MDXContentReducer` can be helpful with debugging the state.
+
+```tsx
+console.log(MDXContentActionEnum[action.type],action.payload)
+```
