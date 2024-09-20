@@ -1,0 +1,115 @@
+# Categories
+
+To simplify configuration, domains are grouped into categories. Categories can contain list of domains, or wildcard domains (i.e. *.google.com).
+
+A website may be in more than one category.
+
+## Built-in categories
+
+Repacket provides the following built-in categories:
+TODO(Jacob): Add the descriptions of these, and potentially example websites, from the pdf.
+
+ 0. Uncategorized
+ 1. Real Estate
+ 2. Computer and Internet Security
+ 3. Financial Services
+ 4. Business and Economy
+ 5. Computer and Internet Info
+ 6. Auctions
+ 7. Shopping
+ 8. Cult and Occult
+ 9. Travel
+ 10. Abused Drugs
+ 11. Adult and Pornography
+ 12. Home and Garden
+ 13. Military
+ 14. Social Networking
+ 15. Dead Sites
+ 16. Individual Stock Advice and Tools
+ 17. Training and Tools
+ 18. Dating
+ 19. Sex Education
+ 20. Religion
+ 21. Entertainment and Arts
+ 22. Personal sites and Blogs
+ 23. Legal
+ 24. Local Information
+ 25. Streaming Media
+ 26. Job Search
+ 27. Gambling
+ 28. Translation
+ 29. Reference and Research
+ 30. Shareware and Freeware
+ 31. Peer to Peer
+ 32. Marijuana
+ 33. Hacking
+ 34. Games
+ 35. Philosophy and Political Advocacy
+ 36. Weapons
+ 37. Pay to Surf
+ 38. Hunting and Fishing
+ 39. Society
+ 40. Educational Institutions
+ 41. Online Greeting Cards
+ 42. Sports
+ 43. Swimsuits and Intimate Apparel
+ 44. Questionable
+ 45. Kids
+ 46. Hate and Racism
+ 47. Personal Storage
+ 48. Violence
+ 49. Keyloggers and Monitoring
+ 50. Search Engines
+ 51. Internet Portals
+ 52. Web Advertisements
+ 53. Cheating
+ 54. Gross
+ 55. Web-based Email
+ 56. Malware Sites
+ 57. Phishing and Other Frauds
+ 58. Proxy Avoidance and Anonymizers
+ 59. Spyware and Adware
+ 60. Music
+ 61. Government
+ 62. Nudity
+ 63. News and Media
+ 64. Illegal
+ 65. Content Delivery Networks
+ 66. Internet Communications
+ 67. Bot Nets
+ 68. Abortion
+ 69. Health and Medicine
+ 70. Confirmed SPAM Sources
+ 71. SPAM URLs
+ 72. Unconfirmed SPAM Sources
+ 73. Open HTTP Proxies
+ 74. Dynamically Generated Content
+ 75. Parked Domains
+ 76. Alcohol and Tobacco
+ 77. Private IP Addresses
+ 78. Image and Video Search
+ 79. Fashion and Beauty
+ 80. Recreation and Hobbies
+ 81. Motor Vehicles
+ 82. Web Hosting
+ 83. Food and Dining
+ 85. Self Harm
+ 87. Low-THC Cannabis Products
+
+## Custom Categories
+
+You can also define your own custom categories to use in other rules. This allows you to easily group internal domains together, such as to disable some or all protection features on them.
+
+Custom categories can contain:
+ - Literal domains, i.e. www.google.com
+ - Wildcard domains, like *.google.com
+
+Domains starting with a `-` are removed from the category rather than being added. For example, by adding `*.google.com` and `-maps.google.com`, the category will include google.com and its subdomains, but not maps.google.com. Additions and subtractions are applied in order, so the `-` domain must come after the wildcard domain.
+
+#TODO(Jacob): Document the config page.
+
+## Overriding built-in categories
+
+Find a domain that's miscategorized? You can override default categories - both to add a domain to a category or to remove the domain from it.
+
+TODO(Jacob): Document.

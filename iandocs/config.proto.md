@@ -1,0 +1,201 @@
+```
+syntax = "proto3";
+
+// This defines rules for how to handle traffic.
+// Each rule has 0 or more "match" 
+// Rules are applied first to last, with later rules
+// overriding previous rules. Any action not specified in a rule
+// is unchanged from its previous rule.
+
+// Rules can optionally contain nested rules:
+//  a) a nested rule is applied after its parent rule but before
+//     the rule following the parent rule.
+//  b) a nested rule matches only if both the parent rule and the
+//     nested rules match.
+
+message CookieRule {
+
+    /// Matching spec.
+
+    // A regular expression for the name of the cookie.
+    optional string name = 3;
+    // Whether this cookie is marked http_only.
+    optional bool http_only = 4;
+    // Whether this cookie is marked secure.
+    optional bool secure = 5;
+
+    // Action spec.
+
+    // Cookie configs on subdomains override those on parent domains,
+    // and cookie configs later in the list override those earlier
+    // in the list. In both cases, unspecified values are inherited.
+    
+    // Whether this cookie should be protected through
+    // transformation.
+    optional bool transform = 1;
+
+    // Whether this cookie should be blocked altogether.
+    optional bool block = 2;
+}
+
+message HeaderControl {
+    // An ID.
+    // If two directives have the same ID, the second directive
+    // overrides the first. If two directives have different IDs,
+    // both headers are attached.
+    // If this ID is not present, the id defaults to `name`, giving a sensible
+    // default behavior: adding a new HeaderControl with the same
+    // name overrides the previous one.
+    optional string id = 3;
+
+    // The name of the header to be attached.
+    string name = 1;
+    // The value of the header to be attached.
+    string value = 2;
+
+    // If true, the header is removed rather than being added.
+    // The fields `name` and `value` are ignored (except for the
+    // default `id` computation).
+    bool remove = 4;
+};
+
+message InjectControl {
+    // An ID.
+    // If two directives have the same ID, the second directive
+    // overrides the first. If two directives have different IDs,
+    // both templates are injected.
+    // If this ID is not present, the id defaults to `template_name`.
+    optional string id = 2;
+
+    string name = 1;
+
+    // If true, the template is removed rather than being added.
+    // The field `template_name` is ignored (except for the
+    // default `id` computation).
+    bool remove = 3;
+}
+
+message Rule {
+    // Matching spec.
+    
+    // TODO(Ian): Make these repeated ORs?
+    optional string domain = 5;
+    optional string category = 6;
+    optional int32 acl = 7;  // User or group this applies to
+
+    optional string ipv4_mask = 13;
+    optional string ipv4_wildcard = 14;
+    optional string ipv6_mask = 15;
+
+    // uri filtering
+    optional string url_path = 17;
+
+    /// Action spec.
+
+    // Whether or not to intercept traffic for this domain.
+    // If false, other settings on this domain are ignored.
+    optional bool intercept = 3;
+
+    enum BlockMode {
+        // Inherit from the previous / parent rule.
+        BLOCK_MODE_INHERIT = 0;
+        // Allow the user to access this.
+        BLOCK_MODE_ALLOW = 1;
+        // Warn the user if they try to access this, but allow them to dismiss the warning.
+        BLOCK_MODE_WARN = 2;
+        // Block the user from accessing this.
+        BLOCK_MODE_BLOCK = 3;
+    }
+
+    BlockMode block_mode = 4;
+
+    // How long to hide a warning after
+    // it has been dismissed.
+    // Seconds.
+    optional float warn_dismiss_duration = 11;
+
+    // Name of template to be displayed when a page is blocked.
+    optional string block_template = 9;
+    // Name of template to be displayed when a page
+    // shows a warning.
+    optional string warn_template = 10;
+
+    // Cookie-specific settings.
+    repeated CookieRule cookies = 1;
+
+    // Headers to attach to requests.
+    repeated HeaderControl request_headers = 16;
+
+    // HTML templates to inject into the page.
+    repeated InjectControl injects = 18;
+
+    /// Sub-configs.
+    repeated Rule rules = 2;
+
+    enum StructuredLogLevel {
+        // Inherit from the previous / parent rule.
+        LOG_LEVEL_INHERIT = 0;
+        // Log all visits.
+        LOG_LEVEL_ALL = 1;
+        // Log only alerts - warnings, errors, malware detection, etc.
+        LOG_LEVEL_ALERT = 2;
+        // Don't log anything.
+        LOG_LEVEL_NONE = 3;
+    }
+
+    // Set what should be logged over the network to the structured log.
+    // The default of this value if no other rules match is LOG_LEVEL_ALERT.
+    StructuredLogLevel structured_log_level = 19; 
+}
+
+// custom Category data representation
+// Categories have a list of domains in that category.
+// If a Category has the same name as a BrightCloud category,
+// that acts as an override: any domains in the `domains` list
+// are added to the category. Any domains prefixed with a - are
+// instead removed from the category.
+// Note that this `-` can be used for non-brightcloud categories
+// as well, to remove domains from wildcard sets. Example to include
+// google.com and its subdomains, but not mail.google.com:
+//   domains: "*.google.com"
+//   domains: "-mail.google.com"
+message Category {
+    string name = 1;
+    repeated string domains = 2;
+}
+
+message Template {
+    string name = 1;
+    string template = 2;
+}
+
+message Config {
+    repeated Rule rules = 1;
+    repeated Category categories = 2;
+    repeated Template templates = 3;
+    optional float refresh_period = 4;
+}
+
+// all the fields available for a template
+// to use.
+message TemplateFields {
+    // TODO(Jacob): Add username / userid / etc.
+    string host = 1;
+    string uri = 2;
+    string ip = 6;
+    repeated string categories = 7;
+    optional bool blocked = 3;  // True if this is being used to block, false if being used to warn.
+    string template_name = 4;  // The name of the template being used.
+    bool standalone = 8;  // True if the proxy is in standalone mode.
+
+    string web_url = 5;  // The URL of the repacket server, to which exception requests can be sent.
+
+    bytes restricted_credential = 9;  // A credential restricted to both the current user and domain.
+
+    // Used for diagnostics if a template fails to render.
+    // Will be the empty string if the template renders successfully.
+    string error_message = 100;
+
+    string nonce = 101;  // A CSP nonce for <script> tags. If no nonce is required, will be the empty string.
+}
+```
