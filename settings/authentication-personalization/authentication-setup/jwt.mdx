@@ -1,0 +1,102 @@
+---
+title: 'JWT Handshake'
+description: 'Use a customized login flow to authenticate users'
+---
+
+<Info>
+  This is the documentation for the JWT **Authentication** Handshake. The steps for setting up the [JWT **Personalization** Handshake](/settings/authentication-personalization/personalization-setup/jwt) are slightly different.
+</Info>
+
+If you don’t have a dashboard, or if you want to keep your dashboard and docs completely separate, you can use your own login flow to authenticate users via a JWT in the URL.
+
+## Implementation
+
+<Steps>
+  <Step title="Generate a private key">
+    Go to your [Mintlify dashboard settings](https://dashboard.mintlify.com/products/authentication) and generate a private key. Store this key somewhere secure where it can be accessed by your backend.
+  </Step>
+  <Step title="Create a login flow">
+    Create a login flow that does the following:
+    - Authenticate the user
+    - Create a JWT containing the authenticated user's info in the [User](../sending-data) format
+    - Sign the JWT with the secret key, using the EdDSA algorithm
+    - Create a redirect URL back to the `/login/jwt-callback` path of your docs, including the JWT as the hash
+  </Step>
+  <Step title="Configure your Authentication settings">
+    Return to your [Mintlify dashboard settings](https://dashboard.mintlify.com/products/authentication) and add the login URL to your Authentication settings.
+  </Step>
+</Steps>
+
+## Example
+
+I want to set up authentication for my docs hosted at `docs.foo.com`. I want my docs
+to be completely separate from my dashboard (or I don’t have a dashboard at all).
+
+To set up authentication with Mintlify, I go to my Mintlify dashboard and generate a
+JWT secret. I create a web URL `https://foo.com/docs-login` that initiates a login flow
+for my users. At the end of this login flow, once I have verified the identity of the user,
+I create a JWT containing the user’s custom data according to Mintlify’s specification.
+I use a JWT library to sign this JWT with my Mintlify secret, create a redirect URL of the
+form `https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`, and redirect the user.
+
+I then go to the Mintlify dashboard settings and enter `https://foo.com/docs-login` for the
+Login URL field.
+
+Here's what the code might look like:
+
+<CodeGroup>
+```ts TypeScript
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'EdDSA' })
+    .setExpirationTime('10 s') // 10 second JWT expiration
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+}
+```
+
+```python Python
+import jwt # pyjwt
+import os
+
+from datetime import datetime, timedelta
+from fastapi.responses import RedirectResponse
+
+private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+
+@router.get('/auth')
+async def return_mintlify_auth_status(current_user):
+  jwt_token = jwt.encode(
+    payload={
+      'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
+      'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 1 week session expiration
+      'groups': ['admin'] if current_user.is_admin else [],
+      'content': {
+        'firstName': current_user.first_name,
+        'lastName': current_user.last_name,
+      },
+    },
+    key=private_key,
+    algorithm='EdDSA'
+  )
+
+  return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+```
+</CodeGroup>
