@@ -1,48 +1,35 @@
 ---
 title: 'JWT Handshake'
-description: 'Use a customized login flow to authenticate users'
+description: 'Authenticate users with your own login flow using JWT'
 ---
 
 <Info>
-  This is the documentation for the JWT **Authentication** Handshake. The steps for setting up the [JWT **Personalization** Handshake](/settings/authentication-personalization/personalization-setup/jwt) are slightly different.
+  This guide covers JWT **Authentication**. For JWT **Personalization**, see the [JWT Personalization guide](/settings/authentication-personalization/personalization-setup/jwt).
 </Info>
 
-If you don’t have a dashboard, or if you want to keep your dashboard and docs completely separate, you can use your own login flow to authenticate users via a JWT in the URL.
+Use JWT authentication when you want to manage user authentication through your own login flow instead of the Mintlify dashboard.
 
-## Implementation
+## Setup Steps
 
 <Steps>
-  <Step title="Generate a private key">
-    Go to your [Mintlify dashboard settings](https://dashboard.mintlify.com/products/authentication) and generate a private key. Store this key somewhere secure where it can be accessed by your backend.
+  <Step title="Get your private key">
+    Generate a private key in your [Mintlify dashboard](https://dashboard.mintlify.com/products/authentication). Store this securely for your backend.
   </Step>
-  <Step title="Create a login flow">
-    Create a login flow that does the following:
+  <Step title="Build your login flow">
+    Your login flow needs to:
     - Authenticate the user
-    - Create a JWT containing the authenticated user's info in the [User](../sending-data) format
-    - Sign the JWT with the secret key, using the EdDSA algorithm
-    - Create a redirect URL back to the `/login/jwt-callback` path of your docs, including the JWT as the hash
+    - Create a JWT with user info using the [User](../sending-data) format
+    - Sign it with EdDSA and your private key
+    - Redirect to `/login/jwt-callback` with the JWT as the hash
   </Step>
-  <Step title="Configure your Authentication settings">
-    Return to your [Mintlify dashboard settings](https://dashboard.mintlify.com/products/authentication) and add the login URL to your Authentication settings.
+  <Step title="Set your login URL">
+    Add your login URL to your [Mintlify authentication settings](https://dashboard.mintlify.com/products/authentication).
   </Step>
 </Steps>
 
-## Example
+## Code Example
 
-I want to set up authentication for my docs hosted at `docs.foo.com`. I want my docs
-to be completely separate from my dashboard (or I don’t have a dashboard at all).
-
-To set up authentication with Mintlify, I go to my Mintlify dashboard and generate a
-JWT secret. I create a web URL `https://foo.com/docs-login` that initiates a login flow
-for my users. At the end of this login flow, once I have verified the identity of the user,
-I create a JWT containing the user’s custom data according to Mintlify’s specification.
-I use a JWT library to sign this JWT with my Mintlify secret, create a redirect URL of the
-form `https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`, and redirect the user.
-
-I then go to the Mintlify dashboard settings and enter `https://foo.com/docs-login` for the
-Login URL field.
-
-Here's what the code might look like:
+Here's how to implement the JWT flow:
 
 <CodeGroup>
 ```ts TypeScript
@@ -55,7 +42,7 @@ const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdD
 
 export async function handleRequest(req: Request, res: Response) {
   const user = {
-    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session
     groups: res.locals.user.groups,
     content: {
       firstName: res.locals.user.firstName,
@@ -65,7 +52,7 @@ export async function handleRequest(req: Request, res: Response) {
 
   const jwt = await new jose.SignJWT(user)
     .setProtectedHeader({ alg: 'EdDSA' })
-    .setExpirationTime('10 s') // 10 second JWT expiration
+    .setExpirationTime('10 s') // JWT expires in 10s
     .sign(signingKey);
 
   return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
@@ -85,8 +72,8 @@ private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
 async def return_mintlify_auth_status(current_user):
   jwt_token = jwt.encode(
     payload={
-      'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
-      'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 1 week session expiration
+      'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # JWT expires in 10s
+      'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 week session
       'groups': ['admin'] if current_user.is_admin else [],
       'content': {
         'firstName': current_user.first_name,
