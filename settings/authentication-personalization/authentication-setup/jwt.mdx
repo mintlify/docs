@@ -7,20 +7,20 @@ description: 'Use a customized login flow to authenticate users'
   This is the documentation for the JWT **Authentication** Handshake. The steps for setting up the [JWT **Personalization** Handshake](/settings/authentication-personalization/personalization-setup/jwt) are slightly different.
 </Info>
 
-If you don’t have a dashboard, or if you want to keep your dashboard and docs completely separate, you can use your own login flow to authenticate users via a JWT in the URL.
+If you don't have a dashboard or want to keep your dashboard and docs completely separate, you can use your own login flow to authenticate users via a JWT in the URL.
 
 ## Implementation
 
 <Steps>
   <Step title="Generate a private key">
-    Go to your [dashboard settings](https://dashboard.mintlify.com/products/authentication) and generate a private key. Store this key somewhere secure where it can be accessed by your backend.
+    Go to your [dashboard settings](https://dashboard.mintlify.com/products/authentication) and generate a private key. Store this key somewhere secure where your backend can access it.
   </Step>
   <Step title="Create a login flow">
-    Create a login flow that does the following:
-    - Authenticate the user
-    - Create a JWT containing the authenticated user's info in the [User](../sending-data) format
-    - Sign the JWT with the secret key, using the EdDSA algorithm
-    - Create a redirect URL back to the `/login/jwt-callback` path of your docs, including the JWT as the hash
+    Create a login flow that performs the following steps:
+    - Authenticates the user
+    - Creates a JWT containing the authenticated user's info in the [User](../sending-data) format
+    - Signs the JWT with the secret key using the EdDSA algorithm
+    - Creates a redirect URL back to the `/login/jwt-callback` path of your docs, including the JWT as the hash
   </Step>
   <Step title="Configure your Authentication settings">
     Return to your [dashboard settings](https://dashboard.mintlify.com/products/authentication) and add the login URL to your Authentication settings.
@@ -29,20 +29,21 @@ If you don’t have a dashboard, or if you want to keep your dashboard and docs 
 
 ## Example
 
-I want to set up authentication for my docs hosted at `docs.foo.com`. I want my docs
-to be completely separate from my dashboard (or I don’t have a dashboard at all).
+Let's say you want to set up authentication for your docs hosted at `docs.foo.com`. You want your docs to be completely separate from your dashboard (or you don't have a dashboard at all).
 
-To set up authentication with Mintlify, I go to my Mintlify dashboard and generate a
-JWT secret. I create a web URL `https://foo.com/docs-login` that initiates a login flow
-for my users. At the end of this login flow, once I have verified the identity of the user,
-I create a JWT containing the user’s custom data according to Mintlify’s specification.
-I use a JWT library to sign this JWT with my Mintlify secret, create a redirect URL of the
-form `https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`, and redirect the user.
+To set up authentication with Mintlify:
 
-I then go to the dashboard settings and enter `https://foo.com/docs-login` for the
-Login URL field.
+1. Go to your Mintlify dashboard and generate a JWT secret
+2. Create a web URL `https://foo.com/docs-login` that initiates a login flow for your users
+3. After verifying the user's identity at the end of the login flow:
+   - Create a JWT containing the user's custom data according to Mintlify's specification
+   - Use a JWT library to sign this JWT with your Mintlify secret
+   - Create a redirect URL in the format: `https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`
+   - Redirect the user to this URL
 
-Here's what the code might look like:
+Finally, go to the dashboard settings and enter `https://foo.com/docs-login` in the Login URL field.
+
+Here's what the implementation code might look like:
 
 <CodeGroup>
 ```ts TypeScript
@@ -86,7 +87,7 @@ async def return_mintlify_auth_status(current_user):
   jwt_token = jwt.encode(
     payload={
       'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
-      'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 1 week session expiration
+      'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 week session expiration
       'groups': ['admin'] if current_user.is_admin else [],
       'content': {
         'firstName': current_user.first_name,
@@ -106,13 +107,11 @@ async def return_mintlify_auth_status(current_user):
 When an unauthenticated user tries to access a specific page, Mintlify preserves their intended destination through a redirect flow:
 
 1. The user attempts to visit a certain page (e.g., `/quickstart`)
-
 2. Mintlify redirects them to your login URL and adds the (relative) original destination as a `redirect` query parameter
 
 Example:
 
 * Original request: [`https://docs.foo.com/quickstart`](https://docs.foo.com/quickstart)
-
 * Redirect to login: [`https://foo.com/docs-login?redirect=%2Fquickstart`](https://foo.com/docs-login?redirect=%2Fquickstart)
 
 After successful authentication, you can include this same `redirect` parameter in your JWT callback URL to send users to their intended destination:
