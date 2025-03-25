@@ -1,1 +1,2 @@
-确认只能主号 commit deploy
+- [x] 确认只能主号 commit deploy
+- [x] 建立骨架
