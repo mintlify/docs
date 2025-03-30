@@ -1,13 +1,14 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "Mintlify External API",
-    "description": "An API for Mintlify documentation management and resource access.",
+    "title": "AIHubMix API",
+    "description": "AIHubMix 提供的 API 服务，支持多种 AI 模型的调用。支持 OpenAI 兼容接口，可以直接替换官方 SDK 使用。\n\n获取 API 密钥：[https://aihubmix.com/token/add](https://aihubmix.com/token/add)\n查看可用模型：[https://aihubmix.com/models](https://aihubmix.com/models)",
     "version": "1.0.0"
   },
   "servers": [
     {
-      "url": "https://api.mintlify.com/v1"
+      "url": "https://aihubmix.com/v1",
+      "description": "生产环境服务器"
     }
   ],
   "security": [
@@ -16,175 +17,162 @@
     }
   ],
   "paths": {
-    "/project/update/{projectId}": {
+    "/chat/completions": {
       "post": {
-        "summary": "Trigger an update",
-        "description": "Trigger an update after updating your OpenAPI document by calling this endpoint in a CI check.",
-        "parameters": [
+        "summary": "创建聊天补全",
+        "description": "根据提供的消息生成 AI 回复，支持多种模型和参数配置",
+        "x-codeSamples": [
           {
-            "name": "projectId",
-            "in": "path",
-            "description": "The ID of the project to trigger an update on. Can be retrieved from your dashboard.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "lang": "python",
+            "label": "Python",
+            "source": "import requests\n\nurl = 'https://aihubmix.com/v1/chat/completions'\nheaders = {\n    'Authorization': 'Bearer AIHUBMIX_API_KEY',\n    'Content-Type': 'application/json'\n}\ndata = {\n    'model': 'gpt-3.5-turbo',\n    'messages': [\n        {'role': 'user', 'content': '你好'}\n    ]\n}\n\nresponse = requests.post(url, headers=headers, json=data)\nprint(response.json())"
+          },
+          {
+            "lang": "javascript",
+            "label": "Node.js",
+            "source": "import OpenAI from 'openai';\n\nconst openai = new OpenAI({\n  baseURL: 'https://aihubmix.com/v1',\n  apiKey: 'AIHUBMIX_API_KEY'\n});\n\nasync function main() {\n  const completion = await openai.chat.completions.create({\n    model: 'gpt-3.5-turbo',\n    messages: [\n      {\n        'role': 'user',\n        'content': '你好'\n      }\n    ]\n  });\n\n  console.log(completion.choices[0].message);\n}\n\nmain();"
+          },
+          {
+            "lang": "curl",
+            "label": "Curl",
+            "source": "curl https://aihubmix.com/v1/chat/completions \\\n  -H \"Authorization: Bearer AIHUBMIX_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d \"{\\\"model\\\": \\\"gpt-3.5-turbo\\\",\\\"messages\\\": [{\\\"role\\\": \\\"user\\\", \\\"content\\\": \\\"你好\\\"}]}\""
           }
         ],
-        "responses": {
-          "202": {
-            "description": "A successful response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "statusId": {
-                      "type": "string",
-                      "description": "The status id of the triggered updated."
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["model", "messages"],
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "description": "要使用的模型 ID，可在 [模型广场](https://aihubmix.com/models) 查看可用模型列表"
+                  },
+                  "messages": {
+                    "type": "array",
+                    "description": "对话消息列表，包含角色和内容信息",
+                    "items": {
+                      "type": "object",
+                      "required": ["role", "content"],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "description": "消息角色，支持 user、assistant、system、developer 等"
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "消息内容"
+                        }
+                      }
                     }
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "description": "采样温度，控制输出的随机性，范围 0-2，值越大随机性越高",
+                    "default": 0.8
+                  },
+                  "max_tokens": {
+                    "type": "integer",
+                    "description": "生成文本的最大长度，根据模型能力可设置不同值",
+                    "default": 1024
+                  },
+                  "top_p": {
+                    "type": "number",
+                    "description": "核采样参数，控制输出文本的多样性",
+                    "default": 1
+                  },
+                  "frequency_penalty": {
+                    "type": "number",
+                    "description": "频率惩罚参数，避免重复生成相似内容",
+                    "default": 0
+                  },
+                  "presence_penalty": {
+                    "type": "number",
+                    "description": "存在惩罚参数，鼓励生成新的内容",
+                    "default": 0
+                  },
+                  "stream": {
+                    "type": "boolean",
+                    "description": "是否启用流式输出，实时返回生成内容",
+                    "default": false
+                  },
+                  "web_search_options": {
+                    "type": "object",
+                    "description": "搜索模型的网络搜索选项，仅支持特定搜索模型"
                   }
                 }
               }
             }
           }
-        }
-      }
-    },
-    "/project/update-status/{statusId}": {
-      "get": {
-        "summary": "Get the status of an update",
-        "parameters": [
-          {
-            "name": "statusId",
-            "in": "path",
-            "description": "The status ID of a triggered update.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "A successful response",
+            "description": "成功响应",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "_id": {
-                      "type": "string",
-                      "description": "The status id of the triggered updated."
-                    },
-                    "projectId": {
-                      "type": "string",
-                      "description": "The documentation project ID."
-                    },
-                    "createdAt": {
-                      "type": "string",
-                      "description": "An ISODate with the specified datetime in UTC"
-                    },
-                    "endedAt": {
-                      "type": "string",
-                      "description": "An ISODate with the specified datetime in UTC"
-                    },
-                    "status": {
-                      "type": "string",
-                      "enum": ["queued", "in_progress", "success", "failure"],
-                      "description": "The status of the update."
-                    },
-                    "summary": {
-                      "type": "string",
-                      "description": "Summary of the status of the update"
-                    },
-                    "logs": {
+                    "choices": {
                       "type": "array",
-                      "description": "An array of logs.",
                       "items": {
-                        "type": "string"
-                      }
-                    },
-                    "subdomain": {
-                      "type": "string",
-                      "description": "The subdomain of the docs being updated."
-                    },
-                    "screenshot": {
-                      "type": "string",
-                      "description": "A screenshot of the docs."
-                    },
-                    "screenshotLight": {
-                      "type": "string",
-                      "description": "A screenshot of the docs."
-                    },
-                    "screenshotDark": {
-                      "type": "string",
-                      "description": "A screenshot of the docs in dark mode."
-                    },
-                    "author": {
-                      "type": "string",
-                      "description": "The author of the update."
-                    },
-                    "commit": {
-                      "type": "object",
-                      "description": "The commit details",
-                      "properties": {
-                        "sha": {
-                          "type": "string",
-                          "description": "The SHA of the commit."
-                        },
-                        "ref": {
-                          "type": "string",
-                          "description": "The ref of the commit."
-                        },
-                        "message": {
-                          "type": "string",
-                          "description": "The commit message."
-                        },
-                        "filesChanged": {
-                          "type": "object",
-                          "description": "Details on the changed files.",
-                          "properties": {
-                            "added": {
-                              "type": "array",
-                              "description": "New files added.",
-                              "items": {
-                                "type": "string"
-                              }
-                            },
-                            "modified": {
-                              "type": "array",
-                              "description": "Existing files that were modified.",
-                              "items": {
-                                "type": "string"
-                              }
-                            },
-                            "removed": {
-                              "type": "array",
-                              "description": "Files that were removed.",
-                              "items": {
-                                "type": "string"
+                        "type": "object",
+                        "properties": {
+                          "message": {
+                            "type": "object",
+                            "properties": {
+                              "role": {
+                                "type": "string",
+                                "description": "消息角色，通常为 assistant"
+                              },
+                              "content": {
+                                "type": "string",
+                                "description": "生成的回复内容"
                               }
                             }
+                          },
+                          "finish_reason": {
+                            "type": "string",
+                            "description": "生成结束的原因，如 stop、length 等"
                           }
                         }
                       }
                     },
-                    "source": {
-                      "type": "string",
-                      "description": "The source of the update trigger.",
-                      "enum": [
-                        "internal",
-                        "github-app-installation",
-                        "api",
-                        "github",
-                        "dashboard"
-                      ]
+                    "usage": {
+                      "type": "object",
+                      "properties": {
+                        "prompt_tokens": {
+                          "type": "integer",
+                          "description": "输入消息使用的 token 数量"
+                        },
+                        "completion_tokens": {
+                          "type": "integer",
+                          "description": "生成回复使用的 token 数量"
+                        },
+                        "total_tokens": {
+                          "type": "integer",
+                          "description": "总共使用的 token 数量"
+                        }
+                      }
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "请求参数错误"
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "500": {
+            "description": "服务器内部错误"
           }
         }
       }
@@ -194,7 +182,8 @@
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
-        "scheme": "bearer"
+        "scheme": "bearer",
+        "description": "Bearer 认证，需要在请求头中添加 Authorization: Bearer AIHUBMIX_API_KEY，可在 [这里](https://aihubmix.com/token/add) 获取 API 密钥"
       }
     }
   }

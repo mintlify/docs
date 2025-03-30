@@ -1,0 +1,175 @@
+---
+title: "AIHubMix OpenAPI 规范"
+description: "AIHubMix API 的 OpenAPI 规范文档"
+icon: "code"
+---
+
+```yaml
+openapi: 3.0.0
+info:
+  title: AIHubMix API
+  version: '1.0'
+  description: AIHubMix API 接口规范文档
+servers:
+  - url: https://aihubmix.com/v1
+    description: AIHubMix API 服务器
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 请在 Authorization header 中使用 Bearer token
+
+  schemas:
+    Message:
+      type: object
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system, developer]
+          description: 消息的角色
+        content:
+          type: string
+          description: 消息的内容
+
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: 要使用的模型 ID
+          example: gpt-4o-mini
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          default: 0.8
+          description: 采样温度
+        max_tokens:
+          type: integer
+          default: 1024
+          description: 生成的最大 token 数
+        top_p:
+          type: number
+          format: float
+          default: 1
+          description: 核采样阈值
+        frequency_penalty:
+          type: number
+          format: float
+          default: 0
+          description: 频率惩罚系数
+        presence_penalty:
+          type: number
+          format: float
+          default: 0
+          description: 存在惩罚系数
+        stream:
+          type: boolean
+          default: false
+          description: 是否启用流式响应
+        web_search_options:
+          type: object
+          description: 搜索选项（仅支持搜索模型）
+
+paths:
+  /chat/completions:
+    post:
+      summary: 创建聊天补全
+      description: |
+        创建一个聊天补全。支持多种模型，包括gpt-4o-mini等。
+        对于支持搜索的模型（如gpt-4o-search-preview、gpt-4o-mini-search-preview），
+        可以通过web_search_options参数启用搜索功能。
+      operationId: createChatCompletion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: 响应 ID
+                  model:
+                    type: string
+                    description: 使用的模型
+                  object:
+                    type: string
+                    description: 对象类型
+                  created:
+                    type: integer
+                    description: 创建时间戳
+                  choices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        index:
+                          type: integer
+                          description: 选择索引
+                        message:
+                          $ref: '#/components/schemas/Message'
+                        finish_reason:
+                          type: string
+                          description: 结束原因
+                  usage:
+                    type: object
+                    properties:
+                      prompt_tokens:
+                        type: integer
+                        description: 提示 tokens 数量
+                      completion_tokens:
+                        type: integer
+                        description: 补全 tokens 数量
+                      total_tokens:
+                        type: integer
+                        description: 总 tokens 数量
+```
+
+这个 OpenAPI 规范文档定义了 AIHubMix API 的主要特性：
+
+1. 基本信息：
+   - 服务器 URL
+   - API 版本
+   - 安全认证方式
+
+2. 组件定义：
+   - 消息模型（Message）
+   - 聊天补全请求模型（ChatCompletionRequest）
+
+3. API 端点：
+   - POST /chat/completions：创建聊天补全
+   - 包含详细的请求参数和响应格式
+
+4. 认证：
+   - 使用 Bearer token 认证
+   - 需要在 Authorization header 中提供 API 密钥
+
+5. 特殊功能：
+   - 支持流式响应（stream 参数）
+   - 支持网页搜索（特定模型）
+   - 支持多种模型参数调整（temperature、max_tokens 等）
