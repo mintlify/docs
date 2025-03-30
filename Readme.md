@@ -1,6 +1,7 @@
 - [x] 确认只能主号 commit deploy
 - [x] 建立骨架
 - [x] API 目录下的文档细节修复
+- [] Sidebar 改成 Tab
 
 注意事项：
 - 根目录的 docs.json 管理全局的配置
