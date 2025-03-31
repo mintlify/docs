@@ -1,7 +1,10 @@
 - [x] 确认只能主号 commit deploy
 - [x] 建立骨架
 - [x] API 目录下的文档细节修复
-- [] Sidebar 改成 Tab
+- [x] Sidebar 改成 Tab
+- [ ] review 中文版结构
+- [ ] 迁移英文版
+- [ ] 备注好双语版本的路径 @晨雪
 
 注意事项：
 - 根目录的 docs.json 管理全局的配置
