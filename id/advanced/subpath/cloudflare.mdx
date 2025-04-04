@@ -1,0 +1,75 @@
+---
+title: Cloudflare
+description: Host dokumentasi di subpath /docs menggunakan Cloudflare Workers
+---
+
+## Buat Cloudflare Worker
+
+Navigasi ke`Workers & Pages > Create application > Create worker`. Anda akan melihat tampilan berikut di mana Anda dapat membuat worker Cloudflare baru.
+
+<Frame>
+  <img alt="Create a Cloudflare worker" src="/images/cloudflare/worker.png" />
+</Frame>
+
+<Warning>
+  Perlu diingat: Jika penyedia DNS Anda adalah Cloudflare, Anda tidak boleh menggunakan proxying untuk record CNAME
+</Warning>
+
+### Tambahkan domain kustom
+
+Setelah worker dibuat, klik`Configure worker`. Navigasi ke worker
+`Settings > Triggers`. Klik pada`Add Custom Domain` untuk menambahkan domain yang Anda inginkan ke dalam daftar - kami menyarankan Anda menambahkan kedua versi dengan dan tanpa`www.`
+ditambahkan ke domain.
+
+<Frame>
+  <img alt="Cloudflare worker custom domain" src="/images/cloudflare/custom-domain.png" />
+</Frame>
+
+Jika Anda mengalami kesulitan dalam mengatur subdirektori kustom,
+[hubungi tim dukungan kami](mailto:sales@mintlify.com) dan kami akan membantu Anda melalui proses peningkatan hosting Anda dengan kami.
+
+### Edit Skrip Worker
+
+Klik pada`Edit Code` dan tambahkan skrip berikut ke dalam kode worker.
+
+<Frame>
+  <img alt="Cloudflare edit code" src="/images/cloudflare/edit-code.png" />
+</Frame>
+
+<Tip>
+  Edit`DOCS_URL` dengan mengganti`[SUBDOMAIN]` dengan subdomain unik Anda dan`CUSTOM_URL` dengan URL dasar situs web Anda.
+</Tip>
+
+```javascript
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  try {
+    const urlObject = new URL(request.url);
+    // If the request is to the docs subdirectory
+    if (/^\/docs/.test(urlObject.pathname)) {
+      // Then Proxy to Mintlify
+      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+      const CUSTOM_URL = "[YOUR_DOMAIN]";
+
+      let url = new URL(request.url);
+      url.hostname = DOCS_URL;
+
+      let proxyRequest = new Request(url, request);
+
+      proxyRequest.headers.set("Host", DOCS_URL);
+      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+
+      return await fetch(proxyRequest);
+    }
+  } catch (error) {
+    // if no action found, play the regular request
+    return await fetch(request);
+  }
+}
+```
+
+Klik pada`Deploy` dan tunggu perubahan tersebar (bisa memakan waktu hingga beberapa jam).

@@ -1,0 +1,137 @@
+---
+title: AWS Route 53 dan Cloudfront
+sidebarTitle: AWS
+description: Host dokumentasi di subdirektori /docs menggunakan layanan AWS
+---
+
+## Membuat Distribusi Cloudfront
+
+Navigasi ke [Cloudfront](https://aws.amazon.com/cloudfront) di dalam konsol AWS dan klik pada `Create distribution`
+
+<Frame>
+  ![Cloudfront Create Distribution](/images/cloudfront/create-distribution.png)
+</Frame>
+
+Untuk domain Origin, masukkan `[SUBDOMAIN].mintlify.dev` dimana `[SUBDOMAIN]` adalah subdomain unik proyek. Klik pada `Use: [SUBDOMAIN].mintlify.dev`
+
+<Frame>![Cloudfront Origin name](/images/cloudfront/origin-name.png)</Frame>
+
+Untuk **Kunci cache dan permintaan asal**, pilih `Caching Optimized`.
+
+<Frame>
+  ![Cloudfront Caching policy](/images/cloudfront/caching-policy.png)
+</Frame>
+
+Dan untuk **Firewall Aplikasi Web (WAF)**, aktifkan perlindungan keamanan
+
+<Frame>
+  ![Cloudfront Caching
+  policy](/images/cloudfront/enable-security-protections.png)
+</Frame>
+
+Pengaturan lainnya harus default. Klik `Create distribution`.
+
+## Tambahkan Origin Default
+
+Setelah membuat distribusi, navigasi ke tab `Origins`.
+
+<Frame>![Cloudfront Origins](/images/cloudfront/origins.png)</Frame>
+
+Kita ingin menemukan URL staging yang mencerminkan domain utama (example.com). Ini sangat bervariasi tergantung pada bagaimana halaman landing Anda dihosting.
+
+<Info>
+  Misalnya, jika halaman landing Anda dihosting di Webflow, Anda dapat menggunakan URL staging Webflow. URL tersebut akan terlihat seperti `.webflow.io`.
+
+  Jika Anda menggunakan Vercel, Anda menggunakan domain `.vercel.app` yang tersedia untuk setiap proyek.
+</Info>
+
+<Note>
+  Jika Anda tidak yakin bagaimana cara mendapatkan URL staging untuk halaman landing Anda, [hubungi
+  dukungan](mailto:support@mintlify.com) dan kami dengan senang hati akan membantu
+</Note>
+
+Setelah Anda memiliki URL staging, untuk kami misalnya adalah [mintlify-landing-page.vercel.app](https://mintlify-landing-page.vercel.app), buat Origin baru dan tambahkan sebagai **Domain asal**.
+
+<Frame>
+  ![Cloudfront Default Origins](/images/cloudfront/default-origin.png)
+</Frame>
+
+Pada tahap ini, Anda seharusnya memiliki dua Origin - satu dengan `[SUBDOMAIN].mintlify.app` dan yang lainnya dengan URL staging.
+
+## Atur Perilaku
+
+Perilaku di Cloudfront memungkinkan kontrol atas logika subpath. Secara umum, kita ingin membuat logika berikut.
+
+* **Jika pengguna mengakses /docs**, pergi ke `[SUBDOMAIN].mintlify.dev`
+* **Jika pengguna mengakses halaman lain**, pergi ke halaman landing saat ini
+
+Kita akan membuat tiga perilaku dengan mengklik tombol `Create behavior`.
+
+### `/docs/*`
+
+Perilaku pertama harus memiliki **Pola path** berupa `/docs/*` dengan **Origin dan grup origin** mengarah ke `.mintlify.dev` URL (dalam kasus kami `acme.mintlify.dev`)
+
+<Frame>![Cloudfront Behavior 1](/images/cloudfront/behavior-1.png)</Frame>
+
+Untuk **Kebijakan cache**, pilih `CachingOptimized` dan buat perilaku.
+
+### `/docs`
+
+Perilaku kedua harus sama dengan yang pertama tetapi dengan **Pola path** berupa `/docs` dan **Origin dan grup origin** mengarah ke `.mintlify.dev` URL yang sama.
+
+<Frame>![Cloudfront Behavior 2](/images/cloudfront/behavior-2.png)</Frame>
+
+### `Default (*)`
+
+Terakhir, kita akan mengedit perilaku `Default (*)`.
+
+<Frame>
+  ![Cloudfront Behavior Default 1](/images/cloudfront/default-behavior-1.png)
+</Frame>
+
+Kita akan mengubah **Origin dan grup origin** perilaku default ke URL staging (dalam kasus kami `mintlify-landing-page.vercel.app`).
+
+<Frame>
+  ![Cloudfront Behavior Default 2](/images/cloudfront/default-behavior-2.png)
+</Frame>
+
+Klik pada `Save changes`.
+
+## Pratinjau Distribusi
+
+Sekarang Anda dapat menguji apakah distribusi Anda telah diatur dengan benar dengan membuka tab `General` dan mengunjungi URL **Nama domain distribusi**.
+
+<Frame>
+  ![Cloudfront Preview
+  distribution](/images/cloudfront/preview-distribution.png)
+</Frame>
+
+Semua halaman harus mengarah ke halaman utama Anda, tetapi jika Anda menambahkan`/docs` ke URL, Anda seharusnya melihatnya mengarah ke instance dokumentasi Mintlify.
+
+## Menghubungkannya dengan Route53
+
+Sekarang, kita akan membawa fungsionalitas distribusi Cloudfront ke domain utama Anda.
+
+<Note>
+  Untuk bagian ini, Anda juga dapat merujuk ke panduan resmi AWS tentang[Mengkonfigurasi Amazon Route 53 untuk mengarahkan lalu lintas ke distribusi CloudFront](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-to-cloudfront-distribution.html#routing-to-cloudfront-distribution-config)
+</Note>
+
+Navigasi ke[Route53](https://aws.amazon.com/route53) di dalam konsol AWS, dan klik ke`Hosted zone` untuk domain utama Anda. Klik pada`Create record`
+
+<Frame>
+  ![Route 53 create record](/images/cloudfront/route53-create-record.png)
+</Frame>
+
+Alihkan`Alias` dan kemudian**Arahkan lalu lintas ke** pilihan`Alias to CloudFront distribution`.
+
+<Frame>
+  ![Route 53 create record alias](/images/cloudfront/create-record-alias.png)
+</Frame>
+
+Klik`Create records`.
+
+<Note>
+  Anda mungkin perlu menghapus catatan A yang ada jika saat ini ada.
+</Note>
+
+Dan voila! Anda seharusnya dapat memiliki dokumentasi Anda yang disajikan di`/docs` untuk domain utama Anda.
