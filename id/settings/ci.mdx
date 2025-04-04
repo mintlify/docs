@@ -1,0 +1,111 @@
+---
+title: Pemeriksaan CI
+description: Tambahkan pemeriksaan tautan rusak, linting, dan tata bahasa ke proses pembaruan
+icon: circle-check
+---
+
+<Warning>
+  Fitur ini hanya tersedia untuk pelanggan dengan paket berbayar dan untuk GitHub. Dukungan untuk platform lain akan segera hadir.
+</Warning>
+
+Gunakan pemeriksaan CI untuk melinting dokumentasi Anda untuk kesalahan, dan memberikan peringatan sebelum Anda mendeploy.
+
+## Instalasi
+
+Untuk memulai, Anda perlu mengikuti langkah-langkah di halaman[GitHub](/settings/github).
+
+Untuk Aplikasi GitHub, Anda dapat memilih untuk hanya memberikan izin ke satu repositori. Kami sangat menyarankan Anda melakukannya karena kami hanya membutuhkan akses ke repositori tempat dokumentasi Anda dihosting.
+
+## Konfigurasi
+
+Anda dapat mengonfigurasi pemeriksaan CI yang diaktifkan untuk deployment di dasbor Mintlify dengan menavigasi ke tab 'Add-Ons'. Di sana Anda dapat mengaktifkan atau menonaktifkan pemeriksaan yang ingin Anda jalankan.
+
+Saat mengaktifkan pemeriksaan, Anda dapat memilih untuk menjalankannya pada level`Warning`atau`Blocking`.
+
+<Note>
+  Pemeriksaan level`Blocking`akan memberikan status kegagalan jika tidak lulus, atau perubahan disarankan.<br />
+
+  Pemeriksaan level`Warning`tidak akan pernah memberikan status kegagalan, bahkan jika ada kesalahan atau saran.
+</Note>
+
+## Kapan Mereka Berjalan?
+
+Pemeriksaan CI dikonfigurasi untuk berjalan pada commit ke cabang deployment yang Anda konfigurasi, atau pada pull request terhadap cabang tersebut.
+
+## Pemeriksaan CI yang Tersedia
+
+### Tautan Rusak
+
+Mirip dengan cara kerja[pemeriksa tautan CLI](/settings/broken-links#broken-links)di mesin lokal Anda, kami akan secara otomatis memeriksa dokumentasi Anda untuk tautan yang rusak. Untuk melihat hasil pemeriksaan ini, Anda dapat mengunjungi halaman hasil pemeriksaan GitHub untuk commit tertentu.
+
+### Vale
+
+[Vale](https://vale.sh/)adalah linter prosa berbasis aturan open-source yang mendukung berbagai jenis dokumen, termasuk Markdown dan MDX.
+
+Mintlify mendukung menjalankan Vale secara otomatis dalam pemeriksaan CI, dan menampilkan hasilnya sebagai status pemeriksaan.
+
+#### Konfigurasi
+
+Jika Anda memiliki file`.vale.ini`di root direktori konten untuk deployment Anda, kami akan secara otomatis menggunakan file konfigurasi tersebut. Kami juga akan secara otomatis menggunakan file konfigurasi apa pun di`stylesPath`yang Anda tentukan.
+
+<Tip>Tidak memiliki konfigurasi Vale atau tidak yakin dari mana harus memulai? Jangan khawatir, Mintlify memiliki konfigurasi default yang akan secara otomatis digunakan jika tidak ada yang disediakan.</Tip>
+
+<Warning>
+  Harap dicatat bahwa untuk alasan keamanan, kami tidak dapat mendukung`stylesPath`, atau `stylesPath` yang mencakup `..` nilai. Harap gunakan jalur relatif dan sertakan `stylesPath` di repositori Anda.
+</Warning>
+
+#### Paket
+
+Vale mendukung berbagai [paket](https://vale.sh/docs/keys/packages), yang dapat digunakan untuk memeriksa kesalahan ejaan dan gaya.
+Setiap paket yang Anda sertakan dalam repositori Anda di bawah `stylesPath` yang benar akan secara otomatis diinstal dan digunakan dalam konfigurasi Vale Anda.
+
+Untuk paket yang tidak disertakan dalam repositori Anda, Anda dapat menentukan paket apa pun dari [registri paket Vale](https://vale.sh/explorer), dan paket tersebut akan secara otomatis diunduh dan digunakan dalam konfigurasi Vale Anda.
+
+<Warning>
+  Harap perhatikan bahwa untuk alasan keamanan, kami tidak dapat mendukung pengunduhan otomatis paket yang tidak berasal dari [registri paket Vale](https://vale.sh/explorer).
+</Warning>
+
+#### Vale dengan MDX
+
+Vale tidak secara native mendukung MDX, tetapi penulis Vale telah menyediakan [ekstensi kustom](https://github.com/errata-ai/MDX) untuk mendukungnya.
+
+Jika Anda lebih suka tidak menggunakan ekstensi ini, kami merekomendasikan baris berikut dalam file `.vale.ini` Anda:
+
+```ini
+[formats]
+mdx = md
+
+[*.mdx]
+CommentDelimiters = {/*, */}
+
+TokenIgnores = (?sm)((?:import|export) .+?$), \
+(?<!`)(<\w+ ?.+ ?\/>)(?!`), \
+(<[A-Z]\w+>.+?<\/[A-Z]\w+>)
+
+BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
+(?sm)^({.+.*})
+```
+
+Untuk menggunakan komentar dalam-dokumen Vale, gunakan komentar gaya MDX `{/* ... */}`.
+Jika Anda menggunakan `CommentDelimiters = {/*, */}` [pengaturan](https://vale.sh/docs/keys/commentdelimiters) dalam konfigurasi Anda, Vale akan secara otomatis menginterpretasikan komentar ini saat melakukan linting.
+Ini berarti Anda dapat dengan mudah menggunakan fitur bawaan Vale, seperti melewati baris atau bagian.
+
+```mdx
+{/* vale off */}
+
+This text will be ignored by Vale
+
+{/* vale on */}
+```
+
+Jika Anda memilih untuk tidak menggunakan `CommentDelimiters`, tetapi masih memilih untuk menggunakan komentar Vale, Anda harus membungkus komentar Vale dalam komentar MDX `{/* ... */}`. Contohnya:
+
+```mdx
+{/* <!-- vale off --> */}
+
+This text will be ignored by Vale
+
+{/* <!-- vale on --> */}
+```
+
+Harap perhatikan bahwa tag komentar ini tidak didukung dalam komponen Mintlify, tetapi dapat digunakan di mana saja pada tingkat dasar dokumen.
