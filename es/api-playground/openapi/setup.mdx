@@ -1,0 +1,147 @@
+---
+title: Configuración de OpenAPI
+description: Referencia endpoints de OpenAPI en tus páginas de documentación
+---
+
+## Agregar un archivo de especificación OpenAPI
+
+Para describir tus endpoints con OpenAPI, asegúrate de tener un documento OpenAPI válido en formato JSON o YAML que siga la[especificación OpenAPI](https://swagger.io/specification/). Tu documento debe seguir la especificación OpenAPI 3.0+.
+<Tip>Para validar tu especificación OpenAPI, usa nuestro [CLI](https://www.npmjs.com/package/mintlify) y ejecuta este comando: <br />`mintlify openapi-check <openapiFilenameOrUrl>`</Tip>
+
+## Auto-generar páginas de API
+
+La forma más rápida de comenzar con OpenAPI es agregar un `openapi` campo a una pestaña en el `docs.json`. Este campo puede contener la ruta a un documento OpenAPI en tu repositorio de documentación, o la URL de un documento OpenAPI alojado. Mintlify generará automáticamente una página para cada operación OpenAPI y las colocará en la pestaña.
+
+**Ejemplo con Pestañas:**
+
+```json {5}
+"navigation": {
+  "tabs": [
+    {
+        "tab": "API Reference",
+        "openapi": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ]
+}
+```
+
+![](/images/autogeneration-with-tabs.png)
+
+**Ejemplo con Grupos:**
+
+```json {8-11}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API Reference",
+      "groups": [
+        {
+          "group": "Endpoints",
+          "openapi": {
+            "source": "/path/to/openapi-1.json",
+            "directory": "api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Note>El campo directory es opcional. Si no se especifica, los archivos se colocarán en el **api-reference** carpeta del repositorio de documentación.</Note>
+
+Al usar esta opción, los metadatos para las páginas generadas tendrán los siguientes valores predeterminados:
+
+* `title`: El `summary` campo de la operación OpenAPI, si está presente. De lo contrario, un título generado a partir del método HTTP y el endpoint.
+
+* `description`: El `description` campo de la operación OpenAPI, si está presente.
+
+* `version`: El `version` valor del ancla o pestaña, si está presente.
+
+Hay algunos escenarios en los que el comportamiento predeterminado no es suficiente. Si necesitas más personalización, puedes crear una página MDX para tu operación OpenAPI y modificarla como cualquier otra página MDX.
+
+## Crear archivos MDX para páginas de API
+
+Si deseas personalizar los metadatos de la página, agregar contenido adicional, omitir ciertas operaciones OpenAPI o reordenar las páginas OpenAPI en tu navegación, necesitarás una página MDX para cada operación. Aquí hay [un ejemplo de página MDX OpenAPI](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx) de [MindsDB](https://docs.mindsdb.com/rest/databases/create-databases).&#x20;
+
+![](/images/mindsdb.png)
+
+### Especificar archivos manualmente
+
+Siempre puedes crear una página MDX manualmente y hacer referencia a la operación OpenAPI en los metadatos de la página usando el `openapi` campo.
+
+<Snippet file="api-playground/openapi.mdx" />
+
+Al usar la referencia OpenAPI, el nombre, descripción, parámetros, respuestas y el área de pruebas de API se generarán automáticamente desde el documento OpenAPI.
+
+Si tienes múltiples archivos OpenAPI, incluye la ruta al archivo OpenAPI para asegurar que Mintlify encuentre el documento OpenAPI correcto. Esto no es necesario si tienes solo un archivo OpenAPI - detectará automáticamente tu archivo OpenAPI.
+
+Si deseas hacer referencia a un archivo OpenAPI externo usando este método, proporciona la URL del archivo en el docs.json. Ver [aquí](https://mintlify.com/docs/settings/global#param-source-4) para el formato correcto.
+
+<CodeGroup>
+  ```md Example
+  ---
+  title: "Get users"
+  openapi: "/path/to/openapi-1.json GET /users"
+  ---
+  ```
+
+  ```md Format
+  ---
+  title: "title of the page"
+  openapi: openapi-file-path method path
+  ---
+  ```
+</CodeGroup>
+
+<Note>
+  En la mayoría de los casos, el método y la ruta deben coincidir exactamente con el método y la ruta especificados en el documento OpenAPI. Si el endpoint no existe en el archivo OpenAPI, la página estará vacía.
+
+  Para webhooks, reemplaza el método (es decir, "POST") con "webhook" (no distingue mayúsculas y minúsculas) y se generará el método correcto.
+</Note>
+
+### Autogenerar archivos
+
+Para documentos OpenAPI grandes, crear una página MDX para cada operación OpenAPI puede ser mucho trabajo. Para facilitarlo, creamos un scraper local de páginas OpenAPI.
+
+Nuestro Mintlify [scraper](https://www.npmjs.com/package/@mintlify/scraping)
+autogenera archivos MDX para tus endpoints OpenAPI.
+
+Cada página generada corresponderá a una operación OpenAPI bajo la sección "paths" del esquema OpenAPI. Si tu documento OpenAPI es versión 3.1+, el scraper también generará páginas para webhooks bajo la sección "webhooks" del esquema OpenAPI.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file>
+```
+
+Agrega la `-o` bandera para especificar una carpeta donde colocar los archivos. Si no se especifica una carpeta, los archivos se colocarán en el directorio de trabajo.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o api-reference
+```
+
+Aprende más sobre nuestro paquete de scraping [aquí](https://www.npmjs.com/package/@mintlify/scraping).
+
+El scraper generará un array de
+[Entradas de navegación](/settings/global#structure) que contienen tus archivos MDX OpenAPI. Puedes agregar estas entradas a tu Navegación existente o reordenar y agregar los archivos a tu navegación manualmente.
+
+<Note>
+  Si tu documento OpenAPI no es válido, los archivos no se autogenerarán.
+</Note>
+
+## Crear archivos MDX para esquemas OpenAPI
+
+Mintlify también permite crear páginas individuales para cualquier esquema OpenAPI definido en el campo `components.schemas` del documento OpenAPI:
+
+<CodeGroup>
+  ```md Example
+  ---
+  openapi-schema: OrderItem
+  ---
+  ```
+
+  ```md Format
+  ---
+  openapi-schema: "schema-key"
+  ---
+  ```
+</CodeGroup>
