@@ -1,0 +1,139 @@
+---
+title: Recursos Avançados
+description: Suporte para recursos avançados do OpenAPI
+---
+
+O OpenAPI 3 tem alguns recursos avançados para descrever APIs complexas. Aqui está como você pode usá-los com Mintlify.
+
+## `oneOf`, `anyOf`, `allOf`
+
+Para tipos de dados complexos, o OpenAPI fornece as palavras-chave `oneOf`, `anyOf`, e `allOf`, permitindo que você combine esquemas de certas maneiras. Você pode ler mais sobre essas palavras-chave na [documentação do Swagger](https://swagger.io/docs/specification/data-models/oneof-anyof-allof-not/), mas essencialmente:
+
+* `oneOf` funciona como um operador "ou-exclusivo"
+* `anyOf` funciona como um operador "ou"
+* `allOf` funciona como um operador "e"
+
+<Warning>As `oneOf` e `anyOf` palavras-chave são tratadas da mesma forma. Descobrimos que, quando as pessoas usam `oneOf`, elas frequentemente *querem dizer* `anyOf` - e geralmente não há diferença significativa para o usuário.</Warning>
+
+<Info>A `not` palavra-chave não é atualmente suportada.</Info>
+
+### Combinando esquemas com `allOf`
+
+O Mintlify realiza algum pré-processamento em seu documento OpenAPI para exibir essas combinações complexas de forma legível. Por exemplo, quando você combina dois esquemas de objeto com `allOf`, o Mintlify combina as propriedades de ambos em um único objeto. Isso se torna especialmente útil ao aproveitar [os componentes reutilizáveis do `components`](https://swagger.io/docs/specification/components/).
+
+```yaml
+org_with_users:
+  allOf:
+    - $ref: '#/components/schemas/Org'
+    - type: object
+      properties:
+        users:
+          type: array
+          description: An array containing all users in the organization
+...
+components:
+  schemas:
+    Org:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the organization
+```
+
+<ParamField body="org_with_users" type="object">
+  <Expandable>
+    <ParamField body="id" type="string">
+      O ID da organização
+    </ParamField>
+
+    <ParamField body="users" type="object[]">
+      Um array contendo todos os usuários na organização
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Fornecendo opções com `oneOf` e `anyOf`
+
+Quando você usa `oneOf` ou `anyOf`, o Mintlify exibe as opções em um container com abas. Para dar nomes úteis às suas opções, certifique-se de dar a cada subesquema um campo `title`. Por exemplo, aqui está como você pode exibir dois tipos diferentes de endereços de entrega:
+
+```yaml
+delivery_address:
+  oneOf:
+    - title: StreetAddress
+      type: object
+      properties:
+        address_line_1:
+          type: string
+          description: The street address of the recipient
+        ...
+    - title: POBox
+      type: object
+      properties:
+        box_number:
+          type: string
+          description: The number of the PO Box
+        ...
+```
+
+<ParamField body="delivery_address" type="object">
+  <div className="mt-4 rounded-xl border border-gray-100 px-4 pb-4 pt-2 dark:border-white/10">
+    <Tabs>
+      <Tab title="StreetAddress">
+        <ParamField body="address_line_1" type="string">
+          O endereço da residência
+        </ParamField>
+      </Tab>
+
+      <Tab title="POBox">
+        <ParamField body="box_number" type="string">
+          O número da Caixa Postal
+        </ParamField>
+      </Tab>
+    </Tabs>
+  </div>
+</ParamField>
+
+## `x-codeSamples`
+
+Se seus usuários interagem com sua API usando um SDK em vez de diretamente através de uma requisição de rede, você pode adicionar exemplos de código ao seu documento OpenAPI, e o Mintlify irá exibi-los em suas páginas OpenAPI. Você pode definir seus exemplos de código usando a `x-codeSamples` extensão. Esta propriedade pode ser adicionada dentro de qualquer método de requisição e tem o seguinte esquema:
+
+<ParamField body="lang" type="string" required>
+  A linguagem do exemplo de código.
+</ParamField>
+
+<ParamField body="label" type="string">
+  O rótulo para o exemplo. Isso é útil quando fornecendo múltiplos exemplos para um único endpoint.
+</ParamField>
+
+<ParamField body="source" type="string" required>
+  O código-fonte do exemplo.
+</ParamField>
+
+Aqui está um exemplo de alguns exemplos de código para um aplicativo de rastreamento de plantas, que tem tanto uma ferramenta CLI em Bash quanto um SDK JavaScript.
+
+```yaml
+paths:
+  /plants:
+    get:
+      ...
+      x-codeSamples:
+        - lang: bash
+          label: List all unwatered plants
+          source: |
+            planter list -u
+        - lang: javascript
+          label: List all unwatered plants
+          source: |
+            const planter = require('planter');
+            planter.list({ unwatered: true });
+        - lang: bash
+          label: List all potted plants
+          source: |
+            planter list -p
+        - lang: javascript
+          label: List all potted plants
+          source: |
+            const planter = require('planter');
+            planter.list({ potted: true });
+```

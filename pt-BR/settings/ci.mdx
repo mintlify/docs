@@ -1,0 +1,115 @@
+---
+title: Verificações CI
+description: Adicione verificações de links quebrados, linting e gramática ao processo de atualização
+icon: circle-check
+---
+
+<Warning>
+  Este recurso está disponível apenas para clientes em planos pagos e para GitHub. O suporte para outras plataformas está chegando em breve.
+</Warning>
+
+Use verificações CI para fazer lint de seus documentos em busca de erros e receber avisos antes de fazer o deploy.
+
+## Instalação
+
+Para começar, você precisará ter seguido os passos na página [GitHub](/settings/github).
+
+Para Apps do GitHub, você pode escolher dar permissões apenas a um único repositório.
+Recomendamos fortemente que você faça isso, pois só precisamos de acesso ao repositório onde
+seus documentos estão hospedados.
+
+## Configuração
+
+Você pode configurar as verificações CI habilitadas para um deployment no painel do Mintlify navegando até a aba 'Add-Ons'. Lá você pode habilitar ou desabilitar as verificações que deseja executar.
+
+Ao habilitar verificações, você pode escolher executá-las em nível `Warning` ou `Blocking`.
+
+<Note>
+  Uma `Blocking` verificação de nível fornecerá um status de falha se não for aprovada ou se houver sugestões de mudanças.<br />
+
+  Uma `Warning` verificação de nível nunca fornecerá um status de falha, mesmo se houver um erro ou sugestões.
+</Note>
+
+## Quando Elas São Executadas?
+
+As verificações CI são configuradas para executar em commits no seu branch de deployment configurado, ou em pull requests contra esse branch.
+
+## Verificações CI Disponíveis
+
+### Links Quebrados
+
+De forma semelhante a como o [verificador de links do CLI](/settings/broken-links#broken-links) funciona em sua máquina local, verificaremos automaticamente seus documentos em busca de links quebrados.
+Para ver os resultados desta verificação, você pode visitar a página de resultados de verificação do GitHub para um commit específico.
+
+### Vale
+
+[Vale](https://vale.sh/) é um linter de prosa baseado em regras de código aberto que suporta uma variedade de tipos de documentos, incluindo Markdown e MDX.
+
+O Mintlify suporta a execução automática do Vale em uma verificação CI e exibe os resultados como um status de verificação.
+
+#### Configuração
+
+Se você tiver um `.vale.ini` arquivo na raiz do diretório de conteúdo para seu deployment, usaremos automaticamente esse arquivo de configuração.
+Também usaremos automaticamente quaisquer arquivos de configuração em seu `stylesPath`.
+
+<Tip>Não tem uma configuração do Vale ou não sabe por onde começar? Não se preocupe, o Mintlify tem uma configuração padrão que será usada automaticamente se nenhuma for fornecida.</Tip>
+
+<Warning>
+  Por favor, note que por razões de segurança, não podemos suportar quaisquer `stylesPath`, ou `stylesPath` que incluem `..` valores. Por favor, use caminhos relativos e inclua o `stylesPath` em seu repositório.
+</Warning>
+
+#### Pacotes
+
+Vale suporta uma variedade de [pacotes](https://vale.sh/docs/keys/packages), que podem ser usados para verificar erros de ortografia e estilo.
+Quaisquer pacotes que você incluir em seu repositório sob o correto `stylesPath` serão automaticamente instalados e usados em sua configuração Vale.
+
+Para pacotes não incluídos em seu repositório, você pode especificar quaisquer pacotes do [registro de pacotes Vale](https://vale.sh/explorer), e eles serão automaticamente baixados e usados em sua configuração Vale.
+
+<Warning>
+  Por favor, note que por razões de segurança, não podemos suportar o download automático de pacotes que não são do [registro de pacotes Vale](https://vale.sh/explorer).
+</Warning>
+
+#### Vale com MDX
+
+Vale não suporta MDX nativamente, mas o autor do Vale forneceu uma [extensão personalizada](https://github.com/errata-ai/MDX) para suportá-lo.
+
+Se você preferir não usar esta extensão, recomendamos as seguintes linhas em seu arquivo `.vale.ini`:
+
+```ini
+[formats]
+mdx = md
+
+[*.mdx]
+CommentDelimiters = {/*, */}
+
+TokenIgnores = (?sm)((?:import|export) .+?$), \
+(?<!`)(<\w+ ?.+ ?\/>)(?!`), \
+(<[A-Z]\w+>.+?<\/[A-Z]\w+>)
+
+BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
+(?sm)^({.+.*})
+```
+
+Para usar os comentários em documento do Vale, use comentários no estilo MDX `{/* ... */}`.
+Se você usar a `CommentDelimiters = {/*, */}` [configuração](https://vale.sh/docs/keys/commentdelimiters) em sua configuração, o Vale interpretará automaticamente esses comentários durante a análise.
+Isso significa que você pode facilmente usar os recursos incorporados do Vale, como pular linhas ou seções.
+
+```mdx
+{/* vale off */}
+
+This text will be ignored by Vale
+
+{/* vale on */}
+```
+
+Se você optar por não usar `CommentDelimiters`, mas ainda escolher usar os comentários do Vale, você deve envolver quaisquer comentários Vale em comentários MDX `{/* ... */}`. Por exemplo:
+
+```mdx
+{/* <!-- vale off --> */}
+
+This text will be ignored by Vale
+
+{/* <!-- vale on --> */}
+```
+
+Por favor, note que essas tags de comentário não são suportadas dentro dos componentes Mintlify, mas podem ser usadas em qualquer lugar no nível base de um documento.
