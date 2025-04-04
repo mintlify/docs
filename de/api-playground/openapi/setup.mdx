@@ -1,0 +1,149 @@
+---
+title: OpenAPI Setup
+description: Referenzieren Sie OpenAPI-Endpunkte in Ihren Dokumentationsseiten
+---
+
+## Eine OpenAPI-Spezifikationsdatei hinzufügen
+
+Um Ihre Endpunkte mit OpenAPI zu beschreiben, stellen Sie sicher, dass Sie ein gültiges OpenAPI-
+Dokument im JSON- oder YAML-Format haben, das der[OpenAPI-Spezifikation](https://swagger.io/specification/) folgt. Ihr Dokument muss
+der OpenAPI-Spezifikation 3.0+ entsprechen.
+<Tip>Um Ihre OpenAPI-Spezifikation zu validieren, verwenden Sie unsere [CLI](https://www.npmjs.com/package/mintlify) und führen Sie diesen Befehl aus: <br />`mintlify openapi-check <openapiFilenameOrUrl>`</Tip>
+
+## API-Seiten automatisch generieren
+
+Der schnellste Weg, mit OpenAPI zu beginnen, ist das Hinzufügen eines `openapi` Feldes zu einem Tab in der `docs.json`. Dieses Feld kann entweder den Pfad zu einem OpenAPI-Dokument in Ihrem Docs-Repository oder die URL eines gehosteten OpenAPI-Dokuments enthalten. Mintlify wird automatisch eine Seite für jede OpenAPI-Operation generieren und sie im Tab platzieren.
+
+**Beispiel mit Tabs:**
+
+```json {5}
+"navigation": {
+  "tabs": [
+    {
+        "tab": "API Reference",
+        "openapi": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ]
+}
+```
+
+![](/images/autogeneration-with-tabs.png)
+
+**Beispiel mit Gruppen:**
+
+```json {8-11}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API Reference",
+      "groups": [
+        {
+          "group": "Endpoints",
+          "openapi": {
+            "source": "/path/to/openapi-1.json",
+            "directory": "api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Note>Das Verzeichnisfeld ist optional. Wenn nicht angegeben, werden die Dateien im **api-reference** Ordner des Docs-Repositorys abgelegt.</Note>
+
+Bei Verwendung dieser Option haben die Metadaten für die generierten Seiten folgende Standardwerte:
+
+* `title`: Das `summary` Feld aus der OpenAPI-Operation, falls vorhanden. Andernfalls ein aus der HTTP-Methode und dem Endpunkt generierter Titel.
+
+* `description`: Das `description` Feld aus der OpenAPI-Operation, falls vorhanden.
+
+* `version`: Der `version` Wert aus dem Anker oder Tab, falls vorhanden.
+
+Es gibt Szenarien, in denen das Standardverhalten nicht ausreicht. Wenn Sie mehr Anpassungsmöglichkeiten benötigen, können Sie eine MDX-Seite für Ihre OpenAPI-Operation erstellen und sie wie jede andere MDX-Seite modifizieren.
+
+## MDX-Dateien für API-Seiten erstellen
+
+Wenn Sie die Seiten-Metadaten anpassen, zusätzliche Inhalte hinzufügen, bestimmte OpenAPI-Operationen auslassen oder OpenAPI-Seiten in Ihrer Navigation neu ordnen möchten, benötigen Sie eine MDX-Seite für jede Operation. Hier ist [ein Beispiel einer MDX OpenAPI-Seite](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx) von [MindsDB](https://docs.mindsdb.com/rest/databases/create-databases).&#x20;
+
+![](/images/mindsdb.png)
+
+### Dateien manuell angeben
+
+Sie können jederzeit eine MDX-Seite manuell erstellen und in den Metadaten der Seite mit dem `openapi` Feld auf die OpenAPI-Operation verweisen.
+
+<Snippet file="api-playground/openapi.mdx" />
+
+Durch die Verwendung der OpenAPI-Referenz werden Name, Beschreibung, Parameter, Antworten und der API-Playground automatisch aus dem OpenAPI-Dokument generiert.
+
+Wenn Sie mehrere OpenAPI-Dateien haben, geben Sie den Pfad zur OpenAPI-Datei an, um sicherzustellen, dass Mintlify das richtige OpenAPI-Dokument findet. Dies ist nicht erforderlich, wenn Sie nur eine OpenAPI-Datei haben - sie wird automatisch erkannt.
+
+Wenn Sie mit dieser Methode eine externe OpenAPI-Datei referenzieren möchten, geben Sie die URL der Datei in der docs.json an. Siehe [hier](https://mintlify.com/docs/settings/global#param-source-4) für das korrekte Format.
+
+<CodeGroup>
+  ```md Example
+  ---
+  title: "Get users"
+  openapi: "/path/to/openapi-1.json GET /users"
+  ---
+  ```
+
+  ```md Format
+  ---
+  title: "title of the page"
+  openapi: openapi-file-path method path
+  ---
+  ```
+</CodeGroup>
+
+<Note>
+  In den meisten Fällen müssen Methode und Pfad exakt mit der im OpenAPI-Dokument angegebenen Methode und Pfad übereinstimmen. Wenn der Endpunkt nicht in der OpenAPI-Datei existiert, wird die Seite leer sein.
+
+  Bei Webhooks ersetzen Sie die Methode (z.B. "POST") durch "webhook" (Groß-/Kleinschreibung egal) und die korrekte Methode wird generiert.
+</Note>
+
+### Dateien automatisch generieren
+
+Für große OpenAPI-Dokumente kann es viel Arbeit sein, für jede OpenAPI-Operation eine MDX-Seite zu erstellen. Um dies zu erleichtern, haben wir einen lokalen OpenAPI-Seiten-Scraper erstellt.
+
+Unser Mintlify [Scraper](https://www.npmjs.com/package/@mintlify/scraping)
+generiert automatisch MDX-Dateien für Ihre OpenAPI-Endpunkte.
+
+Jede generierte Seite entspricht einer OpenAPI-Operation im "paths"-Abschnitt des OpenAPI-Schemas. Wenn Ihr OpenAPI-Dokument Version 3.1+ ist, generiert der Scraper auch Seiten für Webhooks im "webhooks"-Abschnitt des OpenAPI-Schemas.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file>
+```
+
+Fügen Sie das `-o` Flag hinzu, um einen Ordner anzugeben, in den die Dateien eingefügt werden sollen. Wenn kein Ordner angegeben wird, werden die Dateien im Arbeitsverzeichnis abgelegt.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o api-reference
+```
+
+Erfahren Sie mehr über unser Scraping-Paket [hier](https://www.npmjs.com/package/@mintlify/scraping).
+
+Der Scraper gibt ein Array von
+[Navigationseinträgen](/settings/global#structure) aus, die Ihre OpenAPI MDX-Dateien enthalten. Sie können diese Einträge entweder zu Ihrer bestehenden Navigation hinzufügen oder die Dateien manuell neu ordnen und zur Navigation hinzufügen.
+
+<Note>
+  Wenn Ihr OpenAPI-Dokument ungültig ist, werden die Dateien nicht automatisch generiert.
+</Note>
+
+## MDX-Dateien für OpenAPI-Schemas erstellen
+
+Mintlify ermöglicht es Ihnen auch, einzelne Seiten für jedes OpenAPI-Schema zu erstellen, das im `components.schemas` Feld eines OpenAPI-Dokuments definiert ist:
+
+<CodeGroup>
+  ```md Example
+  ---
+  openapi-schema: OrderItem
+  ---
+  ```
+
+  ```md Format
+  ---
+  openapi-schema: "schema-key"
+  ---
+  ```
+</CodeGroup>

@@ -1,0 +1,78 @@
+---
+title: JWT Handshake
+description: Verwenden Sie einen angepassten Login-Flow zur Authentifizierung von Benutzern
+---
+
+<Info>
+  Dies ist die Dokumentation für den JWT **Personalisierung** Handshake. Die Schritte zum Einrichten des [JWT **Authentifizierung** Handshake](/settings/authentication-personalization/authentication-setup/jwt) sind etwas anders.
+</Info>
+
+Wenn Sie kein Dashboard haben oder wenn Sie Ihr Dashboard und Ihre Dokumentation vollständig getrennt halten möchten, können Sie Ihren eigenen Login-Flow verwenden, um Benutzerinformationen über einen JWT in der URL an Ihre Dokumentation zu senden.
+
+## Implementierung
+
+<Steps>
+  <Step title="Generate a private key">
+    Gehen Sie zu Ihren [Dashboard-Einstellungen](https://dashboard.mintlify.com/products/authentication) und generieren Sie einen privaten Schlüssel. Speichern Sie diesen Schlüssel an einem sicheren Ort, wo er von Ihrem Backend aus zugänglich ist.
+  </Step>
+
+  <Step title="Create a login flow">
+    Erstellen Sie einen Login-Flow, der Folgendes macht:
+
+    * Authentifizieren Sie den Benutzer
+    * Erstellen Sie einen JWT, der die Informationen des authentifizierten Benutzers im [Benutzer](../sending-data)-Format enthält
+    * Signieren Sie den JWT mit dem geheimen Schlüssel unter Verwendung des ES256-Algorithmus
+    * Erstellen Sie eine Weiterleitungs-URL zurück zu Ihrer Dokumentation, einschließlich des JWTs als Hash
+  </Step>
+
+  <Step title="Configure your Personalization settings">
+    Kehren Sie zu Ihren [Dashboard-Einstellungen](https://dashboard.mintlify.com/products/authentication) zurück und fügen Sie die Login-URL zu Ihren Personalisierungseinstellungen hinzu.
+  </Step>
+</Steps>
+
+## Beispiel
+
+Ich möchte die Authentifizierung für meine Dokumentation einrichten, die unter `docs.foo.com` gehostet wird. Ich möchte, dass meine Dokumentation vollständig von meinem Dashboard getrennt ist (oder ich habe überhaupt kein Dashboard).
+
+Um die Authentifizierung mit Mintlify einzurichten, gehe ich zu meinem Mintlify Dashboard und generiere ein JWT-Geheimnis. Ich erstelle eine Web-URL `https://foo.com/docs-login`, die einen Login-Flow für meine Benutzer initiiert. Am Ende dieses Login-Flows, nachdem ich die Identität des Benutzers überprüft habe, erstelle ich einen JWT, der die benutzerdefinierten Daten gemäß Mintlifys Spezifikation enthält. Ich verwende eine JWT-Bibliothek, um diesen JWT mit meinem Mintlify-Geheimnis zu signieren, erstelle eine Weiterleitungs-URL der Form `https://docs.foo.com#{SIGNED_JWT}` und leite den Benutzer weiter.
+
+Dann gehe ich zu den Dashboard-Einstellungen und gebe `https://foo.com/docs-login` für das Login-URL-Feld ein.
+
+So könnte der Code aussehen:
+
+```ts
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'ES256');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'ES256' })
+    .setExpirationTime('10 s')
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com#${jwt}`);
+}
+
+```
+
+## Anker bewahren
+
+Wenn Sie nach dem Login zu einem bestimmten Anker auf der Seite weiterleiten möchten, können Sie das folgende Format verwenden, um die Weiterleitungs-URL zu erstellen: `https://docs.foo.com/page#jwt={SIGNED_JWT}&anchor={ANCHOR}`.
+
+Beispiel:
+
+* Original: `https://docs.foo.com/quickstart#step-one`
+* Umleitung: `https://docs.foo.com/quickstart#jwt={SIGNED_JWT}&anchor=step-one`

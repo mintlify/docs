@@ -1,0 +1,51 @@
+---
+title: Stainless
+description: Automatisieren Sie Ihre SDK-Beispielausschnitte im API-Playground
+---
+
+Wenn Sie Mintlifys OpenAPI-Unterstützung für Ihre API-Referenzdokumentation verwenden, fügen Sie Folgendes zu Ihrer Stainless-Konfiguration hinzu:
+
+```yaml openapi.stainless.yml
+openapi:
+  code_samples: mintlify
+```
+
+Konfigurieren Sie das [OpenAPI-Setup](/api-playground/openapi/setup#in-the-repo) in Ihrer Mintlify-Dokumentation. Um Stainless zu integrieren, modifizieren Sie die GitHub Action, die Ihre OpenAPI-Spezifikation zu Stainless hochlädt, sodass sie die Stainless-erweiterte OpenAPI-Spezifikation wie folgt in Ihr Docs-Repository pusht:
+
+```yaml
+name: Upload OpenAPI spec to Stainless and (Mintlify) docs repo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  stainless:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push spec and config to Stainless and outputs documented spec
+        uses: stainless-api/upload-openapi-spec-action@main
+        with:
+          input_path: 'path/to/my-company-openapi.json'
+          config_path: 'path/to/my-company.stainless.yaml'
+          output_path: 'path/to/my-company-openapi.documented.json'
+          project_name: 'my-stainless-project'
+      - name: Push documented spec to docs repo
+        uses: dmnemec/copy_file_to_another_repo_action@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+        with:
+          source_file: 'config/my-company-openapi.documented.json'
+          destination_repo: '{DOCS_REPO_NAME}'
+          destination_folder: 'openapi-specs' # (optional) the folder in the destination repository to place the file in, if not the root directory
+          user_email: '{EMAIL}' # the email associated with the GH token
+          user_name: '{USERNAME}' # the username associated with the GH token
+          commit_message: 'Auto-updates from Stainless'
+```
+
+Dies setzt voraus, dass die folgenden Geheimnisse [in Ihre GitHub Actions Secrets hochgeladen wurden](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions):
+
+* `secrets.STAINLESS_API_KEY`: Ihr Stainless API-Schlüssel.
+* `secrets.API_TOKEN_GITHUB`: Ein GitHub [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) mit Berechtigungen zum Pushen in Ihr Docs-Repository.
