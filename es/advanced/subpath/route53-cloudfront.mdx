@@ -1,0 +1,136 @@
+---
+title: AWS Route 53 y Cloudfront
+sidebarTitle: AWS
+description: Aloja documentación en un subdirectorio /docs usando servicios de AWS
+---
+
+## Crear Distribución de Cloudfront
+
+Navega a [Cloudfront](https://aws.amazon.com/cloudfront) dentro de la consola de AWS y haz clic en `Create distribution`
+
+<Frame>
+  ![Cloudfront Create Distribution](/images/cloudfront/create-distribution.png)
+</Frame>
+
+Para el dominio de origen, ingresa `[SUBDOMAIN].mintlify.dev` donde `[SUBDOMAIN]` es el subdominio único del proyecto. Haz clic en `Use: [SUBDOMAIN].mintlify.dev`
+
+<Frame>![Cloudfront Origin name](/images/cloudfront/origin-name.png)</Frame>
+
+Para **Clave de caché y solicitudes de origen**, selecciona `Caching Optimized`.
+
+<Frame>
+  ![Cloudfront Caching policy](/images/cloudfront/caching-policy.png)
+</Frame>
+
+Y para **Firewall de Aplicaciones Web (WAF)**, habilita las protecciones de seguridad
+
+<Frame>
+  ![Cloudfront Caching
+  policy](/images/cloudfront/enable-security-protections.png)
+</Frame>
+
+La configuración restante debe ser la predeterminada. Haz clic en `Create distribution`.
+
+## Agregar Origen Predeterminado
+
+Después de crear la distribución, navega a la pestaña `Origins`.
+
+<Frame>![Cloudfront Origins](/images/cloudfront/origins.png)</Frame>
+
+Queremos encontrar una URL de staging que refleje donde está el dominio principal (example.com). Esto varía mucho dependiendo de cómo está alojada tu página de inicio.
+
+<Info>
+  Por ejemplo, si tu página de inicio está alojada en Webflow, puedes usar la URL de staging de Webflow. Se vería como `.webflow.io`.
+
+  Si usas Vercel, usas el dominio `.vercel.app` disponible para cada proyecto.
+</Info>
+
+<Note>
+  Si no estás seguro de cómo obtener una URL de staging para tu página de inicio, [contacta a soporte](mailto:support@mintlify.com) y estaremos encantados de ayudar
+</Note>
+
+Una vez que tengas la URL de staging, la nuestra por ejemplo es [mintlify-landing-page.vercel.app](https://mintlify-landing-page.vercel.app), crea un nuevo Origen y agrégalo como **Dominio de origen**.
+
+<Frame>
+  ![Cloudfront Default Origins](/images/cloudfront/default-origin.png)
+</Frame>
+
+En este punto, deberías tener dos Orígenes - uno con `[SUBDOMAIN].mintlify.app` y otro con la URL de staging.
+
+## Establecer Comportamientos
+
+Los Comportamientos en Cloudfront permiten controlar la lógica de subrutas. A alto nivel, buscamos crear la siguiente lógica.
+
+* **Si un usuario llega a /docs**, ir a `[SUBDOMAIN].mintlify.dev`
+* **Si un usuario llega a cualquier otra página**, ir a la página de inicio actual
+
+Vamos a crear tres comportamientos haciendo clic en el botón `Create behavior`.
+
+### `/docs/*`
+
+El primer comportamiento debe tener un **Patrón de ruta** de `/docs/*` con **Origen y grupos de origen** apuntando a la URL `.mintlify.dev` (en nuestro caso `acme.mintlify.dev`)
+
+<Frame>![Cloudfront Behavior 1](/images/cloudfront/behavior-1.png)</Frame>
+
+Para **Política de caché**, selecciona `CachingOptimized` y crea el comportamiento.
+
+### `/docs`
+
+El segundo comportamiento debe ser igual al primero pero con un **Patrón de ruta** de `/docs` y **Origen y grupos de origen** apuntando a la misma URL `.mintlify.dev`.
+
+<Frame>![Cloudfront Behavior 2](/images/cloudfront/behavior-2.png)</Frame>
+
+### `Default (*)`
+
+Por último, vamos a editar el comportamiento `Default (*)`.
+
+<Frame>
+  ![Cloudfront Behavior Default 1](/images/cloudfront/default-behavior-1.png)
+</Frame>
+
+Vamos a cambiar el **Origen y grupos de origen** del comportamiento predeterminado a la URL de staging (en nuestro caso `mintlify-landing-page.vercel.app`).
+
+<Frame>
+  ![Cloudfront Behavior Default 2](/images/cloudfront/default-behavior-2.png)
+</Frame>
+
+Haz clic en `Save changes`.
+
+## Vista Previa de la Distribución
+
+Ahora puedes probar si tu distribución está configurada correctamente yendo a la pestaña `General` y visitando la URL **Nombre de dominio de la distribución**.
+
+<Frame>
+  ![Cloudfront Preview
+  distribution](/images/cloudfront/preview-distribution.png)
+</Frame>
+
+Todas las páginas deberían dirigirse a tu página principal, pero si añades`/docs` a la URL, deberías ver que se dirige a la instancia de documentación de Mintlify.
+
+## Conectándolo con Route53
+
+Ahora, vamos a incorporar la funcionalidad de la distribución Cloudfront a tu dominio principal.
+
+<Note>
+  Para esta sección, también puedes consultar la guía oficial de AWS sobre[Configuración de Amazon Route 53 para dirigir tráfico a una distribución de CloudFront](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-to-cloudfront-distribution.html#routing-to-cloudfront-distribution-config)
+</Note>
+
+Navega a[Route53](https://aws.amazon.com/route53) dentro de la consola de AWS, y haz clic en`Hosted zone` para tu dominio principal. Haz clic en`Create record`
+
+<Frame>
+  ![Route 53 create record](/images/cloudfront/route53-create-record.png)
+</Frame>
+
+Activa`Alias` y luego**Dirigir tráfico a** la`Alias to CloudFront distribution` opción.
+
+<Frame>
+  ![Route 53 create record alias](/images/cloudfront/create-record-alias.png)
+</Frame>
+
+Haz clic`Create records`.
+
+<Note>
+  Es posible que necesites eliminar el registro A existente si hay uno actualmente.
+</Note>
+
+¡Y voilà! Deberías poder tener tu documentación servida en`/docs` para tu dominio principal.
