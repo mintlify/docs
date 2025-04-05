@@ -132,12 +132,7 @@ mintlify broken-links
 
 If the deployment is successful, you should see the following:
 
-<Frame>
-  <img
-    className="rounded-md"
-    src="https://mintlify.s3-us-west-1.amazonaws.com/mintlify/images/checks-passed.png"
-  />
-</Frame>
+![You Did it](https://mintlify.s3-us-west-1.amazonaws.com/mintlify/images/checks-passed.png)
 
 ## Code Formatting
 
