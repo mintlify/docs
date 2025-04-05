@@ -133,7 +133,7 @@ mintlify broken-links
 
 If the deployment is successful, you should see the following:
 
-![You Did it](https://mintlify.s3-us-west-1.amazonaws.com/mintlify/images/checks-passed.png)
+![You Did it](/images/deployment/checks-passed.png)
 
 ## Code Formatting
 
