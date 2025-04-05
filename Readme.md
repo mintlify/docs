@@ -1,15 +1,16 @@
-- [x] 确认只能主号 commit deploy
-- [x] 建立骨架
-- [x] API 目录下的文档细节修复
-- [x] Sidebar 改成 Tab
-- [x] review 中文版结构
-- [x] 多语言适配：只需要在对应语种目录下添加对应语言的文件，docs 引用即可
-- [x] 迁移英文版
-- [x] 备注好双语版本的路径，中文/en/index 英文/en/index @晨雪
-- [x] 正式发布 🎉
-- [ ] 域名迁移ing
+- 确认只能主号 commit deploy
+- 建立骨架
+- API 目录下的文档细节修复
+- Sidebar 改成 Tab
+- review 中文版结构
+- 多语言适配：只需要在对应语种目录下添加对应语言的文件，docs 引用即可
+- 迁移英文版
+- 备注好双语版本的路径，中文/en/index 英文/en/index @晨雪
+- 正式发布 🎉
+- 域名迁移 ing
 
 注意事项：
+
 - 本地开发：`mintlify dev` 运行
 - 根目录的 docs.json 管理全局的配置
 - 先处理 logo 和品牌色版
@@ -21,9 +22,20 @@
   - "href": "https://aihubmix.com/cn/terms-and-privacy/服务条款"
 
 带格式的信息块：
-Tips：<Tip></Tip>
-警告：<Warning></Warning>
-备注：<Info></Info>
+Tips：<Tip>
+  
+</Tip>
+
+
+警告：<Warning>
+  
+</Warning>
+
+
+备注：<Info>
+  
+</Info>
+
 
 邮件链接：
 [business@aihubmix.com](mailto:business@aihubmix.com)
