@@ -17,10 +17,7 @@
 - 导航形式只能在顶部 tab 和侧边 sidebar 二选一
 - 多语言支持 @navigation/localization.mdx
 - 引用链接时，文件名的空格要替换为 %20，例如：[Claude 原生接口调用](/api/Claude%20原生接口调用)
-- Footer 链接需要确认正式域名拼接，目前为：
-  - "href": "https://aihubmix.com/cn/terms-and-privacy/隐私政策"
-  - "href": "https://aihubmix.com/cn/terms-and-privacy/服务条款"
-- 文档首字母似乎要大写（确认中）
+- 文档首字母似乎要大写
   
 带格式的信息块：
 Tips：<Tip>
@@ -37,6 +34,9 @@ Tips：<Tip>
   
 </Info>
 
+代码编组：
+<CodeGroup>
+</CodeGroup>
 
 邮件链接：
 [business@aihubmix.com](mailto:business@aihubmix.com)
