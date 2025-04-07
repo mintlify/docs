@@ -20,7 +20,8 @@
 - Footer 链接需要确认正式域名拼接，目前为：
   - "href": "https://aihubmix.com/cn/terms-and-privacy/隐私政策"
   - "href": "https://aihubmix.com/cn/terms-and-privacy/服务条款"
-
+- 文档首字母似乎要大写（确认中）
+  
 带格式的信息块：
 Tips：<Tip>
   
