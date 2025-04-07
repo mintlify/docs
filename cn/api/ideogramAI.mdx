@@ -1,0 +1,643 @@
+---
+title: "Ideogram AI 绘图支持"
+description: ""
+icon: ''
+---
+
+**接口说明：**
+支持 Ideogram AI 绘图接口，文字绘制能力强劲，支持生图（generate）、混合（remix）、局部编辑（edit）和放大（upscale）等。
+- 混合：在参考图的基础上，根据提示词进行重绘，生成新的图片。
+- 编辑：在参考图的基础上，根据提示词和蒙版进行局部编辑，生成新的图片。
+- 放大：将低分辨率的图片放大至高分辨率，会重绘细节（相似度和细节比例可控制）。
+
+**支持的风格：**
+- AUTO：默认的自动选定
+- GENERAL：通用
+- REALISTIC：写实
+- DESIGN：设计
+- RENDER_3D：3D
+- ANIME：动漫
+
+支持通过 AiHubMix 官方接口调用或 [Cherry Studio APP](https://cherry-ai.com/) 使用，注意目前需要打开代理才能生图，后续会支持国内直连，敬请期待。
+
+## Generate
+
+`POST` https://api.aihubmix.com/ideogram/generate
+根据给定提示词和可选参数同步生成图像。图像链接的有效期有限；如果你想保留图像，必须下载保存。
+
+### Require
+
+该接口接受一个对象
+
+**image_request object 必须**
+
+`prompt` string 必须
+用于生图的提示词
+
+`aspect_ratio` enum 可选
+（不能与分辨率参数同时使用）用于图像生成的宽高比，决定了图像的分辨率。默认为 ASPECT_1_1。
+
+可用比例：
+- ASPECT_1_1
+- ASPECT_3_1
+- ASPECT_1_3
+- ASPECT_3_2
+- ASPECT_2_3
+- ASPECT_4_3
+- ASPECT_3_4
+- ASPECT_16_9
+- ASPECT_9_16
+- SPECT_16_10
+- ASPECT_10_16
+
+`model` enum 可选 Defaults to `V_2`
+用于生成或编辑图像的模型。/generate 和 /remix 支持所有模型类型，但 /edit 仅支持 `V_2` 和 `V_2_TURBO`。
+
+可用模型版本：
+- V_1
+- V_1_TURBO
+- V_2
+- V_2_TURBO
+- V_2A
+- V_2A_TURBO
+
+`magic_prompt_option` enum 可选
+提示词增强，可用参数：`AUTO`, `ON`, `OFF`，默认 AUTO（即自动）
+
+`seed` integer 可选`>=0<=2147483647`
+
+`style_type` enum 可选
+生成图像时使用的风格类型；此参数仅适用于 `V_2` 及更高版本的模型，不应在 `V_1` 版本中指定。默认 `AUTO`
+
+可用风格：
+- AUTO
+- GENERAL
+- REALISTIC
+- DESIGN
+- RENDER_3D
+- ANIME
+
+`negative_prompt` string 可选
+描述不想在图像中出现的内容。仅适用于模型版本 `V_1`、`V_1_TURBO`、`V_2` 和 `V_2_TURBO`。提示词中的描述优先级高于负面提示词中的描述。
+
+`num_images`
+单次出图数量，范围 1-8，默认 `1`
+
+### 调用示例
+
+Python：
+
+```python
+import requests
+import os
+
+url = "https://api.aihubmix.com/ideogram/generate"
+
+payload = { "image_request": {
+        "prompt": "3D cartoon, An adorable white owl baby with tilted head, shiny amber eyes with highlight, fluffy body, standing on a trunk with moss and lots of glowing mushrooms, Close up, cinematic lighting, low angle, deep sense of depth. The background is a magical spring landscape, cute and esthetic, huge title design \"Always curious\"", #string 可选
+        "negative_prompt": "blurry, bad anatomy, watermark",
+        "aspect_ratio": "ASPECT_3_2",  # 可选 include ASPECT_1_1(Default), ASPECT_3_2, ASPECT_2_3, ASPECT_4_3, ASPECT_3_4, ASPECT_16_9, ASPECT_9_16, SPECT_16_10, ASPECT_10_16
+        "model": "V_2",
+        "num_images": 2, #integer 可选 >=1 <=8 Defaults to 1
+        "magic_prompt_option": "AUTO", #string 可选 AUTO, ON, OFF
+        #"seed": "2" #integer 可选 >=0 <=2147483647
+        "style_type": "RENDER_3D" #string 可选 AUTO/GENERAL/REALISTIC/DESIGN/RENDER_3D/ANIME, 仅适用于 V_2 及以上版本
+    } }
+headers = {
+    "Api-Key": os.getenv("AIHUBMIX_API_KEY"),
+    "Content-Type": "application/json"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+
+print(response.json())
+
+```
+
+Javascript：
+
+```jsx
+const url = 'https://api.aihubmix.com/ideogram/describe';
+const form = new FormData();
+form.append('image_file', '<file1>');
+
+const options = {method: 'POST', headers: {'Api-Key': '<apiKey>'}};
+
+options.body = form;
+
+try {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  console.log(data);
+} catch (error) {
+  console.error(error);
+}
+
+```
+
+Curl：
+
+```
+curl -X POST https://api.aihubmix.com/ideogram/generate \
+     -H "Api-Key: <apiKey>" \
+     -H "Content-Type: application/json" \
+     -d '{
+  "image_request": {
+    "prompt": "A serene tropical beach scene. Dominating the foreground are tall palm trees with lush green leaves, standing tall against a backdrop of a sandy beach. The beach leads to the azure waters of the sea, which gently kisses the shoreline. In the distance, there is an island or landmass with a silhouette of what appears to be a lighthouse or tower. The sky above is painted with fluffy white clouds, some of which are tinged with hues of pink and orange, suggesting either a sunrise or sunset.",
+    "aspect_ratio": "ASPECT_10_16",
+    "model": "V_2",
+    "magic_prompt_option": "AUTO"
+  }
+}'
+
+```
+
+### Response
+
+Image(s) generated successfully.
+
+```json
+{
+  "created": "2000-01-23T04:56:07Z",
+  "data": [
+    {
+      "prompt": "A serene tropical beach scene. Dominating the foreground are tall palm trees with lush green leaves, standing tall against a backdrop of a sandy beach. The beach leads to the azure waters of the sea, which gently kisses the shoreline. In the distance, there's an island or landmass with a silhouette of what appears to be a lighthouse or tower. The sky above is painted with fluffy white clouds, some of which are tinged with hues of pink and orange, suggesting either a sunrise or sunset.",
+      "resolution": "1024x1024",
+      "is_image_safe": true,
+      "seed": 12345,
+      "url": "https://ideogram.ai/api/images/direct/8YEpFzHuS-S6xXEGmCsf7g",
+      "style_type": "REALISTIC"
+    }
+  ]
+}
+
+```
+
+### 错误代码
+
+- `400` : Post Generate Image Request Bad Request Error
+- `401` : Post Generate Image Request Unauthorized Error
+- `422` : Post Generate Image Request Unprocessable Entity Error
+- `429` : Post Generate Image Request Too Many Requests Error
+
+## Edit
+
+`POST` https://api.aihubmix.com/ideogram/edit
+
+使用提供的蒙版同步编辑指定图像。蒙版标示出应被编辑的图像部分，而提示词和所选风格类型可进一步引导编辑方向。支持的图像格式包括 JPEG、PNG 和 WebP。图像链接的有效期有限；如果你想保留图像，必须下载保存。
+
+### Request
+
+该接口需要一个包含多个文件的 multipart 表单。
+
+image_filefile 必须
+
+maskfile 必须
+- 遮罩图片必须仅包含黑色和白色像素，支持 RGB、RGBA 或灰度图像格式。
+- 遮罩图片必须和原图尺寸完全一致。黑色区域表示需要修改的部分，白色区域表示需要保持不变的部分。
+- 遮罩不能是纯白色
+- 如果修改区域（黑色部分）太小，可能无法完全按照提示词的要求进行修改
+- 建议修改区域面积至少占据图片的 10% 以上
+
+prompt string 必须
+用于局部编辑的提示词。
+
+`model` enum 必须
+用于生成或编辑图像的模型。/generate 和 /remix 支持所有模型类型，但 /edit 仅支持 V_2 和 V_2_TURBO。
+
+可用模型版本：
+- V_2
+- V_2_TURBO
+
+`magic_prompt_option` enum 可选
+提示词增强，可用参数：`AUTO`, `ON`, `OFF`，默认 AUTO（即自动）
+
+`num_images` integer 可选`>=1<=8` 默认 `1`
+
+`seed` integer 可选`>=0<=2147483647`
+
+`style_type` enum 可选
+生成图像时使用的风格类型；此参数仅适用于 `V_2` 及更高版本的模型，不应在 `V_1` 版本中指定。
+
+可用风格：
+- AUTO
+- GENERAL
+- REALISTIC
+- DESIGN
+- RENDER_3D
+- ANIME
+
+### 调用示例
+
+Python：
+
+```python
+import requests
+import os
+
+url = "https://api.aihubmix.com/ideogram/eidt"
+
+files = {
+    "image_file": "open('<file1>', 'rb')", #必须
+    "mask": "open('<file1>', 'rb')" #必须
+}
+
+payload = {
+    "prompt": "\"prompt\"", #必须
+    "model": "V_2",  #必须，only supported for V_2 and V_2_TURBO.
+    "magic_prompt_option": ,
+    "num_images":1, #integer 可选 >=1 <=8 Defaults to 1
+    "seed": , #integer 可选 >=0 <=2147483647
+    "style_type":
+16}
+headers = {"Api-Key": os.getenv("AIHUBMIX_API_KEY")}
+
+response = requests.post(url, data=payload, files=files, headers=headers)
+
+print(response.json()
+
+# close file
+files["image_file"].close()
+files["mask"].close()
+
+```
+
+Javascript：
+
+```jsx
+const url = 'https://api.aihubmix.com/ideogram/edit';
+const form = new FormData();
+form.append('image_file', '<file1>');
+form.append('mask', '<file1>');
+form.append('prompt', '"prompt"');
+form.append('model', '"V_1"');
+form.append('magic_prompt_option', '');
+form.append('num_images', '');
+form.append('seed', '');
+form.append('style_type', '');
+
+const options = {method: 'POST', headers: {'Api-Key': '<apiKey>'}};
+
+options.body = form;
+
+try {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  console.log(data);
+} catch (error) {
+  console.error(error);
+}
+
+```
+
+Curl：
+
+```
+curl -X POST https://api.aihubmix.com/ideogram/edit \
+     -H "Api-Key: <apiKey>" \
+     -H "Content-Type: multipart/form-data" \
+     -F image_file=@<file1> \
+     -F mask=@<file1> \
+     -F prompt="prompt" \
+     -F model="V_1"
+
+```
+
+### Response
+
+Image edits generated successfully.
+
+```json
+{
+  "created": "2000-01-23T04:56:07Z",
+  "data": [
+    {
+      "prompt": "A serene tropical beach scene. Dominating the foreground are tall palm trees with lush green leaves, standing tall against a backdrop of a sandy beach. The beach leads to the azure waters of the sea, which gently kisses the shoreline. In the distance, there's an island or landmass with a silhouette of what appears to be a lighthouse or tower. The sky above is painted with fluffy white clouds, some of which are tinged with hues of pink and orange, suggesting either a sunrise or sunset.",
+      "resolution": "1024x1024",
+      "is_image_safe": true,
+      "seed": 12345,
+      "url": "https://ideogram.ai/api/images/direct/8YEpFzHuS-S6xXEGmCsf7g",
+      "style_type": "REALISTIC"
+    }
+  ]
+}
+
+```
+
+### 错误代码
+
+`400` : Post Edit Image Request Bad Request Error
+`401` : Post Edit Image Request Unauthorized Error
+`422` : Post Edit Image Request Unprocessable Entity Error
+`429` : Post Edit Image Request Too Many Requests Error
+
+## Remix
+
+`POST` ****https://api.aihubmix.com/ideogram/remix
+
+根据给定提示词和可选参数来融合提供的图像。输入图像会在重混前裁剪至所选宽高比。支持的图像格式包括 JPEG、PNG 和 WebP。图像链接的有效期有限；如果你想保留图像，必须下载保存。
+
+### Request
+
+根据源图像和提供的描述生成新图像的请求，提供的图像会被裁剪以匹配所选的输出宽高比
+
+**`image_request` object 必须**
+使用提供的图像和提示词生成新图像的请求。
+
+`prompt` string 必须
+用于生成图像的提示词。
+
+`aspect_ratio` enum 可选
+（不能与分辨率参数同时使用）用于图像生成的宽高比，决定了图像的分辨率。默认为 ASPECT_1_1。
+
+可用比例：
+- ASPECT_1_1
+- ASPECT_3_1
+- ASPECT_1_3
+- ASPECT_3_2
+- ASPECT_2_3
+- ASPECT_4_3
+- ASPECT_3_4
+- ASPECT_16_9
+- ASPECT_9_16
+- SPECT_16_10
+- ASPECT_10_16
+
+
+`image_weight` integer 可选`>=1<=100` 默认 `50`
+参考图权重，默认 50%
+
+`magic_prompt_option` enum 可选
+提示词增强，可用参数：`AUTO`, `ON`, `OFF`，默认 AUTO
+
+`model` enum 可选 默认为 `V_2`
+用于生成或编辑图像的模型。/generate 和 /remix 支持所有模型类型，但 /edit 仅支持 V_2 和 V_2_TURBO。
+
+`negative_prompt` string 可选
+仅适用于 V_1、V_1_TURBO、V_2 和 V_2_TURBO 模型版本。用于描述要从图像中排除的内容。提示词中的描述优先于负面提示词中的描述。
+
+`magic_prompt_option` enum 可选
+提示词增强，可用参数：`AUTO`, `ON`, `OFF`，默认 AUTO
+
+`num_images` integer 可选`>=1<=8`Defaults to `1`
+
+seed integer 可选`>=0<=2147483647`
+
+`seed` integer 可选`>=0<=2147483647`
+
+`style_type` enum 可选
+生成图像的风格类型；仅适用于 `V_2` 及以上版本的模型，不应在 `V_1` 版本中指定。
+
+可用风格：
+- AUTO
+- GENERAL
+- REALISTIC
+- DESIGN
+- RENDER_3D
+- ANIME
+
+`image_file` file 必须
+
+### **调用示例**
+
+Python：
+
+```python
+import requests
+import os
+
+url = "https://api.aihubmix.com/ideogram/remix"
+
+files = { "image_file": "open('<file1>', 'rb')" }
+payload = {"image_request": '''{
+    "prompt": "watercolor",
+    "aspect_ratio": "ASPECT_10_16",
+    "image_weight": 50,
+    "magic_prompt_option": "ON",
+    "model": "V_2"
+}'''}
+
+headers = {"Api-Key": os.getenv("AIHUBMIX_API_KEY")}
+
+response = requests.post(url, data=payload, files=files, headers=headers)
+
+print(response.json())
+
+```
+
+Javascript：
+
+```jsx
+const url = 'https://api.aihubmix.com/ideogram/remix';
+const form = new FormData();
+form.append('image_request', '{
+  "prompt": "A serene tropical beach scene. Dominating the foreground are tall palm trees with lush green leaves, standing tall against a backdrop of a sandy beach. The beach leads to the azure waters of the sea, which gently kisses the shoreline. In the distance, there is an island or landmass with a silhouette of what appears to be a lighthouse or tower. The sky above is painted with fluffy white clouds, some of which are tinged with hues of pink and orange, suggesting either a sunrise or sunset.",
+  "aspect_ratio": "ASPECT_10_16",
+  "image_weight": 50,
+  "magic_prompt_option": "ON",
+  "model": "V_2"
+}');
+form.append('image_file', '<file1>');
+
+const options = {method: 'POST', headers: {'Api-Key': '<apiKey>'}};
+
+options.body = form;
+
+try {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  console.log(data);
+} catch (error) {
+  console.error(error);
+}
+
+```
+
+Curl：
+
+```
+curl -X POST https://api.aihubmix.com/ideogram/remix \
+     -H "Api-Key: <apiKey>" \
+     -H "Content-Type: multipart/form-data" \
+     -F image_request='{
+  "prompt": "A serene tropical beach scene. Dominating the foreground are tall palm trees with lush green leaves, standing tall against a backdrop of a sandy beach. The beach leads to the azure waters of the sea, which gently kisses the shoreline. In the distance, there is an island or landmass with a silhouette of what appears to be a lighthouse or tower. The sky above is painted with fluffy white clouds, some of which are tinged with hues of pink and orange, suggesting either a sunrise or sunset.",
+  "aspect_ratio": "ASPECT_10_16",
+  "image_weight": 50,
+  "magic_prompt_option": "ON",
+  "model": "V_2"
+}' \
+     -F image_file=@<file1>
+
+```
+
+### Response
+
+Image(s) generated successfully
+
+```json
+{
+  "created": "2000-01-23T04:56:07Z",
+  "data": [
+    {
+      "prompt": "A serene tropical beach scene. Dominating the foreground are tall palm trees with lush green leaves, standing tall against a backdrop of a sandy beach. The beach leads to the azure waters of the sea, which gently kisses the shoreline. In the distance, there's an island or landmass with a silhouette of what appears to be a lighthouse or tower. The sky above is painted with fluffy white clouds, some of which are tinged with hues of pink and orange, suggesting either a sunrise or sunset.",
+      "resolution": "1024x1024",
+      "is_image_safe": true,
+      "seed": 12345,
+      "url": "https://ideogram.ai/api/images/direct/8YEpFzHuS-S6xXEGmCsf7g",
+      "style_type": "REALISTIC"
+    }
+  ]
+}
+
+```
+
+### 错误代码
+
+- `400` : Post Remix Image Request Bad Request Error
+- `401` : Post Remix Image Request Unauthorized Error
+- `422` : Post Remix Image Request Unprocessable Entity Error
+- `429` : Post Remix Image Request Too Many Requests Error
+
+## Upscale
+
+`POST` ****https://api.aihubmix.com/ideogram/upscale
+
+使用可选提示词同步放大提供的图像（超分）。支持的图像格式包括 JPEG、PNG 和 WebP。图像链接的有效期有限；如果你想保留图像，必须下载保存。
+
+### Request
+
+该接口需要一个包含文件的 multipart 表单。
+
+**`image_reques` object 必须**
+请求对象，用于使用可选提示词放大提供的图像。
+
+`prompt` string 可选
+可选的提示词，用于引导放大过程
+
+`resemblance` integer 可选 `>=1<=100` 默认 `50`
+相似度
+
+`detail` integer 可选`>=1<=100` 默认 `50`
+细节
+
+`magic_prompt_option` enum 可选
+提示词增强，可用参数：`AUTO`, `ON`, `OFF`，默认 AUTO
+
+`num_images` integer 可选`>=1<=8` 默认 `1`
+生成数量
+
+`seed` integer 可选`>=0<=2147483647`
+随机种子
+
+`image_file` file 必须
+
+### 调用示例
+
+Python：
+
+```python
+import requests
+import os
+
+url = "https://api.aihubmix.com/ideogram/upscale"
+
+files = { "image_file": "open('<file1>', 'rb')" }
+payload = { "image_request": "{}" }
+headers = {"Api-Key": os.getenv("AIHUBMIX_API_KEY")}
+
+response = requests.post(url, data=payload, files=files, headers=headers)
+
+print(response.json())
+
+```
+
+Javascript：
+
+```jsx
+const url = 'https://api.aihubmix.com/ideogram/upscale';
+const form = new FormData();
+form.append('image_request', '{}');
+form.append('image_file', '<file1>');
+
+const options = {method: 'POST', headers: {'Api-Key': '<apiKey>'}};
+
+options.body = form;
+
+try {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  console.log(data);
+} catch (error) {
+  console.error(error);
+}
+
+```
+
+Curl：
+
+```
+curl -X POST https://api.aihubmix.com/ideogram/upscale \
+     -H "Api-Key: <apiKey>" \
+     -H "Content-Type: multipart/form-data" \
+     -F image_request='{}' \
+     -F image_file=@<file1>
+
+```
+
+### Response
+
+Image(s) generated successfully
+
+```json
+{
+  "created": "2000-01-23T04:56:07Z",
+  "data": [
+    {
+      "prompt": "A serene tropical beach scene. Dominating the foreground are tall palm trees with lush green leaves, standing tall against a backdrop of a sandy beach. The beach leads to the azure waters of the sea, which gently kisses the shoreline. In the distance, there's an island or landmass with a silhouette of what appears to be a lighthouse or tower. The sky above is painted with fluffy white clouds, some of which are tinged with hues of pink and orange, suggesting either a sunrise or sunset.",
+      "resolution": "1024x1024",
+      "is_image_safe": true,
+      "seed": 12345,
+      "url": "https://ideogram.ai/api/images/direct/8YEpFzHuS-S6xXEGmCsf7g",
+      "style_type": "REALISTIC"
+    }
+  ]
+}
+
+```
+
+### 错误代码
+
+- `400` : Post Upscale Image Request Bad Request Error
+- `401` : Post Upscale Image Request Unauthorized Error
+- `422` : Post Upscale Image Request Unprocessable Entity Error
+- `429` : Post Upscale Image Request Too Many Requests Error
+
+---
+
+## 计价
+
+### **图像生成**
+
+| 型号 | 功能 | 每张图片费用 |
+| --- | --- | --- |
+| 2a | 文字生图，或文字 + 参考图生图 | US $0.04 |
+| 2a Turbo | 文字生图，或文字 + 参考图生图（更快速但质量略低） | US $0.025 |
+| 2.0 | 文字生图，或文字 + 参考图生图 | US $0.08 |
+| 2.0 Turbo | 文字生图，或文字 + 参考图生图（更快速但质量略低） | US $0.05 |
+| 1.0 | 文字生图，或文字 + 参考图生图 | US $0.06 |
+| 1.0 Turbo | 文字生图，或文字 + 参考图生图（更快速但质量略低） | US $0.02 |
+
+### **图像编辑**
+
+| 型号 | 功能 | 每张图片费用 |
+| --- | --- | --- |
+| 2.0 Edit | 通过文字提示、参考图片和二进制蒙版重新生成图像 | US $0.08 |
+| 2.0 Turbo Edit | 通过文字提示、参考图片和二进制蒙版重新生成图像（更快速但质量略低） | US $0.05 |
+
+### **图像增强**
+
+| 型号 | 功能 | 每张图片费用 |
+| --- | --- | --- |
+| Upscale | 将参考图片分辨率提升至 2 倍，并可能增强图片效果 | US $0.06 |
+
+更多详情可见官方文档[Docs](https://developer.ideogram.ai/api-reference/api-reference/generate)
