@@ -1,0 +1,96 @@
+---
+title: Speakeasy
+description: Automatiza los fragmentos de uso de tu SDK en el área de pruebas de API
+---
+
+Puedes integrar fragmentos de código generados por Speakeasy desde tus SDKs directamente en tu documentación de referencia de API de Mintlify. Los fragmentos de uso del SDK se muestran en el [área de pruebas interactiva](https://mintlify.com/docs/api-playground/overview) de tu documentación potenciada por Mintlify.
+
+## Cambios en el Repositorio SDK de Speakeasy
+
+En tus repositorios SDK de Speakeasy, agrega lo siguiente a la `targets` sección de tu archivo `.speakeasy/workflow.yaml` para asegurar que las muestras de código se produzcan automáticamente junto con las generaciones del SDK.
+
+```yaml .speakeasy/workflow.yaml
+targets:
+  my-target:
+    target: typescript
+    source: my-source
+    codeSamples:
+      output: codeSamples.yaml
+```
+
+Las muestras de código se generarán en forma de un [archivo de superposición OpenAPI](https://www.speakeasyapi.dev/openapi/overlays) que se utilizará en el repositorio de documentación de Mintlify.
+
+## Cambios en el Repositorio de Documentación de Mintlify
+
+Los archivos de flujo de trabajo producidos empaquetarán automáticamente tu especificación OpenAPI fuente y las muestras de código de Speakeasy en un único archivo de salida, `openapi.yaml`. Mintlify utilizará este archivo de salida al construir tu referencia de API.
+
+### Configuración Interactiva por CLI
+
+Ejecuta los siguientes comandos para configurar los archivos `.speakeasy/workflow.yaml` y `.github/workflows/sdk_generation.yaml` a través del CLI interactivo de Speakeasy.
+
+```bash
+speakeasy configure sources
+speakeasy configure github
+```
+
+Configura tu especificación fuente. La especificación fuente es la especificación OpenAPI para la que se generarán las muestras de código, y a menudo es la misma especificación utilizada para potenciar la documentación de Mintlify.
+
+![](/images/speakeasy-1.webp)
+
+Agrega la superposición creada por Speakeasy para inyectar fragmentos de código en tu especificación.
+
+![](/images/speakeasy-2.webp)
+
+Proporciona un nombre y ruta para la especificación OpenAPI. Esta será la especificación final utilizada por Mintlify.
+
+![](/images/speakeasy-3.webp)
+
+Finalmente, agrega tu `SPEAKEASY_API_KEY` como un secreto del repositorio en tu repositorio de Mintlify bajo `Settings > Secrets & Variables > Actions`. Encuentra la clave API de Speakeasy en el panel de control de Speakeasy bajo la pestaña **API Keys**.
+
+## Configuración Manual
+
+Alternativamente, puedes configurar manualmente los siguientes archivos en tu repositorio de documentación de Mintlify.
+
+```yaml .speakeasy/workflow.yaml
+workflowVersion: 1.0.0
+sources:
+  docs-source:
+    inputs:
+      - location: {{your_api_spec}} # local or remote references supported
+    overlays:
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_1}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_2}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_3}}/codeSamples.yaml
+    output: openapi.yaml
+targets: {}
+```
+
+```yaml .speakeasy/workflows/sdk_generation.yaml
+name: Generate
+permissions:
+  checks: write
+  contents: write
+  pull-requests: write
+  statuses: write
+"on":
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Force generation of SDKs
+        type: boolean
+        default: false
+  schedule:
+    - cron: 0 0 * * *
+jobs:
+  generate:
+    uses: speakeasy-api/sdk-generation-action/.github/workflows/workflow-executor.yaml@v15
+    with:
+      force: ${{ github.event.inputs.force }}
+      mode: pr
+      speakeasy_version: latest
+    secrets:
+      github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      speakeasy_api_key: ${{ secrets.SPEAKEASY_API_KEY }}
+```
+
+Finalmente, asegúrate de agregar tu `SPEAKEASY_API_KEY` como un secreto del repositorio en tu repositorio de Mintlify bajo `Settings > Secrets & Variables > Actions`. Encuentra la clave API de Speakeasy en el panel de control de Speakeasy bajo la pestaña **API Keys**.
