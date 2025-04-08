@@ -19,24 +19,30 @@
 - 引用链接时，文件名的空格要替换为 %20，例如：[Claude 原生接口调用](/api/Claude%20原生接口调用)
 - 文档首字母似乎要大写
   
-带格式的信息块：
-Tips：<Tip>
-  
+带格式的信息块 （不需要 codeblock）：
+Tips：
+```
+<Tip>
 </Tip>
+```
 
-
-警告：<Warning>
-  
+警告：
+```
+<Warning>
 </Warning>
+```
 
-
-备注：<Info>
-  
+备注：
+```
+<Info>
 </Info>
+```
 
 代码编组：
+```
 <CodeGroup>
 </CodeGroup>
+```
 
 邮件链接：
 [business@aihubmix.com](mailto:business@aihubmix.com)
