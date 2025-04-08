@@ -13,7 +13,7 @@
 注意事项：
 - 本地开发：`mintlify dev` 运行
 - 根目录的 docs.json 管理全局的配置
-- 先处理 logo 和品牌色版
+- 先处理 logo 和品牌色版，后续需要改成 iferEra
 - 导航形式只能在顶部 tab 和侧边 sidebar 二选一
 - 多语言支持 @navigation/localization.mdx
 - 引用链接时，文件名的空格要替换为 %20，例如：[Claude 原生接口调用](/api/Claude%20原生接口调用)
