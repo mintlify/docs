@@ -12,7 +12,7 @@
 
 注意事项：
 - 本地开发：`mintlify dev` 运行
-- 根目录的 docs.json 管理全局的配置
+- 根目录的 docs.json 管理全局的配置，新增文档要在这里引用
 - 先处理 logo 和品牌色版，后续需要改成 iferEra
 - 导航形式只能在顶部 tab 和侧边 sidebar 二选一
 - 多语言支持 @navigation/localization.mdx
