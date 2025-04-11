@@ -1,0 +1,115 @@
+---
+title: JWT ハンドシェイク
+description: カスタマイズされたログインフローでユーザーを認証する
+---
+
+<Info>
+  これはJWT **認証**ハンドシェイクのドキュメントです。[JWT **パーソナライゼーション**ハンドシェイク](/settings/authentication-personalization/personalization-setup/jwt)の設定手順は少し異なります。
+</Info>
+
+ダッシュボードをお持ちでない場合、またはダッシュボードとドキュメントを完全に分離したい場合は、URLのJWTを介して独自のログインフローでユーザーを認証できます。
+
+## 実装
+
+<Steps>
+  <Step title="Generate a private key">
+    あなたの[ダッシュボード設定](https://dashboard.mintlify.com/products/authentication)に移動し、秘密鍵を生成します。この鍵はバックエンドからアクセスできる安全な場所に保管してください。
+  </Step>
+
+  <Step title="Create a login flow">
+    以下の手順でログインフローを作成します：
+
+    * ユーザーを認証する
+    * 認証されたユーザーの情報を[User](../sending-data)形式でJWTを作成する
+    * EdDSAアルゴリズムを使用して秘密鍵でJWTに署名する
+    * ドキュメントの`/login/jwt-callback`パスに戻るリダイレクトURLを作成し、JWTをハッシュとして含める
+  </Step>
+
+  <Step title="Configure your Authentication settings">
+    あなたの[ダッシュボード設定](https://dashboard.mintlify.com/products/authentication)に戻り、認証設定にログインURLを追加します。
+  </Step>
+</Steps>
+
+## 例
+
+私は`docs.foo.com`でホストされているドキュメントの認証を設定したいと考えています。ドキュメントをダッシュボードから完全に分離したい（またはダッシュボードを持っていない）と考えています。
+
+Mintlifyで認証を設定するために、Mintlifyダッシュボードに移動してJWT秘密鍵を生成します。ウェブURL`https://foo.com/docs-login`を作成し、ユーザーのログインフローを開始します。このログインフローの最後で、ユーザーの身元を確認した後、Mintlifyの仕様に従ってユーザーのカスタムデータを含むJWTを作成します。JWTライブラリを使用してMintlifyの秘密鍵でこのJWTに署名し、`https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`の形式でリダイレクトURLを作成し、ユーザーをリダイレクトします。
+
+その後、ダッシュボード設定に移動して`https://foo.com/docs-login`をログインURLフィールドに入力します。
+
+コードは以下のようになります：
+
+<CodeGroup>
+  ```ts TypeScript
+  import * as jose from 'jose';
+  import { Request, Response } from 'express';
+
+  const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+  const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+  export async function handleRequest(req: Request, res: Response) {
+    const user = {
+      expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
+      groups: res.locals.user.groups,
+      content: {
+        firstName: res.locals.user.firstName,
+        lastName: res.locals.user.lastName,
+      },
+    };
+
+    const jwt = await new jose.SignJWT(user)
+      .setProtectedHeader({ alg: 'EdDSA' })
+      .setExpirationTime('10 s') // 10 second JWT expiration
+      .sign(signingKey);
+
+    return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+  }
+  ```
+
+  ```python Python
+  import jwt # pyjwt
+  import os
+
+  from datetime import datetime, timedelta
+  from fastapi.responses import RedirectResponse
+
+  private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+
+  @router.get('/auth')
+  async def return_mintlify_auth_status(current_user):
+    jwt_token = jwt.encode(
+      payload={
+        'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
+        'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 1 week session expiration
+        'groups': ['admin'] if current_user.is_admin else [],
+        'content': {
+          'firstName': current_user.first_name,
+          'lastName': current_user.last_name,
+        },
+      },
+      key=private_key,
+      algorithm='EdDSA'
+    )
+
+    return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+  ```
+</CodeGroup>
+
+## 未認証ユーザーのリダイレクト
+
+未認証ユーザーが特定のページにアクセスしようとすると、Mintlifyはリダイレクトフローを通じて、ユーザーが意図した目的地を保持します：
+
+1. ユーザーが特定のページにアクセスしようとします（例：`/quickstart`）
+
+2. MintlifyはログインURLにリダイレクトし、（相対的な）元の目的地を`redirect`クエリパラメータとして追加します
+
+例：
+
+* 元のリクエスト：[`https://docs.foo.com/quickstart`](https://docs.foo.com/quickstart)
+
+* ログインへのリダイレクト：[`https://foo.com/docs-login?redirect=%2Fquickstart`](https://foo.com/docs-login?redirect=%2Fquickstart)
+
+認証が成功した後、同じ`redirect`パラメータをJWTコールバックURLに含めることで、ユーザーを意図した目的地に送ることができます：
+`https://docs.foo.com/login/jwt-callback?redirect=%2Fquickstart#{SIGNED_JWT}`

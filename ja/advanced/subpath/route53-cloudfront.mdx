@@ -1,0 +1,136 @@
+---
+title: 'AWS Route 53とCloudfront'
+sidebarTitle: 'AWS'
+description: 'AWSサービスを使用して/docsサブディレクトリでドキュメントをホストする'
+---
+
+## Cloudfront Distributionを作成
+
+AWSコンソール内の[Cloudfront](https://aws.amazon.com/cloudfront)に移動し、クリックします`Create distribution`
+
+<Frame>
+  ![Cloudfront Create Distribution](/images/cloudfront/create-distribution.png)
+</Frame>
+
+オリジンドメインには`[SUBDOMAIN].mintlify.dev`を入力します。`[SUBDOMAIN]`はプロジェクトの一意のサブドメインです。クリックして`Use: [SUBDOMAIN].mintlify.dev`
+
+<Frame>![Cloudfront Origin name](/images/cloudfront/origin-name.png)</Frame>
+
+次に**キャッシュキーとオリジンリクエスト**で、選択します`Caching Optimized`。
+
+<Frame>
+  ![Cloudfront Caching policy](/images/cloudfront/caching-policy.png)
+</Frame>
+
+そして**Webアプリケーションファイアウォール（WAF）**&#x3067;、セキュリティ保護を有効にします
+
+<Frame>
+  ![Cloudfront Caching
+  policy](/images/cloudfront/enable-security-protections.png)
+</Frame>
+
+残りの設定はデフォルトのままにします。クリックします`Create distribution`。
+
+## デフォルトオリジンを追加
+
+ディストリビューションを作成した後、`Origins`タブに移動します。
+
+<Frame>![Cloudfront Origins](/images/cloudfront/origins.png)</Frame>
+
+メインドメイン（example.com）を反映するステージングURLを見つける必要があります。これはランディングページのホスト方法によって大きく異なります。
+
+<Info>
+  例えば、ランディングページがWebflowでホストされている場合、WebflowのステージングURLを使用できます。それは次のような形式になります`.webflow.io`。
+
+  Vercelを使用している場合は、`.vercel.app`ドメインを使用できます。これは全てのプロジェクトで利用可能です。
+</Info>
+
+<Note>
+  ランディングページのステージングURLの取得方法が不明な場合は、[サポートに連絡](mailto:support@mintlify.com)してください。喜んでお手伝いさせていただきます
+</Note>
+
+ステージングURLを取得したら（例えば私たちの場合は[mintlify-landing-page.vercel.app](https://mintlify-landing-page.vercel.app)）、新しいオリジンを作成し、**オリジンドメイン**として追加します。
+
+<Frame>
+  ![Cloudfront Default Origins](/images/cloudfront/default-origin.png)
+</Frame>
+
+この時点で、2つのオリジンがあるはずです - 1つは`[SUBDOMAIN].mintlify.app`で、もう1つはステージングURLです。
+
+## 動作を設定
+
+Cloudfrontの動作設定により、サブパスロジックを制御できます。大まかに言えば、以下のようなロジックを作成しようとしています。
+
+* **ユーザーが /docs にアクセスした場合**、`[SUBDOMAIN].mintlify.dev`
+* **ユーザーが他のページにアクセスした場合**、現在のランディングページに移動します
+
+ボタンをクリックして3つの動作を作成します`Create behavior`。
+
+### `/docs/*`
+
+最初の動作には**パスパターン**として`/docs/*`を設定し、**オリジンとオリジングループ**は`.mintlify.dev`URLを指定します（この場合は`acme.mintlify.dev`）
+
+<Frame>![Cloudfront Behavior 1](/images/cloudfront/behavior-1.png)</Frame>
+
+**キャッシュポリシー**では、`CachingOptimized`を選択して動作を作成します。
+
+### `/docs`
+
+2番目の動作は最初のものと同じですが、**パスパターン**は`/docs`で、**オリジンとオリジングループ**は同じ`.mintlify.dev`URLを指定します。
+
+<Frame>![Cloudfront Behavior 2](/images/cloudfront/behavior-2.png)</Frame>
+
+### `Default (*)`
+
+最後に、`Default (*)`動作を編集します。
+
+<Frame>
+  ![Cloudfront Behavior Default 1](/images/cloudfront/default-behavior-1.png)
+</Frame>
+
+デフォルトの動作の**オリジンとオリジングループ**をステージングURLに変更します（この場合は`mintlify-landing-page.vercel.app`）。
+
+<Frame>
+  ![Cloudfront Behavior Default 2](/images/cloudfront/default-behavior-2.png)
+</Frame>
+
+クリックして`Save changes`。
+
+## ディストリビューションのプレビュー
+
+ディストリビューションが正しく設定されているかを`General`タブで**ディストリビューションドメイン名**URLにアクセスしてテストできます。
+
+<Frame>
+  ![Cloudfront Preview
+  distribution](/images/cloudfront/preview-distribution.png)
+</Frame>
+
+すべてのページはメインのランディングページにリダイレクトされますが、URLに`/docs`を追加すると、Mintlifyのドキュメントインスタンスに移動するはずです。
+
+## Route53との接続
+
+次に、Cloudfrontディストリビューションの機能をプライマリドメインに統合します。
+
+<Note>
+  このセクションについては、AWSの公式ガイド[CloudFrontディストリビューションにトラフィックをルーティングするためのAmazon Route 53の設定](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-to-cloudfront-distribution.html#routing-to-cloudfront-distribution-config)
+</Note>
+
+AWSコンソールで[Route53](https://aws.amazon.com/route53)に移動し、プライマリドメインの`Hosted zone`をクリックします。クリックして`Create record`
+
+<Frame>
+  ![Route 53 create record](/images/cloudfront/route53-create-record.png)
+</Frame>
+
+切り替えて`Alias`から**トラフィックのルーティング先**として`Alias to CloudFront distribution`オプションを選択します。
+
+<Frame>
+  ![Route 53 create record alias](/images/cloudfront/create-record-alias.png)
+</Frame>
+
+クリックして`Create records`。
+
+<Note>
+  既存のAレコードが存在する場合は、それを削除する必要があるかもしれません。
+</Note>
+
+これで完了です！プライマリドメインの`/docs`でドキュメントが提供されるはずです。

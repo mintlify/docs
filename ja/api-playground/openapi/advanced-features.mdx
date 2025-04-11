@@ -1,0 +1,139 @@
+---
+title: 高度な機能
+description: 高度なOpenAPI機能のサポート
+---
+
+OpenAPI 3には複雑なAPIを記述するための高度な機能があります。これらをMintlifyで使用する方法を説明します。
+
+## `oneOf`、`anyOf`、`allOf`
+
+複雑なデータ型について、OpenAPIは`oneOf`、`anyOf`、および`allOf`キーワードを提供し、特定の方法でスキーマを組み合わせることができます。これらのキーワードについての詳細は[Swaggerドキュメント](https://swagger.io/docs/specification/data-models/oneof-anyof-allof-not/)で確認できますが、基本的には：
+
+* `oneOf`は「排他的論理和」演算子のように機能します
+* `anyOf`は「論理和」演算子のように機能します
+* `allOf`は「論理積」演算子のように機能します
+
+<Warning>`oneOf`と`anyOf`キーワードは同じように扱われます。私たちの経験では、人々が`oneOf`を使用する場合、多くは*実際には* `anyOf`を意味しており - ユーザーにとって意味のある違いはほとんどありません。</Warning>
+
+<Info>`not`キーワードは現在サポートされていません。</Info>
+
+### を使用したスキーマの組み合わせ`allOf`
+
+Mintlifyは、これらの複雑な組み合わせを読みやすい方法で表示するために、OpenAPIドキュメントに前処理を実行します。例えば、2つのオブジェクトスキーマを`allOf`で組み合わせる場合、Mintlifyは両方のプロパティを1つのオブジェクトに結合します。これは特に[OpenAPIの再利用可能な`components`](https://swagger.io/docs/specification/components/)を活用する際に特に便利です。
+
+```yaml
+org_with_users:
+  allOf:
+    - $ref: '#/components/schemas/Org'
+    - type: object
+      properties:
+        users:
+          type: array
+          description: An array containing all users in the organization
+...
+components:
+  schemas:
+    Org:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the organization
+```
+
+<ParamField body="org_with_users" type="object">
+  <Expandable>
+    <ParamField body="id" type="string">
+      組織のID
+    </ParamField>
+
+    <ParamField body="users" type="object[]">
+      組織内のすべてのユーザーを含む配列
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### とを使用したオプションの提供`oneOf`と`anyOf`
+
+を使用する場合`oneOf`または`anyOf`、Mintlifyはオプションをタブ付きコンテナで表示します。オプションに分かりやすい名前を付けるには、各サブスキーマに`title`フィールドを必ず設定してください。例えば、2つの異なる配送先住所の種類を表示する方法は次のとおりです：
+
+```yaml
+delivery_address:
+  oneOf:
+    - title: StreetAddress
+      type: object
+      properties:
+        address_line_1:
+          type: string
+          description: The street address of the recipient
+        ...
+    - title: POBox
+      type: object
+      properties:
+        box_number:
+          type: string
+          description: The number of the PO Box
+        ...
+```
+
+<ParamField body="delivery_address" type="object">
+  <div className="mt-4 rounded-xl border border-gray-100 px-4 pb-4 pt-2 dark:border-white/10">
+    <Tabs>
+      <Tab title="StreetAddress">
+        <ParamField body="address_line_1" type="string">
+          住居の住所
+        </ParamField>
+      </Tab>
+
+      <Tab title="POBox">
+        <ParamField body="box_number" type="string">
+          私書箱の番号
+        </ParamField>
+      </Tab>
+    </Tabs>
+  </div>
+</ParamField>
+
+## `x-codeSamples`
+
+ユーザーがネットワークリクエストを直接使用するのではなくSDKを通じてAPIを操作する場合、OpenAPIドキュメントにコードサンプルを追加することができ、MintlifyはそれらをOpenAPIページに表示します。コードサンプルは`x-codeSamples`拡張機能を使用して定義できます。このプロパティは任意のリクエストメソッド内に追加でき、以下のスキーマを持ちます：
+
+<ParamField body="lang" type="string" required>
+  コードサンプルの言語。
+</ParamField>
+
+<ParamField body="label" type="string">
+  サンプルのラベル。1つのエンドポイントに複数の例を提供する場合に便利です。
+</ParamField>
+
+<ParamField body="source" type="string" required>
+  サンプルのソースコード。
+</ParamField>
+
+以下は、Bash CLIツールとJavaScript SDKの両方を持つ植物追跡アプリのコードサンプルの例です。
+
+```yaml
+paths:
+  /plants:
+    get:
+      ...
+      x-codeSamples:
+        - lang: bash
+          label: List all unwatered plants
+          source: |
+            planter list -u
+        - lang: javascript
+          label: List all unwatered plants
+          source: |
+            const planter = require('planter');
+            planter.list({ unwatered: true });
+        - lang: bash
+          label: List all potted plants
+          source: |
+            planter list -p
+        - lang: javascript
+          label: List all potted plants
+          source: |
+            const planter = require('planter');
+            planter.list({ potted: true });
+```

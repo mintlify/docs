@@ -1,0 +1,96 @@
+---
+title: Speakeasy
+description: APIプレイグラウンドでのSDK使用スニペットを自動化
+---
+
+Speakeasyで生成されたSDKのコードスニペットをMintlify APIリファレンスドキュメントに直接統合できます。SDK使用スニペットは[インタラクティブプレイグラウンド](https://mintlify.com/docs/api-playground/overview)のMintlifyパワードドキュメントに表示されます。
+
+## Speakeasy SDKリポジトリの変更
+
+Speakeasy SDKリポジトリで、`targets`セクションの`.speakeasy/workflow.yaml`ファイルに以下を追加して、SDK生成と共にコードサンプルが自動的に生成されるようにします。
+
+```yaml .speakeasy/workflow.yaml
+targets:
+  my-target:
+    target: typescript
+    source: my-source
+    codeSamples:
+      output: codeSamples.yaml
+```
+
+コードサンプルは[OpenAPIオーバーレイファイル](https://www.speakeasyapi.dev/openapi/overlays)の形式で生成され、Mintlifyドキュメントリポジトリで使用されます。
+
+## Mintlify Docsリポジトリの変更
+
+生成されるワークフローファイルは、ソースのOpenAPI仕様とSpeakeasyのコードサンプルを1つの出力ファイルに自動的にバンドルします`openapi.yaml`。Mintlifyはこの出力ファイルを使用してAPIリファレンスを構築します。
+
+### インタラクティブCLIのセットアップ
+
+以下のコマンドを実行して`.speakeasy/workflow.yaml`と`.github/workflows/sdk_generation.yaml`ファイルをインタラクティブなSpeakeasy CLIを通じてセットアップします。
+
+```bash
+speakeasy configure sources
+speakeasy configure github
+```
+
+ソース仕様をセットアップします。ソース仕様は、コードサンプルが生成されるOpenAPI仕様で、通常はMintlifyドキュメントを動作させるために使用される仕様と同じです。
+
+![](/images/speakeasy-1.webp)
+
+Speakeasyによって作成されたオーバーレイを追加して、仕様にコードスニペットを挿入します。
+
+![](/images/speakeasy-2.webp)
+
+OpenAPI仕様の名前とパスを提供します。これがMintlifyで使用される最終的な仕様となります。
+
+![](/images/speakeasy-3.webp)
+
+最後に、`SPEAKEASY_API_KEY`をMintlifyリポジトリのリポジトリシークレットとして`Settings > Secrets & Variables > Actions`に追加します。Speakeasy APIキーはSpeakeasyダッシュボードの**API Keys**タブで見つけることができます。
+
+## 手動セットアップ
+
+あるいは、Mintlifyドキュメントリポジトリに以下のファイルを手動でセットアップすることもできます。
+
+```yaml .speakeasy/workflow.yaml
+workflowVersion: 1.0.0
+sources:
+  docs-source:
+    inputs:
+      - location: {{your_api_spec}} # local or remote references supported
+    overlays:
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_1}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_2}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_3}}/codeSamples.yaml
+    output: openapi.yaml
+targets: {}
+```
+
+```yaml .speakeasy/workflows/sdk_generation.yaml
+name: Generate
+permissions:
+  checks: write
+  contents: write
+  pull-requests: write
+  statuses: write
+"on":
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Force generation of SDKs
+        type: boolean
+        default: false
+  schedule:
+    - cron: 0 0 * * *
+jobs:
+  generate:
+    uses: speakeasy-api/sdk-generation-action/.github/workflows/workflow-executor.yaml@v15
+    with:
+      force: ${{ github.event.inputs.force }}
+      mode: pr
+      speakeasy_version: latest
+    secrets:
+      github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      speakeasy_api_key: ${{ secrets.SPEAKEASY_API_KEY }}
+```
+
+最後に、必ず`SPEAKEASY_API_KEY`をMintlifyリポジトリのリポジトリシークレットとして`Settings > Secrets & Variables > Actions`に追加してください。Speakeasy APIキーはSpeakeasyダッシュボードの**API Keys**タブで見つけることができます。

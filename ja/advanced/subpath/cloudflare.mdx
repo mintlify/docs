@@ -1,0 +1,75 @@
+---
+title: Cloudflare
+description: Cloudflare Workersを使用して/docsサブパスでドキュメントをホストする
+---
+
+## Cloudflare Workerを作成する
+
+移動して`Workers & Pages > Create application > Create worker`。新しいCloudflare workerを作成できる以下の画面が表示されるはずです。
+
+<Frame>
+  <img alt="Create a Cloudflare worker" src="/images/cloudflare/worker.png" />
+</Frame>
+
+<Warning>
+  注意：DNSプロバイダーがCloudflareの場合、CNAMEレコードのプロキシを使用しないでください
+</Warning>
+
+### カスタムドメインを追加
+
+workerが作成されたら、クリックして`Configure worker`。workerに移動して
+`Settings > Triggers`。クリックして`Add Custom Domain`希望のドメインをリストに追加します - `www.`
+を付けたバージョンと付けないバージョンの両方を追加することをお勧めします。
+
+<Frame>
+  <img alt="Cloudflare worker custom domain" src="/images/cloudflare/custom-domain.png" />
+</Frame>
+
+カスタムサブディレクトリの設定に問題がある場合、
+[サポートチームにお問い合わせください](mailto:sales@mintlify.com)。ホスティングのアップグレードについてご案内いたします。
+
+### Workerスクリプトを編集
+
+クリックして`Edit Code`以下のスクリプトをworkerのコードに追加します。
+
+<Frame>
+  <img alt="Cloudflare edit code" src="/images/cloudflare/edit-code.png" />
+</Frame>
+
+<Tip>
+  編集`DOCS_URL`を`[SUBDOMAIN]`あなたの固有のサブドメインに置き換えて`CUSTOM_URL`をあなたのウェブサイトのベースURLに置き換えてください。
+</Tip>
+
+```javascript
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  try {
+    const urlObject = new URL(request.url);
+    // If the request is to the docs subdirectory
+    if (/^\/docs/.test(urlObject.pathname)) {
+      // Then Proxy to Mintlify
+      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+      const CUSTOM_URL = "[YOUR_DOMAIN]";
+
+      let url = new URL(request.url);
+      url.hostname = DOCS_URL;
+
+      let proxyRequest = new Request(url, request);
+
+      proxyRequest.headers.set("Host", DOCS_URL);
+      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+
+      return await fetch(proxyRequest);
+    }
+  } catch (error) {
+    // if no action found, play the regular request
+    return await fetch(request);
+  }
+}
+```
+
+クリックして`Deploy`変更が反映されるまで待ちます（最大で数時間かかる場合があります）。

@@ -1,0 +1,78 @@
+---
+title: JWT ハンドシェイク
+description: カスタマイズされたログインフローでユーザーを認証する
+---
+
+<Info>
+  これはJWT**Personalization**ハンドシェイクのドキュメントです。[JWT**Authentication**ハンドシェイク](/settings/authentication-personalization/authentication-setup/jwt)の設定手順は少し異なります。
+</Info>
+
+ダッシュボードをお持ちでない場合、またはダッシュボードとドキュメントを完全に分離しておきたい場合は、独自のログインフローを使用してURLのJWTを介してユーザー情報をドキュメントに送信できます。
+
+## 実装
+
+<Steps>
+  <Step title="Generate a private key">
+    あなたの[ダッシュボード設定](https://dashboard.mintlify.com/products/authentication)に移動し、秘密鍵を生成します。この鍵はバックエンドからアクセスできる安全な場所に保管してください。
+  </Step>
+
+  <Step title="Create a login flow">
+    以下を実行するログインフローを作成します：
+
+    * ユーザーを認証する
+    * 認証されたユーザーの情報を含むJWTを作成し、[ユーザー](../sending-data)フォーマット
+    * ES256アルゴリズムを使用して、シークレットキーでJWTに署名します
+    * JWTをハッシュとして含むドキュメントへのリダイレクトURLを作成します
+  </Step>
+
+  <Step title="Configure your Personalization settings">
+    あなたの[ダッシュボード設定](https://dashboard.mintlify.com/products/authentication)に戻り、パーソナライゼーション設定にログインURLを追加します。
+  </Step>
+</Steps>
+
+## 例
+
+以下でホストされているドキュメントの認証を設定したいと思います`docs.foo.com`。私のドキュメントをダッシュボードから完全に分離したい（またはダッシュボードを全く持っていない）場合。
+
+Mintlifyで認証を設定するために、Mintlifyダッシュボードに移動してJWTシークレットを生成します。ウェブURLを作成します`https://foo.com/docs-login`これはユーザーのログインフローを開始します。このログインフローの最後で、ユーザーの身元を確認した後、Mintlifyの仕様に従ってユーザーのカスタムデータを含むJWTを作成します。JWTライブラリを使用してこのJWTをMintlifyシークレットで署名し、次の形式のリダイレクトURLを作成します`https://docs.foo.com#{SIGNED_JWT}`、そしてユーザーをリダイレクトします。
+
+その後、ダッシュボード設定に移動して`https://foo.com/docs-login`をログインURLフィールドに入力します。
+
+コードは以下のようになります：
+
+```ts
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'ES256');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'ES256' })
+    .setExpirationTime('10 s')
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com#${jwt}`);
+}
+
+```
+
+## アンカーの保持
+
+ログイン後、ページの特定のアンカーにリダイレクトしたい場合は、以下の形式を使用してリダイレクトURLを作成できます：`https://docs.foo.com/page#jwt={SIGNED_JWT}&anchor={ANCHOR}`。
+
+例：
+
+* 元のURL：`https://docs.foo.com/quickstart#step-one`
+* リダイレクト：`https://docs.foo.com/quickstart#jwt={SIGNED_JWT}&anchor=step-one`

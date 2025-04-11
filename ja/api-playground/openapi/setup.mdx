@@ -1,0 +1,147 @@
+---
+title: OpenAPI セットアップ
+description: ドキュメントページでOpenAPIエンドポイントを参照する
+---
+
+## OpenAPI仕様ファイルを追加する
+
+OpenAPIでエンドポイントを記述するには、JSONまたはYAML形式の有効なOpenAPIドキュメントがあることを確認してください。このドキュメントは[OpenAPI仕様](https://swagger.io/specification/)に従う必要があります。ドキュメントはOpenAPI仕様3.0以上に従う必要があります。
+<Tip>OpenAPI仕様を検証するには、[CLI](https://www.npmjs.com/package/mintlify)を使用して、このコマンドを実行します：<br />`mintlify openapi-check <openapiFilenameOrUrl>`</Tip>
+
+## APIページを自動生成する
+
+OpenAPIを始める最も早い方法は、`openapi`フィールドをタブに追加することです`docs.json`。このフィールドには、ドキュメントリポジトリ内のOpenAPIドキュメントへのパス、またはホストされているOpenAPIドキュメントのURLのいずれかを含めることができます。Mintlifyは各OpenAPI操作のページを自動的に生成し、それらをタブ内に配置します。
+
+**タブを使用した例：**
+
+```json {5}
+"navigation": {
+  "tabs": [
+    {
+        "tab": "API Reference",
+        "openapi": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ]
+}
+```
+
+![](/images/autogeneration-with-tabs.png)
+
+**グループを使用した例：**
+
+```json {8-11}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API Reference",
+      "groups": [
+        {
+          "group": "Endpoints",
+          "openapi": {
+            "source": "/path/to/openapi-1.json",
+            "directory": "api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Note>directoryフィールドはオプションです。指定されていない場合、ファイルはドキュメントリポジトリの**api-reference**フォルダに配置されます。</Note>
+
+このオプションを使用する場合、生成されるページのメタデータは以下のデフォルト値を持ちます：
+
+* `title`：`summary`OpenAPI操作からのsummaryフィールド（存在する場合）。存在しない場合はHTTPメソッドとエンドポイントから生成されたタイトル。
+
+* `description`：`description`OpenAPI操作からのdescriptionフィールド（存在する場合）。
+
+* `version`：`version`アンカーまたはタブからのgroupの値（存在する場合）。
+
+デフォルトの動作が十分でないシナリオがいくつかあります。より多くのカスタマイズ性が必要な場合は、OpenAPI操作用のMDXページを作成し、他のMDXページと同様に変更することができます。
+
+## APIページ用のMDXファイルを作成する
+
+ページのメタデータをカスタマイズしたり、追加のコンテンツを加えたり、特定のOpenAPI操作を省略したり、ナビゲーション内のOpenAPIページの順序を変更したりする場合は、各操作用のMDXページが必要です。こちらが[MDX OpenAPIページの例](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx)です。[MindsDB](https://docs.mindsdb.com/rest/databases/create-databases)から提供されています。
+
+![](/images/mindsdb.png)
+
+### ファイルを手動で指定
+
+MDXページを手動で作成し、ページのメタデータでOpenAPI操作を参照することができます。`openapi`フィールドを使用します。
+
+<Snippet file="api-playground/openapi.mdx" />
+
+OpenAPIリファレンスを使用することで、名前、説明、パラメータ、レスポンス、そしてAPIプレイグラウンドがOpenAPIドキュメントから自動的に生成されます。
+
+複数のOpenAPIファイルがある場合は、Mintlifyが正しいOpenAPIドキュメントを見つけられるようにOpenAPIファイルへのパスを含めてください。OpenAPIファイルが1つしかない場合は、自動的にOpenAPIファイルを検出するため、これは必要ありません。
+
+この方法で外部のOpenAPIファイルを参照したい場合は、docs.jsonでファイルのURLを提供してください。[こちら](https://mintlify.com/docs/settings/global#param-source-4)で正しい形式を確認できます。
+
+<CodeGroup>
+  ```md Example
+  ---
+  title: "Get users"
+  openapi: "/path/to/openapi-1.json GET /users"
+  ---
+  ```
+
+  ```md Format
+  ---
+  title: "title of the page"
+  openapi: openapi-file-path method path
+  ---
+  ```
+</CodeGroup>
+
+<Note>
+  ほとんどの場合、メソッドとパスはOpenAPIドキュメントで指定されたものと完全に一致する必要があります。エンドポイントがOpenAPIファイルに存在しない場合、ページは空になります。
+
+  Webhookの場合、メソッド（例："POST"）を"webhook"（大文字小文字は区別しない）に置き換えると、正しいメソッドが生成されます。
+</Note>
+
+### ファイルを自動生成
+
+大規模なOpenAPIドキュメントの場合、各OpenAPI操作に対して1つのMDXページを作成するのは大変な作業になります。これを簡単にするために、ローカルのOpenAPIページスクレイパーを作成しました。
+
+Mintlifyの[scraper](https://www.npmjs.com/package/@mintlify/scraping)
+はOpenAPIエンドポイント用のMDXファイルを自動生成します。
+
+生成された各ページは、OpenAPIスキーマの"paths"セクション下のOpenAPI操作に対応します。OpenAPIドキュメントがバージョン3.1以上の場合、スクレイパーはOpenAPIスキーマの"webhooks"セクション下のWebhook用のページも生成します。
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file>
+```
+
+追加する`-o`フラグを使用してファイルを配置するフォルダを指定します。フォルダが指定されていない場合、ファイルは作業ディレクトリに配置されます。
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o api-reference
+```
+
+スクレイピングパッケージについて詳しくは[こちら](https://www.npmjs.com/package/@mintlify/scraping)をご覧ください。
+
+スクレイパーは以下の配列を出力します
+[ナビゲーションエントリ](/settings/global#structure)にはOpenAPI MDXファイルが含まれています。これらのエントリを既存のナビゲーションに追加するか、手動で並べ替えてナビゲーションに追加することができます。
+
+<Note>
+  OpenAPIドキュメントが無効な場合、ファイルは自動生成されません。
+</Note>
+
+## OpenAPIスキーマ用のMDXファイルを作成
+
+Mintlifyでは、OpenAPIドキュメントの`components.schemas`フィールドで定義された任意のOpenAPIスキーマの個別ページを作成することもできます：
+
+<CodeGroup>
+  ```md Example
+  ---
+  openapi-schema: OrderItem
+  ---
+  ```
+
+  ```md Format
+  ---
+  openapi-schema: "schema-key"
+  ---
+  ```
+</CodeGroup>
