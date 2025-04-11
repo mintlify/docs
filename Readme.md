@@ -17,7 +17,8 @@
 - 导航形式只能在顶部 tab 和侧边 sidebar 二选一
 - 多语言支持 @navigation/localization.mdx
 - 引用链接时，文件名的空格要替换为 %20，例如：[Claude 原生接口调用](/api/Claude%20原生接口调用)
-- 文档首字母似乎要大写
+- 文档首字母要大写
+- 文档名称带 "_" 似乎会导致异常
   
 带格式的信息块 （不需要 codeblock）：
 Tips：
