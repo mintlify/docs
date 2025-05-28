@@ -1,0 +1,241 @@
+---
+title: "OpenAPI Setup"
+description: "Reference OpenAPI endpoints in your docs pages"
+icon: "file-json"
+---
+
+OpenAPI is a specification for describing REST APIs. Mintlify supports OpenAPI 3.0+ documents to generate interactive API documentation and keep it up to date.
+
+## Add an OpenAPI specification file
+
+To document your endpoints with OpenAPI, you need a valid OpenAPI document in either JSON or YAML format that follows the [OpenAPI specification 3.0\+](https://swagger.io/specification/).
+
+### Describing your API
+
+We recommend the following resources to learn about and construct your OpenAPI documents.
+
+- [Swagger's OpenAPI Guide](https://swagger.io/docs/specification/v3_0/basic-structure/) to learn the OpenAPI syntax.
+- [The OpenAPI specification Markdown sources](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/) to reference details of the latest OpenAPI specification.
+- [Swagger Editor](https://editor.swagger.io/) to edit, validate, and debug your OpenAPI document.
+- [The Mint CLI](https://www.npmjs.com/package/mint) to validate your OpenAPI document with the command: `mint openapi-check <openapiFilenameOrUrl>`.
+
+<Note>
+  Swagger's OpenAPI Guide is for OpenAPI v3.0, but nearly all of the information is applicable to v3.1. For more information on the differences between v3.0 and v3.1, see [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) in the OpenAPI blog.
+</Note>
+
+### Specifying the URL for your API
+
+To enable Mintlify features like the API playground, add a `servers` field to your OpenAPI document with your API's base URL.
+
+```json
+{
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ]
+}
+```
+
+In an OpenAPI document, different API endpoints are specified by their paths, like `/users/{id}` or simply `/`. The base URL defines where these paths should be appended. For more information on how to configure the `servers` field, see [API Server and Base Path](https://swagger.io/docs/specification/api-host-and-base-path/) in the OpenAPI documentation.
+
+The API playground uses these server URLs to determine where to send requests. If you specify multiple servers, a dropdown will allow users to toggle between servers. If you do not specify a server, the API playground will use simple mode since it cannot send requests without a base URL.
+
+If your API has endpoints that exist at different URLs, you can [override the server field](https://swagger.io/docs/specification/v3_0/api-host-and-base-path/#overriding-servers) for a given path or operation.
+
+### Specifying authentication
+
+To enable authentication in your API documentation and playground, configure the `securitySchemes` and `security` fields in your OpenAPI document. The API descriptions and API Playground will add authentication fields based on the security configurations in your OpenAPI document.
+
+<Steps>
+  <Step title="Define your authentication method.">
+  Add a `securitySchemes` field to define how users authenticate.
+
+  This example shows a configuration for bearer authentication.
+
+  ```json
+  {
+    "components": {
+      "securitySchemes": {
+        "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+        }
+      }
+    }
+  }
+  ```
+
+  </Step>
+  <Step title="Apply authentication to your endpoints.">
+  Add a `security` field to require authentication.
+
+  ```json
+  {
+    "security": [
+      {
+        "bearerAuth": []
+      }
+    ]
+  }
+  ```
+
+  </Step>
+</Steps>
+
+Common authentication types include:
+
+- [API Keys](https://swagger.io/docs/specification/authentication/api-keys/): For header, query, or cookie-based keys.
+- [Bearer](https://swagger.io/docs/specification/authentication/bearer-authentication/): For JWT or OAuth tokens.
+- [Basic](https://swagger.io/docs/specification/authentication/basic-authentication/): For username and password.
+
+If different endpoints within your API require different methods of authentication, you can [override the security field](https://swagger.io/docs/specification/authentication/#:~:text=you%20can%20apply%20them%20to%20the%20whole%20API%20or%20individual%20operations%20by%20adding%20the%20security%20section%20on%20the%20root%20level%20or%20operation%20level%2C%20respectively.) for a given operation.
+
+For more information on defining and applying authentication, see [Authentication](https://swagger.io/docs/specification/authentication/) in the OpenAPI documentation.
+
+## Auto-populate API pages
+
+You can add an `openapi` field to any navigation element in your `docs.json` to auto-populate your docs with a page for each specified endpoint. The `openapi` field can contain the path to an OpenAPI document in your docs repo or the URL of a hosted OpenAPI document.
+
+The metadata for the generated pages will have the following default values:
+
+- `title`: The `summary` field from the OpenAPI operation, if present. Otherwise a title generated from the HTTP method and endpoint.
+- `description`: The `description` field from the OpenAPI operation, if present.
+- `version`: The `version` value from the anchor or tab, if present.
+- `deprecated`: The `deprecated` field from the OpenAPI operation, if present. If `true`, a deprecated label will appear next to the endpoint title in the side navigation and on the endpoint page.
+
+<Tip>
+  If you have some endpoints in your OpenAPI schema that you want to exclude from your auto-populated API pages, add the [x-hidden](/api-playground/customization/managing-page-visibility#x-hidden) property to the endpoint.
+</Tip>
+
+### Example with navigation tabs
+
+```json {5}
+"navigation": {
+  "tabs": [
+    {
+        "tab": "API Reference",
+        "openapi": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ]
+}
+```
+
+### Example with navigation groups
+
+```json {8-11}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API Reference",
+      "groups": [
+        {
+          "group": "Endpoints",
+          "openapi": {
+            "source": "/path/to/openapi-1.json",
+            "directory": "api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Note>
+  The directory field is optional. If not specified, the files will be placed in the `api-reference` directory of the docs repo.
+</Note>
+
+## Create `MDX` files for API pages
+
+If you want to customize the page metadata, add additional content, omit certain OpenAPI operations, or reorder OpenAPI pages in your navigation, you can create `MDX` pages for each operation. See an [example MDX OpenAPI page from MindsDB](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx?plain=1) and how it appears in their [live documentation](https://docs.mindsdb.com/rest/databases/create-databases).
+
+### Manually specify files
+
+Create an `MDX` page for each endpoint and specify which OpenAPI operation to display using the `openapi` field in the frontmatter.
+
+When you reference an OpenAPI operation this way, the name, description, parameters, responses, and API playground are automatically generated from your OpenAPI document.
+
+If you have multiple OpenAPI files, include the file path in your reference to ensure Mintlify finds the correct OpenAPI document. If you have only one OpenAPI file, Mintlify will detect it automatically.
+
+If you want to reference an external OpenAPI file, add the file's URL to your `docs.json`.
+
+<CodeGroup>
+
+```md Example
+---
+title: "Get users"
+description: "Returns all plants from the system that the user has access to"
+openapi: "/path/to/openapi-1.json GET /users"
+deprecated: true
+version: "1.0"
+---
+```
+
+```md Format
+---
+title: "title of the page"
+description: "description of the page"
+openapi: openapi-file-path method path
+deprecated: boolean (not required)
+version: "version-string" (not required)
+---
+```
+
+</CodeGroup>
+
+<Note>
+  The method and path must exactly match the definition in your OpenAPI specification. If the endpoint doesn't exist in the OpenAPI file, the page will be empty.
+
+  For webhooks, use `webhook` (case insensitive) instead of the HTTP method (like `GET` or `POST`) in your reference.
+</Note>
+
+### Autogenerate `MDX` files
+
+Use our Mintlify [scraper](https://www.npmjs.com/package/@mintlify/scraping) to autogenerate `MDX` pages for large OpenAPI documents.
+
+<Note>
+  Your OpenAPI document must be valid or the files will not autogenerate.
+</Note>
+
+The scraper generates:
+
+- An `MDX` page for each operation in the `paths` field of your OpenAPI document.
+- If your OpenAPI document is version 3.1\+, an `MDX` page for each operation in the `webhooks` field of your OpenAPI document.
+- An array of navigation entries that you can add to your `docs.json`.
+
+<Steps>
+  <Step title="Generate `MDX` files.">
+    ```bash
+    npx @mintlify/scraping@latest openapi-file <path-to-openapi-file>
+    ```
+  </Step>
+  <Step title="Specify an output folder.">
+    ```bash
+    npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o api-reference
+    ```
+
+    Add the `-o` flag to specify a folder to populate the files into. If a folder is not specified, the files will populate in the working directory.
+  </Step>
+</Steps>
+
+### Create `MDX` files for OpenAPI schemas
+
+You can create individual pages for any OpenAPI schema defined in an OpenAPI document's `components.schema` field:
+
+<CodeGroup>
+
+```md Example
+---
+openapi-schema: OrderItem
+---
+```
+
+
+```md Format
+---
+openapi-schema: "schema-key"
+---
+```
+
+</CodeGroup>
