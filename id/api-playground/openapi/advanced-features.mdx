@@ -1,0 +1,199 @@
+---
+- title: Fitur Lanjutan
+- description: Dukungan untuk fitur OpenAPI lanjutan
+---
+
+OpenAPI 3 memiliki beberapa fitur lanjutan untuk mendeskripsikan API yang kompleks. Berikut cara Anda dapat menggunakannya dengan Mintlify.
+
+## `oneOf`, `anyOf`, `allOf`
+
+Untuk tipe data kompleks, OpenAPI menyediakan kata kunci `oneOf`, `anyOf`, dan `allOf`, memungkinkan Anda untuk menggabungkan skema dengan cara tertentu. Anda dapat membaca lebih lanjut tentang kata kunci ini di [dokumentasi Swagger](https://swagger.io/docs/specification/data-models/oneof-anyof-allof-not/), tapi intinya:
+
+* `oneOf` berfungsi seperti operator "exclusive-or"
+* `anyOf` berfungsi seperti operator "or"
+* `allOf` berfungsi seperti operator "and"
+
+<Warning>Kata kunci `oneOf` dan `anyOf` diperlakukan sama. Kami menemukan bahwa, ketika orang menggunakan `oneOf`, mereka sering *bermaksud* `anyOf` - dan seringkali tidak ada perbedaan yang berarti bagi pengguna.</Warning>
+
+<Info>Kata kunci `not` saat ini tidak didukung.</Info>
+
+### Menggabungkan skema dengan `allOf`
+
+Mintlify melakukan beberapa pra-pemrosesan pada dokumen OpenAPI Anda untuk menampilkan kombinasi kompleks ini dengan cara yang mudah dibaca. Misalnya, ketika Anda menggabungkan dua skema objek dengan `allOf`, Mintlify menggabungkan properti keduanya menjadi satu objek. Ini menjadi sangat berguna ketika memanfaatkan [OpenAPI yang dapat digunakan kembali `components`](https://swagger.io/docs/specification/components/).
+
+```yaml
+org_with_users:
+  allOf:
+    - $ref: '#/components/schemas/Org'
+    - type: object
+      properties:
+        users:
+          type: array
+          description: An array containing all users in the organization
+...
+components:
+  schemas:
+    Org:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the organization
+```
+
+<ParamField body="org_with_users" type="object">
+  <Expandable>
+    <ParamField body="id" type="string">
+      ID organisasi
+    </ParamField>
+
+    <ParamField body="users" type="object[]">
+      Array yang berisi semua pengguna dalam organisasi
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Menyediakan opsi dengan `oneOf` dan `anyOf`
+
+Ketika Anda menggunakan `oneOf` atau `anyOf`, Mintlify menampilkan opsi dalam kontainer bertab. Untuk memberikan nama yang membantu pada opsi Anda, pastikan untuk memberikan setiap subskema sebuah bidang `title`. Misalnya, berikut cara Anda mungkin menampilkan dua jenis alamat pengiriman yang berbeda:
+
+```yaml
+delivery_address:
+  oneOf:
+    - title: StreetAddress
+      type: object
+      properties:
+        address_line_1:
+          type: string
+          description: The street address of the recipient
+        ...
+    - title: POBox
+      type: object
+      properties:
+        box_number:
+          type: string
+          description: The number of the PO Box
+        ...
+```
+
+<ParamField body="delivery_address" type="object">
+  <div className="mt-4 rounded-xl border border-gray-100 px-4 pb-4 pt-2 dark:border-white/10">
+    <Tabs>
+      <Tab title="AlamatJalan">
+        <ParamField body="address_line_1" type="string">
+          Alamat jalan dari tempat tinggal
+        </ParamField>
+      </Tab>
+
+      <Tab title="KotakPos">
+        <ParamField body="box_number" type="string">
+          Nomor Kotak Pos
+        </ParamField>
+      </Tab>
+    </Tabs>
+  </div>
+</ParamField>
+
+## `x-codeSamples`
+
+Jika pengguna Anda berinteraksi dengan API Anda menggunakan SDK daripada langsung melalui permintaan jaringan, Anda dapat menambahkan contoh kode ke dokumen OpenAPI Anda, dan Mintlify akan menampilkannya di halaman OpenAPI Anda. Anda dapat mendefinisikan contoh kode Anda menggunakan ekstensi `x-codeSamples`. Properti ini dapat ditambahkan dalam metode permintaan apa pun, dan memiliki skema berikut:
+
+<ParamField body="lang" type="string" required>
+  Bahasa dari contoh kode.
+</ParamField>
+
+<ParamField body="label" type="string">
+  Label untuk contoh. Ini berguna ketika menyediakan beberapa contoh untuk satu endpoint.
+</ParamField>
+
+<ParamField body="source" type="string" required>
+  Kode sumber dari contoh.
+</ParamField>
+
+Berikut adalah contoh beberapa contoh kode untuk aplikasi pelacakan tanaman, yang memiliki alat CLI Bash dan SDK JavaScript.
+
+```yaml
+paths:
+  /plants:
+    get:
+      ...
+      x-codeSamples:
+        - lang: bash
+          label: List all unwatered plants
+          source: |
+            planter list -u
+        - lang: javascript
+          label: List all unwatered plants
+          source: |
+            const planter = require('planter');
+            planter.list({ unwatered: true });
+        - lang: bash
+          label: List all potted plants
+          source: |
+            planter list -p
+        - lang: javascript
+          label: List all potted plants
+          source: |
+            const planter = require('planter');
+            planter.list({ potted: true });
+```
+
+## `x-hidden` dan `x-excluded`
+
+Jika halaman Anda [dibuat otomatis](/id/api-playground/openapi/setup) dari dokumen OpenAPI, tetapi ada beberapa path yang tidak ingin Anda buat halamannya, Anda dapat mengecualikannya dari pembuatan halaman dengan menambahkan properti `x-excluded`.
+
+Jika Anda ingin halaman dibuat, tetapi tidak ingin mereka muncul di navigasi, tambahkan `x-hidden`.
+
+Anda dapat menambahkan tag `x-hidden` atau `x-excluded` di bawah path endpoint atau webhook di bawah metode.
+
+Berikut adalah contoh bagaimana itu akan terlihat dalam dokumen skema OpenAPI untuk endpoint atau path webhook:
+
+```json {11, 19}
+"paths": {
+  "/plants": {
+    "get": {
+      "description": "Returns all plants from the store",
+      "parameters": { ... },
+      "responses": { ... }
+    }
+  },
+  "/hidden_plants": {
+    "get": {
+      "x-hidden": true,
+      "description": "Returns all somewhat secret plants from the store",
+      "parameters": { ... },
+      "responses": { ... }
+    }
+  },
+  "/secret_plants": {
+    "get": {
+      "x-excluded": true,
+      "description": "Returns all top secret plants from the store (do not publish this endpoint!)",
+      "parameters": { ... },
+      "responses": { ... }
+    }
+  }
+},
+```
+
+```json {9, 15}
+"webhooks": {
+  "/plants_hook": {
+    "post": {
+      "description": "Webhook for information about a new plant added to the store",
+    }
+  },
+  "/hidden_plants_hook": {
+    "post": {
+      "x-hidden": true,
+      "description": "Webhook for somewhat secret information about a new plant added to the store"
+    }
+  },
+  "/secret_plants_hook": {
+    "post": {
+      "x-excluded": true,
+      "description": "Webhook for top secret information about a new plant added to the store (do not publish this endpoint!)"
+    }
+  }
+}
+```

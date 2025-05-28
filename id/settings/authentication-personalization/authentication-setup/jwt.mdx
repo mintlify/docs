@@ -1,0 +1,116 @@
+---
+- title: JWT Handshake
+- description: Gunakan alur login yang disesuaikan untuk mengautentikasi pengguna
+---
+
+<Info>
+  Ini adalah dokumentasi untuk JWT **Authentication** Handshake. Langkah-langkah untuk menyiapkan [JWT **Personalization** Handshake](/id/settings/authentication-personalization/personalization-setup/jwt) sedikit berbeda.
+</Info>
+
+Jika Anda tidak memiliki dasbor, atau jika Anda ingin menjaga dasbor dan dokumen Anda benar-benar terpisah, Anda dapat menggunakan alur login Anda sendiri untuk mengautentikasi pengguna melalui JWT dalam URL.
+
+## Implementasi
+
+<Steps>
+  <Step title="Buat kunci pribadi">
+    Pergi ke [pengaturan dasbor](https://dashboard.mintlify.com/products/authentication) Anda dan buat kunci pribadi. Simpan kunci ini di tempat yang aman di mana dapat diakses oleh backend Anda.
+  </Step>
+
+  <Step title="Buat alur login">
+    Buat alur login yang melakukan hal berikut:
+
+    * Autentikasi pengguna
+    * Buat JWT yang berisi info pengguna yang diautentikasi dalam format [User](../sending-data)
+    * Tanda tangani JWT dengan kunci rahasia, menggunakan algoritma EdDSA
+    * Buat URL pengalihan kembali ke jalur `/login/jwt-callback` dari dokumen Anda, termasuk JWT sebagai hash
+  </Step>
+
+  <Step title="Konfigurasikan pengaturan Autentikasi Anda">
+    Kembali ke [pengaturan dasbor](https://dashboard.mintlify.com/products/authentication) Anda dan tambahkan URL login ke pengaturan Autentikasi Anda.
+  </Step>
+</Steps>
+
+## Contoh
+
+Saya ingin menyiapkan autentikasi untuk dokumen saya yang dihosting di `docs.foo.com`. Saya ingin dokumen saya benar-benar terpisah dari dasbor saya (atau saya sama sekali tidak memiliki dasbor).
+
+Untuk menyiapkan autentikasi dengan Mintlify, saya pergi ke dasbor Mintlify saya dan menghasilkan rahasia JWT. Saya membuat URL web `https://foo.com/docs-login` yang memulai alur login untuk pengguna saya. Di akhir alur login ini, setelah saya memverifikasi identitas pengguna, saya membuat JWT yang berisi data kustom pengguna sesuai dengan spesifikasi Mintlify. Saya menggunakan pustaka JWT untuk menandatangani JWT ini dengan rahasia Mintlify saya, membuat URL pengalihan dalam bentuk `https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`, dan mengalihkan pengguna.
+
+Kemudian saya pergi ke pengaturan dasbor dan memasukkan `https://foo.com/docs-login` untuk bidang URL Login.
+
+Berikut adalah bagaimana kodenya mungkin terlihat:
+
+<CodeGroup>
+  ```ts TypeScript
+  import * as jose from 'jose';
+  import { Request, Response } from 'express';
+
+  const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+  const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+  export async function handleRequest(req: Request, res: Response) {
+    const user = {
+      expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
+      groups: res.locals.user.groups,
+      content: {
+        firstName: res.locals.user.firstName,
+        lastName: res.locals.user.lastName,
+      },
+    };
+
+    const jwt = await new jose.SignJWT(user)
+      .setProtectedHeader({ alg: 'EdDSA' })
+      .setExpirationTime('10 s') // 10 second JWT expiration
+      .sign(signingKey);
+
+    return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+  }
+  ```
+
+  ```python Python
+  import jwt # pyjwt
+  import os
+
+  from datetime import datetime, timedelta
+  from fastapi.responses import RedirectResponse
+
+  private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+
+  @router.get('/auth')
+  async def return_mintlify_auth_status(current_user):
+    jwt_token = jwt.encode(
+      payload={
+        'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
+        'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 1 week session expiration
+        'groups': ['admin'] if current_user.is_admin else [],
+        'content': {
+          'firstName': current_user.first_name,
+          'lastName': current_user.last_name,
+        },
+      },
+      key=private_key,
+      algorithm='EdDSA'
+    )
+
+    return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+  ```
+</CodeGroup>
+
+## Mengalihkan Pengguna yang Tidak Terotentikasi
+
+Ketika pengguna yang tidak terotentikasi mencoba mengakses halaman tertentu, Mintlify mempertahankan tujuan yang dimaksud mereka melalui alur pengalihan:
+
+1. Pengguna mencoba mengunjungi halaman tertentu (misalnya, `/quickstart`)
+
+2. Mintlify mengalihkan mereka ke URL login Anda dan menambahkan tujuan asli (relatif) sebagai parameter kueri `redirect`
+
+Example:
+
+* Permintaan asli: [`https://docs.foo.com/quickstart`](https://docs.foo.com/quickstart)
+
+* Pengalihan ke login: [`https://foo.com/docs-login?redirect=%2Fquickstart`](https://foo.com/docs-login?redirect=%2Fquickstart)
+
+Setelah autentikasi berhasil, Anda dapat menyertakan parameter `redirect` yang sama dalam URL callback JWT Anda untuk mengirim pengguna ke tujuan yang dimaksud:
+
+`https://docs.foo.com/login/jwt-callback?redirect=%2Fquickstart#{SIGNED_JWT}`

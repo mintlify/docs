@@ -1,0 +1,164 @@
+---
+- title: Configuración de OpenAPI
+- description: Hacer referencia a endpoints OpenAPI en sus páginas de documentación
+---
+
+## Agregar un archivo de especificación OpenAPI
+
+Para describir tus endpoints con OpenAPI, asegúrate de tener un documento OpenAPI válido en formato JSON o YAML que siga la [especificación OpenAPI](https://swagger.io/specification/). Tu documento debe seguir la especificación OpenAPI 3.0+.
+
+<Tip>
+  Para validar tu especificación OpenAPI, usa nuestro [CLI](https://www.npmjs.com/package/mint) y ejecuta este comando: \
+  `mint openapi-check <openapiFilenameOrUrl>`
+</Tip>
+
+## Auto-poblar páginas de API
+
+La forma más rápida de comenzar con OpenAPI es agregar un campo `openapi` a una pestaña en el `docs.json`. Este campo puede contener la ruta a un documento OpenAPI en tu repositorio de documentación, o la URL de un documento OpenAPI alojado. Mintlify generará automáticamente una página para cada operación OpenAPI y las colocará en la pestaña.
+
+**Ejemplo con Pestañas:**
+
+```json {5}
+"navigation": {
+  "tabs": [
+    {
+        "tab": "API Reference",
+        "openapi": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ]
+}
+```
+
+<Note>
+  El ejemplo anterior es con pestañas, pero puedes agregar una propiedad `openapi` a cualquier [división de navegación](/es/navigation)
+</Note>
+
+**Ejemplo con Grupos:**
+
+```json {8-11}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API Reference",
+      "groups": [
+        {
+          "group": "Endpoints",
+          "openapi": {
+            "source": "/path/to/openapi-1.json",
+            "directory": "api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Note>
+  El campo directory es opcional. Si no se especifica, los archivos se colocarán en la carpeta **api-reference** del repositorio de documentación.
+</Note>
+
+Al usar esta opción, los metadatos para las páginas generadas tendrán los siguientes valores por defecto:
+
+* `title`: El campo `summary` de la operación OpenAPI, si está presente. De lo contrario, un título generado a partir del método HTTP y el endpoint.
+* `description`: El campo `description` de la operación OpenAPI, si está presente.
+* `version`: El valor `version` del ancla o pestaña, si está presente.
+* `deprecated`: El campo `deprecated` de la operación OpenAPI, si está presente. Si es verdadero, aparecerá una etiqueta de obsoleto junto al endpoint en la navegación lateral y junto al título de la página del endpoint.
+
+Hay algunos escenarios en los que el comportamiento por defecto no es suficiente. Si necesitas más personalización, puedes crear una página MDX para tu operación OpenAPI y modificarla como cualquier otra página MDX.
+
+<Tip>
+  Si tienes algunos endpoints en tu esquema OpenAPI para los que no quieres que se generen páginas automáticamente, puedes agregar la propiedad [x-hidden](/es/api-playground/openapi/advanced-features#x-hidden)
+</Tip>
+
+## Crear archivos MDX para páginas de API
+
+Si quieres personalizar los metadatos de la página, agregar contenido adicional, omitir ciertas operaciones OpenAPI o reordenar las páginas OpenAPI en tu navegación, necesitarás una página MDX para cada operación. Aquí tienes [un ejemplo de página OpenAPI en MDX](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx) de [MindsDB](https://docs.mindsdb.com/rest/databases/create-databases).
+
+![](/images/mindsdb.png)
+
+### Especificar archivos manualmente
+
+Siempre puedes crear una página MDX manualmente y hacer referencia a la operación OpenAPI en los metadatos de la página usando el campo `openapi`.
+
+<Snippet file="api-playground/openapi.mdx" />
+
+Al usar la referencia OpenAPI, el nombre, la descripción, los parámetros, las respuestas y el área de juego de la API se generarán automáticamente a partir del documento OpenAPI.
+
+Si tienes múltiples archivos OpenAPI, incluye la ruta al archivo OpenAPI para asegurar que Mintlify encuentre el documento OpenAPI correcto. Esto no es necesario si solo tienes un archivo OpenAPI - lo detectará automáticamente.
+
+Si desea hacer referencia a un archivo OpenAPI externo utilizando este método, proporcione la URL del archivo en el docs.json. Vea [aquí](https://mintlify.com/docssettings#param-source-4) para el formato correcto.
+
+<CodeGroup>
+  ```md Example
+  ---
+  title: "Get users"
+  description: "Returns all plants from the system that the user has access to"
+  openapi: "/path/to/openapi-1.json GET /users"
+  deprecated: true
+  version: "1.0"
+  ---
+  ```
+
+  ```md Format
+  ---
+  title: "title of the page"
+  description: "description of the page"
+  openapi: openapi-file-path method path
+  deprecated: boolean (not required)
+  version: "version-string" (not required)
+  ---
+  ```
+</CodeGroup>
+
+<Note>
+  En la mayoría de los casos, el método y la ruta deben coincidir exactamente con el método y la ruta especificados en el documento OpenAPI. Si el endpoint no existe en el archivo OpenAPI, la página estará vacía.
+
+  Para webhooks, reemplace el método (es decir, "POST") con "webhook" (sin distinción entre mayúsculas y minúsculas) y se generará el método correcto.
+</Note>
+
+### Autogenerar archivos
+
+Para documentos OpenAPI grandes, crear una página MDX para cada operación OpenAPI puede ser mucho trabajo. Para facilitarlo, creamos un scraper local de páginas OpenAPI.
+
+Nuestro Mintlify [scraper](https://www.npmjs.com/package/@mintlify/scraping)autogenera archivos MDX para sus endpoints OpenAPI.
+
+Cada página generada corresponderá a una operación OpenAPI bajo la sección "paths" del esquema OpenAPI.
+Si su documento OpenAPI es de la versión 3.1+, el scraper también generará páginas para webhooks bajo la sección "webhooks" del esquema OpenAPI.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file>
+```
+
+Agregue la `-o` bandera para especificar una carpeta donde poblar los archivos. Si no se especifica una carpeta, los archivos se poblarán en el directorio de trabajo.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o api-reference
+```
+
+Aprenda más sobre nuestro paquete de scraping [aquí](https://www.npmjs.com/package/@mintlify/scraping).
+
+El scraper generará un array de
+[Entradas de navegación](settings#structure) que contienen sus archivos MDX de OpenAPI. Puede agregar estas entradas a su Navegación existente, o reordenar y añadir los archivos a su navegación manualmente.
+
+<Note>
+  Si su documento OpenAPI no es válido, los archivos no se autogenerarán.
+</Note>
+
+## Crear archivos MDX para esquemas OpenAPI
+
+Mintlify también le permite crear páginas individuales para cualquier esquema OpenAPI definido en la sección `components.schemas` field:
+
+<CodeGroup>
+  ```md Example
+  ---
+  openapi-schema: OrderItem
+  ---
+  ```
+
+  ```md Format
+  ---
+  openapi-schema: "schema-key"
+  ---
+  ```
+</CodeGroup>

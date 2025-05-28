@@ -1,0 +1,114 @@
+---
+- title: Handshake JWT
+- description: Use um fluxo de login personalizado para autenticar usuários
+---
+
+<Info>
+  Esta é a documentação para o Handshake de Autenticação **Authentication** JWT. Os passos para configurar o Handshake de [JWT **Personalization** Handshake](/pt-BR/settings/authentication-personalization/personalization-setup/jwt) são ligeiramente diferentes.
+</Info>
+
+Se você não tem um painel, ou se deseja manter seu painel e documentos completamente separados, você pode usar seu próprio fluxo de login para autenticar usuários via JWT na URL.
+
+## Implementação
+
+<Steps>
+  <Step title="Gere uma chave privada">
+    Vá para suas [configurações do painel](https://dashboard.mintlify.com/products/authentication) e gere uma chave privada. Armazene esta chave em algum lugar seguro onde possa ser acessada pelo seu backend.
+  </Step>
+
+  <Step title="Crie um fluxo de login">
+    Crie um fluxo de login que faça o seguinte:
+
+    * Autentique o usuário
+    * Crie um JWT contendo as informações do usuário autenticado no formato [User](../sending-data)
+    * Assine o JWT com a chave secreta, usando o algoritmo EdDSA
+    * Crie uma URL de redirecionamento de volta para o caminho `/login/jwt-callback` dos seus documentos, incluindo o JWT como o hash
+  </Step>
+
+  <Step title="Configure suas configurações de Autenticação">
+    Retorne às suas [configurações do painel](https://dashboard.mintlify.com/products/authentication) e adicione a URL de login às suas configurações de Autenticação.
+  </Step>
+</Steps>
+
+## Exemplo
+
+Eu quero configurar a autenticação para meus documentos hospedados em `docs.foo.com`. Eu quero que meus documentos sejam completamente separados do meu painel (ou eu não tenho um painel).
+
+Para configurar a autenticação com o Mintlify, eu vou ao meu painel do Mintlify e gero um segredo JWT. Eu crio uma URL web `https://foo.com/docs-login` que inicia um fluxo de login para meus usuários. No final deste fluxo de login, uma vez que eu tenha verificado a identidade do usuário, eu crio um JWT contendo os dados personalizados do usuário de acordo com a especificação do Mintlify. Eu uso uma biblioteca JWT para assinar este JWT com meu segredo do Mintlify, crio uma URL de redirecionamento no formato `https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`, e redireciono o usuário.
+
+Então eu vou às configurações do painel e insiro `https://foo.com/docs-login` no campo URL de Login.
+
+Aqui está como o código pode parecer:
+
+<CodeGroup>
+  ```ts TypeScript
+  import * as jose from 'jose';
+  import { Request, Response } from 'express';
+
+  const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+  const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+  export async function handleRequest(req: Request, res: Response) {
+    const user = {
+      expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
+      groups: res.locals.user.groups,
+      content: {
+        firstName: res.locals.user.firstName,
+        lastName: res.locals.user.lastName,
+      },
+    };
+
+    const jwt = await new jose.SignJWT(user)
+      .setProtectedHeader({ alg: 'EdDSA' })
+      .setExpirationTime('10 s') // 10 second JWT expiration
+      .sign(signingKey);
+
+    return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+  }
+  ```
+
+  ```python Python
+  import jwt # pyjwt
+  import os
+
+  from datetime import datetime, timedelta
+  from fastapi.responses import RedirectResponse
+
+  private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+
+  @router.get('/auth')
+  async def return_mintlify_auth_status(current_user):
+    jwt_token = jwt.encode(
+      payload={
+        'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
+        'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 1 week session expiration
+        'groups': ['admin'] if current_user.is_admin else [],
+        'content': {
+          'firstName': current_user.first_name,
+          'lastName': current_user.last_name,
+        },
+      },
+      key=private_key,
+      algorithm='EdDSA'
+    )
+
+    return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+  ```
+</CodeGroup>
+
+## Redirecionando Usuários Não Autenticados
+
+Quando um usuário não autenticado tenta acessar uma página específica, o Mintlify preserva o destino pretendido através de um fluxo de redirecionamento:
+
+1. O usuário tenta visitar uma determinada página (por exemplo, `/quickstart`)
+
+2. O Mintlify os redireciona para sua URL de login e adiciona o destino original (relativo) como um parâmetro de consulta `redirect`
+
+Example:
+
+* Solicitação original: [`https://docs.foo.com/quickstart`](https://docs.foo.com/quickstart)
+
+* Redirecionamento para login: [`https://foo.com/docs-login?redirect=%2Fquickstart`](https://foo.com/docs-login?redirect=%2Fquickstart)
+
+Após a autenticação bem-sucedida, você pode incluir este mesmo parâmetro `redirect` na sua URL de callback JWT para enviar os usuários ao seu destino pretendido:`https://docs.foo.com/login/jwt-callback?redirect=%2Fquickstart#{SIGNED_JWT}`

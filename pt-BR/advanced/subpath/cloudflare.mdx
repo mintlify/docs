@@ -1,0 +1,72 @@
+---
+- title: Cloudflare
+- description: Hospedar documentação em um subpath /docs usando Cloudflare Workers
+---
+
+## Criar Worker do Cloudflare
+
+Navegue até o`Workers & Pages > Create application > Create worker`. Você deve ver a seguinte tela onde pode criar um novo worker do Cloudflare.
+
+<Frame>
+  <img alt="Create a Cloudflare worker" src="/images/cloudflare/worker.png" />
+</Frame>
+
+<Warning>
+  Lembre-se: Se seu provedor de DNS for o Cloudflare, você não deve usar proxy para o registro CNAME
+</Warning>
+
+### Adicionar domínio personalizado
+
+Depois que o worker for criado, clique em`Configure worker`. Navegue até o worker`Settings > Triggers`. Clique em`Add Custom Domain`para adicionar seu domínio desejado à lista - recomendamos que você adicione tanto a versão com quanto sem`www.`prefixado ao domínio.
+
+<Frame>
+  <img alt="Cloudflare worker custom domain" src="/images/cloudflare/custom-domain.png" />
+</Frame>
+
+Se você tiver problemas para configurar um subdiretório personalizado,[entre em contato com nossa equipe de suporte](mailto:sales@mintlify.com)e nós o guiaremos através do processo de atualização da sua hospedagem conosco.
+
+### Editar Script do Worker
+
+Clique em`Edit Code`e adicione o seguinte script ao código do worker.
+
+<Frame>
+  <img alt="Cloudflare edit code" src="/images/cloudflare/edit-code.png" />
+</Frame>
+
+<Tip>
+  Edite`DOCS_URL`substituindo`[SUBDOMAIN]`pelo seu subdomínio único e`CUSTOM_URL`pela URL base do seu site.
+</Tip>
+
+```javascript
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  try {
+    const urlObject = new URL(request.url);
+    // If the request is to the docs subdirectory
+    if (/^\/docs/.test(urlObject.pathname)) {
+      // Then Proxy to Mintlify
+      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+      const CUSTOM_URL = "[YOUR_DOMAIN]";
+
+      let url = new URL(request.url);
+      url.hostname = DOCS_URL;
+
+      let proxyRequest = new Request(url, request);
+
+      proxyRequest.headers.set("Host", DOCS_URL);
+      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+
+      return await fetch(proxyRequest);
+    }
+  } catch (error) {
+    // if no action found, play the regular request
+    return await fetch(request);
+  }
+}
+```
+
+Clique em`Deploy`e aguarde a propagação das alterações (pode levar até algumas horas).
