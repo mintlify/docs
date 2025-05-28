@@ -1,0 +1,78 @@
+---
+- title: JWT Handshake
+- description: Gunakan alur login yang disesuaikan untuk mengautentikasi pengguna
+---
+
+<Info>
+  Ini adalah dokumentasi untuk JWT**Personalization**Handshake. Langkah-langkah untuk mengatur[JWT**Authentication**Handshake](/id/settings/authentication-personalization/authentication-setup/jwt)sedikit berbeda.
+</Info>
+
+Jika Anda tidak memiliki dashboard, atau jika Anda ingin menjaga dashboard dan dokumentasi Anda tetap terpisah sepenuhnya, Anda dapat menggunakan alur login Anda sendiri untuk mengirim informasi pengguna ke dokumentasi Anda melalui JWT dalam URL.
+
+## Implementasi
+
+<Steps>
+  <Step title="Buat kunci pribadi">
+    Pergi ke[dashboard settings](https://dashboard.mintlify.com/products/authentication)dan buat kunci pribadi. Simpan kunci ini di tempat yang aman di mana dapat diakses oleh backend Anda.
+  </Step>
+
+  <Step title="Buat alur login">
+    Buat alur login yang melakukan hal berikut:
+
+    * Autentikasi pengguna
+    * Buat JWT yang berisi info pengguna yang diautentikasi dalam format[User](../sending-data)
+    * Tanda tangani JWT dengan kunci rahasia, menggunakan algoritma ES256
+    * Buat URL pengalihan kembali ke dokumentasi Anda, termasuk JWT sebagai hash
+  </Step>
+
+  <Step title="Konfigurasi pengaturan Personalization Anda">
+    Kembali ke[dashboard settings](https://dashboard.mintlify.com/products/authentication)dan tambahkan URL login ke pengaturan Personalization Anda.
+  </Step>
+</Steps>
+
+## Contoh
+
+Saya ingin mengatur autentikasi untuk dokumentasi saya yang dihosting di`docs.foo.com`. Saya ingin dokumentasi saya benar-benar terpisah dari dashboard saya (atau saya sama sekali tidak memiliki dashboard).
+
+Untuk mengatur autentikasi dengan Mintlify, saya pergi ke dashboard Mintlify saya dan menghasilkan rahasia JWT. Saya membuat URL web`https://foo.com/docs-login`yang memulai alur login untuk pengguna saya. Di akhir alur login ini, setelah saya memverifikasi identitas pengguna, saya membuat JWT yang berisi data kustom pengguna sesuai dengan spesifikasi Mintlify. Saya menggunakan library JWT untuk menandatangani JWT ini dengan rahasia Mintlify saya, membuat URL pengalihan dalam bentuk`https://docs.foo.com#{SIGNED_JWT}`, dan mengalihkan pengguna.
+
+Kemudian saya pergi ke pengaturan dashboard dan memasukkan`https://foo.com/docs-login`untuk bidang Login URL.
+
+Berikut adalah bagaimana kodenya mungkin terlihat:
+
+```ts
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'ES256');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'ES256' })
+    .setExpirationTime('10 s')
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com#${jwt}`);
+}
+
+```
+
+## Menjaga Anchor
+
+Setelah login, jika Anda ingin mengalihkan ke anchor tertentu di halaman, Anda dapat menggunakan format berikut untuk membuat URL pengalihan:`https://docs.foo.com/page#jwt={SIGNED_JWT}&anchor={ANCHOR}`.
+
+Example:
+
+* Original: `https://docs.foo.com/quickstart#step-one`
+* Redirect: `https://docs.foo.com/quickstart#jwt={SIGNED_JWT}&anchor=step-one`

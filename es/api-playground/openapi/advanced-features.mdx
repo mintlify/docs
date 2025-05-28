@@ -1,0 +1,199 @@
+---
+- title: Características Avanzadas
+- description: Soporte para características avanzadas de OpenAPI
+---
+
+OpenAPI 3 tiene algunas características avanzadas para describir APIs complejas. Así es como puedes usarlas con Mintlify.
+
+## `oneOf`, `anyOf`, `allOf`
+
+Para tipos de datos complejos, OpenAPI proporciona las palabras clave `oneOf`, `anyOf`, y `allOf`, permitiéndote combinar esquemas de ciertas maneras. Puedes leer más sobre estas palabras clave en la [documentación de Swagger](https://swagger.io/docs/specification/data-models/oneof-anyof-allof-not/), pero esencialmente:
+
+* `oneOf` funciona como un operador "o exclusivo"
+* `anyOf` funciona como un operador "o"
+* `allOf` funciona como un operador "y"
+
+<Warning>Las palabras clave `oneOf` y `anyOf` se tratan de la misma manera. Hemos encontrado que, cuando las personas usan `oneOf`, a menudo *quieren decir* `anyOf` - y a menudo no hay una diferencia significativa para el usuario.</Warning>
+
+<Info>La palabra clave `not` no está actualmente soportada.</Info>
+
+### Combinando esquemas con `allOf`
+
+Mintlify realiza algún preprocesamiento en tu documento OpenAPI para mostrar estas combinaciones complejas de una manera legible. Por ejemplo, cuando combinas dos esquemas de objetos con `allOf`, Mintlify combina las propiedades de ambos en un solo objeto. Esto se vuelve especialmente útil cuando se aprovechan los [componentes reutilizables de `components`](https://swagger.io/docs/specification/components/)OpenAPI.
+
+```yaml
+org_with_users:
+  allOf:
+    - $ref: '#/components/schemas/Org'
+    - type: object
+      properties:
+        users:
+          type: array
+          description: An array containing all users in the organization
+...
+components:
+  schemas:
+    Org:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the organization
+```
+
+<ParamField body="org_with_users" type="object">
+  <Expandable>
+    <ParamField body="id" type="string">
+      El ID de la organización
+    </ParamField>
+
+    <ParamField body="users" type="object[]">
+      Un array que contiene todos los usuarios en la organización
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Proporcionando opciones con `oneOf` y `anyOf`
+
+Cuando usas `oneOf` o `anyOf`, Mintlify muestra las opciones en un contenedor con pestañas. Para dar a tus opciones nombres útiles, asegúrate de dar a cada subesquema un campo `title`. Por ejemplo, así es como podrías mostrar dos tipos diferentes de direcciones de entrega:
+
+```yaml
+delivery_address:
+  oneOf:
+    - title: StreetAddress
+      type: object
+      properties:
+        address_line_1:
+          type: string
+          description: The street address of the recipient
+        ...
+    - title: POBox
+      type: object
+      properties:
+        box_number:
+          type: string
+          description: The number of the PO Box
+        ...
+```
+
+<ParamField body="delivery_address" type="object">
+  <div className="mt-4 rounded-xl border border-gray-100 px-4 pb-4 pt-2 dark:border-white/10">
+    <Tabs>
+      <Tab title="DirecciónCalle">
+        <ParamField body="address_line_1" type="string">
+          La dirección de la calle de la residencia
+        </ParamField>
+      </Tab>
+
+      <Tab title="ApartadoPostal">
+        <ParamField body="box_number" type="string">
+          El número del apartado postal
+        </ParamField>
+      </Tab>
+    </Tabs>
+  </div>
+</ParamField>
+
+## `x-codeSamples`
+
+Si tus usuarios interactúan con tu API usando un SDK en lugar de directamente a través de una solicitud de red, puedes agregar ejemplos de código a tu documento OpenAPI, y Mintlify los mostrará en tus páginas de OpenAPI. Puedes definir tus ejemplos de código usando la extensión `x-codeSamples`. Esta propiedad se puede agregar dentro de cualquier método de solicitud, y tiene el siguiente esquema:
+
+<ParamField body="lang" type="string" required>
+  El lenguaje del ejemplo de código.
+</ParamField>
+
+<ParamField body="label" type="string">
+  La etiqueta para el ejemplo. Esto es útil cuando se proporcionan múltiples ejemplos para un solo endpoint.
+</ParamField>
+
+<ParamField body="source" type="string" required>
+  El código fuente del ejemplo.
+</ParamField>
+
+Aquí hay un ejemplo de algunos ejemplos de código para una aplicación de seguimiento de plantas, que tiene tanto una herramienta CLI de Bash como un SDK de JavaScript.
+
+```yaml
+paths:
+  /plants:
+    get:
+      ...
+      x-codeSamples:
+        - lang: bash
+          label: List all unwatered plants
+          source: |
+            planter list -u
+        - lang: javascript
+          label: List all unwatered plants
+          source: |
+            const planter = require('planter');
+            planter.list({ unwatered: true });
+        - lang: bash
+          label: List all potted plants
+          source: |
+            planter list -p
+        - lang: javascript
+          label: List all potted plants
+          source: |
+            const planter = require('planter');
+            planter.list({ potted: true });
+```
+
+## `x-hidden` y `x-excluded`
+
+Si tus páginas son [autogeneradas](/es/api-playground/openapi/setup) a partir de un documento OpenAPI, pero hay algunas rutas para las que no quieres crear páginas, puedes excluirlas de la generación de páginas agregando la propiedad `x-excluded`.
+
+Si quieres que se generen páginas, pero que no aparezcan en la navegación, agrega `x-hidden`.
+
+Puedes agregar la etiqueta `x-hidden` o `x-excluded` bajo las rutas de endpoints o webhooks debajo del método.
+
+Aquí hay ejemplos de cómo se vería eso en un documento de esquema OpenAPI para un endpoint o una ruta de webhook:
+
+```json {11, 19}
+"paths": {
+  "/plants": {
+    "get": {
+      "description": "Returns all plants from the store",
+      "parameters": { ... },
+      "responses": { ... }
+    }
+  },
+  "/hidden_plants": {
+    "get": {
+      "x-hidden": true,
+      "description": "Returns all somewhat secret plants from the store",
+      "parameters": { ... },
+      "responses": { ... }
+    }
+  },
+  "/secret_plants": {
+    "get": {
+      "x-excluded": true,
+      "description": "Returns all top secret plants from the store (do not publish this endpoint!)",
+      "parameters": { ... },
+      "responses": { ... }
+    }
+  }
+},
+```
+
+```json {9, 15}
+"webhooks": {
+  "/plants_hook": {
+    "post": {
+      "description": "Webhook for information about a new plant added to the store",
+    }
+  },
+  "/hidden_plants_hook": {
+    "post": {
+      "x-hidden": true,
+      "description": "Webhook for somewhat secret information about a new plant added to the store"
+    }
+  },
+  "/secret_plants_hook": {
+    "post": {
+      "x-excluded": true,
+      "description": "Webhook for top secret information about a new plant added to the store (do not publish this endpoint!)"
+    }
+  }
+}
+```

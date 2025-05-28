@@ -1,0 +1,96 @@
+---
+- title: Speakeasy
+- description: Otomatiskan potongan penggunaan SDK Anda di playground API
+---
+
+Anda dapat mengintegrasikan potongan kode yang dihasilkan Speakeasy dari SDK Anda langsung ke dalam dokumentasi referensi API Mintlify Anda. Potongan penggunaan SDK ditampilkan di [interactive playground](https://mintlify.com/docs/api-playground/overview) dari dokumentasi yang didukung Mintlify Anda.
+
+## Perubahan Repositori SDK Speakeasy
+
+Di repositori SDK Speakeasy Anda, tambahkan berikut ini ke bagian `targets` dari file `.speakeasy/workflow.yaml` Anda untuk memastikan sampel kode secara otomatis dihasilkan bersamaan dengan generasi SDK.
+
+```yaml .speakeasy/workflow.yaml
+targets:
+  my-target:
+    target: typescript
+    source: my-source
+    codeSamples:
+      output: codeSamples.yaml
+```
+
+Sampel kode akan dihasilkan dalam bentuk [OpenAPI overlay file](https://www.speakeasyapi.dev/openapi/overlays) yang akan digunakan dalam repositori dokumentasi Mintlify.
+
+## Perubahan Repositori Dokumentasi Mintlify
+
+File alur kerja yang dihasilkan akan secara otomatis menggabungkan spesifikasi OpenAPI sumber Anda dan sampel kode Speakeasy menjadi satu file keluaran, `openapi.yaml`. Mintlify akan menggunakan file keluaran ini saat membangun referensi API Anda.
+
+### Pengaturan CLI Interaktif
+
+Jalankan perintah berikut untuk mengatur file `.speakeasy/workflow.yaml` dan `.github/workflows/sdk_generation.yaml` melalui CLI Speakeasy interaktif.
+
+```bash
+speakeasy configure sources
+speakeasy configure github
+```
+
+Atur spesifikasi sumber Anda. Spesifikasi sumber adalah spesifikasi OpenAPI yang akan digunakan untuk menghasilkan sampel kode, dan seringkali merupakan spesifikasi yang sama yang digunakan untuk mendukung dokumentasi Mintlify.
+
+![](/images/speakeasy-1.webp)
+
+Tambahkan overlay yang dibuat oleh Speakeasy untuk menyuntikkan potongan kode ke dalam spesifikasi Anda.
+
+![](/images/speakeasy-2.webp)
+
+Berikan nama dan path untuk spesifikasi OpenAPI. Ini akan menjadi spesifikasi akhir yang digunakan oleh Mintlify.
+
+![](/images/speakeasy-3.webp)
+
+Terakhir, Tambahkan `SPEAKEASY_API_KEY` Anda sebagai rahasia repositori ke repositori Minlify Anda di bawah `Settings > Secrets & Variables > Actions`. Temukan kunci API Speakeasy di dasbor Speakeasy di bawah tab **API Keys**.
+
+## Pengaturan Manual
+
+Sebagai alternatif, Anda dapat mengatur file-file berikut secara manual di repositori dokumentasi Mintlify Anda.
+
+```yaml .speakeasy/workflow.yaml
+workflowVersion: 1.0.0
+sources:
+  docs-source:
+    inputs:
+      - location: {{your_api_spec}} # local or remote references supported
+    overlays:
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_1}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_2}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_3}}/codeSamples.yaml
+    output: openapi.yaml
+targets: {}
+```
+
+```yaml .speakeasy/workflows/sdk_generation.yaml
+name: Generate
+permissions:
+  checks: write
+  contents: write
+  pull-requests: write
+  statuses: write
+"on":
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Force generation of SDKs
+        type: boolean
+        default: false
+  schedule:
+    - cron: 0 0 * * *
+jobs:
+  generate:
+    uses: speakeasy-api/sdk-generation-action/.github/workflows/workflow-executor.yaml@v15
+    with:
+      force: ${{ github.event.inputs.force }}
+      mode: pr
+      speakeasy_version: latest
+    secrets:
+      github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      speakeasy_api_key: ${{ secrets.SPEAKEASY_API_KEY }}
+```
+
+Terakhir, pastikan Anda menambahkan `SPEAKEASY_API_KEY` Anda sebagai rahasia repositori ke repositori Minlify Anda di bawah `Settings > Secrets & Variables > Actions`. Temukan kunci API Speakeasy di dasbor Speakeasy di bawah tab **API Keys**.

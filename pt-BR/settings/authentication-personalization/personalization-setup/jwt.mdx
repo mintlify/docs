@@ -1,0 +1,85 @@
+---
+- title: JWT Handshake
+- description: Use um fluxo de login personalizado para autenticar usuários
+---
+
+<Info>
+  Esta é a documentação para o JWT**Personalization**Handshake. Os passos para configurar o[JWT**Authentication**Handshake](/pt-BR/settings/authentication-personalization/authentication-setup/jwt)são ligeiramente diferentes.
+</Info>
+
+Se você não tem um painel, ou se quiser manter seu painel e documentação completamente separados, você pode usar seu próprio fluxo de login para enviar informações do usuário para sua documentação via JWT na URL.
+
+## Implementação
+
+<Steps>
+  <Step title="Gerar uma chave privada">
+    Vá para suas[configurações do painel](https://dashboard.mintlify.com/products/authentication)e gere uma chave privada. Armazene esta chave em um local seguro onde possa ser acessada pelo seu backend.
+  </Step>
+
+  <Step title="Criar um fluxo de login">
+    Crie um fluxo de login que faça o seguinte:
+
+    * Autenticar o usuário
+    * Criar um JWT contendo as informações do usuário autenticado no formato[User](../sending-data)
+    * Assinar o JWT com a chave secreta, usando o algoritmo ES256
+    * Criar uma URL de redirecionamento de volta para sua documentação, incluindo o JWT como o hash
+  </Step>
+
+  <Step title="Configurar suas configurações de Personalization">
+    Retorne às suas[configurações do painel](https://dashboard.mintlify.com/products/authentication)e adicione a URL de login às suas configurações de Personalization.
+  </Step>
+</Steps>
+
+## Exemplo
+
+Eu quero configurar a autenticação para minha documentação hospedada em`docs.foo.com`. Eu quero que minha documentação
+seja completamente separada do meu painel (ou eu não tenho um painel).
+
+Para configurar a autenticação com o Mintlify, eu vou ao meu painel do Mintlify e gero um
+segredo JWT. Eu crio uma URL web`https://foo.com/docs-login`que inicia um fluxo de login
+para meus usuários. No final deste fluxo de login, uma vez que eu tenha verificado a identidade do usuário,
+eu crio um JWT contendo os dados personalizados do usuário de acordo com a especificação do Mintlify.
+Eu uso uma biblioteca JWT para assinar este JWT com meu segredo do Mintlify, crio uma URL de redirecionamento no
+formato`https://docs.foo.com#{SIGNED_JWT}`, e redireciono o usuário.
+
+Então eu vou às configurações do painel e insiro`https://foo.com/docs-login`para o
+campo URL de Login.
+
+Aqui está como o código pode parecer:
+
+```ts
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'ES256');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'ES256' })
+    .setExpirationTime('10 s')
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com#${jwt}`);
+}
+
+```
+
+## Preservando Âncoras
+
+Após o login, se você quiser redirecionar para uma âncora específica na página, você pode usar o seguinte formato para criar a URL de redirecionamento:`https://docs.foo.com/page#jwt={SIGNED_JWT}&anchor={ANCHOR}`.
+
+Example:
+
+* Original: `https://docs.foo.com/quickstart#step-one`
+* Redirect: `https://docs.foo.com/quickstart#jwt={SIGNED_JWT}&anchor=step-one`

@@ -1,0 +1,162 @@
+---
+- title: OpenAPI Setup
+- description: Referensikan endpoint OpenAPI di halaman dokumentasi Anda
+---
+
+## Tambahkan file spesifikasi OpenAPI
+
+Untuk mendeskripsikan endpoint Anda dengan OpenAPI, pastikan Anda memiliki dokumen OpenAPI yang valid dalam format JSON atau YAML yang mengikuti [spesifikasi OpenAPI](https://swagger.io/specification/). Dokumen Anda harus mengikuti spesifikasi OpenAPI 3.0+.
+
+<Tip>
+  Untuk memvalidasi spesifikasi OpenAPI Anda, gunakan [CLI](https://www.npmjs.com/package/mint) kami dan jalankan perintah ini: \
+  `mint openapi-check <openapiFilenameOrUrl>`
+</Tip>
+
+## Isi otomatis halaman API
+
+Cara tercepat untuk memulai dengan OpenAPI adalah menambahkan bidang `openapi` ke tab dalam `docs.json`. Bidang ini dapat berisi baik path ke dokumen OpenAPI di repo docs Anda, atau URL dari dokumen OpenAPI yang di-host. Mintlify akan secara otomatis menghasilkan halaman untuk setiap operasi OpenAPI dan menempatkannya di tab.
+
+**Contoh dengan Tab:**
+
+```json {5}
+"navigation": {
+  "tabs": [
+    {
+        "tab": "API Reference",
+        "openapi": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ]
+}
+```
+
+<Note>
+  Contoh di atas adalah dengan tab tetapi Anda dapat menambahkan properti `openapi` ke [divisi navigasi](/id/navigation)
+</Note>
+
+**Contoh dengan Grup:**
+
+```json {8-11}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API Reference",
+      "groups": [
+        {
+          "group": "Endpoints",
+          "openapi": {
+            "source": "/path/to/openapi-1.json",
+            "directory": "api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Note>
+  Bidang direktori bersifat opsional. Jika tidak ditentukan, file akan ditempatkan di folder **api-reference** dari repo docs.
+</Note>
+
+Saat menggunakan opsi ini, metadata untuk halaman yang dihasilkan akan memiliki nilai default berikut:
+
+* `title`: Bidang `summary` dari operasi OpenAPI, jika ada. Jika tidak, judul yang dihasilkan dari metode HTTP dan endpoint.
+* `description`: Bidang `description` dari operasi OpenAPI, jika ada.
+* `version`: Nilai `version` dari anchor atau tab, jika ada.
+* `deprecated`: Bidang `deprecated` dari operasi OpenAPI, jika ada. Jika benar, label deprecated akan muncul di sebelah endpoint di navigasi samping dan di sebelah judul halaman endpoint.
+
+Ada beberapa skenario di mana perilaku default tidak cukup. Jika Anda memerlukan lebih banyak kemampuan kustomisasi, Anda dapat membuat halaman MDX untuk operasi OpenAPI Anda, dan memodifikasinya seperti halaman MDX lainnya.
+
+<Tip>
+  Jika Anda memiliki beberapa endpoint dalam skema OpenAPI yang tidak ingin dibuatkan halaman secara otomatis, Anda dapat menambahkan properti [x-hidden](/id/api-playground/openapi/advanced-features#x-hidden)
+</Tip>
+
+## Buat file MDX untuk halaman API
+
+Jika Anda ingin menyesuaikan metadata halaman, menambahkan konten tambahan, menghilangkan operasi OpenAPI tertentu, atau mengatur ulang halaman OpenAPI dalam navigasi Anda, Anda akan memerlukan halaman MDX untuk setiap operasi. Berikut adalah [contoh halaman OpenAPI MDX](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx) dari [MindsDB](https://docs.mindsdb.com/rest/databases/create-databases).
+
+![](/images/mindsdb.png)
+
+### Tentukan file secara manual
+
+Anda selalu dapat membuat halaman MDX secara manual, dan mereferensikan operasi OpenAPI dalam metadata halaman menggunakan bidang `openapi`.
+
+<Snippet file="api-playground/openapi.mdx" />
+
+Dengan menggunakan referensi OpenAPI, nama, deskripsi, parameter, respons, dan playground API akan secara otomatis dihasilkan dari dokumen OpenAPI.
+
+Jika Anda memiliki beberapa file OpenAPI, sertakan path ke file OpenAPI untuk memastikan Mintlify menemukan dokumen OpenAPI yang benar. Ini tidak diperlukan jika Anda hanya memiliki satu file OpenAPI - itu akan secara otomatis mendeteksi file OpenAPI Anda.
+
+Jika Anda ingin mereferensikan file OpenAPI eksternal menggunakan metode ini, berikan URL file tersebut di docs.json. Lihat[di sini](https://mintlify.com/docssettings#param-source-4)untuk format yang benar.
+
+<CodeGroup>
+  ```md Example
+  ---
+  title: "Get users"
+  description: "Returns all plants from the system that the user has access to"
+  openapi: "/path/to/openapi-1.json GET /users"
+  deprecated: true
+  version: "1.0"
+  ---
+  ```
+
+  ```md Format
+  ---
+  title: "title of the page"
+  description: "description of the page"
+  openapi: openapi-file-path method path
+  deprecated: boolean (not required)
+  version: "version-string" (not required)
+  ---
+  ```
+</CodeGroup>
+
+<Note>
+  Dalam kebanyakan kasus, metode dan path harus cocok persis dengan metode dan path yang ditentukan dalam dokumen OpenAPI. Jika endpoint tidak ada dalam file OpenAPI, halaman akan kosong.
+
+  Untuk webhook, ganti metode (misalnya "POST") dengan "webhook" (tidak case sensitive) dan metode yang benar akan dihasilkan.
+</Note>
+
+### Autogenerate files
+
+Untuk dokumen OpenAPI yang besar, membuat satu halaman MDX untuk setiap operasi OpenAPI bisa menjadi pekerjaan yang banyak. Untuk memudahkannya, kami membuat scraper halaman OpenAPI lokal.
+
+Mintlify kami[scraper](https://www.npmjs.com/package/@mintlify/scraping)secara otomatis menghasilkan file MDX untuk endpoint OpenAPI Anda.
+
+Setiap halaman yang dihasilkan akan sesuai dengan operasi OpenAPI di bawah bagian "paths" dari skema OpenAPI. Jika dokumen OpenAPI Anda adalah versi 3.1+, scraper juga akan menghasilkan halaman untuk webhook di bawah bagian "webhooks" dari skema OpenAPI.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file>
+```
+
+Tambahkan`-o`flag untuk menentukan folder untuk mengisi file-file tersebut. Jika folder tidak ditentukan, file-file akan diisi di direktori kerja.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o api-reference
+```
+
+Pelajari lebih lanjut tentang paket scraping kami[di sini](https://www.npmjs.com/package/@mintlify/scraping).
+
+Scraper akan menghasilkan array[Navigation entries](settings#structure)yang berisi file MDX OpenAPI Anda. Anda dapat menambahkan entri-entri ini ke Navigation yang sudah ada, atau menyusun ulang dan menambahkan file-file tersebut ke navigasi Anda secara manual.
+
+<Note>
+  Jika dokumen OpenAPI Anda tidak valid, file-file tidak akan dihasilkan secara otomatis.
+</Note>
+
+## Membuat file MDX untuk skema OpenAPI
+
+Mintlify juga memungkinkan Anda untuk membuat halaman individual untuk setiap skema OpenAPI yang didefinisikan dalam`components.schemas` field:
+
+<CodeGroup>
+  ```md Example
+  ---
+  openapi-schema: OrderItem
+  ---
+  ```
+
+  ```md Format
+  ---
+  openapi-schema: "schema-key"
+  ---
+  ```
+</CodeGroup>

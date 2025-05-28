@@ -1,0 +1,96 @@
+---
+- title: Speakeasy
+- description: Automatize seus trechos de uso do SDK no playground da API
+---
+
+Você pode integrar trechos de código gerados pelo Speakeasy de seus SDKs diretamente na documentação de referência da API do Mintlify. Trechos de uso do SDK são mostrados no [interactive playground](https://mintlify.com/docs/api-playground/overview) da sua documentação alimentada pelo Mintlify.
+
+## Mudanças no Repositório do SDK Speakeasy
+
+Em seus repositórios de SDK Speakeasy, adicione o seguinte à `targets` seção do seu arquivo `.speakeasy/workflow.yaml` para garantir que as amostras de código sejam produzidas automaticamente junto com as gerações do SDK.
+
+```yaml .speakeasy/workflow.yaml
+targets:
+  my-target:
+    target: typescript
+    source: my-source
+    codeSamples:
+      output: codeSamples.yaml
+```
+
+As amostras de código serão geradas na forma de um [OpenAPI overlay file](https://www.speakeasyapi.dev/openapi/overlays) que será usado no repositório de documentação do Mintlify.
+
+## Mudanças no Repositório de Documentação do Mintlify
+
+Os arquivos de fluxo de trabalho produzidos agruparão automaticamente sua especificação OpenAPI de origem e as amostras de código do Speakeasy em um único arquivo de saída, `openapi.yaml`. O Mintlify usará este arquivo de saída ao construir sua referência de API.
+
+### Configuração Interativa da CLI
+
+Execute os seguintes comandos para configurar os arquivos `.speakeasy/workflow.yaml` e `.github/workflows/sdk_generation.yaml` através da CLI interativa do Speakeasy.
+
+```bash
+speakeasy configure sources
+speakeasy configure github
+```
+
+Configure sua especificação de origem. A especificação de origem é a especificação OpenAPI para a qual as amostras de código serão geradas, e frequentemente é a mesma especificação usada para alimentar a documentação do Mintlify.
+
+![](/images/speakeasy-1.webp)
+
+Adicione a sobreposição criada pelo Speakeasy para injetar trechos de código em sua especificação.
+
+![](/images/speakeasy-2.webp)
+
+Forneça um nome e caminho para a especificação OpenAPI. Esta será a especificação final usada pelo Mintlify.
+
+![](/images/speakeasy-3.webp)
+
+Finalmente, adicione sua `SPEAKEASY_API_KEY` como um segredo do repositório ao seu repositório Mintlify em `Settings > Secrets & Variables > Actions`. Encontre a chave de API do Speakeasy no painel do Speakeasy na aba **API Keys**.
+
+## Configuração Manual
+
+Alternativamente, você pode configurar manualmente os seguintes arquivos em seu repositório de documentação do Mintlify.
+
+```yaml .speakeasy/workflow.yaml
+workflowVersion: 1.0.0
+sources:
+  docs-source:
+    inputs:
+      - location: {{your_api_spec}} # local or remote references supported
+    overlays:
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_1}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_2}}/codeSamples.yaml
+      - location: https://raw.githubusercontent.com/{{your_sdk_repo_3}}/codeSamples.yaml
+    output: openapi.yaml
+targets: {}
+```
+
+```yaml .speakeasy/workflows/sdk_generation.yaml
+name: Generate
+permissions:
+  checks: write
+  contents: write
+  pull-requests: write
+  statuses: write
+"on":
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Force generation of SDKs
+        type: boolean
+        default: false
+  schedule:
+    - cron: 0 0 * * *
+jobs:
+  generate:
+    uses: speakeasy-api/sdk-generation-action/.github/workflows/workflow-executor.yaml@v15
+    with:
+      force: ${{ github.event.inputs.force }}
+      mode: pr
+      speakeasy_version: latest
+    secrets:
+      github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      speakeasy_api_key: ${{ secrets.SPEAKEASY_API_KEY }}
+```
+
+Finalmente, certifique-se de adicionar sua `SPEAKEASY_API_KEY` como um segredo do repositório ao seu repositório Mintlify em `Settings > Secrets & Variables > Actions`. Encontre a chave de API do Speakeasy no painel do Speakeasy na aba **API Keys**.
