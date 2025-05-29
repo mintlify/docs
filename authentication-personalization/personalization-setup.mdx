@@ -1,85 +1,109 @@
 ---
 title: "Personalization Setup"
-description: "A list of features unlocked with Personalization"
-icon: "user-pen"
+description: "Let users log in for customized documentation experiences"
+icon: "user-cog"
 ---
 
-Personalization refers to a suite of features that allow you to customize your
-documentation experience based on some information about the user. There are
-three major features of Personalization:
+Personalization lets you customize your documentation based on user information. This guide covers setup for each available handshake method.
 
-- **Customize MDX content** with a user's information, such as their name, plan, or title.
+**Need help choosing?** See the [overview](/authentication-personalization/overview) to compare options.
 
-- **Prefill API keys** in the API Playground for streamlined use.
+## Configuring personalization
 
-- **Selectively show pages** in the navigation based on a user's groups.
+Select the handshake method that you want to configure.
 
-## How to Use
+<Tabs>
+  <Tab title="JWT">
+### Prerequisites
 
-### Customizing MDX Content
+* An login system that can generate and sign JWTs.
+* A backend service that can create redirect URLs.
 
-When writing content, you can use the `user` variable to access the information you have sent to your docs. Here's a simple example:
+### Implementation
 
-Hello, {user.name ?? 'reader'}!
+<Steps>
+  <Step title="Generate a private key.">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Personalization**.
+    3. Select **JWT**.
+    4. Enter the URL of your existing login flow and select **Save changes**.
+    5. Select **Generate new key**.
+    6. Store your key securely where it can be accessed by your backend.
+  </Step>
+  <Step title="Integrate Mintlify personalization into your login flow.">
+    Modify your existing login flow to include these steps after user login:
+    
+    * Create a JWT containing the logged in user's info in the `User` format. See [Sending Data](/authentication-personalization/sending-data) for more information.
+    * Sign the JWT with the secret key, using the ES256 algorithm.
+    * Create a redirect URL back to your docs, including the JWT as the hash.
+  </Step>
+</Steps>
 
-```jsx
-Hello, {user.name ?? 'reader'}!
-```
+### Example
 
-This feature becomes even more powerful when paired with custom data about the user. Here's a real world example that allows us to give specific instructions on how to access the Personalization feature based on the customer's existing plan:
+Your documentation is hosted at `docs.foo.com`. You want your docs to be separate from your dashboard (or you don't have a dashboard) and enable personalization.
 
-Personalization is an enterprise feature. {
-user.org === undefined
-? <>To access this feature, first create an account at the <a href="https://dashboard.mintlify.com/login">Mintlify dashboard</a>.</>
-: user.org.plan !== 'enterprise'
-? <>You are currently on the ${user.org.plan ?? 'free'} plan. To speak to our team about upgrading, <a href="mailto:sales@mintlify.com">contact our sales team</a>.</>
-: <>To request this feature for your enterprise org, <a href="mailto:sales@mintlify.com">contact our team</a>.</>
+Generate a JWT secret. Then create a login endpoint at `https://foo.com/docs-login` that initiates a login flow to your documentation.
+
+After verifying user credentials:
+* Generate a JWT with user data in Mintlify's format.
+* Sign the JWT and redirect to `https://docs.foo.com#{SIGNED_JWT}`.
+
+```ts
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'ES256');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'ES256' })
+    .setExpirationTime('10 s')
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com#${jwt}`);
 }
-
-```jsx
-Personalization is an enterprise feature. {
-  user.org === undefined
-    ? <>To access this feature, first create an account at the <a href="https://dashboard.mintlify.com/login">Mintlify dashboard</a>.</>
-    : user.org.plan !== 'enterprise'
-      ? <>You are currently on the ${user.org.plan ?? 'free'} plan. To speak to our team about upgrading, <a href="mailto:sales@mintlify.com">contact our sales team</a>.</>
-      : <>To request this feature for your enterprise org, <a href="mailto:sales@mintlify.com">contact our team</a>.</>
-}
 ```
 
-<Note>
-  The information in `user` is only available after a user has logged in. For
-  logged out users, the value of `user` will be `{}`. To prevent the page from
-  crashing for logged-out users, always use optional chaining on your `user`
-  fields, e.g. `{user.org?.plan}`
-</Note>
+### Preserving page anchors
 
-### Prefilling API Keys
+To redirect users to specific sections after login, use this URL format: `https://docs.foo.com/page#jwt={SIGNED_JWT}&anchor={ANCHOR}`.
 
-If you return API Playground inputs in the user info, they will automatically be prefilled in the API Playground. Make sure the name of the field in the user info is an exact match of the name in the API Playground.
+**Example**:
+- Original URL: `https://docs.foo.com/quickstart#step-one`
+- Redirect URL: `https://docs.foo.com/quickstart#jwt={SIGNED_JWT}&anchor=step-one`
 
-### Showing/Hiding Pages
+</Tab>
+<Tab title="OAuth 2.0">
+### Prerequisites
+- You have an existing OAuth server that supports the PKCE flow.
+    - You can create a new API endpoint that can be accessed by the returned OAuth access token.
+### Implementation
+  </Tab>
+<Tab title="Shared session">
+### Prerequisites
 
-By default, every page is visible to every user. If you want to restrict which pages are visible to your users, you can add a `groups` field in your page metadata.
-When determining which pages to show to the user, Mintlify will check which groups the user belongs to.
-If the user is not in any of the groups listed in the page metadata, the page will not be shown.
+- You have a dashboard or other user portal hosted at your domain.
+    - Your users' session credentials are stored as cookies.
+    - You can create a new API endpoint at the same origin or a subdomain of your dashboard.
+      - If your dashboard is at `foo.com`, the **API URL** must start with `foo.com` or `*.foo.com`
+      - If your dashboard is at `dash.foo.com`, the **API URL** must start with `dash.foo.com` or `*.dash.foo.com`
+    - Your docs are hosted at the same domain as your dashboard.
+      - If your dashboard is at `foo.com`, your **docs** must be hosted at `foo.com` or `*.foo.com`
+      - If your dashboard is at `*.foo.com`, your **docs** must be hosted at `foo.com` or `*.foo.com`
 
-```md
----
-title: "Managing Your Users"
-description: "Adding and removing users from your organization"
-groups: ["admin"]
----
-```
+### Implementation
+  </Tab>
+</Tabs>
 
-Here's a table that displays whether a page is shown for different combinations of `groups` in User and page metadata:
-
-|                                 | `groups` not in User | `groups: []` in User | `groups: ['admin']` in User |
-| :------------------------------ | :------------------: | :------------------: | :-------------------------: |
-| `groups` not in metadata        |          ✅          |          ✅          |             ✅              |
-| `groups: []` in metadata        |          ❌          |          ❌          |             ❌              |
-| `groups: ['admin']` in metadata |          ❌          |          ❌          |             ✅              |
-
-<Note>
-  Note that an empty array in the page metadata is interpreted as "No groups
-  should see this page."
-</Note>
