@@ -1,10 +1,12 @@
 ---
 title: "Sending Data"
-description: "The shape of user data you can use to personalize your docs"
+description: "User data format for personalizing your documentation"
 icon: "send"
 ---
 
-Depending on your Handshake method, your API will respond with either a raw JSON object or a signed JWT. The shape of the data is the same for both:
+When implementing authentication or personalization, your system returns user data in a specific format that enables content customization. This data can be sent as either a raw JSON object or within a signed JWT, depending on your handshake method. The shape of the data is the same for both.
+
+## User data format
 
 ```tsx
 type User = {
@@ -24,28 +26,81 @@ type User = {
   path="expiresAt"
   type="number"
 >
-  The time at which this information should expire, in **seconds since epoch**. If the user loads the page and the current time is after this value, the stored data will be deleted.
-  <Warning><b>For JWT Handshakes:</b> This is *not* the same as the `exp` claim of the JWT. The `exp` claim determines when a JWT should no longer be considered valid, and should be set as low as possible. In this case, it can probably be set to 10 seconds or lower. The `expiresAt` field determines when retrieved data should be considered stale, and can be anywhere from one day to several weeks.</Warning>
+  Session expiration time in **seconds since epoch**. If the user loads a page after this time, their stored data is automatically deleted and they must reauthenticate.
+  <Warning><b>For JWT handshakes:</b> This differs from the JWT's `exp` claim, which determines when a JWT is considered invalid. Set the JWT `exp` claim to a short duration (10 seconds or less) for security. Use `expiresAt` for the actual session length (hours to weeks).</Warning>
 </ParamField>
 <ParamField
   path="groups"
   type="string[]"
 >
-  A list of groups that the user belongs to. This will determine which pages should be shown to this user. If any of these groups is listed in the `groups` field of a page’s metadata, that page will be shown.
+  A list of groups that the user belongs to. Pages with a matching `groups` field in their metadata will be visible to this user.
+
+  **Example**: User with `groups: ["admin", "engineering"]` can access pages tagged with either the `admin` or `engineering` groups.
 </ParamField>
 <ParamField
   path="content"
   type="object"
 >
-  A bag of values that can be accessed from within MDX content using the `user` variable. For example, if you have supplied `{ firstName: 'Ronan' }` as your content field, you can use the following in your MDX: `Good morning, {user.firstName}!`
+  Custom data accessible in your `MDX` content via the `user` variable. Use this for dynamic personalization throughout your documentation.
+
+  **Example**:
+  ```JSON
+  { "firstName": "Ronan", "company": "Acme Corp", "plan": "Enterprise" }
+  ```
+
+  **Usage in `MDX`**:
+  ```MDX
+  Welcome back, {user.firstName}! Your {user.plan} plan includes...
+  ```
+  With the example `user` data, this would render as: Welcome back, Ronan! Your Enterprise plan includes...
 </ParamField>
 <ParamField
   path="apiPlaygroundInputs"
   type="object"
 >
-  User-specific values that will be prefilled in the API playground if supplied. For example, if each of my customers makes requests at a specific subdomain, I can send `{ server: { subdomain: 'foo' } }` as my `apiPlaygroundInputs` field, and this value will be prefilled on any API page with this `subdomain` value.
+  User-specific values that will be prefilled in the API playground if supplied. Save users time when testing your APIs with their own data.
 
-  <Note>The`header`, `query`, and `cookie` fields will only be prefilled if they are part of your [security scheme](https://swagger.io/docs/specification/authentication/). Creating a standard header parameter named `Authorization` is not sufficient to enable this feature. To know if a field will be prefilled, navigate to your existing docs and check if the field is in either the `Authorization` or `Server` section.</Note>
+  **Example**:
+  ```json
+  {
+  "header": { "X-API-Key": "user_api_key_123" },
+  "server": { "subdomain": "foo" },
+  "query": { "org_id": "12345" }
+  }
+  ```
+  If a user makes requests at a specific subdomain, you can send `{ server: { subdomain: 'foo' } }` as an `apiPlaygroundInputs` field. This value will be prefilled on any API page with the `subdomain` value.
+
+  <Note>The`header`, `query`, and `cookie` fields will only prefill if they are part of your [OpenAPI security scheme](https://swagger.io/docs/specification/authentication/). If a field is in either the `Authorization` or `Server` sections, it will prefill. Creating a standard header parameter named `Authorization` will not enable this feature.</Note>
 </ParamField>
 
-    
+## Example user data
+
+```json
+{
+  "expiresAt": 1735689600,
+  "groups": ["admin", "beta-users"],
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "company": "TechCorp",
+    "plan": "Enterprise",
+    "region": "us-west"
+  },
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer abc123",
+      "X-Org-ID": "techcorp"
+    },
+    "server": {
+      "environment": "production",
+      "region": "us-west"
+    }
+  }
+}
+```
+
+This enables:
+
+* **Access control**: User sees `admin` and `beta-user` pages.
+* **Personalization**: Content personalization based on `user` data like `firstName`, `company`, and `plan`.
+* **API testing**: Pre-filled authentication and org-specific values.
