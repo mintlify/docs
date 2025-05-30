@@ -1,0 +1,216 @@
+---
+title: "Personalization Setup"
+description: "Let users log in for customized documentation experiences"
+icon: "user-cog"
+---
+
+Personalization lets you customize your documentation based on user information. This guide covers setup for each available handshake method.
+
+**Need help choosing?** See the [overview](/authentication-personalization/overview) to compare options.
+
+## Configuring personalization
+
+Select the handshake method that you want to configure.
+
+<Tabs>
+  <Tab title="JWT">
+### Prerequisites
+
+* A login system that can generate and sign JWTs.
+* A backend service that can create redirect URLs.
+
+### Implementation
+
+<Steps>
+  <Step title="Generate a private key.">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Personalization**.
+    3. Select **JWT**.
+    4. Enter the URL of your existing login flow and select **Save changes**.
+    5. Select **Generate new key**.
+    6. Store your key securely where it can be accessed by your backend.
+  </Step>
+  <Step title="Integrate Mintlify personalization into your login flow.">
+    Modify your existing login flow to include these steps after user login:
+    
+    * Create a JWT containing the logged in user's info in the `User` format. See [Sending Data](/authentication-personalization/sending-data) for more information.
+    * Sign the JWT with the secret key, using the ES256 algorithm.
+    * Create a redirect URL back to your docs, including the JWT as the hash.
+  </Step>
+</Steps>
+
+### Example
+
+Your documentation is hosted at `docs.foo.com`. You want your docs to be separate from your dashboard (or you don't have a dashboard) and enable personalization.
+
+Generate a JWT secret. Then create a login endpoint at `https://foo.com/docs-login` that initiates a login flow to your documentation.
+
+After verifying user credentials:
+* Generate a JWT with user data in Mintlify's format.
+* Sign the JWT and redirect to `https://docs.foo.com#{SIGNED_JWT}`.
+
+```ts
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'ES256');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'ES256' })
+    .setExpirationTime('10 s')
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com#${jwt}`);
+}
+```
+
+### Preserving page anchors
+
+To redirect users to specific sections after login, use this URL format: `https://docs.foo.com/page#jwt={SIGNED_JWT}&anchor={ANCHOR}`.
+
+**Example**:
+* Original URL: `https://docs.foo.com/quickstart#step-one`
+* Redirect URL: `https://docs.foo.com/quickstart#jwt={SIGNED_JWT}&anchor=step-one`
+
+</Tab>
+<Tab title="OAuth 2.0">
+### Prerequisites
+* An OAuth server that supports the Auth Code with PKCE Flow.
+* Ability to create an API endpoint accessible by OAuth access tokens.
+
+### Implementation
+<Steps>
+  <Step title="Create user info API endpoint.">
+    Create an API endpoint that:
+    * Accepts OAuth access tokens for authentication.
+    * Returns user data in the `User` format. See [Sending Data](/authentication-personalization/sending-data) for more information.
+    * Defines the scopes for access.
+  </Step>
+  <Step title="Configure your OAuth personalization settings.">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Personalization**.
+    3. Select **OAuth** and configure these fields:
+      * **Authorization URL**: Your OAuth authorization endpoint.
+      * **Client ID**: Your OAuth 2.0 client identifier.
+      * **Scopes**: Permissions to request. Must match the scopes of the endpoint that you configured in the first step.
+      * **Token URL**: Your OAuth token exchange endpoint.
+      * **Info API URL**: Endpoint to retrieve user data for personalization. Created in the first step.
+    4. Select **Save changes**
+  </Step>
+  <Step title="Configure your OAuth server.">
+    1. Copy the **Redirect URL** from your [authentication settings](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Add this URL as an authorized redirect URL in your OAuth server configuration.
+  </Step>
+</Steps>
+
+### Example
+
+Your documentation is hosted at `foo.com/docs` and you have an existing OAuth server that supports the PKCE flow. You want to personalize your docs based on user data.
+
+**Create a user info endpoint** at `api.foo.com/docs/user-info`, which requires an OAuth access token with the `docs-user-info` scope and responds with the user's custom data:
+
+```json
+{
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Doe"
+  },
+  "groups": ["engineering", "admin"]
+}
+```
+
+**Configure your OAuth server details** in your dashboard:
+* **Authorization URL**: `https://auth.foo.com/authorization`
+* **Client ID**: `ydybo4SD8PR73vzWWd6S0ObH`
+* **Scopes**: `['docs-user-info']`
+* **Token URL**: `https://auth.foo.com/exchange`
+* **Info API URL**: `https://api.foo.com/docs/user-info`
+
+**Configure your OAuth server** to allow redirects to your callback URL.
+  </Tab>
+<Tab title="Shared session">
+### Prerequisites
+
+* A dashboard or user portal with cookie-based session authentication.
+* Ability to create an API endpoint at the same origin or subdomain as your dashboard.
+  * If your dashboard is at `foo.com`, the **API URL** must start with `foo.com` or `*.foo.com`.
+  * If your dashboard is at `dash.foo.com`, the **API URL** must start with `dash.foo.com` or `*.dash.foo.com`.
+* Your docs are hosted at the same domain or subdomain as your dashboard.
+  * If your dashboard is at `foo.com`, your **docs** must be hosted at `foo.com` or `*.foo.com`.
+  * If your dashboard is at `*.foo.com`, your **docs** must be hosted at `foo.com` or `*.foo.com`.
+
+### Implementation
+
+<Steps>
+  <Step title="Create user info API endpoint.">
+    Create an API endpoint that:
+    * Uses your existing session authentication to identify users
+    * Returns user data in the `User` format (see [Sending Data](/authentication-personalization/sending-data))
+    * If the API domain and the docs domain **do not exactly match**:
+      * Add the docs domain to your API's `Access-Control-Allow-Origin` header (must not be `*`).
+      * Set your API's `Access-Control-Allow-Credentials` header to `true`.
+    
+      <Warning>
+        Only enable CORS headers on this specific endpoint, not your entire dashboard API.
+      </Warning>
+  </Step>
+  <Step title="Configure your personalization settings">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Personalization**.
+    3. Select **Shared Session**.
+    4. Enter your **Info API URL**, which is the endpoint from the first step.
+    5. Enter your **Login URL**, where users log into your dashboard.
+    6. Select **Save changes**.
+  </Step>
+</Steps>
+
+### Examples
+
+#### Dashboard at subdomain, docs at subdomain
+
+You have a dashboard at `dash.foo.com`, which uses cookie-based session authentication. Your dashboard API routes are hosted at `dash.foo.com/api`. You want to set up personalization for your docs hosted at `docs.foo.com`.
+
+**Setup process**:
+1. **Create endpoint** `dash.foo.com/api/docs/user-info` that identifies users via session authentication and responds with their user data.
+2. **Add CORS headers** for this route only:
+   * `Access-Control-Allow-Origin`: `https://docs.foo.com`
+   * `Access-Control-Allow-Credentials`: `true`
+3. **Configure API URL** in authentication settings: `https://dash.foo.com/api/docs/user-info`.
+
+#### Dashboard at subdomain, docs at root
+
+You have a dashboard at `dash.foo.com`, which uses cookie-based session authentication. Your dashboard API routes are hosted at `dash.foo.com/api`. You want to set up personalization for your docs hosted at `foo.com/docs`.
+
+**Setup process**:
+1. **Create endpoint** `dash.foo.com/api/docs/user-info` that identifies users via session authentication and responds with their user data.
+2. **Add CORS headers** for this route only:
+   * `Access-Control-Allow-Origin`: `https://foo.com`
+   * `Access-Control-Allow-Credentials`: `true`
+3. **Configure API URL** in authentication settings: `https://dash.foo.com/api/docs/user-info`.
+
+#### Dashboard at root, docs at root
+
+You have a dashboard at `foo.com/dashboard`, which uses cookie-based session authentication. Your dashboard API routes are hosted at `foo.com/api`. You want to set up personalization for your docs hosted at `foo.com/docs`.
+
+**Setup process**:
+1. **Create endpoint** `foo.com/api/docs/user-info` that identifies users via session authentication and responds with their user data.
+2. **Configure API URL** in authentication settings: `https://foo.com/api/docs/user-info`
+
+<Note>
+No CORS configuration is needed since the dashboard and docs share the same domain.
+</Note>
+  </Tab>
+</Tabs>
+

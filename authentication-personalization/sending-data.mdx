@@ -1,0 +1,100 @@
+---
+title: "Sending Data"
+description: "User data format for personalizing your documentation"
+icon: "send"
+---
+
+When implementing authentication or personalization, your system returns user data in a specific format that enables content customization. This data can be sent as either a raw JSON object or within a signed JWT, depending on your handshake method. The shape of the data is the same for both.
+
+## User data format
+
+```tsx
+type User = {
+  expiresAt?: number;
+  groups?: string[];
+  content?: Record<string, any>;
+  apiPlaygroundInputs?: {
+    header?: Record<string, any>;
+    query?: Record<string, any>;
+    cookie?: Record<string, any>;
+    server?: Record<string, string>;
+  };
+};
+```
+
+<ParamField
+  path="expiresAt"
+  type="number"
+>
+  Session expiration time in **seconds since epoch**. If the user loads a page after this time, their stored data is automatically deleted and they must reauthenticate.
+  <Warning><b>For JWT handshakes:</b> This differs from the JWT's `exp` claim, which determines when a JWT is considered invalid. Set the JWT `exp` claim to a short duration (10 seconds or less) for security. Use `expiresAt` for the actual session length (hours to weeks).</Warning>
+</ParamField>
+<ParamField
+  path="groups"
+  type="string[]"
+>
+  A list of groups that the user belongs to. Pages with a matching `groups` field in their metadata will be visible to this user.
+
+  **Example**: User with `groups: ["admin", "engineering"]` can access pages tagged with either the `admin` or `engineering` groups.
+</ParamField>
+<ParamField
+  path="content"
+  type="object"
+>
+  Custom data accessible in your `MDX` content via the `user` variable. Use this for dynamic personalization throughout your documentation.
+
+  **Example**:
+  ```json
+  { "firstName": "Ronan", "company": "Acme Corp", "plan": "Enterprise" }
+  ```
+
+  **Usage in `MDX`**:
+  ```mdx
+  Welcome back, {user.firstName}! Your {user.plan} plan includes...
+  ```
+  With the example `user` data, this would render as: Welcome back, Ronan! Your Enterprise plan includes...
+</ParamField>
+<ParamField
+  path="apiPlaygroundInputs"
+  type="object"
+>
+  User-specific values that will be prefilled in the API playground if supplied. Save users time when testing your APIs with their own data.
+
+  **Example**:
+  ```json
+  {
+  "header": { "X-API-Key": "user_api_key_123" },
+  "server": { "subdomain": "foo" },
+  "query": { "org_id": "12345" }
+  }
+  ```
+  If a user makes requests at a specific subdomain, you can send `{ server: { subdomain: 'foo' } }` as an `apiPlaygroundInputs` field. This value will be prefilled on any API page with the `subdomain` value.
+
+  <Note>The `header`, `query`, and `cookie` fields will only prefill if they are part of your [OpenAPI security scheme](https://swagger.io/docs/specification/authentication/). If a field is in either the `Authorization` or `Server` sections, it will prefill. Creating a standard header parameter named `Authorization` will not enable this feature.</Note>
+</ParamField>
+
+## Example user data
+
+```json
+{
+  "expiresAt": 1735689600,
+  "groups": ["admin", "beta-users"],
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "company": "TechCorp",
+    "plan": "Enterprise",
+    "region": "us-west"
+  },
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer abc123",
+      "X-Org-ID": "techcorp"
+    },
+    "server": {
+      "environment": "production",
+      "region": "us-west"
+    }
+  }
+}
+```
