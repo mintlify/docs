@@ -5,137 +5,146 @@ description: "Host documentation at a /docs subpath using Cloudflare Workers"
 
 ## Create Cloudflare Worker
 
-Navigate to the `Workers & Pages > Create application > Create worker`. You
-should be presented with the following screen where you can create a new
-Cloudflare worker.
+1. In Cloudflare, navigate to the **Create an application** page in the **Workers & Pages** settings.
+2. Select **Create worker**.
 
 <Frame>
-  <img alt="Create a Cloudflare worker" src="/images/cloudflare/worker.png" />
+<img alt="The Cloudflare Workers & Pages settings page with the Create Worker button emphasized." src="/images/cloudflare/worker.png" />
 </Frame>
 
-<Warning>
-    Keep in mind: If your DNS provider is Cloudflare you should not use proxying for the CNAME record.
-</Warning>
-
-### Add custom domain
-
-Once the worker is created, click `Configure worker`. Navigate to the worker
-`Settings > Triggers`. Click on `Add Custom Domain` to add your desired domain
-into the list - we recommend you add both the version with and without `www.`
-prepended to the domain.
+## Add custom domain
+  
+1. Select **Configure Worker**.
+2. Navigate to **Triggers** section of the Settings tab.
+3. Select **Add Custom Domain**.
+4. Add your domain to the list. We recommend that you add your domain both with and without `www.` prepended.
 
 <Frame>
   <img
-    alt="Cloudflare worker custom domain"
+    alt="The Cloudflare Triggers settings page with Add Custom Domain emphasized."
     src="/images/cloudflare/custom-domain.png"
   />
 </Frame>
 
-If you have trouble setting up a custom subdirectory,
-[contact our support team](https://mintlify.com/docs/support) and we'll walk you through
-upgrading your hosting with us.
+<Warning>
+  If your DNS provider is Cloudflare, you should not use proxying for the CNAME record.
+</Warning>
 
-### Edit Worker Script
+## Configure routing
 
-Click on `Edit Code` and add the following script into the worker's code.
+Choose a setup option based on whether you are hosting other content at your root domain:
 
-<Frame>
-  <img alt="Cloudflare edit code" src="/images/cloudflare/edit-code.png" />
-</Frame>
+* **Docs-only**: Serve documentation at `/docs` with no other content at your domain.
+* **Multiple origins**: Serve documentation at `/docs` while hosting your main site at the root domain.
 
-<Tip>
-  Edit `DOCS_URL` by replacing `[SUBDOMAIN]` with your unique subdomain and
-  `CUSTOM_URL` with your website's base URL.
-</Tip>
+### Docs-only setup
 
-```javascript
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
-});
+1. Select `Edit Code` and add the following script into the Worker's code.
 
-async function handleRequest(request) {
-  try {
-    const urlObject = new URL(request.url);
-    // If the request is to the docs subdirectory
-    if (/^\/docs/.test(urlObject.pathname)) {
-      // Then Proxy to Mintlify
-      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
-      const CUSTOM_URL = "[YOUR_DOMAIN]";
+  <Frame>
+    <img alt="Edit Code button emphasized in the Cloudflare user interface." src="/images/cloudflare/edit-code.png" />
+  </Frame>
 
-      let url = new URL(request.url);
-      url.hostname = DOCS_URL;
+  <Tip>
+    Replace `[SUBDOMAIN]` with your unique subdomain and `[YOUR_DOMAIN]` with your website's base URL.
+  </Tip>
 
-      let proxyRequest = new Request(url, request);
+  ```javascript
+  addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event.request));
+  });
 
-      proxyRequest.headers.set("Host", DOCS_URL);
-      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
-      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+  async function handleRequest(request) {
+    try {
+      const urlObject = new URL(request.url);
+      // If the request is to the docs subdirectory
+      if (/^\/docs/.test(urlObject.pathname)) {
+        // Then Proxy to Mintlify
+        const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+        const CUSTOM_URL = "[YOUR_DOMAIN]";
 
-      return await fetch(proxyRequest);
+        let url = new URL(request.url);
+        url.hostname = DOCS_URL;
+
+        let proxyRequest = new Request(url, request);
+
+        proxyRequest.headers.set("Host", DOCS_URL);
+        proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+        proxyRequest.headers.set("X-Forwarded-Proto", "https");
+
+        return await fetch(proxyRequest);
+      }
+    } catch (error) {
+      // If no action found, serve the regular request
+      return await fetch(request);
     }
-  } catch (error) {
-    // If no action found, play the regular request
-    return await fetch(request);
   }
-}
-```
+  ```
+2. Select `Deploy` and wait for the changes to propagate, which can take up to a few hours.
 
-Click on `Deploy` and wait for the changes to propagate (it can take up to a few
-hours).
+### Multiple origins setup
 
-### Routing multiple origins
+If you use a website builder, like Webflow or Squarespace, or another hosting provider for your main site, configure multiple origins to also host your docs at a `/docs` subdirectory. This setup requires a staging environment because the Worker will proxy all non-docs traffic to your main site.
 
-If you're using a website builder, like Webflow or Squarespace, or another hosting provider for your main site and want to host your docs at a `/docs` subdirectory:
-1. Set up a staging domain for your main site like `staging.yoursite.com`.
-2. Update any absolute URLs in your main site to be relative.
-3. Use the enhanced worker script below that routes between both origins.
+1. With your hosting provider, set up a staging domain for your main site like `staging.yoursite.com`.
+2. Deploy your main  to the staging domain. This ensures that your main site remains accessible while you configure the Worker.
+3. Update any absolute URLs in your main site to be relative to avoid conflicts.
+4. In Cloudflare, select **Edit Code** and add the following script into the Worker's code.
+  <Frame>
+    <img alt="Edit Code button emphasized in the Cloudflare user interface." src="/images/cloudflare/edit-code.png" />
+  </Frame>
 
+  <Tip>
+      Replace `[SUBDOMAIN]` with your unique subdomain, `[YOUR_DOMAIN]` with your website's base URL, and `[STAGING_DOMAIN]` with your staging domain URL.
+  </Tip>
+
+  ```javascript
+  addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event.request));
+  });
+
+  async function handleRequest(request) {
+    try {
+      const urlObject = new URL(request.url);
+      
+      // If the request is to the docs subdirectory
+      if (/^\/docs/.test(urlObject.pathname)) {
+        // Proxy to Mintlify
+        const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+        const CUSTOM_URL = "[YOUR_DOMAIN]";
+
+        let url = new URL(request.url);
+        url.hostname = DOCS_URL;
+        
+        let proxyRequest = new Request(url, request);
+        
+        proxyRequest.headers.set("Host", DOCS_URL);
+        proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+        proxyRequest.headers.set("X-Forwarded-Proto", "https");
+        
+        return await fetch(proxyRequest);
+      }
+      
+      // Route everything else to main site
+      const MAIN_SITE_URL = "[STAGING_DOMAIN]";
+      if (MAIN_SITE_URL && MAIN_SITE_URL !== "[STAGING_DOMAIN]") {
+        let mainSiteUrl = new URL(request.url);
+        mainSiteUrl.hostname = MAIN_SITE_URL;
+        
+        return await fetch(mainSiteUrl, {
+          method: request.method,
+          headers: request.headers,
+          body: request.body
+        });
+      }
+      
+    } catch (error) {
+      // If no action found, serve the regular request
+      return await fetch(request);
+    }
+  }
+  ```
+4. Select `Deploy` and wait for the changes to propagate, which can take up to a few hours.
 <Warning>
 Make sure your main site is set up on a staging domain before deploying this worker, or visitors to your main site will see errors.
 </Warning>
-
-```javascript
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
-});
-
-async function handleRequest(request) {
-  try {
-    const urlObject = new URL(request.url);
-    
-    // If the request is to the docs subdirectory
-    if (/^\/docs/.test(urlObject.pathname)) {
-      // Proxy to Mintlify
-      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
-      const CUSTOM_URL = "[YOUR_DOMAIN]";
-
-      let url = new URL(request.url);
-      url.hostname = DOCS_URL;
-      
-      let proxyRequest = new Request(url, request);
-      
-      proxyRequest.headers.set("Host", DOCS_URL);
-      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
-      proxyRequest.headers.set("X-Forwarded-Proto", "https");
-      
-      return await fetch(proxyRequest);
-    }
-    
-    // For multiple origins: route everything else to main site
-    const MAIN_SITE_URL = "[STAGING_DOMAIN]"; // example: staging.yoursite.com
-    if (MAIN_SITE_URL && MAIN_SITE_URL !== "[STAGING_DOMAIN]") {
-      let mainSiteUrl = new URL(request.url);
-      mainSiteUrl.hostname = MAIN_SITE_URL;
-      
-      return await fetch(mainSiteUrl, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body
-      });
-    }
-    
-  } catch (error) {
-    // If no action found, play the regular request
-    return await fetch(request);
-  }
-}
