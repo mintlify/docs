@@ -1,8 +1,8 @@
 ## Documentation changes
 
-<!-- Brief description of what's being updated -->
+{/* Brief description of what's being updated */}
 
-Closes <!-- Linear ticket or GitHub issue -->
+Closes {/* Linear ticket or GitHub issue */}
 
 ---
 
