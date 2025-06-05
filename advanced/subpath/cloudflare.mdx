@@ -82,3 +82,56 @@ async function handleRequest(request) {
 
 Click on `Deploy` and wait for the changes to propagate (it can take up to a few
 hours).
+
+## Webflow custom routing
+If you use Webflow to host your main site and want to serve Mintlify docs at `/docs` on the same domain, you'll need to configure custom routing through Cloudflare Workers to proxy all non-docs traffic to your main site.
+
+<Warning>
+  Make sure your main site is set up on a staging domain before deploying this Worker, or visitors to your main site will see errors.
+</Warning>
+
+1. In Webflow, set up a staging domain for your main site like `staging.yoursite.com`.
+2. Deploy your main site to the staging domain. This ensures that your main site remains accessible while you configure the Worker.
+3. To avoid conflicts, update any absolute URLs in your main site to be relative.
+4. In Cloudflare, select **Edit Code** and add the following script into your Worker's code.
+
+  <Tip> Replace `[SUBDOMAIN]` with your unique subdomain, `[YOUR_DOMAIN]` with your website's base URL, and `[STAGING_DOMAIN]` with your staging domain URL. </Tip>
+
+  ```javascript
+  addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+  });
+  async function handleRequest(request) {
+  try {
+    const urlObject = new URL(request.url);
+    // If the request is to the docs subdirectory
+    if (/^\/docs/.test(urlObject.pathname)) {
+      // Proxy to Mintlify
+      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+      const CUSTOM_URL = "[YOUR_DOMAIN]";
+      let url = new URL(request.url);
+      url.hostname = DOCS_URL;
+      let proxyRequest = new Request(url, request);
+      proxyRequest.headers.set("Host", DOCS_URL);
+      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+      return await fetch(proxyRequest);
+    }
+    // Route everything else to main site
+    const MAIN_SITE_URL = "[STAGING_DOMAIN]";
+    if (MAIN_SITE_URL && MAIN_SITE_URL !== "[STAGING_DOMAIN]") {
+      let mainSiteUrl = new URL(request.url);
+      mainSiteUrl.hostname = MAIN_SITE_URL;
+      return await fetch(mainSiteUrl, {
+        method: request.method,
+        headers: request.headers,
+        body: request.body
+      });
+    }
+  } catch (error) {
+    // If no action found, serve the regular request
+    return await fetch(request);
+  }
+  }
+  ```
+5. Select Deploy and wait for the changes to propagate, which can take up to a few hours.
