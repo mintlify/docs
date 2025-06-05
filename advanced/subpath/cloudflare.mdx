@@ -34,27 +34,33 @@ In your Cloudflare dashboard, select **Edit Code** and add the following script 
 </Tip>
 
 ```javascript
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    
-    // Route /docs traffic to Mintlify
-    if (url.pathname.startsWith('/docs')) {
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  try {
+    const urlObject = new URL(request.url);
+    // If the request is to the docs subdirectory
+    if (/^\/docs/.test(urlObject.pathname)) {
+      // Then Proxy to Mintlify
       const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
       const CUSTOM_URL = "[YOUR_DOMAIN]";
-      
+
+      let url = new URL(request.url);
       url.hostname = DOCS_URL;
-      
-      const proxyRequest = new Request(url, request);
+
+      let proxyRequest = new Request(url, request);
+
       proxyRequest.headers.set("Host", DOCS_URL);
       proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
-      
-      return fetch(proxyRequest);
+      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+
+      return await fetch(proxyRequest);
     }
-    
-    // Route all other traffic to your main site
-    // Replace with your main site's URL
-    return fetch(`https://your-main-site.com${url.pathname}${url.search}`);
+  } catch (error) {
+    // if no action found, play the regular request
+    return await fetch(request);
   }
 }
 ```
