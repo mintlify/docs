@@ -1,53 +1,41 @@
-# Documentation project context
+# Mintlify documentation
 
-## Project overview
-This is a Mintlify documentation site built with MDX files and configured
-via docs.json. The site follows Mintlify's documentation framework with
-structured navigation, components, and theming.
+## Project context
+- Official documentation site for Mintlify platform
+- Format: MDX files with YAML frontmatter
+- Config: docs.json for navigation, theme, settings
+- Images: /images/ directory with light/dark variants
 
-## File structure and conventions
-- **Main config**: `docs.json` - contains navigation, theme settings, and
-site configuration
-- **Content**: All documentation is in `.mdx` files with frontmatter
-- **Structure**: Organized in folders matching the navigation structure
-- **Images**: Stored in `/images/` directory with light/dark variants
-- **Components**: Reusable components documented in `/components/` folder
+## Content strategy
+- Use MCP search before writing new content
+- Check existing patterns for consistency
+- Cross-link to related information when it helps users accomplish tasks
+- Maintain examples that work for all Mintlify users
 
-## Documentation standards
-- Use MDX format with YAML frontmatter containing: title, description,
-icon
-- Follow existing navigation structure defined in docs.json
-- Use Mintlify components: `<Info>`, `<Warning>`, `<Tip>`, `<Note>`,
-`<Check>`, `<Danger>`
-- Include light/dark mode image variants when applicable
-- Use `<Frame>` component for image containers
-- Code blocks should specify language for syntax highlighting
+## Frontmatter requirements
+- title: Clear, descriptive page title
+- description: Concise summary for SEO/navigation
+- icon: Appropriate icon matching content type
 
-## Writing style
-- Clear, concise technical writing
-- Step-by-step guides with numbered lists
-- Use callouts for important information
-- Include prerequisites sections where needed
-- Provide code examples and configuration snippets
+## Writing standards
+- Second-person voice ("you")
+- Prerequisites at start of procedural content
+- Test all code examples
+- Include both basic and advanced use cases
+- Add troubleshooting for complex features
 
-## Common components
-- `<Info>`, `<Warning>`, `<Tip>`, `<Note>`, `<Check>`, `<Danger>` for
-callouts
-- `<Frame>` for image containers
-- `<RequestExample>` for code examples
-- Custom React components (like HeroCard in index.mdx)
+## Components (quick reference)
+- Callouts: `<Info>`, `<Warning>`, `<Tip>`, `<Note>`, `<Check>`, `<Danger>`
+- Layout: `<Frame>`, `<CodeGroup>`, `<Steps>`, `<Tabs>`
 
-## Key areas
-- Getting started guides (quickstart, installation)
-- API documentation and playground setup
-- Component documentation
-- Integration guides
-- Settings and configuration
-- Authentication and personalization
+## File standards
+- Language tags on all code blocks
+- Alt text on all images
+- Relative paths for internal links
+- Light/dark image variants where applicable
 
-## When editing existing files
-- Maintain consistent frontmatter structure
-- Follow existing component usage patterns
-- Keep navigation structure aligned with docs.json
-- Use appropriate callout types for different message types
-- Include relevant icons in frontmatter
+## Do Not
+- Skip frontmatter on any MDX file
+- Use absolute URLs for internal links
+- Include untested code examples
+- Break backward compatibility without migration notes
