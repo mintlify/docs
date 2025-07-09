@@ -31,6 +31,8 @@
 - Language tags on all code blocks
 - Alt text on all images
 - Relative paths for internal links
+- Use broadly applicable examples rather than overly specific business cases
+- Lead with context when helpful - explain what something is before diving into implementation details
 
 ## Git workflow
 - NEVER use --no-verify when committing
