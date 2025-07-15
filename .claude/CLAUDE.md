@@ -34,6 +34,41 @@
 - Use broadly applicable examples rather than overly specific business cases
 - Lead with context when helpful - explain what something is before diving into implementation details
 
+### Style preferences (learned from content refresh project)
+#### Headings and formatting
+- Use sentence case for all headings ("Getting started", not "Getting Started")
+- Use "Properties" instead of "Props" for component documentation
+- Use sentence case for code block titles ("Expandable example", not "Expandable Example")
+
+#### Component introductions
+- Start with action-oriented language: "Use [component] to..." rather than "The [component] component..."
+- Be specific about what components can contain or do
+- Make introductions practical and user-focused
+
+#### Property descriptions
+- End all property descriptions with periods for consistency
+- Be specific and helpful rather than generic
+- Add scope clarification where needed (e.g., "For Font Awesome icons only:")
+- Use proper technical terminology ("boolean" not "bool")
+
+#### Language and tone
+- Prefer active voice and direct language
+- Remove unnecessary words while maintaining clarity
+- Use "you complete" over "completing" for more direct communication
+- Break complex instructions into clear numbered steps
+- Make language more precise and contextual
+
+#### Code examples
+- Keep examples simple and practical
+- Use consistent formatting and naming
+- Provide clear, actionable examples rather than showing multiple options when one will do
+
+#### Content organization
+- Structure content in the order users need it
+- Combine related information to reduce redundancy
+- Use specific links (direct to relevant pages rather than generic dashboards)
+- Put most commonly needed information first
+
 ## Git workflow
 - NEVER use --no-verify when committing
 - Ask how to handle uncommitted changes before starting
