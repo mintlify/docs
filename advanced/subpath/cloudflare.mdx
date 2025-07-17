@@ -19,6 +19,25 @@ Create a Cloudflare Worker by following the [Cloudflare Workers getting started 
   If your DNS provider is Cloudflare, do not use proxying for the CNAME record.
 </Warning>
 
+### Vercel compatibility considerations
+
+When using Cloudflare as a proxy with Vercel deployments, you must ensure proper configuration to avoid conflicts with Vercel's domain verification and SSL certificate provisioning.
+
+Improper proxy configuration can prevent Vercel from provisioning Let's Encrypt SSL certificates and cause domain verification failures.
+
+#### Required path allowlist
+
+Your Cloudflare Worker must allow traffic to these specific paths without blocking or redirecting:
+
+- `/.well-known/acme-challenge/*` - Required for Let's Encrypt certificate verification
+- `/.well-known/vercel/*` - Required for Vercel domain verification
+
+While Cloudflare automatically handles many verification rules, creating additional custom rules may inadvertently block this critical traffic.
+
+#### Header forwarding requirements
+
+Ensure that the `HOST` header is correctly forwarded in your Worker configuration. Failure to properly forward headers will cause verification requests to fail.
+
 ### Configure routing
 
 In your Cloudflare dashboard, select **Edit Code** and add the following script into your Worker's code. See the [Cloudflare documentation](https://developers.cloudflare.com/workers-ai/get-started/dashboard/#development) for more information on editing a Worker.
@@ -35,6 +54,12 @@ addEventListener("fetch", (event) => {
 async function handleRequest(request) {
   try {
     const urlObject = new URL(request.url);
+    
+    // If the request is to a Vercel verification path, allow it to pass through
+    if (urlObject.pathname.startsWith('/.well-known/')) {
+      return await fetch(request);
+    }
+    
     // If the request is to the docs subdirectory
     if (/^\/docs/.test(urlObject.pathname)) {
       // Then Proxy to Mintlify
@@ -49,11 +74,13 @@ async function handleRequest(request) {
       proxyRequest.headers.set("Host", DOCS_URL);
       proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
       proxyRequest.headers.set("X-Forwarded-Proto", "https");
+      // If deploying to Vercel, preserve client IP
+      proxyRequest.headers.set("CF-Connecting-IP", request.headers.get("CF-Connecting-IP"));
 
       return await fetch(proxyRequest);
     }
   } catch (error) {
-    // if no action found, play the regular request
+    // If no action found, play the regular request
     return await fetch(request);
   }
 }
@@ -110,6 +137,12 @@ If you use Webflow to host your main site and want to serve Mintlify docs at `/d
   async function handleRequest(request) {
   try {
     const urlObject = new URL(request.url);
+    
+    // If the request is to a Vercel verification path, allow it to pass through
+    if (urlObject.pathname.startsWith('/.well-known/')) {
+      return await fetch(request);
+    }
+    
     // If the request is to the docs subdirectory
     if (/^\/docs/.test(urlObject.pathname)) {
       // Proxy to Mintlify
@@ -121,6 +154,8 @@ If you use Webflow to host your main site and want to serve Mintlify docs at `/d
       proxyRequest.headers.set("Host", DOCS_URL);
       proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
       proxyRequest.headers.set("X-Forwarded-Proto", "https");
+      // If deploying to Vercel, preserve client IP
+      proxyRequest.headers.set("CF-Connecting-IP", request.headers.get("CF-Connecting-IP"));
       return await fetch(proxyRequest);
     }
     // Route everything else to main site
