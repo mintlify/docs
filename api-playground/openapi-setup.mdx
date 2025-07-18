@@ -93,9 +93,115 @@ If different endpoints within your API require different methods of authenticati
 
 For more information on defining and applying authentication, see [Authentication](https://swagger.io/docs/specification/authentication/) in the OpenAPI documentation.
 
+## `x-mint` extension
+
+The `x-mint` extension is a custom OpenAPI extension that provides additional control over how your API documentation is generated and displayed.
+
+### Metadata
+
+Override the default metadata for generated API pages by adding `x-mint: metadata` to any operation:
+
+```json {7-13}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "description": "Retrieve a list of users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "description": "Fetch paginated user data with filtering options",
+            "og:title": "Display a list of users",
+          }
+        },
+        "parameters": [
+          {
+            // Parameter configuration
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+TODO: what metadata fields are supported?
+
+The `metadata` extension supports:
+- `title`: Override the page title (defaults to operation summary)
+- `description`: Override the page description (defaults to operation description)  
+- `og:title`: Override the Open Graph title (defaults to operation summary)
+- `og:description`: Override the Open Graph description (defaults to operation description)
+
+### Content
+
+Add content before the auto-generated API documentation using `x-mint: content`:
+
+```json {6-13}
+{
+  "paths": {
+    "/users": {
+      "post": {
+        "summary": "Create user",
+        "x-mint": {
+          "content": "## Prerequisites
+          This endpoint requires admin privileges and has rate limiting.
+          
+          <Note>
+            User emails must be unique across the system.
+          </Note>"
+        },
+        "parameters": [
+          {
+            // Parameter configuration
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+The `content` extension supports all Mintlify MDX components and formatting.
+
+### href
+
+Redirect an operation to an external URL or existing documentation page using `x-mint: href`:
+
+```json {14-16}
+{
+  "paths": {
+    "/legacy-endpoint": {
+      "get": {
+        "summary": "Legacy endpoint",
+        "x-mint": {
+          "href": "https://legacy-docs.example.com/api/legacy"
+        }
+      }
+    },
+    "/documented-elsewhere": {
+      "post": {
+        "summary": "Special endpoint",
+        "x-mint": {
+          "href": "/custom-guides/special-endpoint-guide"
+        }
+      }
+    }
+  }
+}
+```
+
+When `x-mint: href` is present, the navigation entry will link directly to the specified URL instead of generating an API page.
+
 ## Auto-populate API pages
 
 You can add an `openapi` field to any navigation element in your `docs.json` to auto-populate your docs with a page for each specified endpoint. The `openapi` field can contain the path to an OpenAPI document in your docs repo or the URL of a hosted OpenAPI document.
+
+There are two main approaches for adding endpoint pages into your documentation:
+
+1. **Group-based**: Apply OpenAPI specs at the group level for dedicated API sections.
+2. **Manually-configured**: Set a default OpenAPI spec and selectively include endpoints throughout your navigation.
 
 The metadata for the generated pages will have the following default values:
 
@@ -108,7 +214,11 @@ The metadata for the generated pages will have the following default values:
   If you have some endpoints in your OpenAPI schema that you want to exclude from your auto-populated API pages, add the [x-hidden](/api-playground/customization/managing-page-visibility#x-hidden) property to the endpoint.
 </Tip>
 
-### Example with navigation tabs
+### Group-based API pages
+
+Use group-based configuration when you want to dedicate entire sections to auto-generated API documentation.
+
+#### Example with navigation tabs
 
 ```json {5}
 "navigation": {
@@ -121,7 +231,7 @@ The metadata for the generated pages will have the following default values:
 }
 ```
 
-### Example with navigation groups
+#### Example with navigation groups
 
 ```json {8-11}
 "navigation": {
@@ -146,9 +256,93 @@ The metadata for the generated pages will have the following default values:
   The directory field is optional. If not specified, the files will be placed in the `api-reference` directory of the docs repo.
 </Note>
 
+### Manually-configured API pages
+
+Use manually-configured API pages when you want more control over which endpoints appear where in your documentation. This approach allows you to mix API endpoints with other documentation pages.
+
+#### Set a default OpenAPI spec
+
+Configure a default OpenAPI specification at the navigation level to enable automatic endpoint inclusion throughout your documentation:
+
+```json {3, 13-14}
+{
+  "navigation": {
+    "openapi": "/path/to/openapi.json",
+    "tabs": [
+      {
+        "tab": "Getting started",
+        "pages": ["quickstart", "installation"]
+      },
+      {
+        "tab": "API reference",
+        "pages": [
+          "api-overview",
+          "GET /users",
+          "POST /users",
+          "guides/authentication"
+        ]
+      }
+    ]
+  }
+}
+```
+
+When a default OpenAPI spec is set, any navigation entry that matches an OpenAPI operation (using the format `METHOD /path`) will automatically generate an API page for that endpoint.
+
+#### OpenAPI spec inheritance
+
+OpenAPI specifications are inherited through the navigation hierarchy. Child navigation elements automatically use their parent's OpenAPI spec unless they specify their own:
+
+```json {6, 8-9, 14, 16-17}
+{
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "API v1",
+        "openapi": "/specs/v1.json",
+        "pages": [
+          "GET /users",
+          "POST /users"
+        ]
+      },
+      {
+        "tab": "API v2", 
+        "openapi": "/specs/v2.json",
+        "pages": [
+          "GET /users",
+          "DELETE /users"
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### Mixed navigation
+
+Combine API endpoints with other pages to create your desired navigation structure:
+
+```json
+{
+  "navigation": {
+    "openapi": "/path/to/openapi.json",
+    "pages": [
+      "introduction",
+      "GET /health",
+      "quickstart", 
+      "POST /users",
+      "GET /users/{id}",
+      "advanced-features"
+    ]
+  }
+}
+```
+
 ## Create `MDX` files for API pages
 
-If you want to customize the page metadata, add additional content, omit certain OpenAPI operations, or reorder OpenAPI pages in your navigation, you can create `MDX` pages for each operation. See an [example MDX OpenAPI page from MindsDB](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx?plain=1) and how it appears in their [live documentation](https://docs.mindsdb.com/rest/databases/create-databases).
+For control over individual endpoint pages, you can also create `MDX` pages for each operation. This lets you customize page metadata, add content, omit certain operations, or reorder pages in your navigation at the page level.
+
+See an [example MDX OpenAPI page from MindsDB](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx?plain=1) and how it appears in their [live documentation](https://docs.mindsdb.com/rest/databases/create-databases).
 
 ### Manually specify files
 
