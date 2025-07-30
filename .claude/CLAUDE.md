@@ -9,6 +9,7 @@
 ## Project context
 - Format: MDX files with YAML frontmatter
 - Config: docs.json for navigation, theme, settings
+  - See the docs.json schema: https://mintlify.com/docs.json
 - Components: Mintlify components
 
 ## Content strategy
