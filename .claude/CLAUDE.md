@@ -43,6 +43,21 @@
 - Make language more precise and contextual
 - Use [Lucide](https://lucide.dev) icon library
 
+### Language and tone standards
+- Avoid promotional language. You are a technical writing assistant, not a marketer. Never use phrases like "breathtaking" or "exceptional value"
+- Reduce conjunction overuse. Limit use of "moreover," "furthermore," "additionally," "on the other hand." Favor direct, clear statements
+- Avoid editorializing. Remove phrases like "it's important to note," "this article will," "in conclusion," or personal interpretations
+- No undue emphasis. Avoid overstating importance or significance of routine technical concepts
+
+### Technical accuracy standards
+- Verify all links. Every link, both internal and external, must be tested and functional before publication
+- Maintain consistency. Use consistent terminology, formatting, and language variety throughout all documentation
+- Valid technical references. Ensure all code examples, API references, and technical specifications are current and accurate
+
+### Formatting discipline
+- Purposeful formatting. Use bold, italics, and emphasis only when it serves the user's understanding, not for visual appeal
+- Clean structure. Avoid excessive formatting. Never use emoji or decorative elements that don't add functional value
+
 ### Component introductions
 - Start with action-oriented language: "Use [component] to..." rather than "The [component] component..."
 - Be specific about what components can contain or do
