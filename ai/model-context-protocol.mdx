@@ -28,13 +28,13 @@ For example, Mintlify's MCP server is available at `https://mintlify.com/docs/mc
 
 All MCP servers include the `search` tool by default, allowing users to query information from your docs in other tools.
 
-If you have an OpenAPI specification, you can expose specific endpoints as MCP tools by using the `mcp` object within the `x-mint` extension at either the file or endpoint level.
+If you have an OpenAPI specification, you can expose specific endpoints as MCP tools by using the `mcp` object within the `x-mint` extension at either the file or endpoint level. For example, the Mintlify MCP server includes tools to create assistant chats, get status updates, and trigger updates.
 
-For example, the Mintlify MCP server includes tools to get status updates, trigger updates, and create assistant chats.
+MCP servers follow a security-first approach where API endpoints are not exposed by default. You must explicitly enable endpoints to make them available as MCP tools. Only expose endpoints that are safe for public access through AI tools.
 
 ### File-level configuration
 
-Enable MCP for all endpoints in an OpenAPI specification file:
+Enable MCP for all endpoints by default in an OpenAPI specification file and selectively exclude endpoints:
 
 ```json
 {
@@ -44,24 +44,44 @@ Enable MCP for all endpoints in an OpenAPI specification file:
       "enabled": true
     }
   },
-  // Other OpenAPI content
+  // ...
+  "paths": {
+    "/api/v1/users": {
+      "get": {
+        "x-mint": {
+          "mcp": {
+            "enabled": false // Disables MCP for this endpoint
+          }
+        },
+        // ...
+      }
+    }
+  }
 }
 ```
 
 ### Endpoint-level configuration
 
-Enable MCP for specific endpoints only:
+Enable MCP for specific endpoints:
 
 ```json
 {
   "paths": {
     "/api/v1/users": {
-      "x-mint": {
-        "mcp": {
-          "enabled": true
+      "get": {
+        "x-mint": {
+          "mcp": {
+            "enabled": true
+          },
+          // ...
         }
-      },
-      // Endpoint configuration
+      }
+    },
+    "/api/v1/delete": {
+      "delete": {
+        // No `x-mint: mcp` so this endpoint is not exposed as an MCP tool
+        // ...
+      }
     }
   }
 }
@@ -127,9 +147,36 @@ See [Installing MCP servers](https://docs.cursor.com/en/context/mcp#installing-m
 
 ## Authentication
 
-When using API endpoints through your MCP server, AI tools will prompt users for their API keys as needed. These keys are handled directly by the tool and not stored or processed by Mintlify.
+When you enable an API endpoint for MCP, the server includes the authentication requirements defined in your OpenAPI `securitySchemes`. Any keys are handled directly by the tool and not stored or processed by Mintlify.
 
-If a user asks their AI tool to demonstrate an API call, it will request the necessary authentication credentials from the user at that moment.
+If a user asks their AI tool to call a protected endpoint, the tool will request the necessary authentication credentials from the user at that moment.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="MCP server only shows search tool">
+    If your MCP server only exposes the search tool despite having an OpenAPI specification:
+
+    1. Verify your OpenAPI specification is valid and accessible.
+    2. Ensure you've explicitly enabled MCP for specific endpoints using `x-mint.mcp.enabled: true`.
+    3. Check your deployment logs for OpenAPI processing errors.
+
+    If OpenAPI processing fails, the server continues with just the search tool to maintain functionality.
+  </Accordion>
+  <Accordion title="Authentication issues">
+    If users report authentication problems:
+
+    1. Check that your OpenAPI specification includes proper `securitySchemes` definitions.
+    2. Confirm that enabled endpoints work with the specified authentication methods.
+  </Accordion>
+  <Accordion title="Tool descriptions missing or unclear">
+    If AI tools aren't using your API endpoints effectively:
+
+    1. Add detailed `summary` and `description` fields to your endpoints.
+    2. Ensure parameter names and descriptions are self-explanatory.
+    3. Use the MCP dashboard to verify how your endpoints appear as tools.
+  </Accordion>
+</AccordionGroup>
 
 ## Monitoring your MCP server
 
