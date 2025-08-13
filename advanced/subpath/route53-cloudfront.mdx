@@ -47,22 +47,14 @@ You must include the `CloudFront-Viewer-Address` header in your origin request p
     ![Cloudfront "Create distribution" page showing "acme.mintlify.dev" as the origin domain.](/images/cloudfront/origin-name.png)
   </Frame>
 
-4. Select **Use: [SUBDOMAIN].mintlify.dev**.
-
-5. For "Cache key and origin requests", select **CachingOptimized** for the "Cache policy".
-
-  <Frame>
-    ![Cloudfront "Create distribution" page showing "CachingOptimized" selected for the cache key and origin requests policy.](/images/cloudfront/caching-policy.png)
-  </Frame>
-
-6. For "Web Application Firewall (WAF)," enable security protections.
+4. For "Web Application Firewall (WAF)," enable security protections.
 
   <Frame>
     ![Web Application Firewall (WAF) options with "Enable security protections" selected.](/images/cloudfront/enable-security-protections.png)
   </Frame>
 
-7. The remaining settings should be default.
-8. Select **Create distribution**.
+5. The remaining settings should be default.
+6. Select **Create distribution**.
 
 ## Add default origin
 
@@ -86,7 +78,11 @@ You must include the `CloudFront-Viewer-Address` header in your origin request p
     ![Cloudfront "Create origin" page with a "Origin domain" input field highlighted.](/images/cloudfront/default-origin.png)
   </Frame>
 
-By this point, you should have two Origins: one with `[SUBDOMAIN].mintlify.app` and another with with staging URL.
+By this point, you should have two Origins: one with `[SUBDOMAIN].mintlify.app` and another with your staging URL.
+
+<Frame>
+  ![Cloudfront "Origins" page with two origins: One for `mintlify` and another for `mintlify-landing-page`.](/images/cloudfront/final-origins.png)
+</Frame>
 
 ## Set behaviors
 
@@ -95,33 +91,56 @@ Behaviors in Cloudfront enable control over the subpath logic. At a high level, 
 - **If a user lands on /docs**, go to `[SUBDOMAIN].mintlify.dev`.
 - **If a user lands on any other page**, go the current landing page.
 
+Navigate to the "Behaviors" tab of your Cloudfront distribution.
+
+<Frame>
+	![Cloudfront "Behaviors" tab highlighted.](/images/cloudfront/behaviors.png)
+</Frame>
+
 Select the **Create behavior** button and create the following behaviors.
 
 ### `/.well-known/*`
 
-If you are deploying to Vercel, create a behavior for Vercel verification paths with a **Path pattern** of `/.well-known/*` and **Origin and origin groups** pointing to your main origin (the staging URL).
+Create behaviors for Vercel domain verification paths with a **Path pattern** of `/.well-known/*` set **Origin and origin groups** to your docs URL.
 
 For "Cache policy", select **CachingDisabled** to ensure these verification requests pass through without caching.
 
-### `/docs/*`
+<Frame>
+  ![Cloudfront "Create behavior" page with a "Path pattern" of "/.well-known/*" and "Origin and origin groups" pointing to the staging URL.](/images/cloudfront/well-known-policy.png)
+</Frame>
 
-Create a behavior with a **Path pattern** of `/docs/*` with **Origin and origin groups** pointing to the `.mintlify.dev` URL (in our case `acme.mintlify.dev`).
+<Info>
+If `.well-known/*` is too generic, it can be narrowed down to 2 behaviors at a minimum for Vercel:
+  - `/.well-known/vercel/*` - Required for Vercel domain verification
+  - `/.well-known/acme-challenge/*` - Required for Let's Encrypt certificate verification
+</Info>
 
-For "Cache policy", select **CachingOptimized**. If you are using a Vercel deployment, select **VercelCloudFrontProxy** for the "Origin request policy."
+### `/docs`
+
+Create a behavior with a **Path pattern** of `/docs` with **Origin and origin groups** pointing to the `.mintlify.dev` URL (in our case `acme.mintlify.dev`).
+
+- Set "Cache policy" to **CachingOptimized**.
+- In "Origin request policy". Create an origin request policy named **VercelCloudFrontProxy**. That forward the `Origin` and `CloudFront-Viewer-Address` headers.
+
+<Frame>
+	![Cloudfront Create origin request policy page that forwards the `Origin` and `CloudFront-Viewer-Address` headers](/images/cloudfront/origin-request-policy.png)
+</Frame>
+
+- Set Viewer Protocol Policy to **Redirect HTTP to HTTPS**
 
 <Frame>
   ![Cloudfront "Create behavior" page with a "Path pattern" of "/docs/*" and "Origin and origin groups" pointing to the `acme.mintlify.dev` URL.](/images/cloudfront/behavior-1.png)
 </Frame>
 
-### `/docs`
+### `/docs/*`
 
-Create a behavior with a **Path pattern** of `/docs` and **Origin and origin groups** pointing to the same `.mintlify.dev` URL.
+Create a behavior with a **Path pattern** of `/docs/*` and **Origin and origin groups** pointing to the same `.mintlify.dev` URL.
 
-If you are using a Vercel deployment, select **VercelCloudFrontProxy** for the "Origin request policy."
+These settings should exactly match `/docs`. With the exception of the **Path pattern**.
 
-<Frame>
-  ![Cloudfront "Create behavior" page with a "Path pattern" of "/docs" and "Origin and origin groups" pointing to the `acme.mintlify.dev` URL.](/images/cloudfront/behavior-2.png)
-</Frame>
+- Set "Cache policy" to **CachingOptimized**.
+- Set Origin request policy to **VercelCloudFrontProxy**.
+- Set Viewer Protocol Policy to **Redirect HTTP to HTTPS**
 
 ### `Default (*)`
 
@@ -138,6 +157,14 @@ Lastly, we're going to edit the `Default (*)` behavior.
 </Frame>
 
 2. Select **Save changes**.
+
+### Check Behaviors are set up correctly
+
+If you follow the above steps, your behaviors should look like this:
+
+<Frame>
+  ![Cloudfront "Behaviors" page with 4 behaviors: `/docs/*`, `/docs`, `Default`, and `/.well-known/*`.](/images/cloudfront/all-behaviors.png)
+</Frame>
 
 ## Preview distribution
 
