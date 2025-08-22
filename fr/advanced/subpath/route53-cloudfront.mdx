@@ -1,0 +1,209 @@
+---
+title: "AWS Route 53 et CloudFront"
+sidebarTitle: "AWS"
+description: "Héberger la documentation dans un sous-répertoire /docs à l’aide des services AWS"
+---
+
+import Propagating from "/snippets/custom-subpath-propagating.mdx";
+
+Pour héberger votre documentation dans le sous-chemin `/docs` avec AWS Route 53 et CloudFront, vous devez configurer votre fournisseur DNS afin qu’il pointe vers votre distribution CloudFront.
+
+## Proxies avec des déploiements Vercel
+
+Si vous utilisez AWS CloudFront comme proxy avec des déploiements Vercel, vous devez le configurer de manière à ne pas interférer avec la vérification de domaine de Vercel ni l’émission des certificats SSL.
+
+Une mauvaise configuration de CloudFront peut empêcher Vercel d’émettre des certificats SSL Let’s Encrypt et provoquer des échecs de vérification de domaine.
+
+### Liste d’autorisation des chemins requise
+
+CloudFront doit autoriser le trafic vers ces chemins spécifiques sans mise en cache ni blocage :
+
+- `/.well-known/acme-challenge/*` - Requis pour la vérification de certificat Let’s Encrypt
+- `/.well-known/vercel/*` - Requis pour la vérification de domaine par Vercel
+
+Ces chemins doivent être configurés pour contourner la mise en cache CloudFront et être transmis directement à votre origine.
+
+### Exigences de transmission des en-têtes
+
+Vous devez créer une stratégie de requête d’origine personnalisée qui transmet correctement l’en-tête `HOST` ainsi que l’adresse IP du client. Ceci est essentiel pour les processus de vérification de Vercel.
+
+1. Créez une stratégie de requête d’origine personnalisée nommée `VercelCloudFrontProxy`.
+2. Incluez les en-têtes `Origin` et `CloudFront-Viewer-Address`.
+
+Vous devez inclure l’en-tête `CloudFront-Viewer-Address` dans la configuration des en-têtes de votre stratégie de requête d’origine ou de votre stratégie de cache afin de transmettre cet en-tête à votre origine.
+
+## Créer une distribution CloudFront
+
+1. Accédez à [CloudFront](https://aws.amazon.com/cloudfront) dans la console AWS.
+2. Sélectionnez **Create distribution**.
+
+  <Frame>
+    ![Page des distributions CloudFront avec le bouton « Create distribution » mis en évidence.](/fr/images/cloudfront/create-distribution.png)
+  </Frame>
+
+3. Pour le domaine d’origine, saisissez `[SUBDOMAIN].mintlify.dev`, où `[SUBDOMAIN]` est le sous-domaine unique de votre projet.
+
+  <Frame>
+    ![Page « Create distribution » de CloudFront affichant « acme.mintlify.dev » comme domaine d’origine.](/fr/images/cloudfront/origin-name.png)
+  </Frame>
+
+4. Pour « Web Application Firewall (WAF) », activez les protections de sécurité.
+
+  <Frame>
+    ![Options du Web Application Firewall (WAF) avec « Enable security protections » sélectionné.](/fr/images/cloudfront/enable-security-protections.png)
+  </Frame>
+
+5. Laissez les autres paramètres par défaut.
+6. Sélectionnez **Create distribution**.
+
+## Ajouter une origine par défaut
+
+1. Après avoir créé la distribution, accédez à l’onglet « Origins ».
+
+  <Frame>
+    ![Une distribution CloudFront avec l’onglet « Origins » mis en évidence.](/fr/images/cloudfront/origins.png)
+  </Frame>
+
+2. Recherchez l’URL de préproduction (staging) qui reflète le domaine principal. Cela varie fortement selon l’hébergement de votre page d’accueil. Par exemple, l’URL de préproduction de Mintlify est [mintlify-landing-page.vercel.app](https://mintlify-landing-page.vercel.app).
+
+<Info>
+  Si votre page d’accueil est hébergée sur Webflow, utilisez l’URL de préproduction de Webflow. Elle se termine par `.webflow.io`.
+
+  Si vous utilisez Vercel, utilisez le domaine `.vercel.app` disponible pour chaque projet.
+</Info>
+
+3. Créez une nouvelle origine et ajoutez votre URL de préproduction comme « Origin domain ».
+
+  <Frame>
+    ![Page CloudFront « Create origin » avec le champ « Origin domain » mis en évidence.](/fr/images/cloudfront/default-origin.png)
+  </Frame>
+
+À ce stade, vous devriez avoir deux origines : une avec `[SUBDOMAIN].mintlify.app` et une autre avec votre URL de préproduction.
+
+<Frame>
+  ![Page CloudFront « Origins » avec deux origines : une pour `mintlify` et une autre pour `mintlify-landing-page`.](/fr/images/cloudfront/final-origins.png)
+</Frame>
+
+## Définir des comportements
+
+Les comportements dans CloudFront permettent de contrôler la logique des sous-chemins. Globalement, nous voulons mettre en place la logique suivante.
+
+- **Si un utilisateur arrive sur /docs**, rediriger vers `[SUBDOMAIN].mintlify.dev`.
+- **Si un utilisateur arrive sur une autre page**, rester sur la page d’accueil actuelle.
+
+1. Accédez à l’onglet "Behaviors" de votre distribution CloudFront.
+
+<Frame>
+	![Onglet CloudFront "Behaviors" mis en évidence.](/fr/images/cloudfront/behaviors.png)
+</Frame>
+
+2. Sélectionnez le bouton **Create behavior** et créez les comportements suivants.
+
+### `/.well-known/*`
+
+Créez des comportements pour les chemins de vérification de domaine Vercel avec un **Path pattern** de `/.well-known/*` et définissez **Origin and origin groups** sur l’URL de votre documentation.
+
+Pour "Cache policy", sélectionnez **CachingDisabled** afin de garantir que ces requêtes de vérification passent sans mise en cache.
+
+<Frame>
+  ![Page CloudFront "Create behavior" avec un "Path pattern" de "/.well-known/*" et "Origin and origin groups" pointant vers l'URL de staging.](/fr/images/cloudfront/well-known-policy.png)
+</Frame>
+
+<Info>
+Si `.well-known/*` est trop générique, vous pouvez le restreindre à au moins 2 comportements pour Vercel :
+  - `/.well-known/vercel/*` - Requis pour la vérification de domaine Vercel
+  - `/.well-known/acme-challenge/*` - Requis pour la vérification de certificat Let's Encrypt
+</Info>
+
+### `/docs`
+
+Créez un comportement avec un **Path pattern** de `/docs` et **Origin and origin groups** pointant vers l’URL `.mintlify.dev` (dans notre cas `acme.mintlify.dev`).
+
+- Définissez "Cache policy" sur **CachingOptimized**.
+- Dans "Origin request policy", créez une stratégie de requête d’origine nommée **VercelCloudFrontProxy** qui transfère les en-têtes `Origin` et `CloudFront-Viewer-Address`.
+
+<Frame>
+	![Page CloudFront Create origin request policy qui transfère les en-têtes `Origin` et `CloudFront-Viewer-Address`](/fr/images/cloudfront/origin-request-policy.png)
+</Frame>
+
+- Définissez "Viewer protocol policy" sur **Redirect HTTP to HTTPS**.
+
+<Frame>
+  ![Page CloudFront "Create behavior" avec un "Path pattern" de "/docs/*" et "Origin and origin groups" pointant vers l'URL `acme.mintlify.dev`.](/fr/images/cloudfront/behavior-1.png)
+</Frame>
+
+### `/docs/*`
+
+Créez un comportement avec un **Path pattern** de `/docs/*` et **Origin and origin groups** pointant vers la même URL `.mintlify.dev`.
+
+Ces paramètres doivent correspondre exactement à ceux de `/docs`, à l’exception du **Path pattern**.
+
+- Définissez "Cache policy" sur **CachingOptimized**.
+- Définissez "Origin request policy" sur **VercelCloudFrontProxy**.
+- Définissez "Viewer protocol policy" sur **Redirect HTTP to HTTPS**.
+
+### `Default (*)`
+
+Enfin, nous allons modifier le comportement `Default (*)`.
+
+<Frame>
+  ![Une distribution CloudFront avec le comportement "Default (*)" sélectionné et le bouton Edit mis en évidence.](/fr/images/cloudfront/default-behavior-1.png)
+</Frame>
+
+1. Modifiez **Origin and origin groups** du comportement par défaut pour qu’il pointe vers l’URL de staging (dans notre cas `mintlify-landing-page.vercel.app`).
+
+<Frame>
+  ![Page CloudFront "Edit behavior" avec le champ de saisie "Origin and origin groups" mis en évidence.](/fr/images/cloudfront/default-behavior-2.png)
+</Frame>
+
+2. Sélectionnez **Save changes**.
+
+### Vérifier que les comportements sont correctement configurés
+
+Si vous suivez les étapes ci-dessus, vos comportements devraient ressembler à ceci :
+
+<Frame>
+  ![Page CloudFront "Behaviors" avec 4 comportements : `/docs/*`, `/docs`, `Default`, et `/.well-known/*`.](/fr/images/cloudfront/all-behaviors.png)
+</Frame>
+
+## Prévisualiser la distribution
+
+Vous pouvez maintenant vérifier si votre distribution est correctement configurée en accédant à l’onglet « General » et en ouvrant l’URL **Distribution domain name**.
+
+<Frame>
+  ![Onglet CloudFront « General » avec l’URL « Distribution domain name » mise en évidence.](/fr/images/cloudfront/preview-distribution.png)
+</Frame>
+
+Toutes les pages devraient pointer vers votre page d’accueil principale, mais si vous ajoutez `/docs` à l’URL, vous devriez être redirigé vers votre instance de documentation Mintlify.
+
+## Connecter avec Route53
+
+À présent, nous allons intégrer la distribution CloudFront à votre domaine principal.
+
+<Note>
+  Pour cette section, vous pouvez également consulter le guide officiel d’AWS sur la [configuration d’Amazon Route 53 pour acheminer le trafic vers une distribution CloudFront](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-to-cloudfront-distribution.html#routing-to-cloudfront-distribution-config)
+</Note>
+
+1. Accédez à [Route53](https://aws.amazon.com/route53) dans la console AWS.
+2. Ouvrez la « Hosted zone » de votre domaine principal.
+3. Sélectionnez **Create record**.
+
+<Frame>
+  ![Page « Records » de Route 53 avec le bouton « Create record » mis en évidence.](/fr/images/cloudfront/route53-create-record.png)
+</Frame>
+
+4. Activez `Alias`, puis, dans **Route traffic to**, choisissez l’option `Alias to CloudFront distribution`.
+
+<Frame>
+  ![Page « Create record » de Route 53 avec l’interrupteur « Alias » et le menu « Route traffic to » mis en évidence.](/fr/images/cloudfront/create-record-alias.png)
+</Frame>
+
+5. Sélectionnez **Create records**.
+
+<Note>
+  Vous devrez peut-être supprimer l’enregistrement A existant s’il est déjà présent.
+</Note>
+
+Votre documentation est désormais accessible à l’adresse `/docs` sur votre domaine principal.
+
+<Propagating />

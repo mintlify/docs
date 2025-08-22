@@ -1,0 +1,66 @@
+---
+title: "Vercel"
+description: "Hébergez la documentation sur le sous-chemin /docs avec Vercel"
+---
+
+## fichier vercel.json
+
+Le fichier `vercel.json` est le fichier de configuration de Vercel qui vous permet de personnaliser la manière dont votre projet est construit et déployé. Il se trouve à la racine de votre projet et contrôle divers aspects de votre déploiement, notamment le routage, les redirections, les en-têtes et les paramètres de build.
+
+Nous utilisons la configuration `rewrites` pour faire transiter (proxy) les requêtes depuis votre domaine principal vers votre documentation.
+
+Les réécritures vous permettent de rediriger les requêtes entrantes vers d’autres destinations sans modifier l’URL affichée dans le navigateur. Lorsque quelqu’un visite `yoursite.com/docs`, Vercel va chercher le contenu en interne depuis `your-subdomain.mintlify.dev/docs`, mais l’utilisateur verra toujours `yoursite.com/docs` dans son navigateur. Cela diffère des redirections, qui envoient les utilisateurs vers une URL entièrement différente.
+
+## Configuration
+
+Pour héberger votre documentation à un sous-chemin personnalisé `/docs` avec Vercel, ajoutez la configuration suivante à votre fichier `vercel.json` :
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/docs",
+      "destination": "https://[subdomain].mintlify.dev/docs"
+    },
+    {
+      "source": "/docs/:match*",
+      "destination": "https://[subdomain].mintlify.dev/docs/:match*"
+    }
+  ]
+}
+```
+
+- **`source`** : Le motif de chemin sur votre domaine qui déclenche la réécriture.
+- **`destination`** : La cible vers laquelle la requête doit être transmise via proxy.
+- **`:match*`** : Un caractère générique qui capture tous les segments de chemin après `/docs/`.
+
+Pour plus d’informations, consultez [Configuring projects with vercel.json: Rewrites](https://vercel.com/docs/projects/project-configuration#rewrites) dans la documentation de Vercel.
+
+## Utiliser des proxys externes avec Vercel
+
+Si vous utilisez un proxy externe (comme Cloudflare ou AWS CloudFront) devant votre déploiement Vercel, vous devez le configurer correctement pour éviter les conflits avec la vérification de domaine de Vercel et l’émission de certificats SSL.
+
+Une mauvaise configuration du proxy peut empêcher Vercel d’approvisionner des certificats SSL Let's Encrypt et entraîner des échecs de vérification de domaine.
+
+Consultez les [fournisseurs pris en charge](https://vercel.com/guides/how-to-setup-verified-proxy#supported-providers-verified-proxy-lite) dans la documentation Vercel.
+
+### Liste d’autorisation des chemins requise
+
+Votre proxy externe doit autoriser le trafic vers ces chemins spécifiques sans blocage, redirection ni mise en cache agressive :
+
+- `/.well-known/acme-challenge/*` - Requis pour la vérification du certificat Let's Encrypt
+- `/.well-known/vercel/*` - Requis pour la vérification de domaine par Vercel
+
+Ces chemins doivent être transmis directement à votre déploiement Vercel sans modification.
+
+### Exigences de transfert d’en-têtes
+
+Assurez-vous que votre proxy transfère correctement l’en-tête `HOST`. Sans transfert d’en-tête approprié, les requêtes de vérification échoueront.
+
+### Tester la configuration de votre proxy
+
+Pour vérifier que votre proxy est correctement configuré :
+
+1. Vérifiez que `https://[yourdomain].com/.well-known/vercel/` renvoie une réponse.
+2. Assurez-vous que les certificats SSL sont correctement approvisionnés dans votre tableau de bord Vercel.
+3. Vérifiez que la vérification de domaine s’effectue avec succès.
