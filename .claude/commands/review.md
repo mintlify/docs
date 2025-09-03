@@ -1,6 +1,6 @@
 ---
 argument-hint: [extra context]
-description: Document a new feature
+description: Review the changes on a branch
 ---
 
 Please review the changes I'm about to commit and check:
