@@ -13,7 +13,7 @@ argument-hint: [...repo]
 6. For each pull request, invoke @agents-pr-summarizer in parallel to generate a summary of the pull request.
 7. Read each file from this in @summaries and generate a synopsis for each PR.
 8. Tell me a summary of what was changed
-9. Update @channgelog.mdx with the summary from all previous pull requests
+9. Update @channgelog.mdx with the summary from all previous pull requests. Use Mintlify components and follow the existing style of @changelog.mdx
 
 This summary should be a high level overview.
 - Bug fixes should be highlighted.
