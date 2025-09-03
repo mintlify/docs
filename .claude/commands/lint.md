@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(mint *)
-description: Lint the mittlify docs and fix errors
+description: Lint the mintlify docs and fix errors
 ---
 
 Run `mint broken-links` and check the given git diff. For an openapi reference updates run `mint openai-check`.
