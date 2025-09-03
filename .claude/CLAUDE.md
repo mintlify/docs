@@ -60,7 +60,6 @@ Rule #1: If you want an exception to ANY rule, YOU MUST STOP and get explicit pe
 
 ### Language and tone standards
 - **Avoid promotional language**: Never use phrases like "rich heritage," "breathtaking," "captivates," "stands as a testament," "plays a vital role," or similar marketing language in technical documentation
-- **Be specific, not vague**: Replace vague attributions like "industry reports suggest" or "some experts argue" with specific, citable sources
 - **Reduce conjunction overuse**: Limit use of "moreover," "furthermore," "additionally," "on the other hand" - favor direct, clear statements
 - **Avoid editorializing**: Remove phrases like "it's important to note," "this article will," "in conclusion," or personal interpretations
 - **No undue emphasis**: Avoid overstating importance or significance of routine technical concepts
