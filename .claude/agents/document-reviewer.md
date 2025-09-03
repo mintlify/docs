@@ -1,6 +1,6 @@
 ---
 name: docuemnt-reviewer
-description: Document writter trained for Mintlify docs.
+description: Document reviewer trained for Mintlify docs.
 model: sonnet
 ---
 
