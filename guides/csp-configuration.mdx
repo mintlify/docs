@@ -1,0 +1,170 @@
+---
+title: "Content Security Policy (CSP) configuration"
+sidebarTitle: "CSP configuration"
+description: "TODO:Configure Content Security Policy headers to allow Mintlify documentation features to function properly in proxy and corporate environments."
+---
+
+Content Security Policy (CSP) is a security standard that helps prevent cross-site scripting (XSS) attacks by controlling which resources a web page can load. If you host your documentation behind a reverse proxy or firewall, you may need to configure these CSP headers for features to function properly.
+
+| Domain | Purpose | CSP Directive | Status |
+|--------|---------|---------------|--------|
+| d4tuoctqmanu0.cloudfront.net | KaTeX CSS, fonts | style-src, font-src | Active |
+| *.mintlify.dev | Documentation content | connect-src | Active |
+| d3gk2c5xim1je2.cloudfront.net | Icons, images, logos | img-src | Active |
+| unpkg.com | Mintlify widget scripts | script-src | Active |
+| www.googletagmanager.com | Google Analytics/GTM | script-src, connect-src | Optional |
+| cdn.segment.com | Segment analytics | script-src, connect-src | Optional |
+| plausible.io | Plausible analytics | script-src, connect-src | Optional |
+| tag.clearbitscripts.com | Clearbit tracking | script-src | Optional |
+| cdn.heapanalytics.com | Heap analytics | script-src | Optional |
+| chat.cdn-plain.com | Plain chat widget | script-src | Optional |
+| chat-assets.frontapp.com | Front chat widget | script-src | Optional |
+
+Features that require CSP allowlisting:
+- KaTeX mathematical equations (requires CSS and font loading)
+- Interactive API playground (requires script execution)
+- Search functionality (requires API connections)
+- Analytics integrations (requires third-party scripts)
+- Chat widgets (requires third-party scripts)
+- Custom fonts and styling (requires CSS loading)
+
+Without proper CSP configuration, users may experience broken styling, non-functional interactive elements, or security warnings in their browser console.
+
+## Example CSP configuration
+
+<Note>
+  Only include domains for services that you use. Remove any analytics domains that you have not configured for your documentation.
+</Note>
+
+```
+Content-Security-Policy:
+default-src 'self';
+script-src 'self' 'unsafe-inline' unpkg.com http://www.googletagmanager.com cdn.segment.com plausible.io tag.clearbitscripts.com cdn.heapanalytics.com
+chat.cdn-plain.com chat-assets.frontapp.com;
+style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net;
+font-src 'self' d4tuoctqmanu0.cloudfront.net;
+img-src 'self' data: d3gk2c5xim1je2.cloudfront.net;
+connect-src 'self' *.mintlify.dev http://www.googletagmanager.com cdn.segment.com plausible.io;
+frame-src 'self' *.mintlify.dev;
+```
+
+## Common configurations by proxy type
+
+Most reverse proxies support adding custom headers. Add this header to your proxy configuration:
+
+```apache
+Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' unpkg.com; style-src 'self' 'unsafe-inline'
+d4tuoctqmanu0.cloudfront.net; font-src 'self' d4tuoctqmanu0.cloudfront.net; img-src 'self' data: d3gk2c5xim1je2.cloudfront.net; connect-src 'self'
+*.mintlify.dev; frame-src 'self' *.mintlify.dev;"
+```
+
+### Cloudflare configuration
+
+In your Cloudflare dashboard:
+
+1. Go to **Security** > **Transform Rules** > **Modify Response Header**.
+2. Create a new rule for your documentation domain.
+3. Add HTTP Response Header:
+  - **Operation**: Set static
+  - **Header name**: `Content-Security-Policy`
+  - **Value**: `default-src 'self'; script-src 'self' 'unsafe-inline' unpkg.com; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net; font-src 'self' d4tuoctqmanu0.cloudfront.net; img-src 'self' data: d3gk2c5xim1je2.cloudfront.net; connect-src 'self' *.mintlify.dev; frame-src 'self' *.mintlify.dev;`
+
+### AWS CloudFront configuration
+
+Add a response headers policy in CloudFront:
+
+```json
+{
+"ResponseHeadersPolicy": {
+    "Name": "MintlifyCSP",
+    "Config": {
+    "SecurityHeadersConfig": {
+        "ContentSecurityPolicy": {
+        "ContentSecurityPolicy": "default-src 'self'; script-src 'self' 'unsafe-inline' unpkg.com; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net; font-src 'self' d4tuoctqmanu0.cloudfront.net; img-src 'self' data: d3gk2c5xim1je2.cloudfront.net; connect-src 'self' *.mintlify.dev; frame-src 'self' *.mintlify.dev;",
+        "Override": true
+        }
+      }
+    }
+  }
+}
+```
+
+### Vercel configuration
+
+Add to your `vercel.json`:
+
+```json
+{
+"headers": [
+    {
+    "source": "/(.*)",
+    "headers": [
+        {
+        "key": "Content-Security-Policy",
+        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' unpkg.com; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net; font-src 'self' d4tuoctqmanu0.cloudfront.net; img-src 'self' data: d3gk2c5xim1je2.cloudfront.net; connect-src 'self' *.mintlify.dev; frame-src 'self' *.mintlify.dev;"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Troubleshooting
+
+### Identifying CSP violations in browser console
+
+1. Open your browser's Developer Tools (F12)
+2. Go to the **Console** tab
+3. Look for errors starting with:
+    - `Content Security Policy: The page's settings blocked the loading of a resource`
+    - `Refused to load the script/stylesheet because it violates the following Content Security Policy directive`
+    - `Refused to connect to because it violates the following Content Security Policy directive`
+
+### Common error messages and solutions
+
+**Script loading errors:**
+Refused to load the script 'https://unpkg.com/...' because it violates the following Content Security Policy directive: "script-src 'self'".
+**Solution:** Add `unpkg.com` to your `script-src` directive.
+
+**Style loading errors:**
+Refused to load the stylesheet 'https://d4tuoctqmanu0.cloudfront.net/...' because it violates the following Content Security Policy directive: "style-src
+'self'".
+**Solution:** Add `d4tuoctqmanu0.cloudfront.net` to your `style-src` directive.
+
+**Connection errors:**
+Refused to connect to 'https://api.mintlify.dev/...' because it violates the following Content Security Policy directive: "connect-src 'self'".
+**Solution:** Add `*.mintlify.dev` to your `connect-src` directive.
+
+**Image loading errors:**
+Refused to load the image 'https://d3gk2c5xim1je2.cloudfront.net/...' because it violates the following Content Security Policy directive: "img-src 'self'".
+**Solution:** Add `d3gk2c5xim1je2.cloudfront.net` to your `img-src` directive.
+
+### Testing methodology
+
+1. **Start minimal:** Begin with only essential domains and add others as needed
+2. **Test incrementally:** Add one domain at a time to identify which fixes specific issues
+3. **Use report-only mode:** Test CSP without blocking by using `Content-Security-Policy-Report-Only` header first
+4. **Check all pages:** Test different pages that use various Mintlify features (search, math equations, API playground)
+
+### Gradual CSP implementation approach
+
+**Step 1: Report-only mode**
+Content-Security-Policy-Report-Only: `default-src 'self'; script-src 'self' 'unsafe-inline'`
+
+**Step 2: Add essential domains**
+Content-Security-Policy: `default-src 'self'; script-src 'self' 'unsafe-inline' unpkg.com; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net`
+
+**Step 3: Add remaining domains based on features used**
+Only add domains for analytics/chat services you actually have configured.
+
+### Verification steps
+
+1. **Check headers are applied:** Use browser dev tools Network tab to verify the CSP header is present
+2. **Test core functionality:** Verify search, navigation, and styling work correctly
+3. **Test interactive features:** Check API playground, math equations, and any enabled widgets
+4. **Monitor console:** Ensure no CSP violations appear in browser console
+
+
+Questions for eng:
+- HTTPS vs HTTP - Some domains in the CSP might need https:// prefixes
+- Wildcard domain support - *.mintlify.dev syntax may need verification across all proxy types
