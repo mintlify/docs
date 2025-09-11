@@ -84,6 +84,32 @@ By this point, you should have two Origins: one with `[SUBDOMAIN].mintlify.app` 
   ![CloudFront "Origins" page with two origins: One for `mintlify` and another for `mintlify-landing-page`.](/images/cloudfront/final-origins.png)
 </Frame>
 
+## Preventing layout shifts
+
+When using CloudFront as a reverse proxy, you may experience layout shifts where the sidebar snaps up and down during navigation. This occurs because CloudFront may not properly cache static assets, causing layout resources to reload on each page change.
+
+To fix this issue, configure specific behaviors for static assets and navigation:
+
+### Required behaviors for stable layouts
+
+Configure these behaviors in your CloudFront distribution (ordered from most specific to least specific):
+
+1. **Static assets behavior** - `/mintlify-assets/_next/static/*`
+   - **Path pattern**: `/mintlify-assets/_next/static/*`
+   - **Cache policy**: CachingOptimized
+   - **Origin request policy**: AllViewerExceptHostHeader
+
+2. **Default behavior** - `*` (handles HTML and app router navigation)
+   - **Path pattern**: `*` (this should be your default behavior)
+   - **Cache policy**: CachingDisabled (since RSC ?_rsc= payloads vary and shouldn't be cached)
+   - **Origin request policy**: AllViewerExceptHostHeader
+
+<Warning>
+Make sure the static assets behavior is listed **above** the default behavior in your CloudFront behaviors list, as CloudFront evaluates them in order.
+</Warning>
+
+With these changes, CloudFront will only fetch new page content while keeping layout assets cached, preventing layout shifts during navigation.
+
 ## Set behaviors
 
 Behaviors in CloudFront enable control over the subpath logic. At a high level, we're looking to create the following logic.
