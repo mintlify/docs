@@ -8,29 +8,23 @@ import Propagating from "/snippets/custom-subpath-propagating.mdx";
 
 To host your documentation at a `/docs` subpath using AWS Route 53 and CloudFront, you need to configure your DNS provider to point to your CloudFront distribution.
 
-## Proxies with Vercel deployments
+## High-level overview
 
-If you use AWS CloudFront as a proxy with Vercel deployments, you must configure CloudFront to avoid interfering with Vercel's domain verification and SSL certificate provisioning.
-
-Improper CloudFront configuration can prevent Vercel from provisioning Let's Encrypt SSL certificates and cause domain verification failures.
-
-### Required path allowlist
-
-CloudFront must allow traffic to these specific paths without caching or blocking:
+Route traffic to these paths with a Cache Policy of **CachingDisabled**:
 
 - `/.well-known/acme-challenge/*` - Required for Let's Encrypt certificate verification
-- `/.well-known/vercel/*` - Required for Vercel domain verification
+- `/.well-known/vercel/*` - Required for domain verification
+- `/docs/*` - Required for subpath routing
+- `/docs/` - Required for subpath routing
 
-These paths should be configured to bypass CloudFront caching and pass through directly to your origin.
+Route traffic to this path with a Cache Policy of **CachingEnabled**:
 
-### Header forwarding requirements
+- `/mintlify-assets/_next/static/*`
+- `Default (*)`	- Your websites landing page
 
-You must create a custom origin request policy that forwards the `HOST` header and client IP information correctly. This is critical for Vercel's verification processes.
+All Behaviors must have the an **origin request policy** of `AllViewerExceptHostHeader`.
 
-1. Create a custom origin request policy named `VercelCloudFrontProxy`.
-2. Include the `Origin` and `CloudFront-Viewer-Address` headers.
-
-You must include the `CloudFront-Viewer-Address` header in your origin request policy or cache policy headers configuration to forward the header to your origin.
+![CloudFront "Behaviors" page with 4 behaviors: `/docs/*`, `/docs`, `Default`, and `/.well-known/*`.](/images/cloudfront/all-behaviors.png)
 
 ## Create CloudFront distribution
 
@@ -120,12 +114,7 @@ If `.well-known/*` is too generic, it can be narrowed down to 2 behaviors at a m
 Create a behavior with a **Path pattern** of `/docs` with **Origin and origin groups** pointing to the `.mintlify.dev` URL (in our case `acme.mintlify.dev`).
 
 - Set "Cache policy" to **CachingOptimized**.
-- In "Origin request policy", create an origin request policy named **VercelCloudFrontProxy**. That forwards the `Origin` and `CloudFront-Viewer-Address` headers.
-
-<Frame>
-	![CloudFront Create origin request policy page that forwards the `Origin` and `CloudFront-Viewer-Address` headers](/images/cloudfront/origin-request-policy.png)
-</Frame>
-
+- Set "Origin request policy" to **AllViewerExceptHostHeader**.
 - Set Viewer Protocol Policy to **Redirect HTTP to HTTPS**
 
 <Frame>
@@ -139,8 +128,14 @@ Create a behavior with a **Path pattern** of `/docs/*` and **Origin and origin g
 These settings should exactly match `/docs`. With the exception of the **Path pattern**.
 
 - Set "Cache policy" to **CachingOptimized**.
-- Set "Origin request policy" to **VercelCloudFrontProxy**.
+- Set "Origin request policy" to **AllViewerExceptHostHeader**.
 - Set "Viewer protocol policy" to **Redirect HTTP to HTTPS**
+
+### `/mintlify-assets/_next/static/*`
+
+ - Set "Cache policy" to **CachingOptimized**
+ - Set "Origin request policy" to **AllViewerExceptHostHeader**
+ - Set "Viewer protocol policy" to **Redirect HTTP to HTTPS**
 
 ### `Default (*)`
 
