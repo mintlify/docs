@@ -1,0 +1,56 @@
+name: Vale
+
+on:
+  pull_request:
+    paths:
+      - "**/*.mdx"
+      - ".vale.ini"
+      - ".vale/**"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.mdx"
+      - ".vale.ini"
+      - ".vale/**"
+
+jobs:
+  vale:
+    name: Vale linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch full history for better diff detection
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            **/*.mdx
+          files_ignore: |
+            .vale/**
+            README.md
+
+      - name: Vale (changed files only)
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: errata-ai/vale-action@reviewdog
+        with:
+          files: ${{ steps.changed-files.outputs.all_changed_files }}
+          vale_flags: "--config=.vale.ini"
+          fail_on_error: false
+          reporter: github-pr-review
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Vale (full check on config changes)
+        if: steps.changed-files.outputs.any_changed == 'false'
+        uses: errata-ai/vale-action@reviewdog
+        with:
+          files: '.'
+          vale_flags: "--config=.vale.ini"
+          fail_on_error: false
+          reporter: github-pr-review
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
