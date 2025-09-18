@@ -1,0 +1,273 @@
+---
+title: "Custom reverse proxy"
+description: "Configure a custom reverse proxy to serve Mintlify documentation"
+---
+
+import Propagating from "/snippets/custom-subpath-propagating.mdx";
+
+<Warning>
+  **Enterprise support required**: Custom reverse proxy configurations require an enterprise contract for support. This guide is provided for self-service implementation only.
+</Warning>
+
+To serve your Mintlify documentation through a custom reverse proxy, you need to configure specific routing rules, caching policies, and header forwarding to ensure proper functionality.
+
+<Info>
+  This guide provides general configuration principles. Implementation details vary significantly between proxy solutions (nginx, Apache, HAProxy, AWS ALB, etc.).
+</Info>
+
+## High-level overview
+
+Configure your reverse proxy with these routing and caching rules:
+
+### Cache Policy: CachingDisabled
+
+Route traffic to these paths **without caching**:
+
+- `/.well-known/acme-challenge/*` - Required for Let's Encrypt certificate verification
+- `/.well-known/vercel/*` - Required for domain verification  
+- `/*` - Required for base path routing
+- `/` - Required for base path routing
+
+### Cache Policy: CachingEnabled
+
+Route traffic to these paths **with caching**:
+
+- `/mintlify-assets/_next/static/*` - Static assets (CSS, JS, images)
+- `Default (*)` - Your website's landing page
+
+### Origin Request Policy
+
+**DO NOT FORWARD THE HOST HEADER** - All behaviors must use an origin request policy equivalent to `AllViewerExceptHostHeader`.
+
+## Required header configuration
+
+Your reverse proxy must forward these headers to ensure proper functionality:
+
+### Required headers
+
+```nginx
+# Example nginx configuration
+location / {
+    proxy_pass https://<your-subdomain>.mintlify.app/;
+    
+    # CRITICAL: Set the correct origin header
+    proxy_set_header Origin <your-subdomain>.mintlify.app;
+    
+    # Forward client information
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    
+    # DO NOT forward the Host header - this will break functionality
+    # proxy_set_header Host $host;  # ← DO NOT INCLUDE THIS LINE
+}
+```
+
+### Critical header requirements
+
+<Warning>
+  **DO NOT FORWARD THE HOST HEADER** - Forwarding the `Host` header will cause domain verification failures and break core functionality.
+</Warning>
+
+1. **Origin header**: Must be set to `<your-subdomain>.mintlify.app`
+2. **X-Forwarded-For**: Preserve client IP information
+3. **X-Forwarded-Proto**: Preserve original protocol (HTTP/HTTPS)
+4. **X-Real-IP**: Forward the real client IP address
+
+## Domain verification paths
+
+Your reverse proxy must allow these verification paths to pass through without modification:
+
+### Let's Encrypt verification
+```
+/.well-known/acme-challenge/*
+```
+
+### Vercel domain verification  
+```
+/.well-known/vercel/*
+```
+
+These paths are essential for SSL certificate provisioning and domain ownership verification. Blocking or modifying requests to these paths will prevent proper setup.
+
+## Example configurations
+
+### nginx
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+    
+    # Let's Encrypt and Vercel verification paths
+    location ~ ^/\.well-known/(acme-challenge|vercel)/ {
+        proxy_pass https://your-subdomain.mintlify.app;
+        proxy_set_header Origin your-subdomain.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Disable caching for verification paths
+        proxy_cache off;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+    
+    # Static assets with caching
+    location ~ ^/mintlify-assets/_next/static/ {
+        proxy_pass https://your-subdomain.mintlify.app;
+        proxy_set_header Origin your-subdomain.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Enable caching for static assets
+        proxy_cache_valid 200 1d;
+        add_header Cache-Control "public, max-age=86400";
+    }
+    
+    # All other documentation paths
+    location / {
+        proxy_pass https://your-subdomain.mintlify.app/;
+        proxy_set_header Origin your-subdomain.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Disable caching for dynamic content
+        proxy_cache off;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+}
+```
+
+### Apache
+
+```apache
+<VirtualHost *:80>
+    ServerName yourdomain.com
+    
+    # Enable proxy module
+    ProxyPreserveHost Off
+    ProxyRequests Off
+    
+    # Let's Encrypt and Vercel verification paths
+    ProxyPassMatch ^/\.well-known/(acme-challenge|vercel)/(.*) https://your-subdomain.mintlify.app/.well-known/$1/$2
+    ProxyPassReverseMatch ^/\.well-known/(acme-challenge|vercel)/(.*) https://your-subdomain.mintlify.app/.well-known/$1/$2
+    
+    # Static assets
+    ProxyPassMatch ^/mintlify-assets/_next/static/(.*) https://your-subdomain.mintlify.app/mintlify-assets/_next/static/$1
+    ProxyPassReverseMatch ^/mintlify-assets/_next/static/(.*) https://your-subdomain.mintlify.app/mintlify-assets/_next/static/$1
+    
+    # All other paths
+    ProxyPass / https://your-subdomain.mintlify.app/
+    ProxyPassReverse / https://your-subdomain.mintlify.app/
+    
+    # Set required headers
+    ProxyPassReverse / https://your-subdomain.mintlify.app/
+    RequestHeader set Origin "your-subdomain.mintlify.app"
+    RequestHeader set X-Forwarded-Proto "http"
+</VirtualHost>
+```
+
+### HAProxy
+
+```haproxy
+frontend docs_frontend
+    bind *:80
+    
+    # Route verification paths
+    acl is_verification path_beg /.well-known/acme-challenge /.well-known/vercel
+    use_backend mintlify_backend if is_verification
+    
+    # Route static assets  
+    acl is_static path_beg /mintlify-assets/_next/static
+    use_backend mintlify_backend if is_static
+    
+    # Default backend for all other requests
+    default_backend mintlify_backend
+
+backend mintlify_backend
+    server mintlify your-subdomain.mintlify.app:443 ssl verify none
+    
+    # Set required headers
+    http-request set-header Origin your-subdomain.mintlify.app
+    http-request set-header X-Forwarded-Proto http
+    http-request del-header Host
+```
+
+## Testing your configuration
+
+After configuring your reverse proxy, test these critical paths:
+
+### 1. Basic functionality
+```bash
+curl -H "Host: yourdomain.com" http://your-proxy-server/
+```
+
+### 2. Verification paths
+```bash
+curl -H "Host: yourdomain.com" http://your-proxy-server/.well-known/vercel/test
+curl -H "Host: yourdomain.com" http://your-proxy-server/.well-known/acme-challenge/test
+```
+
+### 3. Static assets
+```bash
+curl -H "Host: yourdomain.com" http://your-proxy-server/mintlify-assets/_next/static/test.css
+```
+
+### 4. Header verification
+```bash
+curl -v -H "Host: yourdomain.com" http://your-proxy-server/ 2>&1 | grep -E "(Origin|X-Forwarded|Host):"
+```
+
+## Common issues and troubleshooting
+
+### Domain verification failures
+
+**Symptoms**: SSL certificate provisioning fails, domain verification errors
+
+**Cause**: Verification paths (`/.well-known/*`) are blocked or modified
+
+**Solution**: Ensure verification paths pass through without caching or modification
+
+### Broken functionality
+
+**Symptoms**: Documentation loads but features don't work, API calls fail
+
+**Cause**: Host header is being forwarded or Origin header is missing
+
+**Solution**: 
+- Remove `Host` header forwarding
+- Set `Origin` header to `<your-subdomain>.mintlify.app`
+
+### Performance issues
+
+**Symptoms**: Slow loading, repeated requests for static assets
+
+**Cause**: Incorrect caching configuration
+
+**Solution**: Enable caching only for `/mintlify-assets/_next/static/*` paths
+
+### SSL/TLS errors
+
+**Symptoms**: Certificate errors, mixed content warnings
+
+**Cause**: Incorrect protocol forwarding
+
+**Solution**: Ensure `X-Forwarded-Proto` header reflects the original request protocol
+
+## Support limitations
+
+<Warning>
+  Custom reverse proxy configurations are **not officially supported** without an enterprise contract. Common issues include:
+  
+  - Domain verification failures
+  - SSL certificate provisioning problems  
+  - Broken authentication flows
+  - Performance degradation
+  - Analytics tracking issues
+</Warning>
+
+For production deployments requiring reverse proxy configurations, contact your account manager to discuss enterprise support options.
+
+<Propagating />
