@@ -12,23 +12,19 @@ import Propagating from "/snippets/custom-subpath-propagating.mdx";
 To serve your Mintlify documentation through a custom reverse proxy, you need to configure specific routing rules, caching policies, and header forwarding to ensure proper functionality.
 
 <Info>
-  This guide provides nginx configuration examples. For other proxy solutions, adapt the header forwarding and routing principles accordingly.
+  This guide provides general configuration principles. Implementation details vary significantly between proxy solutions (nginx, Apache, HAProxy, AWS ALB, etc.).
 </Info>
 
 ## High-level overview
 
 Configure your reverse proxy with these routing and caching rules:
 
-### Cache Policy: CachingDisabled
-
 Route traffic to these paths **without caching**:
 
-- `/.well-known/acme-challenge/*` - Required for Let's Encrypt certificate verification
-- `/.well-known/vercel/*` - Required for domain verification
-- `/*` - Required for base path routing
-- `/` - Required for base path routing
-
-### Cache Policy: CachingEnabled
+- `/.well-known/acme-challenge/*` -\> \<subdomain\>.mintlify.app
+- `/.well-known/vercel/*` -\> \<subdomain\>.mintlify.app
+- `/*` -\> \<subdomain\>.minltify.app
+- `/` -\> \<subdomain\>.mintlify.app
 
 Route traffic to these paths **with caching**:
 
@@ -53,7 +49,6 @@ location / {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header User-Agent $http_user_agent;
     
     # DO NOT forward the Host header - this will break functionality
     # proxy_set_header Host $host;  # ← DO NOT INCLUDE THIS LINE
@@ -70,7 +65,6 @@ location / {
 2. **X-Forwarded-For**: Preserve client IP information
 3. **X-Forwarded-Proto**: Preserve original protocol (HTTP/HTTPS)
 4. **X-Real-IP**: Forward the real client IP address
-5. **User-Agent**: Forward the original User-Agent header (required for `/mcp` troubleshooting functionality)
 
 ## Domain verification paths
 
@@ -90,7 +84,9 @@ Your reverse proxy must allow these verification paths to pass through without m
 
 These paths are essential for SSL certificate provisioning and domain ownership verification. Blocking or modifying requests to these paths will prevent proper setup.
 
-## nginx configuration
+## Example configurations
+
+### nginx
 
 ```nginx
 server {
@@ -104,7 +100,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
         
         # Disable caching for verification paths
         proxy_cache off;
@@ -118,25 +113,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
         
         # Enable caching for static assets
         proxy_cache_valid 200 1d;
         add_header Cache-Control "public, max-age=86400";
-    }
-    
-    # MCP troubleshooting path - requires User-Agent header
-    location /mcp {
-        proxy_pass https://your-subdomain.mintlify.app/mcp;
-        proxy_set_header Origin your-subdomain.mintlify.app;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;  # REQUIRED for /mcp functionality
-        
-        # Disable caching for troubleshooting
-        proxy_cache off;
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
     
     # All other documentation paths
@@ -146,13 +126,67 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
         
         # Disable caching for dynamic content
         proxy_cache off;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 }
+```
+
+### Apache
+
+```apache
+<VirtualHost *:80>
+    ServerName yourdomain.com
+    
+    # Enable proxy module
+    ProxyPreserveHost Off
+    ProxyRequests Off
+    
+    # Let's Encrypt and Vercel verification paths
+    ProxyPassMatch ^/\.well-known/(acme-challenge|vercel)/(.*) https://your-subdomain.mintlify.app/.well-known/$1/$2
+    ProxyPassReverseMatch ^/\.well-known/(acme-challenge|vercel)/(.*) https://your-subdomain.mintlify.app/.well-known/$1/$2
+    
+    # Static assets
+    ProxyPassMatch ^/mintlify-assets/_next/static/(.*) https://your-subdomain.mintlify.app/mintlify-assets/_next/static/$1
+    ProxyPassReverseMatch ^/mintlify-assets/_next/static/(.*) https://your-subdomain.mintlify.app/mintlify-assets/_next/static/$1
+    
+    # All other paths
+    ProxyPass / https://your-subdomain.mintlify.app/
+    ProxyPassReverse / https://your-subdomain.mintlify.app/
+    
+    # Set required headers
+    ProxyPassReverse / https://your-subdomain.mintlify.app/
+    RequestHeader set Origin "your-subdomain.mintlify.app"
+    RequestHeader set X-Forwarded-Proto "http"
+</VirtualHost>
+```
+
+### HAProxy
+
+```haproxy
+frontend docs_frontend
+    bind *:80
+    
+    # Route verification paths
+    acl is_verification path_beg /.well-known/acme-challenge /.well-known/vercel
+    use_backend mintlify_backend if is_verification
+    
+    # Route static assets  
+    acl is_static path_beg /mintlify-assets/_next/static
+    use_backend mintlify_backend if is_static
+    
+    # Default backend for all other requests
+    default_backend mintlify_backend
+
+backend mintlify_backend
+    server mintlify your-subdomain.mintlify.app:443 ssl verify none
+    
+    # Set required headers
+    http-request set-header Origin your-subdomain.mintlify.app
+    http-request set-header X-Forwarded-Proto http
+    http-request del-header Host
 ```
 
 ## Testing your configuration
@@ -194,7 +228,7 @@ curl -v -H "Host: yourdomain.com" http://your-proxy-server/ 2>&1 | grep -E "(Ori
 
 **Solution**: Ensure verification paths pass through without caching or modification
 
-### Broken functionality
+### 404 Error Not Found
 
 **Symptoms**: Documentation loads but features don't work, API calls fail
 
