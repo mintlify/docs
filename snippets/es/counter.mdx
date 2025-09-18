@@ -1,0 +1,32 @@
+export const Counter = () => {
+  const [count, setCount] = useState(0)
+
+  const increment = () => setCount(count + 1)
+  const decrement = () => setCount(count - 1)
+
+  return (
+  <div className="flex items-center justify-center">
+      <div className="flex items-center rounded-xl overflow-hidden border border-zinc-950/20 dark:border-white/20">
+        <button
+          onClick={decrement}
+          className="flex items-center justify-center h-8 w-8 text-zinc-950/80 dark:text-white/80 border-r border-zinc-950/20 dark:border-white/20"
+          aria-label="Decrease"
+        >
+          -
+        </button>
+
+        <div className="flex text-sm items-center justify-center h-8 px-6 text-zinc-950/80 dark:text-white/80 font-medium min-w-[4rem] text-center">
+          {count}
+        </div>
+
+        <button
+          onClick={increment}
+          className="flex items-center justify-center h-8 w-8 text-zinc-950/80 dark:text-white/80 border-l border-zinc-950/20 dark:border-white/20"
+          aria-label="Increase"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,143 @@
+---
+title: "内容安全策略（CSP）配置"
+sidebarTitle: "CSP 配置"
+description: "针对反向代理、防火墙，以及执行严格安全策略的网络所需的域名白名单与响应头配置"
+---
+
+内容安全策略（CSP）是一项安全标准，通过控制网页可加载的资源来帮助防止跨站脚本（XSS）攻击。Mintlify 提供了默认的 CSP，可保护大多数站点。若你在反向代理或防火墙后托管文档，这些组件会覆盖默认 CSP，则可能需要配置 CSP 响应头，才能确保各项功能正常运行。
+
+<div id="csp-directives">
+  ## CSP 指令
+</div>
+
+以下 CSP 指令用于控制可加载的资源：
+
+- `script-src`: 控制可执行的脚本
+- `style-src`: 控制可加载的样式表
+- `font-src`: 控制可加载的字体
+- `img-src`: 控制可加载的图片、图标和标识
+- `connect-src`: 控制可用于 API 调用和 WebSocket 连接的 URL
+- `frame-src`: 控制可嵌入到 frame 或 iframe 的 URL
+- `default-src`: 在未显式设置时作为其他指令的默认回退
+
+<div id="domain-whitelist">
+  ## 域名白名单
+</div>
+
+| 域名 | 用途 | CSP 指令 | 是否必需 |
+|:-------|:--------|:--------------|:-------|
+| `d4tuoctqmanu0.cloudfront.net` | KaTeX 的 CSS 与字体 | `style-src`、`font-src` | 必需 |
+| `*.mintlify.dev` | 文档内容 | `connect-src` | 必需 |
+| `d3gk2c5xim1je2.cloudfront.net` | 图标、图片、标识 | `img-src` | 必需 |
+| `www.googletagmanager.com` | Google Analytics/GTM | `script-src`、`connect-src` | 可选 |
+| `cdn.segment.com` | Segment 分析 | `script-src`、`connect-src` | 可选 |
+| `plausible.io` | Plausible 分析 | `script-src`、`connect-src` | 可选 |
+| `tag.clearbitscripts.com` | Clearbit 追踪 | `script-src` | 可选 |
+| `cdn.heapanalytics.com` | Heap 分析 | `script-src` | 可选 |
+| `chat.cdn-plain.com` | Plain 聊天组件 | `script-src` | 可选 |
+| `chat-assets.frontapp.com` | Front 聊天组件 | `script-src` | 可选 |
+
+<div id="example-csp-configuration">
+  ## CSP 配置示例
+</div>
+
+<Note>
+  仅包含你实际使用的服务域名。移除尚未在文档中配置的分析类域名。
+</Note>
+
+```text 换行
+Content-Security-Policy:
+default-src 'self';
+script-src 'self' 'unsafe-inline' 'unsafe-eval' www.googletagmanager.com cdn.segment.com plausible.io tag.clearbitscripts.com cdn.heapanalytics.com
+chat.cdn-plain.com chat-assets.frontapp.com;
+style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net;
+font-src 'self' d4tuoctqmanu0.cloudfront.net;
+img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net;
+connect-src 'self' *.mintlify.dev www.googletagmanager.com cdn.segment.com plausible.io;
+frame-src 'self' *.mintlify.dev;
+```
+
+
+<div id="common-configurations-by-proxy-type">
+  ## 按代理类型划分的常见配置
+</div>
+
+大多数反向代理都支持添加自定义请求头。
+
+<div id="cloudflare-configuration">
+  ### Cloudflare 配置
+</div>
+
+创建一个 Response Header Transform 规则：
+
+1. 在 Cloudflare 控制台，前往 **Rules > Overview**。
+2. 选择 **Create rule > Response Header Transform Rule**。
+3. 配置规则：
+
+- **Modify response header**：设置为 static
+  - **Header name**：`Content-Security-Policy`
+  - **Header value**：
+    ```text wrap
+    default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net; font-src 'self' d4tuoctqmanu0.cloudfront.net; img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net; connect-src 'self' *.mintlify.dev; frame-src 'self' *.mintlify.dev;
+    ```
+
+4. 部署规则。
+
+<div id="aws-cloudfront-configuration">
+  ### 配置 AWS CloudFront
+</div>
+
+在 CloudFront 中添加响应标头策略：
+
+```json
+{
+"ResponseHeadersPolicy": {
+    "Name": "MintlifyCSP",
+    "Config": {
+    "SecurityHeadersConfig": {
+        "ContentSecurityPolicy": {
+        "ContentSecurityPolicy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net; font-src 'self' d4tuoctqmanu0.cloudfront.net; img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net; connect-src 'self' *.mintlify.dev; frame-src 'self' *.mintlify.dev;",
+        "Override": true
+        }
+      }
+    }
+  }
+}
+```
+
+
+<div id="vercel-configuration">
+  ### Vercel 配置
+</div>
+
+在你的 `vercel.json` 中添加：
+
+```json
+{
+"headers": [
+    {
+    "source": "/(.*)",
+    "headers": [
+        {
+        "key": "Content-Security-Policy",
+        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net; font-src 'self' d4tuoctqmanu0.cloudfront.net; img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net; connect-src 'self' *.mintlify.dev; frame-src 'self' *.mintlify.dev;"
+        }
+      ]
+    }
+  ]
+}
+```
+
+
+<div id="troubleshooting">
+  ## 疑难解答
+</div>
+
+在浏览器控制台中定位 CSP 违规：
+
+1. 打开浏览器的开发者工具。
+2. 切换到 **Console** 选项卡。
+3. 查找以以下内容开头的错误：
+    - `Content Security Policy: The page's settings blocked the loading of a resource`
+    - `Refused to load the script/stylesheet because it violates the following Content Security Policy directive`
+    - `Refused to connect to because it violates the following Content Security Policy directive`
