@@ -1,0 +1,304 @@
+---
+title: Searching with Trieve
+description: Learn how to implement different search strategies and types with Trieve's powerful search API
+---
+
+# Searching with Trieve
+
+Trieve offers multiple search types and paradigms to help you find the most relevant results for your use case. This guide covers the different search strategies available and provides practical examples for implementation.
+
+## Search Types
+
+### Semantic Search
+
+Semantic search uses an embedding model to generate a query vector. Defaults to `bge-base-en-v1.5`.
+
+Trieve uses only the embedding model to select and rerank the results.
+
+This search_type is `semantic`.
+
+### Full Text Search
+
+FullText search uses a SPLADE model to find the most relevant results to your given `query`.
+
+This search_type is `fulltext`.
+
+### BM25
+
+BM25 is the classical type of search index, it uses the BM25 ranking function to determine the results that are most similar to your given `query`.
+
+This search_type is `bm25`.
+
+### Hybrid
+
+Hybrid search does both a full text search and semantic search. From those results it then uses a *reranker model* (defaults to bge-reranker-large).
+
+This search_type is `hybrid`.
+
+## Search Paradigms
+
+We offer three different search strategies for you to choose from:
+
+1. [**Search over chunks**](/api-reference/chunk/search): This strategy allows you to search all of your chunks independently. This is useful when your chunks are independent and do not need to be grouped together.
+
+2. [**Search within groups**](/api-reference/chunk-group/search-within-group): This strategy lets you constrain your results to within a selected group. This is useful for searching distinct groups within your dataset independently.
+
+3. [**Search over groups**](/api-reference/chunk-group/search-over-groups): This strategy allows you to search over the groups of chunks within your dataset. This returns the groups and the top chunks within each group that matched your query, providing better search quality for datasets with highly related chunks within groups.
+
+<Tip>
+You can use the search UI at [search.trieve.ai](https://search.trieve.ai) to A/B test which search method works best for you.
+</Tip>
+
+## Search Over Chunks
+
+This is the most basic search strategy where you search across all chunks independently.
+
+```json
+POST /api/chunk/search
+
+Headers:
+{
+  "TR-Dataset": "<your-dataset-id>",
+  "Authorization": "tr-*********************"
+}
+
+Body:
+{
+  "query": "How to search with Trieve",
+  "search_type": "fulltext",
+  "page": 1,
+  "page_size": 10,
+  "score_threshold": 0.5
+}
+```
+
+### Example Response
+
+```json
+{
+  "chunks": [
+    {
+      "id": "chunk-id-1",
+      "content": "Trieve provides multiple search types...",
+      "score": 0.95,
+      "metadata": {
+        "title": "Search Documentation"
+      }
+    }
+  ],
+  "total_pages": 5
+}
+```
+
+## Search Within Groups
+
+This strategy constrains your search to within a specific group, useful for searching within distinct categories or sections.
+
+```json
+POST /api/chunk_group/search
+
+Headers:
+{
+  "TR-Dataset": "<your-dataset-id>",
+  "Authorization": "tr-*********************"
+}
+
+Body:
+{
+  "group_tracking_id": "my-group-tracking-id",
+  "query": "How to search with Trieve",
+  "search_type": "hybrid",
+  "page": 1,
+  "page_size": 10,
+  "score_threshold": 0.5
+}
+```
+
+### Searching Multiple Groups
+
+You can also search across multiple specific groups by providing an array of group IDs:
+
+```json
+POST /api/chunk_group/search
+
+Headers:
+{
+  "TR-Dataset": "<your-dataset-id>",
+  "Authorization": "tr-*********************"
+}
+
+Body:
+{
+  "group_tracking_ids": ["group-1", "group-2", "group-3"],
+  "query": "How to search with Trieve",
+  "search_type": "semantic",
+  "page": 1,
+  "page_size": 10,
+  "score_threshold": 0.5
+}
+```
+
+## Search Over Groups
+
+This strategy searches over groups and returns the most relevant groups along with their top matching chunks.
+
+```json
+POST /api/chunk_group/group_oriented_search
+
+Headers:
+{
+  "TR-Dataset": "<your-dataset-id>",
+  "Authorization": "tr-*********************"
+}
+
+Body:
+{
+  "query": "How to search with Trieve",
+  "search_type": "hybrid",
+  "group_size": 5,
+  "page": 1,
+  "page_size": 10,
+  "score_threshold": 0.5
+}
+```
+
+### Search Within a Single Group
+
+For more focused searches within a specific group:
+
+```json
+POST /api/chunk_group/group_oriented_search
+
+Headers:
+{
+  "TR-Dataset": "<your-dataset-id>",
+  "Authorization": "tr-*********************"
+}
+
+Body:
+{
+  "group_tracking_id": "my-specific-group",
+  "query": "How to search with Trieve",
+  "search_type": "fulltext",
+  "group_size": 3,
+  "page": 1,
+  "page_size": 10,
+  "score_threshold": 0.5
+}
+```
+
+## Advanced Search Options
+
+### Filters
+
+You can apply filters to narrow down your search results:
+
+```json
+{
+  "query": "machine learning",
+  "search_type": "hybrid",
+  "filters": {
+    "must": [
+      {
+        "field": "tag_set",
+        "match_any": ["AI", "ML"]
+      }
+    ],
+    "must_not": [
+      {
+        "field": "category",
+        "match_any": ["deprecated"]
+      }
+    ]
+  }
+}
+```
+
+### Sorting Options
+
+Control how results are sorted and reranked:
+
+```json
+{
+  "query": "search examples",
+  "search_type": "hybrid",
+  "sort_options": {
+    "sort_by": {
+      "rerank_type": "semantic"
+    }
+  }
+}
+```
+
+### Date Range Filtering
+
+Filter results by date ranges:
+
+```json
+{
+  "query": "recent updates",
+  "search_type": "fulltext",
+  "filters": {
+    "must": [
+      {
+        "field": "time_stamp",
+        "date_range": {
+          "gte": "2024-01-01T00:00:00Z",
+          "lte": "2024-12-31T23:59:59Z"
+        }
+      }
+    ]
+  }
+}
+```
+
+## Best Practices
+
+### Choosing the Right Search Type
+
+- **Semantic**: Best for conceptual searches and finding related content
+- **Fulltext**: Ideal for exact term matching and keyword searches  
+- **BM25**: Good for traditional keyword-based searches
+- **Hybrid**: Combines benefits of semantic and fulltext for balanced results
+
+### Optimizing Performance
+
+1. **Use appropriate page sizes**: Start with 10-20 results per page
+2. **Set score thresholds**: Filter out low-relevance results (typically 0.3-0.7)
+3. **Leverage groups**: Use group-based searches for better organization
+4. **Apply filters**: Narrow results with metadata filters when possible
+
+### Error Handling
+
+Always handle potential errors in your search requests:
+
+```javascript
+try {
+  const response = await fetch('/api/chunk/search', {
+    method: 'POST',
+    headers: {
+      'TR-Dataset': 'your-dataset-id',
+      'Authorization': 'tr-your-api-key',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      query: 'your search query',
+      search_type: 'hybrid'
+    })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Search failed: ${response.status}`);
+  }
+  
+  const results = await response.json();
+  return results;
+} catch (error) {
+  console.error('Search error:', error);
+  // Handle error appropriately
+}
+```
+
+<Tip>
+For testing and experimentation, use the interactive search UI at [search.trieve.ai](https://search.trieve.ai) to compare different search methods and find the optimal configuration for your use case.
+</Tip>
