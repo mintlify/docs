@@ -1,0 +1,571 @@
+---
+title: "OpenAPI 设置"
+description: "在文档页面中引用 OpenAPI 端点"
+icon: "file-json"
+---
+
+OpenAPI 是用于描述 API 的规范。Mintlify 支持 OpenAPI 3.0+ 文档，可生成交互式 API 文档并保持其内容最新。
+
+<div id="add-an-openapi-specification-file">
+  ## 添加 OpenAPI 规范文件
+</div>
+
+要使用 OpenAPI 为你的端点编写文档，你需要一个符合 [OpenAPI 3.0+ 规范](https://swagger.io/specification/)的有效 OpenAPI 文档，格式可以是 JSON 或 YAML。
+
+你可以从一个或多个 OpenAPI 文档生成 API 页面。
+
+<div id="describing-your-api">
+  ### 描述你的 API
+</div>
+
+我们推荐以下资源来学习并构建你的 OpenAPI 文档。
+
+* [Swagger 的 OpenAPI 指南](https://swagger.io/docs/specification/v3_0/basic-structure/)：学习 OpenAPI 语法。
+* [OpenAPI 规范的 Markdown 源文件](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/)：参考最新 OpenAPI 规范的详情。
+* [Swagger Editor](https://editor.swagger.io/)：编辑、校验和调试你的 OpenAPI 文档。
+* [Mint 命令行工具](https://www.npmjs.com/package/mint)：使用命令 `mint openapi-check <openapiFilenameOrUrl>` 校验你的 OpenAPI 文档。
+
+<Note>
+  Swagger 的 OpenAPI 指南针对的是 OpenAPI v3.0，但几乎所有信息都适用于 v3.1。
+  关于 v3.0 与 v3.1 的差异，参见 OpenAPI 博客中的
+  [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0)。
+</Note>
+
+<div id="specifying-the-url-for-your-api">
+  ### 为你的 API 指定 URL
+</div>
+
+为启用 Mintlify 功能（如 API交互测试台），请在 OpenAPI 文档中添加 `servers` 字段，并填写你的 API 基础 URL。
+
+```json
+{
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ]
+}
+```
+
+在 OpenAPI 文档中，不同的 API 端点由其路径指定，例如 `/users/{id}` 或简单的 `/`。基础 URL 定义了这些路径应追加到哪里。关于如何配置 `servers` 字段的更多信息，请参见 OpenAPI 文档中的 [API Server and Base Path](https://swagger.io/docs/specification/api-host-and-base-path/)。
+
+API交互测试台会使用这些服务器 URL 来决定请求发送的位置。如果你指定了多个服务器，将会出现一个下拉菜单，允许用户在服务器之间切换。如果你未指定服务器，API交互测试台将使用简易模式，因为没有基础 URL 无法发送请求。
+
+如果你的 API 在不同 URL 上存在端点，你可以为特定路径或操作[覆盖 servers 字段](https://swagger.io/docs/specification/v3_0/api-host-and-base-path/#overriding-servers)。
+
+<div id="specifying-authentication">
+  ### 指定认证方式
+</div>
+
+要在 API 文档和交互测试台中启用认证，请在 OpenAPI 文档中配置 `securitySchemes` 和 `security` 字段。API 描述和 API交互测试台会根据 OpenAPI 文档中的安全配置自动添加认证字段。
+
+<Steps>
+  <Step title="定义你的认证方式。">
+    添加 `securitySchemes` 字段以定义用户如何进行认证。
+
+    以下示例展示了 Bearer 认证的配置。
+
+    ```json
+    {
+      "components": {
+        "securitySchemes": {
+          "bearerAuth": {
+            "type": "http",
+            "scheme": "bearer"
+          }
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="将认证应用到你的端点。">
+    添加 `security` 字段以要求认证。
+
+    ```json
+    {
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+常见的认证类型包括：
+
+* [API Keys](https://swagger.io/docs/specification/authentication/api-keys/)：用于请求头、查询参数或 Cookie 的密钥。
+* [Bearer](https://swagger.io/docs/specification/authentication/bearer-authentication/)：用于 JWT 或 OAuth 令牌。
+* [Basic](https://swagger.io/docs/specification/authentication/basic-authentication/)：用于用户名和密码。
+
+如果你的 API 中不同端点需要不同的认证方式，你可以为特定操作[覆盖 security 字段](https://swagger.io/docs/specification/authentication/#:~:text=you%20can%20apply%20them%20to%20the%20whole%20API%20or%20individual%20operations%20by%20adding%20the%20security%20section%20on%20the%20root%20level%20or%20operation%20level%2C%20respectively.)。
+
+关于定义和应用认证的更多信息，请参见 OpenAPI 文档中的 [Authentication](https://swagger.io/docs/specification/authentication/)。
+
+<div id="x-mint-extension">
+  ## `x-mint` 扩展
+</div>
+
+`x-mint` 扩展是一个自定义的 OpenAPI 扩展，可为你的 API 文档的生成与展示提供更精细的控制。
+
+<div id="metadata">
+  ### 元数据
+</div>
+
+在任意 operation 中添加 `x-mint: metadata`，即可覆盖生成的 API 页面默认元数据。除 `openapi` 外，你可以使用 `MDX` 前置区块中任何有效的元数据字段：
+
+```json {7-13}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "description": "Retrieve a list of users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "description": "Fetch paginated user data with filtering options",
+            "og:title": "Display a list of users"
+          }
+        },
+        "parameters": [
+          {
+            // Parameter configuration
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+<div id="content">
+  ### 内容
+</div>
+
+使用 `x-mint: content` 在自动生成的 API 文档之前插入自定义内容：
+
+```json {6-8}
+{
+  "paths": {
+    "/users": {
+      "post": {
+        "summary": "Create user",
+        "x-mint": {
+          "content": "## Prerequisites\n\nThis endpoint requires admin privileges and has rate limiting.\n\n<Note>User emails must be unique across the system.</Note>"
+        },
+        "parameters": [
+          {
+            // Parameter configuration
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+`content` 扩展支持所有 Mintlify 的 MDX 组件与格式。
+
+<div id="href">
+  ### Href
+</div>
+
+使用 `x-mint: href` 更改文档中该端点页面的 URL：
+
+```json {6-8, 14-16}
+{
+  "paths": {
+    "/legacy-endpoint": {
+      "get": {
+        "summary": "Legacy endpoint",
+        "x-mint": {
+          "href": "/deprecated-endpoints/legacy-endpoint"
+        }
+      }
+    },
+    "/documented-elsewhere": {
+      "post": {
+        "summary": "Special endpoint",
+        "x-mint": {
+          "href": "/guides/special-endpoint-guide"
+        }
+      }
+    }
+  }
+}
+```
+
+当存在 `x-mint: href` 时，导航项将直接链接到指定的 URL，而不会生成 API 页面。
+
+<div id="mcp">
+  ### MCP
+</div>
+
+通过使用 `x-mint: mcp` 有选择地将端点暴露为模型上下文协议（MCP）工具。仅启用在通过 AI 工具公开时安全的端点。
+
+<ResponseField name="mcp" type="object">
+  该端点的 MCP 配置。
+
+  <Expandable title="MCP">
+    <ResponseField name="enabled" type="boolean">
+      是否将该端点作为 MCP 工具暴露。优先于文件级配置。
+    </ResponseField>
+
+    <ResponseField name="name" type="string">
+      MCP 工具名称。
+    </ResponseField>
+
+    <ResponseField name="description" type="string">
+      MCP 工具描述。
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<CodeGroup>
+  ```json Selective enablement {6-9} wrap
+  {
+    "paths": {
+      "/users": {
+        "post": {
+          "summary": "Create user",
+          "x-mint": {
+            "mcp": {
+              "enabled": true
+            },
+            // ...
+          }
+        }
+      },
+      "/users": {
+        "delete": {
+          "summary": "Delete user (admin only)",
+          // No `x-mint: mcp` so this endpoint is not exposed as an MCP tool
+          // ...
+        }
+      }
+    }
+  }
+  ```
+
+  ```json Global enablement {3-5, 9-13} wrap
+  {
+    "openapi": "3.1.0",
+    "x-mcp": {
+        "enabled": true // All endpoints are exposed as MCP tools by default
+      },
+    "paths": {
+      "/api/admin/delete": {
+        "delete": {
+          "x-mint": {
+            "mcp": {
+              "enabled": false // Disable MCP for this endpoint
+            }
+          },
+          "summary": "Delete resources"
+        }
+      }
+    }
+  }
+  ```
+</CodeGroup>
+
+更多信息，请参阅 [Model Context Protocol](/zh/ai/model-context-protocol)。
+
+<div id="auto-populate-api-pages">
+  ## 自动生成 API 页面
+</div>
+
+在你的 `docs.json` 中为任意导航元素添加 `openapi` 字段，可自动为 OpenAPI 端点生成页面。你可以控制这些页面在导航结构中的展示位置，既可以作为独立的 API 区域，也可以与其他页面混排。
+
+`openapi` 字段可以是文档仓库中的文件路径，或托管的 OpenAPI 文档 URL。
+
+生成的端点页面默认包含以下元数据：
+
+* `title`：若存在，取该操作的 `summary` 字段；若无 `summary`，则由 HTTP 方法与端点组合生成标题。
+* `description`：若存在，取该操作的 `description` 字段。
+* `version`：若存在，取父级锚点或选项卡中的 `version` 值。
+* `deprecated`：取该操作的 `deprecated` 字段。若为 `true`，则在侧边导航及端点页标题旁显示“已弃用”标签。
+
+<Tip>
+  若要从自动生成的 API 页面中排除特定端点，请在 OpenAPI 规范的对应 operation 上添加
+  [x-hidden](/zh/api-playground/customization/managing-page-visibility#x-hidden)
+  属性。
+</Tip>
+
+将端点页面添加到文档中有两种方式：
+
+1. 独立 API 区域：在导航元素中引用 OpenAPI 规范，生成独立的 API 区域。
+2. 精选端点：在导航中与其他页面并列引用特定端点。
+
+<div id="dedicated-api-sections">
+  ### 独立 API 区域
+</div>
+
+在导航元素中仅添加 `openapi` 字段且不包含其他页面，即可生成独立 API 区域。规范中的所有端点都会被包含：
+
+```json {5}
+"navigation": {
+  "tabs": [
+    {
+        "tab": "API Reference",
+        "openapi": "https://petstore3.swagger.io/api/v3/openapi.json"
+    }
+  ]
+}
+```
+
+你可以在不同的导航区域中使用多个 OpenAPI 规范：
+
+```json {8-11, 15-18}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API Reference",
+      "groups": [
+        {
+          "group": "Users",
+          "openapi": {
+            "source": "/path/to/openapi-1.json",
+            "directory": "api-reference"
+          }
+        },
+        {
+          "group": "Admin",
+          "openapi": {
+            "source": "/path/to/openapi-2.json",
+            "directory": "api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+<Note>
+  `directory` 字段为可选项，用于指定生成的 API 页面在文档仓库中的存储位置。
+  若未指定，默认使用仓库的 `api-reference` 目录。
+</Note>
+
+<div id="selective-endpoints">
+  ### 精选端点
+</div>
+
+当你需要更精细地控制端点在文档中的出现位置时，可在导航中引用特定端点。此方式允许你将 API 端点页面与其他内容并排展示。
+
+<div id="set-a-default-openapi-spec">
+  #### 设置默认 OpenAPI 规范
+</div>
+
+为某个导航元素配置默认的 OpenAPI 规范，然后在 `pages` 字段中引用特定端点：
+
+```json {12, 15-16}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "Getting started",
+      "pages": [
+        "quickstart",
+        "installation"
+      ]
+    },
+    {
+      "tab": "API reference",
+      "openapi": "/path/to/openapi.json",
+      "pages": [
+        "api-overview",
+        "GET /users",
+        "POST /users",
+        "guides/authentication"
+      ]
+    }
+  ]
+}
+```
+
+任何符合 `METHOD /path` 格式的页面条目都会使用默认的 OpenAPI 规范为该端点生成 API 页面。
+
+<div id="openapi-spec-inheritance">
+  #### OpenAPI 规范继承
+</div>
+
+OpenAPI 规范会沿导航层级向下继承。子导航元素会继承其父级的 OpenAPI 规范，除非它们定义了自己的规范：
+
+```json {3, 7-8, 11, 13-14}
+{
+  "group": "API reference",
+  "openapi": "/path/to/openapi-v1.json",
+  "pages": [
+    "overview",
+    "authentication",
+    "GET /users",
+    "POST /users",
+    {
+      "group": "Orders",
+      "openapi": "/path/to/openapi-v2.json",
+      "pages": [
+        "GET /orders",
+        "POST /orders"
+      ]
+    }
+  ]
+}
+```
+
+<div id="individual-endpoints">
+  #### 单个端点
+</div>
+
+在不设置默认 OpenAPI 规范的情况下，也可通过包含文件路径来引用特定端点：
+
+```json {5-6}
+"navigation": {
+  "pages": [
+    "introduction",
+    "user-guides",
+    "/path/to/openapi-v1.json POST /users",
+    "/path/to/openapi-v2.json GET /orders"
+  ]
+}
+```
+
+当你需要来自不同规范的单个端点，或只想选择性地包含部分端点时，此方式非常适用。
+
+<div id="create-mdx-files-for-api-pages">
+  ## 为 API 页面创建 `MDX` 文件
+</div>
+
+若需精细控制单个端点页面，请为每个操作创建对应的 `MDX` 页面。这样可以自定义页面元数据、添加内容、忽略某些操作，或在页面级对导航中的页面重新排序。
+
+查看来自 MindsDB 的一个 [MDX OpenAPI 页面示例](https://github.com/mindsdb/mindsdb/blob/main/docs/rest/databases/create-databases.mdx?plain=1)，以及它在其[在线文档](https://docs.mindsdb.com/rest/databases/create-databases)中的展示效果。
+
+<div id="manually-specify-files">
+  ### 手动指定文件
+</div>
+
+为每个端点创建一个 `MDX` 页面，并在 frontmatter 中通过 `openapi` 字段指定要展示的 OpenAPI 操作。
+
+以这种方式引用 OpenAPI 操作时，名称、描述、参数、响应以及 API交互测试台 会根据你的 OpenAPI 文档自动生成。
+
+如果你有多个 OpenAPI 文件，请在引用中包含文件路径，以确保 Mintlify 能找到正确的 OpenAPI 文档。如果只有一个 OpenAPI 文件，Mintlify 会自动检测。
+
+<Note>
+  无论你是否在导航中设置了默认的 OpenAPI 规范，此方法都适用。你可以通过在
+  frontmatter 中包含文件路径，从任何 OpenAPI 规范引用任何端点。
+</Note>
+
+如果你想引用外部的 OpenAPI 文件，请将该文件的 URL 添加到你的 `docs.json配置文件` 中。
+
+<CodeGroup>
+  ```mdx Example
+  ---
+  title: "Get users"
+  description: "Returns all plants from the system that the user has access to"
+  openapi: "/path/to/openapi-1.json GET /users"
+  deprecated: true
+  version: "1.0"
+  ---
+  ```
+
+  ```mdx Format
+  ---
+  title: "title of the page"
+  description: "description of the page"
+  openapi: openapi-file-path method path
+  deprecated: boolean (not required)
+  version: "version-string" (not required)
+  ---
+  ```
+</CodeGroup>
+
+<Note>
+  方法与路径必须与 OpenAPI 规范中的定义完全一致。若该端点未在 OpenAPI
+  文件中定义，页面将为空。
+</Note>
+
+<div id="autogenerate-mdx-files">
+  ### 自动生成 `MDX` 文件
+</div>
+
+使用我们的 Mintlify [scraper](https://www.npmjs.com/package/@mintlify/scraping) 为体量较大的 OpenAPI 文档自动生成 `MDX` 页面。
+
+<Note>
+  你的 OpenAPI 文档必须有效，否则无法自动生成文件。
+</Note>
+
+该 scraper 会生成：
+
+* 为 OpenAPI 文档 `paths` 字段中的每个操作生成一个 `MDX` 页面。
+* 如果你的 OpenAPI 文档版本为 3.1+，则为文档 `webhooks` 字段中的每个操作生成一个 `MDX` 页面。
+* 一组可添加到你的 `docs.json配置文件` 的导航条目数组。
+
+<Steps>
+  <Step title="生成 `MDX` 文件。">
+    ```bash
+    npx @mintlify/scraping@latest openapi-file <path-to-openapi-file>
+    ```
+  </Step>
+
+  <Step title="指定输出文件夹。">
+    ```bash
+    npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o api-reference
+    ```
+
+    添加 `-o` 标志以指定生成文件的目标文件夹。若未指定文件夹，文件将生成在当前工作目录。
+  </Step>
+</Steps>
+
+<div id="create-mdx-files-for-openapi-schemas">
+  ### 为 OpenAPI 模型创建 `MDX` 文件
+</div>
+
+你可以为 OpenAPI 文档的 `components.schema` 字段中定义的任意 OpenAPI 模型创建独立页面：
+
+<CodeGroup>
+  ```mdx Example
+  ---
+  openapi-schema: OrderItem
+  ---
+  ```
+
+  ```mdx Format
+  ---
+  openapi-schema: "schema-key"
+  ---
+  ```
+</CodeGroup>
+
+<div id="webhooks">
+  ## Webhooks
+</div>
+
+Webhook 是一种 HTTP 回调，用于在事件发生时由你的 API 发送通知给外部系统。OpenAPI 3.1+ 文档支持 Webhook。
+
+<div id="define-webhooks-in-your-openapi-specification">
+  ### 在 OpenAPI 规范中定义 Webhook
+</div>
+
+在你的 OpenAPI 文档中，与 `paths` 字段并列添加一个 `webhooks` 字段。
+
+有关定义 Webhook 的更多信息，请参阅 OpenAPI 文档中的 [Webhooks](https://spec.openapis.org/oas/v3.1.0#oasWebhooks)。
+
+<div id="reference-webhooks-in-mdx-files">
+  ### 在 MDX 文件中引用 Webhook
+</div>
+
+为 Webhook 创建 MDX 页面时，使用 `webhook`，而不是 `GET` 或 `POST` 等 HTTP 方法：
+
+```mdx
+---
+title: "Example webhook"
+description: "Triggered when an event occurs"
+openapi: "path/to/openapi-file webhook example-webhook-name"
+---
+```
+
+<Note>
+  Webhook 名称必须与 OpenAPI 规范中 `webhooks` 字段定义的键完全一致。
+</Note>
