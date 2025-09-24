@@ -1,0 +1,146 @@
+---
+title: "反向代理"
+description: "配置自定义反向代理来托管你的文档"
+---
+
+<Note>
+  反向代理配置仅适用于[自定义方案](https://mintlify.com/pricing?ref=reverse-proxy)。
+</Note>
+
+要通过自定义反向代理托管你的文档，你需要配置路由规则、缓存策略和请求头转发。
+
+在实施反向代理时，请留意域名验证、SSL 证书签发、认证流程、性能和分析追踪等潜在问题。
+
+<div id="routing-configuration">
+  ## 路由配置
+</div>
+
+将以下路径通过代理指向你的 Mintlify 子域，并应用相应的缓存策略：
+
+| 路径 | 目标 | 缓存 |
+|------|-------------|---------|
+| `/.well-known/acme-challenge/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
+| `/.well-known/vercel/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
+| `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | 启用缓存 |
+| `/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
+| `/` | `<your-subdomain>.mintlify.app` | 不缓存 |
+
+<div id="required-header-configuration">
+  ## 必要的请求头配置
+</div>
+
+按以下请求头要求配置你的反向代理：
+
+- **Origin**：包含目标子域名 `<your-subdomain>.mintlify.app`
+- **X-Forwarded-For**：保留客户端 IP 信息
+- **X-Forwarded-Proto**：保留原始协议（HTTP/HTTPS）
+- **X-Real-IP**：转发真实的客户端 IP 地址
+- **User-Agent**：转发用户代理
+
+<Warning>
+  确保不转发 `Host` 请求头
+</Warning>
+
+<div id="example-nginx-configuration">
+  ## Nginx 配置示例
+</div>
+
+```nginx
+server {
+    listen 80;
+    server_name <your-domain>.com;
+
+    # Let's Encrypt 验证路径
+    location ~ ^/\.well-known/acme-challenge/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用验证路径的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Vercel 验证路径
+    location ~ ^/\.well-known/vercel/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用验证路径的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # 带缓存的静态资源
+    location ~ ^/mintlify-assets/_next/static/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 启用静态资源缓存
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # 根路径
+    location = / {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用动态内容缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # 所有其他文档路径
+    location / {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用动态内容缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+}
+```
+
+
+<div id="troubleshooting">
+  ## 疑难解答
+</div>
+
+<div id="404-error">
+  ### 404 错误
+</div>
+
+**症状**：文档能加载，但功能无法使用；API 调用失败。
+
+**原因**：被转发了 `Host` 头，或缺少 `Origin` 头。
+
+**解决方案**：
+
+- 停止转发 `Host` 头
+- 将 `Origin` 头设置为 `<your-subdomain>.mintlify.app`
+
+<div id="performance-issues">
+  ### 性能问题
+</div>
+
+**症状**：页面加载缓慢并出现布局偏移。
+
+**原因**：缓存配置不正确。
+
+**解决方案**：仅为 `/mintlify-assets/_next/static/*` 路径启用缓存。
