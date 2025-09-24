@@ -1,0 +1,84 @@
+# Registration Keys
+Registration Keys allow your machines to be auto-enrolled in Repacket without ever prompting a user for a login page. This creates a seamless experience for your users - they may not even be aware Repacket is running on your machine.
+
+Using registration keys requires machines to be configured for Active Directory or Mobile Device Management (MDM). Users are logged into Repacket automatically based on their identity in those tools.
+
+For security reasons, registration keys are *not* supported for Repacket administrator accounts.
+
+## Configuring Registration Keys
+
+To use this feature, you simply need to drop an organization-specific "registration key" in the right place.
+
+### Creating a registration key
+You can create or revoke registration keys on the [Authentication Settings](https://app.repacket.com/settings#authentication) page. The registration key allows someone to tie their machine to your organization.
+
+### Deploy the registration key
+To allow machines to be automatically registered, configure your MDM to deploy the registration key prior to installing Repacket. You must create a file on each machine at the following path:
+
+ - Windows: `C:\ProgramData\ZeropassSystem\registration_key`
+ - Mac: `/Library/Application Support/com.0pass/registration_key`
+
+The contents of the file must simply be the registration key.
+
+#### Intune
+If using Intune to deploy Repacket, the easiest solution is to add an additional "Requirement rule". Set up the requirement as a PowerShell script that writes the registration key and outputs `1`, and configure the rule to validate `1` was output.
+
+Example PowerShell script:
+```
+$folderPath = "C:\ProgramData\ZeropassSystem"
+$filePath = "$folderPath\registration_key"
+$registrationKeyContent = "rpkt-rk.<Rest of Your Key>"
+
+if (-not (Test-Path $folderPath)) {
+    New-Item -Path $folderPath -ItemType Directory -Force
+}
+
+Set-Content -Path $filePath -Value $registrationKeyContent -Encoding ASCII
+
+Write-Output 1
+```
+
+##### Creating an "additional requirement rule"
+![](/images/create-regkey-rule.png)
+
+##### Configuring the rule
+![](/images/configure-regkey-rule.png)
+However, set the output data type to an integer and the expected value to 1 (if using the example script above).
+
+#### Other MDMs
+You'll need to check your MDM's documentation to see how to deploy a static file.
+
+## Configure User Identity
+You need to specify how the identity of the user on the machine is determined. If this information is unavailable, you can still use registration keys, but each machine will be given a dummy identity, which may make managing exception requests difficult.
+
+### AD-Joined Windows Machines (including Entra)
+
+If your machines are AD-joined, they already have user identity information available; you don't need to do anything special. Simply deploy the registration key, and the Repacket Agent will automatically be connected to the correct user.
+
+You can confirm if this feature will work for you by checking for the presence of the following registry key of type `REG_SZ`:
+
+```
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\CloudDomainJoin\JoinInfo\UserEmail
+```
+
+If that's present, you're good.
+
+### Non-AD-joined machines
+
+We strongly suggest talking to us before configuring registration keys without Active Directory. We may be able to add more intelligent support for your use-case.
+
+You'll need to tell the Repacket Agent what the user's identity is. Configure your MDM to run a command after installing Repacket.
+
+ - Windows: `"C:\Program Files\Repacket\Repacket Agent.exe" registration_key_login` (mind the space)
+ - Mac: `/Library/Repacket/proxy registration_key_login`
+
+Pass at least one of the following arguments:
+ - `--email=<email>` (preferred): The user's email.
+ - `--username=<username>`: The user's username. Don't pass an email address here, use `--email` instead.
+ - `--name="Full Name"`: The user's human name.
+
+How you determine the values to pass here will depend on your MDM and/or user management integration. Some MDMs are not capable of providing this information at all (or require it to be manually configured).
+
+You can optionally pass:
+ - `--profile_pic=<url>`: The URL of the user's profile picture.
+ - `--registration_key=rpkt-rk.<key>`: The registration key. If this is provider, creating the `registration_key` file is unnecessary. This takes precedence over that file.
