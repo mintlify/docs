@@ -1,0 +1,99 @@
+---
+title: "Vercel"
+description: "使用 Vercel 在自定义子路径下托管文档"
+---
+
+import { VercelJsonGenerator } from "/snippets/zh/vercel-json-generator.mdx";
+
+
+<div id="verceljson-file">
+  ## vercel.json 文件
+</div>
+
+`vercel.json` 文件用于配置项目的构建与部署。它位于项目根目录，控制部署的多个方面，包括路由、重写、重定向、请求头，以及构建设置。
+
+我们使用 `rewrites` 配置将来自主域名的请求代理到文档站点。
+
+Rewrites 会在不更改浏览器中 URL 的情况下，将传入请求映射到不同的目标。当有人访问 `yoursite.com/docs` 时，Vercel 会在内部从 `your-subdomain.mintlify.dev/docs` 获取内容，但用户在浏览器中仍会看到 `yoursite.com/docs`。这与重定向不同，重定向会将用户带到完全不同的 URL。
+
+你可以将子路径自定义为任意你喜欢的值，例如 `/docs`、`/help` 或 `/guides`。此外，你也可以使用更深层级的嵌套子路径，例如 `/product/docs`。
+
+<div id="repository-structure">
+  ## 存储库结构
+</div>
+
+必须在存储库中按照所选子路径结构组织文档文件。举例来说，如果希望文档位于 `yoursite.com/docs`，则应创建一个包含所有文档文件的 `docs/` 目录。
+
+<div id="configuration">
+  ## 配置
+</div>
+
+要在 Vercel 上将文档托管到自定义子路径下，请在 `vercel.json` 文件中添加以下配置。此示例使用 `/docs`，你也可以替换为任意子路径：
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/docs",
+      "destination": "https://[subdomain].mintlify.dev/docs"
+    },
+    {
+      "source": "/docs/:match*",
+      "destination": "https://[subdomain].mintlify.dev/docs/:match*"
+    }
+  ]
+}
+```
+
+* **`source`**: 你的 domain 上用于触发重写的路径模式。
+* **`destination`**: 请求应被代理到的目标位置。
+* **`:match*`**: 一个通配符，用于捕获子路径之后的所有路径段。
+
+更多信息请参见 Vercel 文档中的[使用 vercel.json 配置项目：Rewrites](https://vercel.com/docs/projects/project-configuration#rewrites)。
+
+
+<div id="generate-rewrites">
+  ### 生成重写规则
+</div>
+
+输入你的子域和自定义子目录，为你的 `vercel.json` 文件生成重写规则。
+
+<VercelJsonGenerator />
+
+<div id="using-external-proxies-with-vercel">
+  ## 在 Vercel 中使用外部代理
+</div>
+
+如果你在 Vercel 部署前面使用外部代理（如 Cloudflare 或 AWS CloudFront），必须正确配置，避免与 Vercel 的 domain 验证和 SSL 证书签发发生冲突。
+
+错误的代理配置可能会阻止 Vercel 为你配置 Let's Encrypt SSL 证书，并导致 domain 验证失败。
+
+请参阅 Vercel 文档中的[受支持的提供商](https://vercel.com/guides/how-to-setup-verified-proxy#supported-providers-verified-proxy-lite)。
+
+<div id="required-path-allowlist">
+  ### 必需的路径允许列表
+</div>
+
+你的外部代理必须允许以下特定路径的流量通过，且不得阻止、重定向或进行强缓存：
+
+- `/.well-known/acme-challenge/*` - 用于 Let's Encrypt 证书验证
+- `/.well-known/vercel/*` - 用于 Vercel domain 验证
+- `/mintlify-assets/_next/static/*` - 用于静态资源
+
+这些路径应原样直接透传到你的 Vercel 部署。
+
+<div id="header-forwarding-requirements">
+  ### 头部转发要求
+</div>
+
+确保你的代理正确转发 `HOST` 头部。若未正确转发该头部，验证请求将会失败。
+
+<div id="testing-your-proxy-setup">
+  ### 测试你的代理设置
+</div>
+
+要验证代理是否已正确配置：
+
+1. 测试 `https://[yourdomain].com/.well-known/vercel/` 是否能返回响应。
+2. 确认在你的 Vercel 控制台中已正确签发 SSL 证书。
+3. 检查 domain 验证是否已成功完成。
