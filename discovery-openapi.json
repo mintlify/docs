@@ -576,6 +576,337 @@
           }
         }
       }
+    },
+    "/agent/{domain}": {
+      "post": {
+        "summary": "Create writer job",
+        "description": "Creates a new AI writer job that can generate and edit documentation based on provided messages and branch information.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The domain identifier from your `domain.mintlify.app` URL. Can be found in the top left of your dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "branchName",
+                  "branchExists",
+                  "messages"
+                ],
+                "properties": {
+                  "branchName": {
+                    "type": "string",
+                    "description": "The name of the git branch where changes should be made."
+                  },
+                  "branchExists": {
+                    "type": "boolean",
+                    "description": "Whether the specified branch already exists in the repository."
+                  },
+                  "messages": {
+                    "type": "array",
+                    "description": "Array of messages for the AI writer to process.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "role",
+                        "content"
+                      ],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": ["system", "user"],
+                          "description": "The role of the message sender."
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "The content of the message."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Writer job created successfully",
+            "headers": {
+              "X-Message-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Message identifier for the created job"
+              }
+            },
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "description": "Streaming response containing the writer job execution details and results."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/{domain}/job/{id}": {
+      "get": {
+        "summary": "Get writer job by ID",
+        "description": "Retrieves the details and status of a specific writer job by its ID.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The domain identifier from your `domain.mintlify.app` URL. Can be found in the top left of your dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the writer job to retrieve."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Writer job details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "_id": {
+                      "type": "string",
+                      "description": "Unique MongoDB ObjectId of the writer session."
+                    },
+                    "subdomain": {
+                      "type": "string",
+                      "description": "The subdomain this session belongs to."
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": ["slack", "api"],
+                      "description": "Source of the writer session."
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "description": "Unique session identifier."
+                    },
+                    "branchName": {
+                      "type": "string",
+                      "description": "Git branch name where changes were made.",
+                      "nullable": true
+                    },
+                    "haulted": {
+                      "type": "boolean",
+                      "description": "Whether the session execution was halted."
+                    },
+                    "haultReason": {
+                      "type": "string",
+                      "enum": ["completed", "github_missconfigured", "error"],
+                      "description": "Reason for session halt."
+                    },
+                    "createdPullRequest": {
+                      "type": "boolean",
+                      "description": "Whether a pull request was created."
+                    },
+                    "pullRequestLink": {
+                      "type": "string",
+                      "description": "Link to the created pull request."
+                    },
+                    "messageToUser": {
+                      "type": "string",
+                      "description": "Message for the user about the session outcome."
+                    },
+                    "editedFiles": {
+                      "type": "boolean",
+                      "description": "Whether any files were edited during the session."
+                    },
+                    "lastTextStream": {
+                      "type": "string",
+                      "description": "Last text stream from the agent execution."
+                    },
+                    "todos": {
+                      "type": "array",
+                      "description": "List of todo items from the session.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "content": {
+                            "type": "string",
+                            "description": "Brief description of the task."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["pending", "in_progress", "completed", "cancelled"],
+                            "description": "Current status of the task."
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                            "description": "Priority level of the task."
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Unique identifier for the todo item."
+                          }
+                        }
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Timestamp when the session was created."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/{domain}/jobs": {
+      "get": {
+        "summary": "Get all writer jobs",
+        "description": "Retrieves all writer jobs for the specified domain, including their status and details.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The domain identifier from your `domain.mintlify.app` URL. Can be found in the top left of your dashboard."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All writer jobs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allSessions": {
+                      "type": "array",
+                      "description": "Array of all writer sessions for the domain.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "type": "string",
+                            "description": "Unique MongoDB ObjectId of the writer session."
+                          },
+                          "subdomain": {
+                            "type": "string",
+                            "description": "The subdomain this session belongs to."
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": ["slack", "api"],
+                            "description": "Source of the writer session."
+                          },
+                          "sessionId": {
+                            "type": "string",
+                            "description": "Unique session identifier."
+                          },
+                          "branchName": {
+                            "type": "string",
+                            "description": "Git branch name where changes were made.",
+                            "nullable": true
+                          },
+                          "haulted": {
+                            "type": "boolean",
+                            "description": "Whether the session execution was halted."
+                          },
+                          "haultReason": {
+                            "type": "string",
+                            "enum": ["completed", "github_missconfigured", "error"],
+                            "description": "Reason for session halt."
+                          },
+                          "createdPullRequest": {
+                            "type": "boolean",
+                            "description": "Whether a pull request was created."
+                          },
+                          "pullRequestLink": {
+                            "type": "string",
+                            "description": "Link to the created pull request."
+                          },
+                          "messageToUser": {
+                            "type": "string",
+                            "description": "Message for the user about the session outcome."
+                          },
+                          "editedFiles": {
+                            "type": "boolean",
+                            "description": "Whether any files were edited during the session."
+                          },
+                          "lastTextStream": {
+                            "type": "string",
+                            "description": "Last text stream from the agent execution."
+                          },
+                          "todos": {
+                            "type": "array",
+                            "description": "List of todo items from the session.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "content": {
+                                  "type": "string",
+                                  "description": "Brief description of the task."
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["pending", "in_progress", "completed", "cancelled"],
+                                  "description": "Current status of the task."
+                                },
+                                "priority": {
+                                  "type": "string",
+                                  "enum": ["high", "medium", "low"],
+                                  "description": "Priority level of the task."
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "Unique identifier for the todo item."
+                                }
+                              }
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Timestamp when the session was created."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
