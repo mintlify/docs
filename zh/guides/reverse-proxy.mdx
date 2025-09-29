@@ -15,13 +15,14 @@ description: "配置自定义反向代理以为文档提供服务"
   ## 路由配置
 </div>
 
-按如下缓存策略将这些路径代理到你的 Mintlify 子域：
+将以下路径按指定缓存策略代理到你的 Mintlify 子域：
 
 | 路径 | 目标 | 缓存 |
 |------|-------------|---------|
 | `/.well-known/acme-challenge/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
 | `/.well-known/vercel/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
 | `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | 启用缓存 |
+| `/_mintlify/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
 | `/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
 | `/` | `<your-subdomain>.mintlify.app` | 不缓存 |
 
@@ -42,7 +43,7 @@ description: "配置自定义反向代理以为文档提供服务"
 </Warning>
 
 <div id="example-nginx-configuration">
-  ## Nginx 配置示例
+  ## NGINX 配置示例
 </div>
 
 ```nginx
@@ -89,6 +90,19 @@ server {
         add_header Cache-Control "public, max-age=86400";
     }
 
+    # Mintlify 特定路径
+    location ~ ^/_mintlify/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用 Mintlify 路径的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
     # 根路径
     location = / {
         proxy_pass https://<your-subdomain>.mintlify.app;
@@ -98,7 +112,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header User-Agent $http_user_agent;
 
-        # 禁用动态内容缓存
+        # 禁用动态内容的缓存
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
@@ -111,7 +125,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header User-Agent $http_user_agent;
 
-        # 禁用动态内容缓存
+        # 禁用动态内容的缓存
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 }
