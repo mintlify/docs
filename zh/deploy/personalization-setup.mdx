@@ -1,0 +1,387 @@
+---
+title: "个性化设置"
+description: "让用户登录以获得定制化的文档体验"
+---
+
+当用户登录后，个性化功能会为其量身定制文档。例如，你可以预填他们的 API key，展示与其订阅计划或角色相关的内容，或隐藏他们不需要访问的部分。
+
+<div id="personalization-features">
+  ## 个性化功能
+</div>
+
+使用以下个性化功能定制内容。
+
+<div id="api-key-prefilling">
+  ### 预填充 API key
+</div>
+
+通过在用户数据中返回与字段同名的属性，可将用户特定的值自动填入 API 操作台的对应字段。要使自动预填充生效，用户数据中的字段名称必须与 API 操作台中的字段名称完全一致。
+
+<div id="dynamic-mdx-content">
+  ### 动态 MDX 内容
+</div>
+
+使用 `user` 变量，根据用户信息（如姓名、订阅计划或组织）展示动态内容。
+
+```jsx
+欢迎回来，{user.firstName}！您的 {user.org?.plan} 套餐包含...
+```
+
+请参阅下文的[用户数据格式](#user-data-format)部分，了解详细示例和实现指南。
+
+
+<div id="page-visibility">
+  ### 页面可见性
+</div>
+
+在页面的 frontmatter 中添加 `groups` 字段，可限制哪些页面对你的用户可见。默认情况下，所有用户都能看到所有页面。
+
+用户只会看到其所属 `groups` 下的页面。
+
+```mdx
+---
+title: "管理您的用户"
+description: "在您的组织中添加和删除用户"
+groups: ["admin"]
+---
+```
+
+
+<div id="user-data-format">
+  ## 用户数据格式
+</div>
+
+在实现个性化时，系统会以特定格式返回用户数据，以支持内容定制。根据握手方式不同，这些数据可以作为原始 JSON 对象发送，或封装在已签名的 JWT（JSON Web Token）中。两者的数据结构相同。
+
+```tsx
+type User = {
+  expiresAt?: number;
+  groups?: string[];
+  content?: Record<string, any>;
+  apiPlaygroundInputs?: {
+    header?: Record<string, any>;
+    query?: Record<string, any>;
+    cookie?: Record<string, any>;
+    server?: Record<string, string>;
+  };
+};
+```
+
+<ParamField path="expiresAt" type="number">
+  会话过期时间，单位为**自 Unix 纪元起的秒数**。如果用户在此时间之后加载页面，其存储的数据会被自动删除，并且必须重新进行认证。
+  <Warning><b>针对 JWT 握手：</b>这与 JWT 的 `exp` 声明不同，后者决定 JWT 何时被视为无效。出于安全考虑，请将 JWT 的 `exp` 声明设置为较短时长（10 秒或更短）。使用 `expiresAt` 来设定实际的会话时长（从数小时到数周）。</Warning>
+</ParamField>
+
+<ParamField path="groups" type="string[]">
+  用户所属的 groups 列表。frontmatter 中含有匹配 `groups` 的页面对该用户可见。
+
+  **示例**：具有 `groups: ["admin", "engineering"]` 的用户可以访问标记为 `admin` 或 `engineering` 的页面。
+</ParamField>
+
+<ParamField path="content" type="object">
+  可通过 `user` 变量在你的 `MDX` 内容中访问的自定义数据。用它在整个文档中实现动态个性化。
+
+  **基础示例**：
+
+  ```json
+  { "firstName": "Ronan", "company": "Acme Corp", "plan": "Enterprise" }
+  ```
+
+  **在 `MDX` 中的用法**：
+
+  ```mdx
+  Welcome back, {user.firstName}! Your {user.plan} plan includes...
+  ```
+
+  使用示例 `user` 数据，渲染结果为：Welcome back, Ronan! Your Enterprise plan includes...
+
+  **高级条件渲染**：
+
+  ```jsx
+  Authentication is an enterprise feature. {
+    user.org === undefined
+      ? <>To access this feature, first create an account at the <a href="https://dashboard.mintlify.com/login">Mintlify dashboard</a>.</>
+      : user.org.plan !== 'enterprise'
+        ? <>You are currently on the ${user.org.plan ?? 'free'} plan. See <a href="https://mintlify.com/pricing">our pricing page</a> for information about upgrading.</>
+        : <>To request this feature for your enterprise org, contact your admin.</>
+  }
+  ```
+
+  <Note>
+    `user` 中的信息仅对已登录用户可用。对于未登录用户，`user` 的值为 `{}`。为防止页面在未登录状态下崩溃，请始终在 `user` 字段上使用可选链运算符。例如 `{user.org?.plan}`。
+  </Note>
+</ParamField>
+
+<ParamField path="apiPlaygroundInputs" type="object">
+  用于预填 API 操作台字段的用户特定值。在测试 API 时自动填充用户数据以节省时间。
+
+  **示例**：
+
+  ```json
+  {
+    "header": { "X-API-Key": "user_api_key_123" },
+    "server": { "subdomain": "foo" },
+    "query": { "org_id": "12345" }
+  }
+  ```
+
+  如果用户在特定子域发起请求，你可以将 `{ server: { subdomain: 'foo' } }` 作为 `apiPlaygroundInputs` 字段发送。此值将在任何包含 `subdomain` 值的 API 页面上被预填。
+
+  <Note>`header`、`query` 和 `cookie` 字段仅在它们属于你的 [OpenAPI 安全方案](https://swagger.io/docs/specification/authentication/) 时才会预填。如果字段位于 `Authorization` 或 `Server` 部分，则会预填。仅创建一个名为 `Authorization` 的标准请求头参数不会启用此功能。</Note>
+</ParamField>
+
+
+<div id="example-user-data">
+  ### 用户数据示例
+</div>
+
+```json
+{
+  "expiresAt": 1735689600,
+  "groups": ["admin", "beta-users"],
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "company": "TechCorp",
+    "plan": "Enterprise",
+    "region": "us-west"
+  },
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer abc123",
+      "X-Org-ID": "techcorp"
+    },
+    "server": {
+      "environment": "production",
+      "region": "us-west"
+    }
+  }
+}
+```
+
+
+<div id="configuring-personalization">
+  ## 配置个性化
+</div>
+
+选择要配置的握手方式。
+
+<Tabs>
+  <Tab title="JWT（JSON Web Token）">
+    ### 先决条件
+
+    * 一个能够生成并签署 JWT 的登录系统
+    * 一个能够创建重定向 URL 的后端服务
+
+    ### 实施
+
+    <Steps>
+      <Step title="生成私钥。">
+        1. 在控制台前往 [认证](https://dashboard.mintlify.com/settings/deployment/authentication)。
+        2. 选择 **Personalization**。
+        3. 选择 **JWT**。
+        4. 输入你现有登录流程的 URL，并选择 **保存更改**。
+        5. 选择 **Generate new key**。
+        6. 将你的 key 安全存储在后端可访问的位置。
+      </Step>
+
+      <Step title="将 Mintlify 个性化集成到你的登录流程。">
+        在用户登录后，修改你现有的登录流程以包含以下步骤：
+
+        * 生成一个包含已登录用户信息、符合 `User` 格式的 JWT。更多信息请参见上面的 [User data format](#user-data-format) 部分。
+        * 使用 ES256 算法用密钥对该 JWT 进行签名。
+        * 创建一个重定向回你的文档站点的 URL，并将该 JWT 作为 hash 包含其中。
+      </Step>
+    </Steps>
+
+    ### 示例
+
+    你的文档托管在 `docs.foo.com`。你希望文档与控制台分离（或你没有控制台）并启用个性化。
+
+    生成一个 JWT 密钥。然后在 `https://foo.com/docs-login` 创建一个登录端点，以启动指向你文档的登录流程。
+
+    在验证用户凭据之后：
+
+    * 按 Mintlify 的格式生成包含用户数据的 JWT。
+    * 对该 JWT 签名并重定向到 `https://docs.foo.com#{SIGNED_JWT}`。
+
+    ```ts
+    import * as jose from 'jose';
+    import { Request, Response } from 'express';
+
+    const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+    const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'ES256');
+
+    export async function handleRequest(req: Request, res: Response) {
+      const user = {
+        expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+        groups: res.locals.user.groups,
+        content: {
+          firstName: res.locals.user.firstName,
+          lastName: res.locals.user.lastName,
+        },
+      };
+
+      const jwt = await new jose.SignJWT(user)
+        .setProtectedHeader({ alg: 'ES256' })
+        .setExpirationTime('10 s')
+        .sign(signingKey);
+
+      return res.redirect(`https://docs.foo.com#${jwt}`);
+    }
+    ```
+
+    ### 保留页面锚点
+
+    若要在登录后将用户重定向到页面中的特定位置，请使用以下 URL 格式：`https://docs.foo.com/page#jwt={SIGNED_JWT}&anchor={ANCHOR}`。
+
+    **示例**：
+
+    * 原始 URL：`https://docs.foo.com/quickstart#step-one`
+    * 重定向 URL：`https://docs.foo.com/quickstart#jwt={SIGNED_JWT}&anchor=step-one`
+  </Tab>
+
+  <Tab title="OAuth 2.0">
+    ### 先决条件
+
+    * 支持带有 PKCE 流程的授权码（Auth Code）OAuth 服务器
+    * 能够创建可由 OAuth 访问令牌访问的 API 端点
+
+    ### 实施
+
+    <Steps>
+      <Step title="Create user info API endpoint.">
+        创建一个 API 端点，用于：
+
+        * 接收 OAuth 访问令牌进行认证。
+        * 以 `User` 格式返回用户数据。更多信息参见上面的[用户数据格式](#user-data-format)部分。
+        * 定义访问所需的 scopes。
+      </Step>
+
+      <Step title="Configure your OAuth personalization settings.">
+        1. 在你的控制台中，前往 [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication)。
+        2. 选择 **Personalization**。
+        3. 选择 **OAuth** 并配置以下字段：
+
+        * **Authorization URL**：你的 OAuth 授权端点。
+        * **Client ID**：你的 OAuth 2.0 客户端标识符。
+        * **Scopes**：请求的权限。复制**完整**的 scope 字符串（例如，对于 `provider.users.docs` 这样的 scope，复制完整的 `provider.users.docs`）。必须与第一步中配置的端点所需的 scopes 保持一致。
+        * **Token URL**：你的 OAuth 令牌交换端点。
+        * **Info API URL**：用于个性化检索用户数据的端点。在第一步中创建。
+
+        4. 选择 **保存更改**
+      </Step>
+
+      <Step title="Configure your OAuth server.">
+        1. 从你的[认证设置](https://dashboard.mintlify.com/settings/deployment/authentication)中复制 **Redirect URL**。
+        2. 将此 URL 添加为 OAuth 服务器配置中的授权重定向 URL。
+      </Step>
+    </Steps>
+
+    ### 示例
+
+    你的文档托管在 `foo.com/docs`，并且你已有一个支持 PKCE 流程的 OAuth 服务器。你希望基于用户数据对文档进行个性化。
+
+    在 `api.foo.com/docs/user-info` 上**创建一个用户信息端点**，该端点需要携带具有 `provider.users.docs` scope 的 OAuth 访问令牌，并返回用户的自定义数据：
+
+    ```json
+    {
+      "content": {
+        "firstName": "Jane",
+        "lastName": "Doe"
+      },
+      "groups": ["engineering", "admin"]
+    }
+    ```
+
+    **在控制台中配置你的 OAuth 服务器详细信息**：
+
+    * **Authorization URL**: `https://auth.foo.com/authorization`
+    * **Client ID**: `ydybo4SD8PR73vzWWd6S0ObH`
+    * **Scopes**: `['docs-user-info']`
+    * **Token URL**: `https://auth.foo.com/exchange`
+    * **Info API URL**: `https://api.foo.com/docs/user-info`
+
+    **将你的 OAuth 服务器**配置为允许重定向到你的回调 URL。
+  </Tab>
+
+  <Tab title="共享会话">
+    ### 先决条件
+
+    * 具备使用基于 Cookie 的会话认证的控制台或用户门户。
+    * 能在与控制台相同的源或子域上创建一个 API 端点。
+      * 如果你的控制台在 `foo.com`，则 **API URL** 必须以 `foo.com` 或 `*.foo.com` 开头。
+      * 如果你的控制台在 `dash.foo.com`，则 **API URL** 必须以 `dash.foo.com` 或 `*.dash.foo.com` 开头。
+    * 你的文档与控制台托管在相同的 domain 或子域上。
+      * 如果你的控制台在 `foo.com`，你的 **文档** 必须托管在 `foo.com` 或 `*.foo.com`。
+      * 如果你的控制台在 `*.foo.com`，你的 **文档** 必须托管在 `foo.com` 或 `*.foo.com`。
+
+    ### 实施
+
+    <Steps>
+      <Step title="Create user info API endpoint.">
+        创建一个 API 端点，其功能包括：
+
+        * 使用你现有的会话认证来识别用户
+        * 以 `User` 格式返回用户数据（参见上面的 [User data format](#user-data-format) 部分）
+        * 如果 API 的 domain 与文档的 domain **不完全匹配**：
+
+          * 将文档的 domain 添加到你的 API 的 `Access-Control-Allow-Origin` 头（不得为 `*`）。
+          * 将你的 API 的 `Access-Control-Allow-Credentials` 头设置为 `true`。
+
+          <Warning>
+            仅在此特定端点上启用 CORS 头，而不要在整个控制台 API 上启用。
+          </Warning>
+      </Step>
+
+      <Step title="Configure your personalization settings">
+        1. 在你的控制台中，前往 [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication)。
+        2. 选择 **Personalization**。
+        3. 选择 **Shared Session**。
+        4. 输入你的 **Info API URL**，即第一步中的端点。
+        5. 输入你的 **Login URL**，即用户登录你的控制台的地址。
+        6. 选择 **保存更改**。
+      </Step>
+    </Steps>
+
+    ### 示例
+
+    #### 控制台在子域，文档在子域
+
+    你在 `dash.foo.com` 上有一个控制台，使用基于 Cookie 的会话认证。你的控制台 API 路由托管在 `dash.foo.com/api`。你希望为托管在 `docs.foo.com` 的文档设置个性化。
+
+    **设置流程**：
+
+    1. **创建端点** `dash.foo.com/api/docs/user-info`，通过会话认证识别用户并返回其用户数据。
+    2. 仅为此路由**添加 CORS 头**：
+       * `Access-Control-Allow-Origin`: `https://docs.foo.com`
+       * `Access-Control-Allow-Credentials`: `true`
+    3. 在认证设置中**配置 API URL**：`https://dash.foo.com/api/docs/user-info`。
+
+    #### 控制台在子域，文档在根域
+
+    你在 `dash.foo.com` 上有一个控制台，使用基于 Cookie 的会话认证。你的控制台 API 路由托管在 `dash.foo.com/api`。你希望为托管在 `foo.com/docs` 的文档设置个性化。
+
+    **设置流程**：
+
+    1. **创建端点** `dash.foo.com/api/docs/user-info`，通过会话认证识别用户并返回其用户数据。
+    2. 仅为此路由**添加 CORS 头**：
+       * `Access-Control-Allow-Origin`: `https://foo.com`
+       * `Access-Control-Allow-Credentials`: `true`
+    3. 在认证设置中**配置 API URL**：`https://dash.foo.com/api/docs/user-info`。
+
+    #### 控制台在根域，文档在根域
+
+    你在 `foo.com/dashboard` 上有一个控制台，使用基于 Cookie 的会话认证。你的控制台 API 路由托管在 `foo.com/api`。你希望为托管在 `foo.com/docs` 的文档设置个性化。
+
+    **设置流程**：
+
+    1. **创建端点** `foo.com/api/docs/user-info`，通过会话认证识别用户并返回其用户数据。
+    2. 在认证设置中**配置 API URL**：`https://foo.com/api/docs/user-info`
+
+    <Note>
+      不需要 CORS 配置，因为控制台和文档共享同一个 domain。
+    </Note>
+  </Tab>
+</Tabs>

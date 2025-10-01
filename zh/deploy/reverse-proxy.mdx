@@ -1,0 +1,160 @@
+---
+title: "反向代理"
+description: "配置自定义反向代理以为你的文档提供服务"
+---
+
+<Note>
+  仅 [Custom 方案](https://mintlify.com/pricing?ref=reverse-proxy) 支持反向代理配置。
+</Note>
+
+要通过自定义反向代理服务你的文档，你需要配置路由规则、缓存策略和请求头转发。
+
+在实施反向代理时，请留意可能出现的 domain 验证、SSL 证书签发、认证流程、性能以及 Analytics 跟踪方面的问题。
+
+<div id="routing-configuration">
+  ## 路由配置
+</div>
+
+按以下缓存策略将这些路径代理到你的 Mintlify 子域：
+
+| Path | Destination | Caching |
+|------|-------------|---------|
+| `/.well-known/acme-challenge/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
+| `/.well-known/vercel/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
+| `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | 启用缓存 |
+| `/_mintlify/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
+| `/*` | `<your-subdomain>.mintlify.app` | 不缓存 |
+| `/` | `<your-subdomain>.mintlify.app` | 不缓存 |
+
+<div id="required-header-configuration">
+  ## 必需的请求头配置
+</div>
+
+按以下请求头要求配置你的反向代理：
+
+- **Origin**：包含目标子域 `<your-subdomain>.mintlify.app`
+- **X-Forwarded-For**：保留客户端 IP 信息
+- **X-Forwarded-Proto**：保留原始协议（HTTP/HTTPS）
+- **X-Real-IP**：转发真实的客户端 IP 地址
+- **User-Agent**：转发用户代理
+
+<Warning>
+  确保不要转发 `Host` 请求头
+</Warning>
+
+<div id="example-nginx-configuration">
+  ## Nginx 配置示例
+</div>
+
+```nginx
+server {
+    listen 80;
+    server_name <your-domain>.com;
+
+    # Let's Encrypt 验证路径
+    location ~ ^/\.well-known/acme-challenge/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用验证路径的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Vercel 验证路径
+    location ~ ^/\.well-known/vercel/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用验证路径的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # 带缓存的静态资源
+    location ~ ^/mintlify-assets/_next/static/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 启用静态资源缓存
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # Mintlify 特定路径
+    location ~ ^/_mintlify/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用 Mintlify 路径的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # 根路径
+    location = / {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用动态内容的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # 所有其他文档路径
+    location / {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # 禁用动态内容的缓存
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+}
+```
+
+
+<div id="troubleshooting">
+  ## 疑难解答
+</div>
+
+<div id="404-error">
+  ### 404 错误
+</div>
+
+**现象**：文档可以加载，但部分功能不可用。API 调用失败。
+
+**原因**：转发了 `Host` 头，或缺少 `Origin` 头。
+
+**解决方案**：
+
+- 停止转发 `Host` 头
+- 将 `Origin` 头设置为 `<your-subdomain>.mintlify.app`
+
+<div id="performance-issues">
+  ### 性能问题
+</div>
+
+**表现**：页面加载缓慢，出现布局位移。
+
+**原因**：缓存配置不正确。
+
+**解决方案**：仅对 `/mintlify-assets/_next/static/*` 路径启用缓存。
