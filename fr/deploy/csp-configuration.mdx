@@ -1,0 +1,157 @@
+---
+title: "Configuration de la Content Security Policy (CSP)"
+sidebarTitle: "Configuration de la CSP"
+description: "Liste d’autorisation de domain et configurations d’en-têtes pour les proxys inverses, pare-feu et réseaux appliquant des politiques de sécurité strictes"
+---
+
+La Content Security Policy (CSP) est une norme de sécurité qui aide à prévenir les attaques de cross-site scripting (XSS) en contrôlant les ressources qu’une page web est autorisée à charger. Mintlify applique une CSP par défaut qui protège la plupart des sites. Si vous hébergez votre documentation derrière un proxy inverse ou un pare-feu qui remplace la CSP par défaut, vous devrez peut-être configurer les en-têtes CSP pour que les fonctionnalités fonctionnent correctement.
+
+<div id="csp-directives">
+  ## Directives CSP
+</div>
+
+Les directives CSP suivantes servent à contrôler quelles ressources peuvent être chargées :
+
+- `script-src` : contrôle les scripts autorisés à s’exécuter
+- `style-src` : contrôle les feuilles de style pouvant être chargées
+- `font-src` : contrôle les polices pouvant être chargées
+- `img-src` : contrôle les images, icônes et logos pouvant être chargés
+- `connect-src` : contrôle les URL auxquelles il est possible de se connecter pour les appels à l’API et les connexions WebSocket
+- `frame-src` : contrôle les URL pouvant être intégrées dans des frames ou des iframes
+- `default-src` : valeur de repli pour les autres directives lorsqu’elles ne sont pas explicitement définies
+
+<div id="domain-whitelist">
+  ## Liste d’autorisation des domaines
+</div>
+
+| Domaine | Finalité | Directive CSP | Obligatoire |
+|:-------|:--------|:--------------|:-------|
+| `d4tuoctqmanu0.cloudfront.net` | CSS et polices KaTeX | `style-src`, `font-src` | Obligatoire |
+| `*.mintlify.dev` | Contenu de la documentation | `connect-src`, `frame-src` | Obligatoire |
+| `*.mintlify.com` | Dashboard, API, proxy d’Analytics | `connect-src` | Obligatoire |
+| `leaves.mintlify.com` | API de l’Assistant | `connect-src` | Obligatoire |
+| `d3gk2c5xim1je2.cloudfront.net` | Icônes, images, logos | `img-src` | Obligatoire |
+| `d1ctpt7j8wusba.cloudfront.net` | Fichiers de versions et de publications Mint | `connect-src` | Obligatoire |
+| `mintcdn.com` | Images, favicons | `img-src`, `connect-src` | Obligatoire |
+| `*.mintcdn.com` | Images, favicons | `img-src`, `connect-src` | Obligatoire |
+| `api.mintlifytrieve.com` | API de recherche | `connect-src` | Obligatoire |
+| `cdn.jsdelivr.net` | Ressources d’emoji pour images OG | `script-src`, `img-src` | Obligatoire |
+| `fonts.googleapis.com` | Google Fonts | `style-src`, `font-src` | Facultatif |
+| `www.googletagmanager.com` | Google Analytics/GTM | `script-src`, `connect-src` | Facultatif |
+| `cdn.segment.com` | Analytics Segment | `script-src`, `connect-src` | Facultatif |
+| `plausible.io` | Analytics Plausible | `script-src`, `connect-src` | Facultatif |
+| `us.posthog.com` | Analytics PostHog | `connect-src` | Facultatif |
+| `cdn.getkoala.com` | Analytics Koala | `script-src` | Facultatif |
+| `tag.clearbitscripts.com` | Suivi Clearbit | `script-src` | Facultatif |
+| `cdn.heapanalytics.com` | Analytics Heap | `script-src` | Facultatif |
+| `chat.cdn-plain.com` | Widget de chat Plain | `script-src` | Facultatif |
+| `chat-assets.frontapp.com` | Widget de chat Front | `script-src` | Facultatif |
+| `browser.sentry-cdn.com` | Suivi des erreurs Sentry | `script-src`, `connect-src` | Facultatif |
+| `js.sentry-cdn.com` | SDK JavaScript Sentry | `script-src` | Facultatif |
+
+<div id="example-csp-configuration">
+  ## Exemple de configuration CSP
+</div>
+
+<Note>
+  Incluez uniquement les domaines des services que vous utilisez. Supprimez tous les domaines Analytics que vous n’avez pas configurés pour votre documentation.
+</Note>
+
+```text wrap
+Content-Security-Policy:
+default-src 'self';
+script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net www.googletagmanager.com cdn.segment.com plausible.io
+us.posthog.com cdn.getkoala.com tag.clearbitscripts.com cdn.heapanalytics.com chat.cdn-plain.com chat-assets.frontapp.com
+browser.sentry-cdn.com js.sentry-cdn.com;
+style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com;
+font-src 'self' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com;
+img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net mintcdn.com *.mintcdn.com cdn.jsdelivr.net;
+connect-src 'self' *.mintlify.dev *.mintlify.com d1ctpt7j8wusba.cloudfront.net mintcdn.com *.mintcdn.com
+api.mintlifytrieve.com www.googletagmanager.com cdn.segment.com plausible.io us.posthog.com browser.sentry-cdn.com;
+frame-src 'self' *.mintlify.dev;
+```
+
+
+<div id="common-configurations-by-proxy-type">
+  ## Configurations courantes selon le type de proxy
+</div>
+
+La plupart des reverse proxies prennent en charge l’ajout d’en-têtes personnalisés.
+
+<div id="cloudflare-configuration">
+  ### Configuration Cloudflare
+</div>
+
+Créez une règle de transformation des en-têtes de réponse :
+
+1. Dans votre Dashboard Cloudflare, accédez à **Rules > Overview**.
+2. Sélectionnez **Create rule > Response Header Transform Rule**. 
+3. Configurez la règle :
+
+- **Modify response header**: Set static
+  - **Header name**: `Content-Security-Policy`
+  - **Header value**:
+    ```text wrap
+    default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com; font-src 'self' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com; img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net mintcdn.com *.mintcdn.com cdn.jsdelivr.net; connect-src 'self' *.mintlify.dev *.mintlify.com d1ctpt7j8wusba.cloudfront.net mintcdn.com *.mintcdn.com api.mintlifytrieve.com; frame-src 'self' *.mintlify.dev;
+    ```
+
+4. Déployez la règle.
+
+<div id="aws-cloudfront-configuration">
+  ### Configuration de AWS CloudFront
+</div>
+
+Ajoutez une stratégie d’en-têtes de réponse dans CloudFront :
+
+```json
+{
+"ResponseHeadersPolicy": {
+    "Name": "MintlifyCSP",
+    "Config": {
+    "SecurityHeadersConfig": {
+        "ContentSecurityPolicy": {
+        "ContentSecurityPolicy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com; font-src 'self' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com; img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net mintcdn.com *.mintcdn.com cdn.jsdelivr.net; connect-src 'self' *.mintlify.dev *.mintlify.com d1ctpt7j8wusba.cloudfront.net mintcdn.com *.mintcdn.com api.mintlifytrieve.com; frame-src 'self' *.mintlify.dev;",
+        "Override": true
+        }
+      }
+    }
+  }
+}
+```
+
+
+<div id="vercel-configuration">
+  ### Configuration de Vercel
+</div>
+
+Ajoutez ceci à votre `vercel.json` :
+
+```json
+{
+"headers": [
+    {
+    "source": "/(.*)",
+    "headers": [
+        {
+        "key": "Content-Security-Policy",
+        "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com; font-src 'self' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com; img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net mintcdn.com *.mintcdn.com cdn.jsdelivr.net; connect-src 'self' *.mintlify.dev *.mintlify.com d1ctpt7j8wusba.cloudfront.net mintcdn.com *.mintcdn.com api.mintlifytrieve.com; frame-src 'self' *.mintlify.dev;"
+        }
+      ]
+    }
+  ]
+}
+```
+
+
+<div id="troubleshooting">
+  ## Dépannage
+</div>
+
+Identifiez les violations de la CSP dans la console de votre navigateur :
+
+1. Ouvrez les outils de développement de votre navigateur.
+2. Accédez à l’onglet **Console**.
+3. Recherchez des erreurs commençant par :
+    - `Content Security Policy: The page's settings blocked the loading of a resource`
+    - `Refused to load the script/stylesheet because it violates the following Content Security Policy directive`
+    - `Refused to connect to because it violates the following Content Security Policy directive`

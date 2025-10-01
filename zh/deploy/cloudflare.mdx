@@ -1,0 +1,208 @@
+---
+title: "Cloudflare"
+description: "使用 Cloudflare Workers 在自定义子路径下托管文档"
+---
+
+import Propagating from "/snippets/zh/custom-subpath-propagating.mdx";
+
+要通过 Cloudflare 将文档托管在自定义子路径（例如 `yoursite.com/docs`），需要创建并配置一个 Cloudflare Worker。
+
+<Info>
+  开始之前，你需要拥有一个 Cloudflare 账户和一个域名（可在 Cloudflare 内部或外部进行管理）。
+</Info>
+
+
+<div id="repository-structure">
+  ## 存储库结构
+</div>
+
+你需要在存储库中按所选的子路径结构组织文档文件。比如，如果你希望文档位于 `yoursite.com/docs`，则需要创建一个 `docs/` 目录，并将所有文档文件放入其中。
+
+<div id="set-up-a-cloudflare-worker">
+  ## 设置 Cloudflare Worker
+</div>
+
+如果尚未创建，请按照 [Cloudflare Workers 入门指南](https://developers.cloudflare.com/workers/get-started/dashboard/) 创建一个 Cloudflare Worker。
+
+<Warning>
+  如果你的 DNS（域名系统）服务商是 Cloudflare，请不要为该 CNAME 记录启用代理。
+</Warning>
+
+<div id="proxies-with-vercel-deployments">
+  ### 使用 Vercel 部署时的代理
+</div>
+
+如果你在 Vercel 部署中使用 Cloudflare 作为代理，必须确保配置正确，以避免与 Vercel 的 domain 验证和 SSL 证书签发发生冲突。
+
+错误的代理配置可能会阻止 Vercel 为 Let's Encrypt SSL 证书进行签发，并导致 domain 验证失败。
+
+<div id="required-path-allowlist">
+  #### 必需的路径白名单
+</div>
+
+你的 Cloudflare Worker 必须允许以下特定路径的流量通过，且不能阻止或重定向：
+
+- `/.well-known/acme-challenge/*` - 用于 Let's Encrypt 证书验证，必需
+- `/.well-known/vercel/*` - 用于 Vercel domain 验证，必需
+
+虽然 Cloudflare 会自动处理许多验证规则，但创建额外的自定义规则可能会无意中拦截这些关键流量。
+
+<div id="header-forwarding-requirements">
+  #### 请求头转发要求
+</div>
+
+请确保在你的 Worker 配置中正确转发 `HOST` 请求头。若未正确转发请求头，验证请求将会失败。
+
+<div id="configure-routing">
+  ### 配置路由
+</div>
+
+在 Cloudflare 控制台中，选择 **Edit Code**，将以下脚本添加到你的 Worker 代码中。有关编辑 Worker 的更多信息，请参阅 [Cloudflare 文档](https://developers.cloudflare.com/workers-ai/get-started/dashboard/#development)。
+
+<Tip>
+  将 `[SUBDOMAIN]` 替换为你的唯一子域，将 `[YOUR_DOMAIN]` 替换为你网站的基础 URL；如需不同的路径，将 `/docs` 替换为你期望的子路径。
+</Tip>
+
+```javascript
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
+
+async function handleRequest(request) {
+  try {
+    const urlObject = new URL(request.url);
+    
+    // 如果请求是 Vercel 验证路径，允许其通过
+    if (urlObject.pathname.startsWith('/.well-known/')) {
+      return await fetch(request);
+    }
+    
+    // 如果请求是 docs 子目录
+    if (/^\/docs/.test(urlObject.pathname)) {
+      // 代理到 Mintlify
+      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+      const CUSTOM_URL = "[YOUR_DOMAIN]";
+
+      let url = new URL(request.url);
+      url.hostname = DOCS_URL;
+
+      let proxyRequest = new Request(url, request);
+
+      proxyRequest.headers.set("Host", DOCS_URL);
+      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+      // 如果部署到 Vercel，保留客户端 IP
+      proxyRequest.headers.set("CF-Connecting-IP", request.headers.get("CF-Connecting-IP"));
+
+      return await fetch(proxyRequest);
+    }
+  } catch (error) {
+    // 如果未找到匹配操作，执行原始请求
+    return await fetch(request);
+  }
+}
+```
+
+选择 **Deploy**，并等待更改生效。
+
+<Propagating />
+
+
+<div id="test-your-worker">
+  ### 测试你的 Worker
+</div>
+
+在部署代码后，测试你的 Worker，确保它正确路由到你的 Mintlify 文档。
+
+1. 使用 Worker 的预览 URL 进行测试：`your-worker.your-subdomain.workers.dev/docs`
+2. 确认该 Worker 能正确路由到你的 Mintlify 文档和你的网站。
+
+<div id="add-custom-domain">
+  ### 添加自定义 domain
+</div>
+
+1. 在你的 [Cloudflare 控制台](https://dash.cloudflare.com/)中，进入你的 Worker。
+2. 前往 **Settings > Domains & Routes > Add > Custom Domain**。
+3. 添加你的 domain。
+
+<Tip>
+  我们建议同时添加带有 `www.` 和不带有 `www.` 的 domain。
+</Tip>
+
+有关更多信息，请参阅 Cloudflare 文档中的 [Add a custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/#add-a-custom-domain)。 
+
+<div id="resolve-dns-conflicts">
+  ### 解决 DNS 冲突
+</div>
+
+如果你的 domain 已经指向其他服务，你必须移除现有的 DNS 记录。你的 Cloudflare Worker 必须配置为接管该 domain 的全部流量。
+
+1. 删除该 domain 的现有 DNS 记录。更多信息请参阅 Cloudflare 文档：[Delete DNS records](https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/#delete-dns-records)。
+2. 返回你的 Worker，添加你的自定义 domain。
+
+<div id="webflow-custom-routing">
+  ## Webflow 自定义路由
+</div>
+
+如果你使用 Webflow 托管主站点，并希望在同一 domain 的 `/docs` 路径下提供 Mintlify 文档，你需要通过 Cloudflare Workers 配置自定义路由，将所有非文档流量代理到主站点。
+
+<Warning>
+  在部署此 Worker 之前，请确保主站点已设置为登录页（landing page），否则访问你主站点的访客将会遇到错误。
+</Warning>
+
+1. 在 Webflow 中，为主站点设置一个登录页，例如 `landing.yoursite.com`。这是访客访问你网站时首先看到的页面。
+2. 将主站点部署到该登录页。这样可确保在你配置 Worker 期间，主站点仍可访问。
+3. 为避免冲突，将主站点中的任何绝对 URL 更新为相对路径。
+4. 在 Cloudflare 中，选择 **Edit Code**，并将以下脚本添加到你的 Worker 代码中。
+
+<Tip> 将 `[SUBDOMAIN]` 替换为你的唯一子域，`[YOUR_DOMAIN]` 替换为你网站的基础 URL，`[LANDING_DOMAIN]` 替换为你的登录页 URL；如有不同，将 `/docs` 替换为你希望使用的子路径。 </Tip>
+
+```javascript
+  addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+  });
+  async function handleRequest(request) {
+  try {
+    const urlObject = new URL(request.url);
+    
+    // 如果请求是 Vercel 验证路径，允许其通过
+    if (urlObject.pathname.startsWith('/.well-known/')) {
+      return await fetch(request);
+    }
+    
+    // 如果请求是 docs 子目录
+    if (/^\/docs/.test(urlObject.pathname)) {
+      // 代理到 Mintlify
+      const DOCS_URL = "[SUBDOMAIN].mintlify.dev";
+      const CUSTOM_URL = "[YOUR_DOMAIN]";
+      let url = new URL(request.url);
+      url.hostname = DOCS_URL;
+      let proxyRequest = new Request(url, request);
+      proxyRequest.headers.set("Host", DOCS_URL);
+      proxyRequest.headers.set("X-Forwarded-Host", CUSTOM_URL);
+      proxyRequest.headers.set("X-Forwarded-Proto", "https");
+      // 如果部署到 Vercel，保留客户端 IP
+      proxyRequest.headers.set("CF-Connecting-IP", request.headers.get("CF-Connecting-IP"));
+      return await fetch(proxyRequest);
+    }
+    // 将其他所有内容路由到主站点
+    const MAIN_SITE_URL = "[LANDING_DOMAIN]";
+    if (MAIN_SITE_URL && MAIN_SITE_URL !== "[LANDING_DOMAIN]") {
+      let mainSiteUrl = new URL(request.url);
+      mainSiteUrl.hostname = MAIN_SITE_URL;
+      return await fetch(mainSiteUrl, {
+        method: request.method,
+        headers: request.headers,
+        body: request.body
+      });
+    }
+  } catch (error) {
+    // 如果未找到操作，提供常规请求
+    return await fetch(request);
+  }
+  }
+```
+
+5. 选择 **Deploy**，然后等待更改生效。
+
+<Propagating />

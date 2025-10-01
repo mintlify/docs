@@ -1,0 +1,160 @@
+---
+title: "Proxy inverso"
+description: "Configura un proxy inverso personalizado para servir tu documentación"
+---
+
+<Note>
+  Las configuraciones de proxy inverso solo están disponibles en los [planes Custom](https://mintlify.com/pricing?ref=reverse-proxy).
+</Note>
+
+Para servir tu documentación a través de un proxy inverso personalizado, debes configurar reglas de enrutamiento, políticas de caché y reenvío de encabezados.
+
+Cuando implementes un proxy inverso, supervisa posibles problemas con la verificación del domain, el aprovisionamiento de certificados SSL, los flujos de Autenticación, el rendimiento y el seguimiento de Analytics.
+
+<div id="routing-configuration">
+  ## Configuración de enrutamiento
+</div>
+
+Encamina estas rutas a tu subdomain de Mintlify con las políticas de caché especificadas:
+
+| Ruta | Destino | Caché |
+|------|-------------|---------|
+| `/.well-known/acme-challenge/*` | `<your-subdomain>.mintlify.app` | Sin caché |
+| `/.well-known/vercel/*` | `<your-subdomain>.mintlify.app` | Sin caché |
+| `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | Caché habilitada |
+| `/_mintlify/*` | `<your-subdomain>.mintlify.app` | Sin caché |
+| `/*` | `<your-subdomain>.mintlify.app` | Sin caché |
+| `/` | `<your-subdomain>.mintlify.app` | Sin caché |
+
+<div id="required-header-configuration">
+  ## Configuración obligatoria de encabezados
+</div>
+
+Configura tu proxy inverso con estos requisitos de encabezados:
+
+- **Origin**: Contiene el subdomain de destino `<your-subdomain>.mintlify.app`
+- **X-Forwarded-For**: Conserva la información de la IP del cliente
+- **X-Forwarded-Proto**: Conserva el protocolo original (HTTP/HTTPS)
+- **X-Real-IP**: Reenvía la dirección IP real del cliente
+- **User-Agent**: Reenvía el agente de usuario
+
+<Warning>
+  Asegúrate de no reenviar el encabezado `Host`
+</Warning>
+
+<div id="example-nginx-configuration">
+  ## Ejemplo de configuración de Nginx
+</div>
+
+```nginx
+server {
+    listen 80;
+    server_name <your-domain>.com;
+
+    # Rutas de verificación de Let's Encrypt
+    location ~ ^/\.well-known/acme-challenge/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Deshabilitar caché para rutas de verificación
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Rutas de verificación de Vercel
+    location ~ ^/\.well-known/vercel/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Deshabilitar caché para rutas de verificación
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Recursos estáticos con caché
+    location ~ ^/mintlify-assets/_next/static/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Habilitar caché para recursos estáticos
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # Rutas específicas de Mintlify
+    location ~ ^/_mintlify/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Deshabilitar caché para rutas de Mintlify
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Ruta raíz
+    location = / {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Deshabilitar caché para contenido dinámico
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Todas las demás rutas de documentación
+    location / {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Deshabilitar caché para contenido dinámico
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+}
+```
+
+
+<div id="troubleshooting">
+  ## Resolución de problemas
+</div>
+
+<div id="404-error">
+  ### Error 404
+</div>
+
+**Síntomas**: La documentación carga, pero las funciones no se ejecutan. Las llamadas a la API fallan.
+
+**Causa**: Se está reenviando el encabezado `Host` o falta el encabezado `Origin`.
+
+**Solución**:
+
+- Elimina el reenvío del encabezado `Host`
+- Configura el encabezado `Origin` en `<your-subdomain>.mintlify.app`
+
+<div id="performance-issues">
+  ### Problemas de rendimiento
+</div>
+
+**Síntomas**: Cargas de página lentas y desplazamientos de diseño.
+
+**Causa**: Configuración de caché incorrecta.
+
+**Solución**: Habilita la caché solo para las rutas `/mintlify-assets/_next/static/*`.
