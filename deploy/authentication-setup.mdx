@@ -1,0 +1,298 @@
+---
+title: "Authentication setup"
+description: "Control the privacy of your docs by authenticating users"
+keywords: ['auth']
+---
+
+<Info>
+  [Pro plans](https://mintlify.com/pricing?ref=authentication) include password authentication.
+
+  [Enterprise plans](https://mintlify.com/pricing?ref=authentication) include all authentication methods.
+</Info>
+
+Authentication requires users to log in before accessing your documentation.
+
+## Authentication modes
+
+Choose between full and partial authentication modes based on your access control needs.
+
+**Full authentication**: All pages are protected. Users must log in before accessing any content.
+
+**Partial authentication**: Some pages are publicly viewable while others require authentication. Users can browse public content freely and authenticate only when accessing protected pages.
+
+When configuring any handshake method below, you'll select either **Full authentication** or **Partial authentication** in your dashboard settings.
+
+## Configuring authentication
+
+Select the handshake method that you want to configure.
+
+<Tabs>
+<Tab title="Password">
+<Info>
+Password authentication provides access control only and does **not** support content personalization.
+</Info>
+
+### Prerequisites
+
+* Your security requirements allow sharing passwords among users.
+
+### Implementation
+
+<Steps>
+  <Step title="Create a password.">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Full Authentication** or **Partial Authentication**.
+    3. Select **Password**.
+    4. Enter a secure password.
+    5. Select **Save changes**.
+  </Step>
+  <Step title="Distribute access.">
+    Securely share the password and documentation URL with authorized users.
+  </Step>
+</Steps>
+
+## Example
+
+Your documentation is hosted at `docs.foo.com` and you need basic access control without tracking individual users. You want to prevent public access while keeping setup simple. 
+
+**Create a strong password** in your dashboard. **Share credentials** with authorized users. That's it!
+</Tab>
+<Tab title="Mintlify Dashboard">
+### Prerequisites
+
+* Your documentation users are also your documentation editors.
+
+### Implementation
+
+<Steps>
+  <Step title="Enable Mintlify dashboard authentication.">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Full Authentication** or **Partial Authentication**.
+    3. Select **Mintlify Auth**.
+    4. Select **Enable Mintlify Auth**.
+  </Step>
+  <Step title="Add authorized users.">
+    1. In your dashboard, go to [Members](https://dashboard.mintlify.com/settings/organization/members).
+    2. Add each person who should have access to your documentation.
+    3. Assign appropriate roles based on their editing permissions.
+  </Step>
+</Steps>
+
+### Example
+
+Your documentation is hosted at `docs.foo.com` and your team uses the dashboard to edit your docs. You want to restrict access to team members only.
+
+**Enable Mintlify authentication** in your dashboard settings.
+
+**Verify team access** by checking that all team members are added to your organization.
+</Tab>
+<Tab title="OAuth 2.0">
+### Prerequisites
+
+* An OAuth or OIDC server that supports the Authorization Code Flow.
+* Ability to create an API endpoint accessible by OAuth access tokens (optional, to enable personalization features).
+
+### Implementation
+
+<Steps>
+  <Step title="Configure your OAuth settings.">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Full Authentication** or **Partial Authentication**.
+    3. Select **OAuth** and configure these fields:
+      * **Authorization URL**: Your OAuth endpoint.
+      * **Client ID**: Your OAuth 2.0 client identifier.
+      * **Client Secret**: Your OAuth 2.0 client secret.
+      * **Scopes**: Permissions to request. Copy the **entire** scope string (for example, for a scope like `provider.users.docs`, copy the complete `provider.users.docs`). Use multiple scopes if you need different access levels.
+      * **Token URL**: Your OAuth token exchange endpoint.
+      * **Info API URL** (optional): Endpoint to retrieve user info for personalization. If omitted, the OAuth flow will only be used to verify identity and the user info will be empty.
+      * **Logout URL**: The native logout URL for your OAuth provider. If your provider has a `returnTo` or similar parameter, point it back to your docs URL.
+    4. Select **Save changes**.
+  </Step>
+  <Step title="Configure your OAuth server.">
+    1. Copy the **Redirect URL** from your [authentication settings](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Add the redirect URL as an authorized redirect URL for your OAuth server.
+  </Step>
+  <Step title="Create your user info endpoint (optional).">
+    To enable personalization features, create an API endpoint that:
+    * Accepts OAuth access tokens for authentication.
+    * Returns user data in the `User` format. See [User data format](/deploy/personalization-setup#user-data-format) for more information.
+    
+    Add this endpoint URL to the **Info API URL** field in your [authentication settings](https://dashboard.mintlify.com/settings/deployment/authentication).
+  </Step>
+</Steps>
+
+### Example
+
+Your documentation is hosted at `foo.com/docs` and you have an existing OAuth server at `auth.foo.com` that supports the Authorization Code Flow.
+
+**Configure your OAuth server details** in your dashboard:
+- **Authorization URL**: `https://auth.foo.com/authorization`
+- **Client ID**: `ydybo4SD8PR73vzWWd6S0ObH`
+- **Scopes**: `['provider.users.docs']`
+- **Token URL**: `https://auth.foo.com/exchange`
+- **Info API URL**: `https://api.foo.com/docs/user-info`
+- **Logout URL**: `https://auth.foo.com/logout?returnTo=https%3A%2F%2Ffoo.com%2Fdocs`
+
+**Create a user info endpoint** at `api.foo.com/docs/user-info`, which requires an OAuth access token with the `provider.users.docs` scope, and returns:
+
+```json
+{
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Doe"
+  },
+  "groups": ["engineering", "admin"]
+}
+```
+
+**Configure your OAuth server to allow redirects** to your callback URL.
+</Tab>
+<Tab title="JWT">
+### Prerequisites
+
+* An authentication system that can generate and sign JWTs.
+* A backend service that can create redirect URLs.
+
+### Implementation
+
+<Steps>
+  <Step title="Generate a private key.">
+    1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+    2. Select **Full Authentication** or **Partial Authentication**.
+    3. Select **JWT**.
+    4. Enter the URL of your existing login flow and select **Save changes**.
+    5. Select **Generate new key**.
+    6. Store your key securely where it can be accessed by your backend.
+  </Step>
+  <Step title="Integrate Mintlify authentication into your login flow.">
+    Modify your existing login flow to include these steps after user authentication:
+    
+    * Create a JWT containing the authenticated user's info in the `User` format. See [User data format](/deploy/personalization-setup#user-data-format) for more information.
+    * Sign the JWT with your secret key, using the EdDSA algorithm.
+    * Create a redirect URL back to the `/login/jwt-callback` path of your docs, including the JWT as the hash.
+  </Step>
+</Steps>
+
+### Example
+
+Your documentation is hosted at `docs.foo.com` with an existing authentication system at `foo.com`. You want to extend your login flow to grant access to the docs while keeping your docs separate from your dashboard (or you don't have a dashboard).
+
+Create a login endpoint at `https://foo.com/docs-login` that extends your existing authentication.
+
+After verifying user credentials:
+* Generate a JWT with user data in Mintlify's format.
+* Sign the JWT and redirect to `https://docs.foo.com/login/jwt-callback#{SIGNED_JWT}`.
+
+<CodeGroup>
+```ts TypeScript
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
+    groups: res.locals.user.groups,
+    content: {
+      firstName: res.locals.user.firstName,
+      lastName: res.locals.user.lastName,
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'EdDSA' })
+    .setExpirationTime('10 s') // 10 second JWT expiration
+    .sign(signingKey);
+
+  return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+}
+```
+
+```python Python
+import jwt # pyjwt
+import os
+
+from datetime import datetime, timedelta
+from fastapi.responses import RedirectResponse
+
+private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+
+@router.get('/auth')
+async def return_mintlify_auth_status(current_user):
+  jwt_token = jwt.encode(
+    payload={
+      'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
+      'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 1 week session expiration
+      'groups': ['admin'] if current_user.is_admin else [],
+      'content': {
+        'firstName': current_user.first_name,
+        'lastName': current_user.last_name,
+      },
+    },
+    key=private_key,
+    algorithm='EdDSA'
+  )
+
+  return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+```
+</CodeGroup>
+
+### Redirecting unauthenticated users
+
+When an unauthenticated user tries to access a protected page, their intended destination is preserved in the redirect to your login URL:
+
+1. User attempts to visit a protected page: `https://docs.foo.com/quickstart`.
+2. Redirect to your login URL with a redirect query parameter: `https://foo.com/docs-login?redirect=%2Fquickstart`.
+3. After authentication, redirect to `https://docs.foo.com/login/jwt-callback?redirect=%2Fquickstart#{SIGNED_JWT}`.
+4. User lands in their original destination.
+</Tab>
+</Tabs>
+
+## Making pages public
+
+When using partial authentication, all pages are protected by default. You can make specific pages viewable without authentication at the page or group level with the `public` property.
+
+### Page level
+
+To make a page public, add `public: true` to the page's frontmatter.
+
+```mdx Public page example
+---
+title: "Public page"
+public: true
+---
+```
+
+### Group level
+
+To make all pages in a group public, add `"public": true` beneath the group's name in the `navigation` object of your `docs.json`.
+
+```json Public group example
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Public group",
+        "public": true,
+        "icon": "play",
+        "pages": [
+          "quickstart",
+          "installation",
+          "settings"
+        ]
+      },
+      {
+        "group": "Private group",
+        "icon": "pause",
+        "pages": [
+          "private-information",
+          "secret-settings"
+        ]
+      }
+    ]
+  }
+}
+```
