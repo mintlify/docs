@@ -1,0 +1,238 @@
+---
+title: Trieve infrastructure deployment
+description: Complete guide for deploying Trieve infrastructure on AWS using Terraform
+---
+
+This guide covers deploying the complete Trieve infrastructure stack on AWS using Terraform, including recent updates for Sentry monitoring and inference server configuration.
+
+## Prerequisites
+
+Before starting, ensure you have:
+- Terraform CLI installed
+- AWS CLI installed and configured
+- SSH key pair for server access
+- Domain name for your deployment
+
+## Initial setup
+
+### Configure AWS credentials
+
+Run `aws configure` and provide your credentials:
+
+```bash
+aws configure
+```
+
+You'll see a prompt like this:
+```
+AWS Access Key ID [****************PYVK]: ****PYVK
+AWS Secret Access Key [****************duMt]: ****duMt
+Default region name [eu-central-1]: 
+Default output format [None]: 
+```
+
+To get the ACCESS KEY and SECRET KEY, create an IAM user with admin permissions and generate access keys for CLI usage.
+
+### Deploy infrastructure
+
+```bash
+terraform init
+terraform apply
+```
+
+## Server configuration
+
+### SSH access
+
+Each server has a `dev` user with SSH key access. Use the `ssh-keymain.pub` key for authentication:
+
+```bash
+ssh -i ~/.ssh/arguflow dev@<server_ip>
+```
+
+Running `terraform apply` provides the updated IP addresses for all servers.
+
+## Service setup
+
+### Reverse proxy
+
+Configure DNS A records first:
+```
+A auth.<domain> <reverse_proxy_ip>
+A api.<domain> <reverse_proxy_ip>
+A redoc.<domain> <reverse_proxy_ip>
+A search.<domain> <reverse_proxy_ip>
+A chat.<domain> <reverse_proxy_ip>
+A dashboard.<domain> <reverse_proxy_ip>
+```
+
+Or use a wildcard:
+```
+A *.<domain> <reverse_proxy_ip>
+```
+
+Copy the dashboard SSH key:
+```bash
+scp -i ssh-keymain ssh-keys/trieve-dashboard dev@<dashboard_ip>:.ssh/id_ed25519
+```
+
+Install dependencies and build applications:
+```bash
+wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
+source ~/.bashrc
+nvm install --lts
+nvm use --lts
+npm install -g yarn
+
+git clone https://github.com/devflowinc/trieve
+git clone git@github.com:devflowinc/trieve-dashboard
+
+echo "VITE_API_HOST=https://api.<domain>/api" > trieve/chat/.env
+echo "VITE_API_HOST=https://api.<domain>/api" > trieve/search/.env
+echo "VITE_API_HOST=https://api.<domain>/api" > trieve-dashboard/.env
+echo "VITE_CHAT_UI_URL=https://chat.<domain>" >> trieve-dashboard/.env
+echo "VITE_SEARCH_UI_URL=https://search.<domain>" >> trieve-dashboard/.env
+
+cd trieve/search && yarn && yarn build
+cd ../chat/ && yarn && yarn build
+cd ../../trieve-dashboard/ && yarn && yarn build
+```
+
+Configure Caddy:
+```bash
+sudo systemctl enable --now caddy.service
+```
+
+### Keycloak authentication
+
+Keycloak provides OIDC authentication. You can skip this if you have an existing OIDC provider.
+
+Copy keycloak configuration:
+```bash
+scp -r -i ssh-keymain keycloak/ dev@<keycloak_ip>:
+```
+
+Create `docker-compose.yml` with updated credentials:
+```yaml
+version: "3"
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.7
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=<secure_password>
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://<db_url>/keycloakdb
+      - KC_DB_USERNAME=<db_username>
+      - KC_DB_PASSWORD=<db_password>
+      - KC_PROXY=edge
+      - KC_HOSTNAME=auth.<domain>
+      - PROXY_ADDRESS_FORWARDING=true
+    entrypoint: "/opt/keycloak/bin/kc.sh start --import-realm"
+    ports:
+      - 8080:8080
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      - ./keycloak/themes/arguflow:/opt/keycloak/themes/arguflow
+```
+
+After first boot:
+1. Change realm from `master` to `trieve`
+2. Set login theme to `arguflow` in Realm Settings
+3. Add redirect URLs in Clients -> vault:
+   - `https://api.<domain>/*`
+   - `https://search.<domain>/*`
+   - `https://chat.<domain>/*`
+   - `https://dashboard.<domain>/*`
+
+### Inference server
+
+The inference server now includes updated configuration for better performance:
+
+```bash
+ssh -i ~/.ssh/arguflow dev@<embeddings_ip>
+git clone https://github.com/devflowinc/trieve
+cd trieve/embedding-server/
+tmux
+./run-faster-jina.sh
+```
+
+### Qdrant vector database
+
+Qdrant is the only stateful service. Format the EBS volume on first setup:
+
+```bash
+sudo mkfs.ext4 /dev/nvme1n1
+sudo mount /dev/nvme1n1 /mnt
+```
+
+Start Qdrant:
+```bash
+docker run -itd -e QDRANT__SERVICE__API_KEY=<secure_api_key> -p 6333:6333 -p 6334:6334 -v /mnt:/qdrant/storage qdrant/qdrant:v1.7.0
+```
+
+### Tika file conversion
+
+Start the Tika server:
+```bash
+docker run -itd -p 9998:9998 apache/tika:2.9.1.0-full
+```
+
+### Main and ingest servers
+
+Configure environment variables in `.env`:
+
+```bash
+REDIS_URL=redis://<redis_cluster_url>
+QDRANT_URL=http://<qdrant_ip>:6334
+QDRANT_API_KEY=<qdrant_api_key>
+DATABASE_URL=postgres://<user>:<password>@<db_url>:5432/<db_name>
+OPENAI_API_KEY=<openai_key>
+LLM_API_KEY=<llm_key>
+SECRET_KEY=<64_char_secret>
+SALT="<secure_salt>"
+S3_ENDPOINT=<s3_endpoint>
+S3_ACCESS_KEY=<s3_access_key>
+S3_SECRET_KEY=<s3_secret_key>
+S3_BUCKET=<bucket_name>
+TIKA_URL="http://<tika_ip>:9998"
+GPU_SERVER_ORIGIN="http://<embeddings_ip>:9999"
+BASE_SERVER_URL="https://api.<domain>"
+OIDC_CLIENT_SECRET="<keycloak_client_secret>"
+OIDC_CLIENT_ID="vault"
+OIDC_AUTH_REDIRECT_URL="https://auth.<domain>/realms/trieve/protocol/openid-connect/auth"
+OIDC_ISSUER_URL="https://auth.<domain>/realms/trieve"
+SENTRY_URL=""
+```
+
+## Monitoring with Sentry
+
+Recent updates include Sentry integration for error monitoring and performance tracking. Configure the `SENTRY_URL` environment variable in your main and ingest servers to enable monitoring.
+
+## Updates
+
+To update services when new versions are released:
+
+```bash
+docker compose pull && docker compose down && docker compose up -d
+```
+
+For frontend services (dashboard, search, chat), rebuild and redeploy the static assets following the reverse proxy setup steps.
+
+## Security considerations
+
+- Change all default passwords
+- Use secure API keys for Qdrant
+- Configure proper firewall rules
+- Enable HTTPS with valid certificates
+- Regularly update all services
+- Monitor logs and set up alerts
+
+## Troubleshooting
+
+- Check service logs: `docker logs <container_name>`
+- Verify network connectivity between services
+- Ensure all environment variables are properly set
+- Check DNS resolution for domain names
+- Verify SSL certificates are valid
