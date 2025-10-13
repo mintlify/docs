@@ -58,28 +58,28 @@ For more information, see [Creating a personal access token (classic)](https://d
 2. Add a webhook node.
 3. Configure the webhook:
     - HTTP Method: `POST`
-    - Path: `code-changes-to-document` (or any unique path)
+    - Path: `auto-update-documentation` (or any unique path)
     - Authentication: None
     - Respond: Immediately
 4. Save the workflow.
-5. Copy the production webhook URL. It will look like: `https://your-n8n-instance.app.n8n.cloud/webhook/github-code-changes`
+5. Copy the production webhook URL. It will look like: `https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
 
 ### Set up the GitHub webhook
 
-<Note>Set this up on your code repository, not your documentation repository.</Note>
+<Note>Set up the webhook on your code repository, not your documentation repository.</Note>
 
 1. Navigate to your code repository on GitHub.
-2. Select **Settings**.
-3. Select **Webhooks**.
-4. Select **Add webhook**.
+2. Click **Settings**.
+3. Click **Webhooks**.
+4. Click **Add webhook**.
 5. Configure the webhook:
     - Payload URL: Paste your n8n webhook URL
     - Content type: `application/json`
     - Which events would you like to trigger this webhook?
-        - Select **Let me select individual events**
-        - Select **Pull requests** only
+        - Select **Let me select individual events.**
+        - Select only **Pull requests**.
     - Select **Active**
-6. Select **Add webhook**.
+6. Click **Add webhook**.
 
 GitHub will send a test ping. Verify the webhook is working by checking the executions in n8n.
 
@@ -88,7 +88,7 @@ GitHub will send a test ping. Verify the webhook is working by checking the exec
 Add a code node after the webhook to filter for merged pull requests and extract the relevant information.
 
 1. Add a code node.
-2. Name it "Filter merged PRs".
+2. Name it "Filter merged PRs."
 3. Set mode to **Run Once for All Items**.
 4. Add this JavaScript:
 
@@ -143,29 +143,30 @@ This code stops the workflow if the pull request wasn't merged, extracts all rel
 Add an HTTP request node to create a documentation job.
 
 1. Add an HTTP request node.
-2. Name it "Create agent job".
+2. Name it "Create agent job."
 3. Configure the request:
     - Method: `POST`
-    - URL: `https://api.mintlify.com/v1/agent/YOUR_PROJECT_ID/job` (replace `YOUR_PROJECT_ID` with your project ID)
+    - URL: `https://api.mintlify.com/v1/agent/YOUR_PROJECT_ID/job` (replace `YOUR_PROJECT_ID` with your project ID from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page of your dashboard)
     - Authentication: Generic Credential Type → Header Auth
         - Create a new credential:
             - Name: `Authorization`
             - Value: `Bearer mint_YOUR_API_KEY` (replace with your API key)
     - Send Body: On
     - Body Content Type: JSON
+    - Specify Body: Using JSON
     - JSON:
 
-```json
-{
-  "branch": "docs-update-from-{{ $json.codeRepoShortName }}-pr-{{ $json.prNumber }}",
-  "messages": [
+    ```json
     {
-      "role": "system",
-      "content": "{{ $json.agentMessage }}"
+    "branch": "docs-update-from-{{ $json.codeRepoShortName }}-pr-{{ $json.prNumber }}",
+    "messages": [
+        {
+        "role": "system",
+        "content": "{{ $json.agentMessage }}"
+        }
+    ]
     }
-  ]
-}
-```
+    ```
 
 The agent will create a pull request in your documentation repository using a descriptive branch name that includes the source repository and pull request number.
 
@@ -174,7 +175,7 @@ The agent will create a pull request in your documentation repository using a de
 Add another HTTP request node to comment on the original pull request.
 
 1. Add an HTTP request node.
-2. Name it "Comment on code PR".
+2. Name it "Comment on code PR."
 3. Configure the request:
     - Method: `POST`
     - URL: `https://api.github.com/repos/{{ $('Filter Merged PRs').item.json.codeRepoName }}/issues/{{ $('Filter Merged PRs').item.json.prNumber }}/comments`
@@ -182,23 +183,25 @@ Add another HTTP request node to comment on the original pull request.
         - Create a new credential:
             - Name: `Authorization`
             - Value: `Bearer YOUR_GITHUB_TOKEN` (replace with your token)
-    - Add a second header:
+    - Send Headers: On
+    - Specify Headers: Using Fields Below
         - Name: `User-Agent`
         - Value: `n8n-mintlify-docs-bot`
     - Send Body: On
     - Body Content Type: JSON
+    - Specify Body: Using JSON
     - JSON:
 
-```json
-{
-  "body": "Documentation update triggered. Branch: `docs-update-from-{{ $('Filter Merged PRs').item.json.codeRepoShortName }}-pr-{{ $('Filter Merged PRs').item.json.prNumber }}`. Check your documentation repository for the pull request."
-}
-```
+    ```json
+    {
+    "body": "Documentation update triggered. Branch: `docs-update-from-{{ $('Filter Merged PRs').item.json.codeRepoShortName }}-pr-{{ $('Filter Merged PRs').item.json.prNumber }}`. Check your documentation repository for the pull request."
+    }
+    ```
 
 ### Activate the workflow
 
 1. Save your workflow.
-2. Toggle it to active.
+2. Set it to active.
 
 Your workflow is now monitoring your code repository for merged pull requests.
 
@@ -216,7 +219,7 @@ Your workflow is now monitoring your code repository for merged pull requests.
    git push origin test-docs-automation
    ```
 
-3. Open a pull request on GitHub with a descriptive description.
+3. Open a pull request on GitHub with.
 4. Merge the pull request.
 
 ### Verify the automation
@@ -224,9 +227,8 @@ Your workflow is now monitoring your code repository for merged pull requests.
 Check the following to confirm the workflow is working:
 
 - **n8n executions**: You should see a new execution with all nodes completed successfully.
-- **Code repository**: Your merged pull request should have a comment from the bot with the documentation branch name.
-- **Mintlify dashboard**: You should see a new agent job in progress or completed.
 - **Documentation repository**: After a minute or two, check for a new branch and pull request with documentation updates.
+- **Code repository**: Your merged pull request should have a comment from the bot with the documentation branch name.
 
 ## Troubleshooting
 
@@ -235,10 +237,6 @@ Check the following to confirm the workflow is working:
 - Verify the workflow is active in n8n.
 - Check GitHub repository Settings → Webhooks → Recent Deliveries for the response code.
 - Confirm the webhook URL matches your n8n webhook URL exactly.
-
-### Workflow stops at filter node
-
-The pull request may not have been merged. Check the node execution input data to verify `action` is `"closed"` and `pull_request.merged` is `true`.
 
 ### 401 error from agent API
 
@@ -251,7 +249,3 @@ The pull request may not have been merged. Check the node execution input data t
 - Verify your token has the `repo` scope.
 - Check that the token hasn't expired.
 - Confirm you included the `User-Agent` header in the GitHub request.
-
-### Agent creates pull request in wrong repository
-
-Check that your Mintlify project is connected to your documentation repository, not your code repository.
