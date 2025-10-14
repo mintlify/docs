@@ -1,0 +1,263 @@
+---
+title: "Tutoriel : Mettre à jour automatiquement la documentation lorsque du code est fusionné"
+sidebarTitle: "Automatiser les mises à jour de la documentation"
+description: "Utilisez l’API de l’agent et un workflow n8n pour mettre à jour automatiquement votre documentation après la fusion d’une pull request (demande de fusion)"
+---
+
+<div id="what-you-will-build">
+  ## Ce que vous allez construire
+</div>
+
+Une automatisation qui met à jour votre documentation lorsqu’une pull request est fusionnée. Le flux de travail surveille un référentiel GitHub pour les PR fusionnées, puis appelle l’API de l’agent pour mettre à jour votre documentation dans un autre référentiel.
+
+Ce flux de travail relie deux référentiels distincts :
+
+- **Référentiel de code** : l’endroit où vous stockez le code de l’application. Vous y configurerez le webhook GitHub. Des exemples incluent une API backend, une application frontend, un SDK ou un outil d’interface en ligne de commande (CLI).
+- **Référentiel de documentation** : l’endroit où vous stockez votre documentation et que vous connectez à votre projet Mintlify. L’agent crée des pull requests (demandes de fusion) contenant des mises à jour de la documentation dans ce référentiel.
+
+Ce tutoriel suppose que votre documentation est distincte de votre code applicatif. Si vous avez un monorepo, modifiez le flux de travail pour cibler le répertoire où votre documentation est stockée plutôt qu’un référentiel distinct.
+
+<div id="workflow-overview">
+  ### Aperçu du workflow
+</div>
+
+1. Quelqu’un fusionne une pull request (demande de fusion) dans le référentiel de code.
+2. n8n reçoit le webhook de GitHub.
+3. n8n envoie le context de la pull request (demande de fusion) à l’API de l’agent.
+4. L’agent crée une pull request (demande de fusion) dans le référentiel de documentation.
+
+<div id="prerequisites">
+  ## Prérequis
+</div>
+
+- Espace de travail n8n
+- API key administrateur Mintlify
+- Offre Mintlify Pro ou Custom
+- Accès administrateur aux dépôts GitHub de votre code et de votre documentation
+- Jeton d’accès personnel GitHub
+
+<div id="get-your-admin-api-key">
+  ### Récupérer votre clé d’API administrateur
+</div>
+
+1. Accédez à la page [Clés d’API](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard.
+2. Sélectionnez **Créer une clé d’API administrateur**.
+3. Copiez la clé et enregistrez-la en lieu sûr.
+
+<div id="get-your-github-personal-access-token">
+  ### Obtenez votre jeton d’accès personnel GitHub
+</div>
+
+1. Dans GitHub, allez dans **Settings**.
+2. Cliquez sur **Developer settings**.
+3. Cliquez sur **Personal access tokens**.
+4. Cliquez sur **Tokens (classic)**.
+5. Cliquez sur **Generate new token (classic)**.
+6. Sélectionnez les autorisations suivantes :
+    - `repo` (contrôle total des dépôts privés)
+    - `admin:repo_hook` (si vous souhaitez que n8n crée des webhooks)
+7. Générez le jeton et enregistrez-le en lieu sûr.
+
+Pour en savoir plus, consultez [Creating a personal access token (classic)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens?versionId=free-pro-team%40latest&productId=account-and-profile#creating-a-personal-access-token-classic) dans la documentation GitHub.
+
+<div id="build-the-workflow">
+  ## Créer le flux de travail
+</div>
+
+<div id="create-the-webhook-trigger">
+  ### Créer le déclencheur du webhook
+</div>
+
+1. Dans n8n, créez un nouveau workflow.
+2. Ajoutez un nœud de webhook.
+3. Configurez le webhook :
+    - Méthode HTTP : `POST`
+    - Chemin : `auto-update-documentation` (ou tout autre chemin unique)
+    - Authentification : Aucune
+    - Répondre : immédiatement
+4. Enregistrez le workflow.
+5. Copiez l’URL du webhook de production. Elle aura la forme suivante : `https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
+
+<Frame>
+    <img src="/images/guides/n8n/webhook-node.png" alt="Capture d’écran des paramètres du nœud de webhook." style={{
+      width: 'auto',
+      height: '700px',
+    }} />
+</Frame>
+
+<div id="set-up-the-github-webhook">
+  ### Configurer le webhook GitHub
+</div>
+
+1. Accédez à votre référentiel de code sur GitHub.
+2. Cliquez sur **Settings**.
+3. Cliquez sur **Webhooks**.
+4. Cliquez sur **Add webhook**.
+5. Configurez le webhook :
+    - Payload URL : collez l’URL de webhook n8n
+    - Content type : `application/json`
+    - Which events would you like to trigger this webhook?
+        - Sélectionnez **Let me select individual events.**
+        - Sélectionnez uniquement **Pull requests**.
+    - Cochez **Active**
+6. Cliquez sur **Add webhook**.
+
+<div id="filter-for-merged-pull-requests">
+  ### Filtrer les pull requests fusionnées
+</div>
+
+Ajoutez un nœud de code après le webhook pour filtrer les pull requests fusionnées et extraire les informations pertinentes.
+
+1. Ajoutez un nœud de code.
+2. Nommez-le « Filter merged PRs. »
+3. Définissez le mode sur **Run Once for All Items**.
+4. Ajoutez ce JavaScript :
+
+```javascript Filter merged PRs
+const webhookData = $input.first().json.body;
+
+// Continuer seulement si c'est une PR fermée ET fusionnée
+if (webhookData.action !== "closed" || webhookData.pull_request?.merged !== true) {
+  return [];
+}
+
+// Extraire les informations
+const pullRequest = webhookData.pull_request;
+const repository = webhookData.repository;
+const sender = webhookData.sender;
+
+// Construire le message pour l'agent
+const agentMessage = `Mettre à jour la documentation pour les changements dans ${repository.name} **PR #${pullRequest.number} : ${pullRequest.title}** Toujours modifier les fichiers et créer une pull request (demande de fusion).`;
+
+return {
+  json: {
+    prTitle: pullRequest.title,
+    prBody: pullRequest.body || "Aucune description fournie",
+    prNumber: pullRequest.number,
+    prUrl: pullRequest.html_url,
+    prAuthor: sender.login,
+    codeRepoName: repository.full_name,
+    codeRepoShortName: repository.name,
+    branchName: pullRequest.head.ref,
+    filesChanged: pullRequest.changed_files,
+    agentMessage: agentMessage
+  }
+};
+```
+
+<Frame>
+  <img src="/images/guides/n8n/filter-merged-PRs-node.png" alt="Capture d’écran des paramètres du nœud de filtrage des PR fusionnées." />
+</Frame>
+
+Ce code interrompt le workflow si la pull request n’a pas été fusionnée, extrait toutes les informations pertinentes du webhook GitHub et crée un message pour l’API de l’agent.
+
+
+<div id="call-the-agent-api">
+  ### Appeler l’API de l’agent
+</div>
+
+Ajoutez un nœud de requête HTTP pour créer une tâche de documentation.
+
+1. Ajoutez un nœud de requête HTTP.
+2. Nommez-le « Créer une tâche d’agent ».
+3. Configurez la requête :
+    - Méthode : `POST`
+    - URL : `https://api.mintlify.com/v1/agent/YOUR_PROJECT_ID/job` (remplacez `YOUR_PROJECT_ID` par l’ID de votre projet depuis la page [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard)
+    - Authentification : Type d’identifiant générique → Authentification par en-tête
+        - Créez un nouvel identifiant :
+            - Nom : `Authorization`
+            - Valeur : `Bearer mint_YOUR_API_KEY` (remplacez par votre clé API)
+    - Envoyer le corps : Activé
+    - Type de contenu du corps : JSON
+    - Spécifier le corps : En utilisant du JSON
+    - Ajoutez ce JSON :
+
+    ```json
+    {
+    "branch": "docs-update-from-{{ $json.codeRepoShortName }}-pr-{{ $json.prNumber }}",
+    "messages": [
+        {
+        "role": "system",
+        "content": "{{ $json.agentMessage }}"
+        }
+    ]
+    }
+    ```
+
+<Frame>
+    <img src="/images/guides/n8n/create-agent-job-node.png" alt="Capture d’écran des configurations pour le nœud de création de tâche d’agent." style={{
+      width: 'auto',
+      height: '700px',
+    }} />
+</Frame>
+
+L’agent crée une pull request (demande de fusion) dans votre référentiel de documentation, avec un nom de branche explicite incluant le référentiel source et le numéro de la pull request.
+
+<div id="activate-the-workflow">
+  ### Activer le workflow
+</div>
+
+1. Enregistrez votre workflow.
+2. Activez-le.
+
+Votre workflow surveille désormais votre référentiel de code pour détecter les pull requests fusionnées.
+
+<Frame>
+    <img src="/images/guides/n8n/workflow.png" alt="Capture d’écran du workflow d’automatisation dans l’éditeur n8n." />
+</Frame>
+
+<div id="test-the-automation">
+  ## Tester l’automatisation
+</div>
+
+1. Créez une branche de test dans votre référentiel de code :
+   ```bash
+   git checkout -b test-docs-automation
+   ```
+
+2. Apportez une petite modification et effectuez un commit :
+   ```bash
+   git add .
+   git commit -m "Test : déclencher l’automatisation de la documentation"
+   git push origin test-docs-automation
+   ```
+
+3. Ouvrez une pull request sur GitHub.
+4. Fusionnez la pull request.
+
+<div id="verify-the-automation">
+  ### Vérifier l’automatisation
+</div>
+
+Vérifiez les points suivants pour confirmer que le workflow fonctionne :
+
+- **Exécutions n8n** : Vous devriez voir une nouvelle exécution où tous les nœuds se sont terminés avec succès.
+- **Référentiel de documentation** : Après une minute ou deux, vérifiez la présence d’une nouvelle branche et d’une pull request (demande de fusion) contenant des mises à jour de la documentation.
+
+<div id="troubleshooting">
+  ## Dépannage
+</div>
+
+<div id="webhook-not-triggering">
+  ### Le webhook ne se déclenche pas
+</div>
+
+- Vérifiez que le workflow est actif dans n8n.
+- Dans les paramètres du référentiel GitHub, allez à Paramètres → Webhooks → Livraisons récentes pour consulter le code de réponse.
+- Vérifiez que l’URL du webhook correspond exactement à l’URL du webhook n8n.
+
+<div id="401-error-from-agent-api">
+  ### Erreur 401 de l’API d’agent
+</div>
+
+- Vérifiez que votre API key commence par `mint_`.
+- Assurez-vous que l’en-tête Authorization est au format `Bearer mint_yourkey`.
+- Confirmez que l’API key correspond à la bonne organisation Mintlify.
+
+<div id="401-error-from-github">
+  ### Erreur 401 depuis GitHub
+</div>
+
+- Vérifiez que votre jeton dispose de l’autorisation `repo`.
+- Assurez-vous que le jeton n’a pas expiré.
+- Confirmez que vous avez inclus l’en-tête `User-Agent` dans la requête adressée à GitHub.
