@@ -52,7 +52,7 @@ Create a new file `AssistantWidget.jsx` (or `.tsx` if using TypeScript) in your 
 import { useChat } from '@ai-sdk/react';
 import { useState } from 'react';
 
-export function AssistantWidget({ domain }) {
+export function AssistantWidget({ domain, userId = 'anonymous' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [threadId, setThreadId] = useState(null);
 
@@ -62,14 +62,19 @@ export function AssistantWidget({ domain }) {
       'Authorization': `Bearer ${process.env.REACT_APP_MINTLIFY_TOKEN}`,
     },
     body: {
+      fp: userId,
       threadId: threadId,
     },
-    onFinish: (message) => {
-      // Store thread ID from first response to maintain conversation history
-      if (!threadId && message.threadId) {
-        setThreadId(message.threadId);
+    fetch: async (url, options) => {
+      const response = await fetch(url, options);
+      const tempThreadId = response.headers.get('x-thread-id');
+      if (tempThreadId) {
+        setThreadId(tempThreadId);
       }
+      return response;
     },
+    streamProtocol: 'data',
+    sendExtraMessageFields: true,
   });
 
   return (
@@ -120,29 +125,42 @@ export function AssistantWidget({ domain }) {
                       : 'bg-gray-100 text-gray-900'
                   }`}
                 >
-                  <div className="prose prose-sm max-w-none">
+                  <div className="prose prose-sm max-w-none whitespace-pre-wrap">
                     {message.content}
                   </div>
 
-                  {/* Display sources if available */}
-                  {message.sources && message.sources.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-300">
-                      <p className="text-xs font-semibold mb-1">Sources:</p>
-                      <ul className="text-xs space-y-1">
-                        {message.sources.map((source, idx) => (
-                          <li key={idx}>
-                            <a
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline hover:no-underline"
-                            >
-                              {source.title}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                  {/* Display sources from tool invocation results */}
+                  {message.role === 'assistant' && message.parts && (
+                    (() => {
+                      const sources = message.parts
+                        .filter(part =>
+                          part.type === 'tool-invocation' &&
+                          part.toolInvocation?.state === 'result' &&
+                          part.toolInvocation?.toolName === 'search' &&
+                          Array.isArray(part.toolInvocation?.result)
+                        )
+                        .flatMap(part => part.toolInvocation.result);
+
+                      return sources.length > 0 ? (
+                        <div className="mt-2 pt-2 border-t border-gray-300">
+                          <p className="text-xs font-semibold mb-1">Sources:</p>
+                          <ul className="text-xs space-y-1">
+                            {sources.map((source, idx) => (
+                              <li key={idx}>
+                                <a
+                                  href={`https://${domain}/${source.path}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline hover:no-underline"
+                                >
+                                  {source.metadata?.title || source.path}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null;
+                    })()
                   )}
                 </div>
               </div>
@@ -248,31 +266,27 @@ Check the following to confirm the widget is working:
 
 ### Filter by documentation section
 
-Limit the assistant's responses to specific sections of your documentation by adding a `filter` parameter to the request body. For example, to only search the API reference section, add `filter: '/api-reference'`.
+Limit the assistant's responses to specific sections of your documentation by adding a `filter` parameter to the request body:
 
 ```jsx
-const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-  api: `https://api.mintlify.com/v1/assistant/${domain}/message`,
-  headers: {
-    'Authorization': `Bearer ${process.env.REACT_APP_MINTLIFY_TOKEN}`,
-  },
-  body: {
-    threadId: threadId,
-    filter: '/api-reference', // Only search API reference section
-  },
-  // ... rest of config
-});
+body: {
+  fp: userId,
+  threadId: threadId,
+  filter: {
+    path: '/api-reference' // Only search the API reference section
+  }
+},
 ```
 
 ### Track user sessions
 
-Pass a user identifier to track sessions and provide personalized assistance.
+The `fp` (fingerprint) parameter is already included in the component to track user sessions. You can pass a unique user identifier to provide personalized assistance and analytics:
 
 ```jsx
-body: {
-  threadId: threadId,
-  fp: userId, // User fingerprint or ID
-},
+<AssistantWidget
+  domain="docs.yourcompany.com"
+  userId={currentUser.id} // Pass authenticated user ID
+/>
 ```
 
 ### Customize styling
@@ -302,6 +316,7 @@ The component uses Tailwind CSS classes. Customize the appearance by modifying t
 
 ### Thread context not maintained
 
-- Verify the `threadId` is being stored and passed correctly.
-- Check that the `onFinish` callback is setting the thread ID from the response.
+- Verify the `threadId` is being extracted from the `x-thread-id` response header.
+- Check that the custom `fetch` function is implemented correctly.
 - Ensure the `threadId` state persists between messages.
+- Confirm `streamProtocol: 'data'` is set in the useChat configuration.
