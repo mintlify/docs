@@ -19,7 +19,7 @@ This allows users to get help with your product without leaving your application
 ## Prerequisites
 
 - Mintlify Pro or Custom plan
-- Your documentation domain (for example, `docs.yourcompany.com`)
+- Your Mintlify project identifier (found in your [dashboard](https://dashboard.mintlify.com))
 - Node.js and npm installed
 - Basic React knowledge
 - Existing React application (Next.js, Vite, Create React App, etc.)
@@ -38,10 +38,10 @@ This allows users to get help with your product without leaving your application
 
 ### Install dependencies
 
-Install the AI SDK for React and Mintlify's assistant integration:
+Install the AI SDK for React and a Markdown renderer:
 
 ```bash
-npm install ai @ai-sdk/react
+npm install ai @ai-sdk/react react-markdown
 ```
 
 ### Create the assistant component
@@ -50,20 +50,37 @@ Create a new file `AssistantWidget.jsx` (or `.tsx` if using TypeScript) in your 
 
 ```jsx AssistantWidget.jsx expandable
 import { useChat } from '@ai-sdk/react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 
-export function AssistantWidget({ domain, userId = 'anonymous' }) {
+export function AssistantWidget({
+  domain,
+  userId = 'anonymous',
+  // Customization props
+  buttonColor = '#2563eb', // blue-600
+  accentColor = '#2563eb',
+  position = 'bottom-right',
+  headerTitle = 'Documentation Assistant',
+  headerSubtitle = 'Ask me anything about our docs',
+  emptyStateText = 'How can I help you today?',
+  inputPlaceholder = 'Ask a question...',
+  sendButtonText = 'Send',
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [threadId, setThreadId] = useState(null);
+  const messagesEndRef = useRef(null);
+  const closeButtonRef = useRef(null);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: `https://api.mintlify.com/v1/assistant/${domain}/message`,
+    api: `https://api-dsc.mintlify.com/v1/assistant/${domain}/message`,
     headers: {
       'Authorization': `Bearer ${process.env.REACT_APP_MINTLIFY_TOKEN}`,
     },
     body: {
       fp: userId,
       threadId: threadId,
+      retrievalPageSize: 5,
+      filter: null,
     },
     fetch: async (url, options) => {
       const response = await fetch(url, options);
@@ -77,13 +94,63 @@ export function AssistantWidget({ domain, userId = 'anonymous' }) {
     sendExtraMessageFields: true,
   });
 
+  // Scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Handle keyboard shortcuts (Escape to close)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen]);
+
+  // Focus management when opening
+  useEffect(() => {
+    if (isOpen && closeButtonRef.current) {
+      closeButtonRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Helper function to convert hex to rgb
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '37, 99, 235';
+  };
+
+  const getPositionClasses = () => {
+    const positions = {
+      'bottom-right': 'bottom-4 right-4',
+      'bottom-left': 'bottom-4 left-4',
+      'top-right': 'top-4 right-4',
+      'top-left': 'top-4 left-4',
+    };
+    return positions[position] || positions['bottom-right'];
+  };
+
+  const panelPosition = {
+    'bottom-right': 'bottom-20 right-4',
+    'bottom-left': 'bottom-20 left-4',
+    'top-right': 'top-20 right-4',
+    'top-left': 'top-20 left-4',
+  };
+
   return (
     <>
       {/* Toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 right-4 bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors z-50"
-        aria-label="Toggle documentation assistant"
+        className={`fixed ${getPositionClasses()} text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all z-50 focus:outline-none focus:ring-2 focus:ring-offset-2`}
+        style={{ backgroundColor: buttonColor }}
+        aria-label={isOpen ? 'Close documentation assistant' : 'Open documentation assistant'}
+        aria-expanded={isOpen}
       >
         {isOpen ? (
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,18 +165,34 @@ export function AssistantWidget({ domain, userId = 'anonymous' }) {
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed bottom-20 right-4 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50 border border-gray-200">
+        <div
+          className={`fixed ${panelPosition[position]} w-full sm:w-96 max-h-[85vh] sm:h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50 border border-gray-200 m-2 sm:m-0`}
+          role="region"
+          aria-label="Documentation assistant chat panel"
+        >
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-            <h3 className="font-semibold text-gray-900">Documentation Assistant</h3>
-            <p className="text-sm text-gray-600">Ask me anything about our docs</p>
+          <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg flex items-center justify-between">
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900">{headerTitle}</h3>
+              <p className="text-sm text-gray-600">{headerSubtitle}</p>
+            </div>
+            <button
+              ref={closeButtonRef}
+              onClick={() => setIsOpen(false)}
+              className="ml-2 p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              aria-label="Close chat panel"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.length === 0 && (
-              <div className="text-center text-gray-500 mt-8">
-                <p>How can I help you today?</p>
+              <div className="text-gray-500 mt-8">
+                <p>{emptyStateText}</p>
               </div>
             )}
 
@@ -121,15 +204,35 @@ export function AssistantWidget({ domain, userId = 'anonymous' }) {
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-2 ${
                     message.role === 'user'
-                      ? 'bg-blue-600 text-white'
+                      ? 'text-white'
                       : 'bg-gray-100 text-gray-900'
                   }`}
+                  style={message.role === 'user' ? { backgroundColor: accentColor } : {}}
                 >
-                  <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                    {message.content}
-                  </div>
+                  {message.role === 'user' ? (
+                    <div className="whitespace-pre-wrap">
+                      {message.content}
+                    </div>
+                  ) : (
+                    <ReactMarkdown
+                      className="prose prose-sm max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800 prose-pre:text-white"
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                        ul: ({ children }) => <ul className="mb-2 last:mb-0 ml-4">{children}</ul>,
+                        ol: ({ children }) => <ol className="mb-2 last:mb-0 ml-4">{children}</ol>,
+                        code: ({ inline, children }) =>
+                          inline ? (
+                            <code className="bg-gray-200 px-1 py-0.5 rounded text-sm">{children}</code>
+                          ) : (
+                            <code className="block bg-gray-800 text-white p-2 rounded text-sm overflow-x-auto">{children}</code>
+                          ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  )}
 
-                  {/* Display sources from tool invocation results */}
+                  {/* Display sources */}
                   {message.role === 'assistant' && message.parts && (
                     (() => {
                       const sources = message.parts
@@ -148,7 +251,7 @@ export function AssistantWidget({ domain, userId = 'anonymous' }) {
                             {sources.map((source, idx) => (
                               <li key={idx}>
                                 <a
-                                  href={`https://${domain}/${source.path}`}
+                                  href={source.url || `https://${domain}.mintlify.app/${source.path}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="underline hover:no-underline"
@@ -171,12 +274,13 @@ export function AssistantWidget({ domain, userId = 'anonymous' }) {
                 <div className="bg-gray-100 rounded-lg px-4 py-2">
                   <div className="flex space-x-2">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
                 </div>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input form */}
@@ -186,16 +290,17 @@ export function AssistantWidget({ domain, userId = 'anonymous' }) {
                 type="text"
                 value={input}
                 onChange={handleInputChange}
-                placeholder="Ask a question..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={inputPlaceholder}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                style={{ backgroundColor: accentColor }}
               >
-                Send
+                {sendButtonText}
               </button>
             </div>
           </form>
@@ -223,7 +328,7 @@ REACT_APP_MINTLIFY_TOKEN=mint_dsc_your_token_here
 
 ### Add the widget to your app
 
-Import and render the assistant widget in your application. Replace `docs.yourcompany.com` with your documentation domain.
+Import and render the assistant widget in your application. Pass your Mintlify project identifier.
 
 ```jsx App.jsx
 import { AssistantWidget } from './components/AssistantWidget';
@@ -233,8 +338,8 @@ function App() {
     <div>
       {/* Your existing app content */}
 
-      {/* Add the assistant widget */}
-      <AssistantWidget domain="docs.yourcompany.com" />
+      {/* Add the assistant widget - use your project identifier */}
+      <AssistantWidget domain="yourcompany" />
     </div>
   );
 }
@@ -284,14 +389,118 @@ The `fp` (fingerprint) parameter is already included in the component to track u
 
 ```jsx
 <AssistantWidget
-  domain="docs.yourcompany.com"
+  domain="yourcompany"
   userId={currentUser.id} // Pass authenticated user ID
 />
 ```
 
 ### Customize styling
 
-The component uses Tailwind CSS classes. Customize the appearance by modifying the class names or replacing them with your own CSS solution.
+The component accepts several props to match your brand colors and text. You can customize the appearance without modifying the component code.
+
+#### Change brand colors
+
+Pass hex color codes to customize the button and accent colors:
+
+```jsx
+<AssistantWidget
+  domain="yourcompany"
+  buttonColor="#dc2626" // Red button
+  accentColor="#dc2626" // Red message bubbles
+/>
+```
+
+#### Customize text and labels
+
+Replace default text with your own:
+
+```jsx
+<AssistantWidget
+  domain="yourcompany"
+  headerTitle="Help & Support"
+  headerSubtitle="Get instant answers from our docs"
+  emptyStateText="Ask me anything!"
+  inputPlaceholder="What would you like to know?"
+  sendButtonText="Ask"
+/>
+```
+
+#### Change widget position
+
+Position the widget in any corner of the screen:
+
+```jsx
+<AssistantWidget
+  domain="yourcompany"
+  position="bottom-left" // Options: 'bottom-right', 'bottom-left', 'top-right', 'top-left'
+/>
+```
+
+#### Advanced styling with CSS
+
+For more control, modify the Tailwind classes directly in the component. The component uses inline styles for colors, so you can also override specific elements with CSS modules or styled-components if needed.
+
+## Props reference
+
+The `AssistantWidget` component accepts the following props:
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `domain` | string | required | Your Mintlify project identifier from the dashboard |
+| `userId` | string | `'anonymous'` | Unique identifier for tracking user sessions |
+| `buttonColor` | string | `'#2563eb'` | Hex color code for the toggle button and accents |
+| `accentColor` | string | `'#2563eb'` | Hex color code for user message bubbles and interactive elements |
+| `position` | string | `'bottom-right'` | Widget position: `'bottom-right'`, `'bottom-left'`, `'top-right'`, or `'top-left'` |
+| `headerTitle` | string | `'Documentation Assistant'` | Title displayed in the chat panel header |
+| `headerSubtitle` | string | `'Ask me anything about our docs'` | Subtitle shown below the title |
+| `emptyStateText` | string | `'How can I help you today?'` | Message shown when no conversation history exists |
+| `inputPlaceholder` | string | `'Ask a question...'` | Placeholder text for the message input field |
+| `sendButtonText` | string | `'Send'` | Label for the send button |
+
+## Integrate with your design system
+
+To match your application's existing brand, you can pass theme values from your design system or theme provider:
+
+```jsx
+// Using a theme context
+import { useTheme } from './context/ThemeContext';
+import { AssistantWidget } from './components/AssistantWidget';
+
+function App() {
+  const { colors } = useTheme();
+
+  return (
+    <div>
+      {/* Your app content */}
+      <AssistantWidget
+        domain="yourcompany"
+        buttonColor={colors.primary}
+        accentColor={colors.primary}
+        headerTitle={`Help with ${APP_NAME}`}
+      />
+    </div>
+  );
+}
+```
+
+Or with Tailwind config:
+
+```jsx
+// Extract colors from Tailwind theme
+import { AssistantWidget } from './components/AssistantWidget';
+
+export default function App() {
+  const brandColor = '#3b82f6'; // From your Tailwind config
+
+  return (
+    <AssistantWidget
+      domain="yourcompany"
+      buttonColor={brandColor}
+      accentColor={brandColor}
+    />
+  );
+}
+```
 
 ## Troubleshooting
 
@@ -310,7 +519,7 @@ The component uses Tailwind CSS classes. Customize the appearance by modifying t
 
 ### No responses from assistant
 
-- Verify your documentation domain is correct (do not include `https://`).
+- Verify your project identifier is correct..
 - Check that your Mintlify plan includes the assistant feature.
 - Confirm your documentation site is published and accessible.
 
