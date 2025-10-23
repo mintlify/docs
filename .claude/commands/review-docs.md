@@ -9,7 +9,6 @@ Please review the changes I'm about to commit and check:
 3. Are any code examples accurate?
 4. Is the frontmatter complete and correct?
 5. Does the content match our existing style?
-6. Run vale on the files being updated and make a plan to resolve any errors, warnings, and suggestions.
-7. Are there any links that need testing?
+6. Are there any links that need testing?
 
 $ARGUMENTS
