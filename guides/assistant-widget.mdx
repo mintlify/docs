@@ -49,13 +49,30 @@ Create a new file `AssistantWidget.jsx` (or `.tsx` if using TypeScript) in your 
 
 ```jsx AssistantWidget.jsx expandable
 import { useChat } from '@ai-sdk/react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+
+// Helper function to extract sources from message parts
+const extractSources = (parts, domain) => {
+  if (!parts) return [];
+  
+  return parts
+    .filter(part =>
+      part.type === 'tool-invocation' &&
+      part.toolInvocation?.state === 'result' &&
+      part.toolInvocation?.toolName === 'search' &&
+      Array.isArray(part.toolInvocation?.result)
+    )
+    .flatMap(part => part.toolInvocation.result)
+    .map(source => ({
+      url: source.url || `https://${domain}.mintlify.app/${source.path}`,
+      title: source.metadata?.title || source.path,
+    }));
+};
 
 export function AssistantWidget({
   domain,
   userId = 'anonymous',
-  // Customize any of these default values to match your style and tone
   buttonColor = '#2563eb',
   accentColor = '#2563eb',
   position = 'bottom-right',
@@ -64,13 +81,21 @@ export function AssistantWidget({
   emptyStateText = 'How can I help you today?',
   inputPlaceholder = 'Ask a question...',
   sendButtonText = 'Send',
+  persistThread = true, // Persist thread ID to localStorage
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [threadId, setThreadId] = useState(null);
+  const [threadId, setThreadId] = useState(() => {
+    // Restore thread from localStorage if enabled
+    if (persistThread && typeof window !== 'undefined') {
+      return localStorage.getItem(`mintlify-thread-${domain}`) || null;
+    }
+    return null;
+  });
   const messagesEndRef = useRef(null);
-  const closeButtonRef = useRef(null);
+  const inputRef = useRef(null);
+  const chatPanelRef = useRef(null);
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: `https://api-dsc.mintlify.com/v1/assistant/${domain}/message`,
     headers: {
       'Authorization': `Bearer ${process.env.REACT_APP_MINTLIFY_TOKEN}`,
@@ -84,13 +109,20 @@ export function AssistantWidget({
     fetch: async (url, options) => {
       const response = await fetch(url, options);
       const tempThreadId = response.headers.get('x-thread-id');
-      if (tempThreadId) {
+      if (tempThreadId && tempThreadId !== threadId) {
         setThreadId(tempThreadId);
+        // Persist thread ID if enabled
+        if (persistThread && typeof window !== 'undefined') {
+          localStorage.setItem(`mintlify-thread-${domain}`, tempThreadId);
+        }
       }
       return response;
     },
     streamProtocol: 'data',
     sendExtraMessageFields: true,
+    onError: (err) => {
+      console.error('Chat error:', err);
+    },
   });
 
   // Scroll to latest message
@@ -98,23 +130,43 @@ export function AssistantWidget({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle keyboard shortcuts
+  // Handle keyboard shortcuts and focus trap
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Close on Escape
       if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
+        return;
+      }
+      
+      // Focus trap - keep Tab navigation within modal
+      if (e.key === 'Tab' && isOpen && chatPanelRef.current) {
+        const focusableElements = chatPanelRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          lastElement?.focus();
+          e.preventDefault();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          firstElement?.focus();
+          e.preventDefault();
+        }
       }
     };
+
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
   }, [isOpen]);
 
-  // Focus management
+  // Focus input when chat opens
   useEffect(() => {
-    if (isOpen && closeButtonRef.current) {
-      closeButtonRef.current.focus();
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen]);
 
@@ -135,13 +187,26 @@ export function AssistantWidget({
     'top-left': 'top-20 left-4',
   };
 
+  const clearConversation = useCallback(() => {
+    if (window.confirm('Clear this conversation? This cannot be undone.')) {
+      setThreadId(null);
+      if (persistThread && typeof window !== 'undefined') {
+        localStorage.removeItem(`mintlify-thread-${domain}`);
+      }
+      window.location.reload(); // Simple way to reset chat state
+    }
+  }, [domain, persistThread]);
+
   return (
     <>
       {/* Toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed ${getPositionClasses()} text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all z-50 focus:outline-none focus:ring-2 focus:ring-offset-2`}
-        style={{ backgroundColor: buttonColor }}
+        className={`fixed ${getPositionClasses()} text-white rounded-full p-4 shadow-lg hover:shadow-xl transition-all z-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-opacity-50`}
+        style={{ 
+          backgroundColor: buttonColor,
+          '--tw-ring-color': buttonColor,
+        }}
         aria-label={isOpen ? 'Close documentation assistant' : 'Open documentation assistant'}
         aria-expanded={isOpen}
       >
@@ -159,113 +224,150 @@ export function AssistantWidget({
       {/* Chat panel */}
       {isOpen && (
         <div
-          className={`fixed ${panelPosition[position]} w-full sm:w-96 max-h-[85vh] sm:h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50 border border-gray-200 m-2 sm:m-0`}
-          role="region"
-          aria-label="Documentation assistant chat panel"
+          ref={chatPanelRef}
+          className={`fixed ${panelPosition[position]} w-[calc(100vw-2rem)] sm:w-96 h-[85vh] sm:h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50 border border-gray-200`}
+          role="dialog"
+          aria-label="Documentation assistant chat"
           aria-modal="true"
         >
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg flex items-center justify-between">
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">{headerTitle}</h3>
-              <p className="text-sm text-gray-600">{headerSubtitle}</p>
+          <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg flex items-center justify-between shrink-0">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-900 truncate">{headerTitle}</h3>
+              <p className="text-sm text-gray-600 truncate">{headerSubtitle}</p>
             </div>
-            <button
-              ref={closeButtonRef}
-              onClick={() => setIsOpen(false)}
-              className="ml-2 p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
-              aria-label="Close chat panel"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center ml-2 gap-1">
+              {messages.length > 0 && (
+                <button
+                  onClick={clearConversation}
+                  className="p-2 text-gray-500 hover:text-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  aria-label="Clear conversation"
+                  title="Clear conversation"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-2 text-gray-500 hover:text-gray-700 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+                aria-label="Close chat panel"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
+          {/* Error banner */}
+          {error && (
+            <div className="bg-red-50 border-b border-red-200 p-3 flex items-start gap-2 shrink-0">
+              <svg className="w-5 h-5 text-red-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-red-800 font-medium">Something went wrong</p>
+                <p className="text-xs text-red-700 mt-0.5">{error.message || 'Please try again'}</p>
+              </div>
+            </div>
+          )}
+
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4" role="log" aria-live="polite">
-            {messages.length === 0 && (
-              <div className="text-gray-500 mt-8">
-                <p>{emptyStateText}</p>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0" role="log" aria-live="polite" aria-atomic="false">
+            {messages.length === 0 && !isLoading && (
+              <div className="text-center text-gray-500 mt-8">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="font-medium">{emptyStateText}</p>
               </div>
             )}
 
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+            {messages.map((message) => {
+              const sources = message.role === 'assistant' ? extractSources(message.parts, domain) : [];
+              
+              return (
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.role === 'user'
-                      ? 'text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}
-                  style={message.role === 'user' ? { backgroundColor: accentColor } : {}}
+                  key={message.id}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.role === 'user' ? (
-                    <div className="whitespace-pre-wrap">
-                      {message.content}
-                    </div>
-                  ) : (
-                    <ReactMarkdown
-                      className="prose prose-sm max-w-none text-left prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-800 prose-pre:text-white"
-                      components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0 text-left">{children}</p>,
-                        ul: ({ children }) => <ul className="mb-2 last:mb-0 ml-4 text-left">{children}</ul>,
-                        ol: ({ children }) => <ol className="mb-2 last:mb-0 ml-4 text-left">{children}</ol>,
-                        code: ({ inline, children }) =>
-                          inline ? (
-                            <code className="bg-gray-200 px-1 py-0.5 rounded text-sm">{children}</code>
-                          ) : (
-                            <code className="block bg-gray-800 text-white p-2 rounded text-sm overflow-x-auto">{children}</code>
+                  <div
+                    className={`max-w-[85%] rounded-lg px-4 py-2 ${
+                      message.role === 'user'
+                        ? 'text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-900'
+                    }`}
+                    style={message.role === 'user' ? { backgroundColor: accentColor } : {}}
+                  >
+                    {message.role === 'user' ? (
+                      <div className="whitespace-pre-wrap break-words">
+                        {message.content}
+                      </div>
+                    ) : (
+                      <ReactMarkdown
+                        className="prose prose-sm max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-pre:bg-gray-800 prose-pre:text-white prose-pre:p-3 prose-pre:rounded prose-a:text-blue-600 hover:prose-a:text-blue-800"
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          ul: ({ children }) => <ul className="mb-2 last:mb-0 ml-4 list-disc">{children}</ul>,
+                          ol: ({ children }) => <ol className="mb-2 last:mb-0 ml-4 list-decimal">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          code: ({ inline, children }) =>
+                            inline ? (
+                              <code className="bg-gray-200 px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
+                            ) : (
+                              <code className="block bg-gray-800 text-white p-3 rounded text-sm overflow-x-auto font-mono">{children}</code>
+                            ),
+                          a: ({ href, children }) => (
+                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
+                              {children}
+                            </a>
                           ),
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  )}
+                        }}
+                      >
+                        {message.content ||
+                          message.parts
+                            ?.filter(p => p.type === 'text')
+                            .map(p => p.text)
+                            .join('') || ''}
+                      </ReactMarkdown>
+                    )}
 
-                  {/* Display sources */}
-                  {message.role === 'assistant' && message.parts && (
-                    (() => {
-                      const sources = message.parts
-                        .filter(part =>
-                          part.type === 'tool-invocation' &&
-                          part.toolInvocation?.state === 'result' &&
-                          part.toolInvocation?.toolName === 'search' &&
-                          Array.isArray(part.toolInvocation?.result)
-                        )
-                        .flatMap(part => part.toolInvocation.result);
-
-                      return sources.length > 0 ? (
-                        <div className="mt-2 pt-2 border-t border-gray-300">
-                          <p className="text-xs font-semibold mb-1">Sources:</p>
-                          <ul className="text-xs space-y-1">
-                            {sources.map((source, idx) => (
-                              <li key={idx}>
-                                <a
-                                  href={source.url || `https://${domain}.mintlify.app/${source.path}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="underline hover:no-underline"
-                                >
-                                  {source.metadata?.title || source.path}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null;
-                    })()
-                  )}
+                    {/* Display sources */}
+                    {sources.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-300">
+                        <p className="text-xs font-semibold mb-2 text-gray-700">Sources:</p>
+                        <ul className="text-xs space-y-1.5">
+                          {sources.map((source, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5">
+                              <svg className="w-3 h-3 text-gray-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                              </svg>
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline hover:no-underline break-words"
+                              >
+                                {source.title}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-lg px-4 py-2">
+                <div className="bg-gray-100 rounded-lg px-4 py-3">
                   <div className="flex space-x-2">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -278,25 +380,37 @@ export function AssistantWidget({
           </div>
 
           {/* Input form */}
-          <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200">
-            <div className="flex space-x-2">
+          <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 bg-white rounded-b-lg shrink-0">
+            <div className="flex gap-2">
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={handleInputChange}
                 placeholder={inputPlaceholder}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-0"
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-0 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                style={{ '--tw-ring-color': accentColor }}
                 disabled={isLoading}
                 aria-label="Message input"
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                style={{ backgroundColor: accentColor }}
+                className="px-6 py-2.5 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-offset-2"
+                style={{ 
+                  backgroundColor: accentColor,
+                  '--tw-ring-color': accentColor,
+                }}
                 aria-label={sendButtonText}
               >
-                {sendButtonText}
+                {isLoading ? (
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  sendButtonText
+                )}
               </button>
             </div>
           </form>
