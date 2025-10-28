@@ -1,0 +1,228 @@
+---
+title: "Tutorial: Auto-update documentation when code is merged"
+sidebarTitle: "Automate documentation updates"
+description: "Use the agent API and a n8n workflow to automatically update your documentation after merging a pull request"
+---
+
+## What you will build
+An automation that updates your documentation when a pull request is merged. The workflow watches a GitHub repository for merged PRs and then calls the agent API to update your documentation in a different repository.
+
+This workflow connects two separate repositories:
+
+- **Code repository**: Where you store application code. You'll set up the GitHub webhook on this repository. Examples include a backend API, frontend app, SDK, or CLI tool.
+- **Documentation repository**: Where you store your documentation and connect to your Mintlify project. The agent creates pull requests with documentation updates in this repository.
+
+This tutorial assumes your documentation is separate from your application code. If you have a monorepo, modify the workflow to target the directory where your documentation is stored rather than a separate repository.
+
+### Workflow overview
+
+1. Someone merges a pull request in the code repository.
+2. n8n receives the webhook from GitHub.
+3. n8n sends the pull request context to the agent API.
+4. The agent creates a pull request in the documentation repository.
+
+## Prerequisites
+
+- n8n workspace
+- Mintlify admin API key
+- Mintlify Pro or Custom plan
+- Admin access to the GitHub repositories for your code and documentation
+- GitHub personal access token
+
+### Get your admin API key
+
+1. Navigate to the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard.
+2. Select **Create Admin API Key**.
+3. Copy the key and save it securely.
+
+### Get your GitHub personal access token
+
+1. In GitHub, navigate to **Settings**.
+2. Click **Developer settings**.
+3. Click **Personal access tokens**.
+4. Click **Tokens (classic)**.
+5. Click **Generate new token (classic)**.
+6. Select these scopes:
+    - `repo` (full control of private repositories)
+    - `admin:repo_hook` (if you want n8n to create webhooks)
+7. Generate and save the token securely.
+
+For more information, see [Creating a personal access token (classic)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens?versionId=free-pro-team%40latest&productId=account-and-profile#creating-a-personal-access-token-classic) in the GitHub documentation.
+
+## Build the workflow
+
+### Create the webhook trigger
+
+1. In n8n, create a new workflow.
+2. Add a webhook node.
+3. Configure the webhook:
+    - HTTP Method: `POST`
+    - Path: `auto-update-documentation` (or any unique path)
+    - Authentication: None
+    - Respond: Immediately
+4. Save the workflow.
+5. Copy the production webhook URL. It looks like: `https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
+
+<Frame>
+    <img src="/images/guides/n8n/webhook-node.png" alt="Screenshot of the configurations for the webhook node." style={{
+      width: 'auto',
+      height: '700px',
+    }} />
+</Frame>
+
+
+### Set up the GitHub webhook
+
+1. Navigate to your code repository on GitHub.
+2. Click **Settings**.
+3. Click **Webhooks**.
+4. Click **Add webhook**.
+5. Configure the webhook:
+    - Payload URL: Paste your n8n webhook URL
+    - Content type: `application/json`
+    - Which events would you like to trigger this webhook?
+        - Select **Let me select individual events.**
+        - Select only **Pull requests**.
+    - Select **Active**
+6. Click **Add webhook**.
+
+### Filter for merged pull requests
+
+Add a code node after the webhook to filter for merged pull requests and extract the relevant information.
+
+1. Add a code node.
+2. Name it "Filter merged PRs."
+3. Set mode to **Run Once for All Items**.
+4. Add this JavaScript:
+
+```javascript Filter merged PRs
+const webhookData = $input.first().json.body;
+
+// Only continue if this is a closed AND merged PR
+if (webhookData.action !== "closed" || webhookData.pull_request?.merged !== true) {
+  return [];
+}
+
+// Extract information
+const pullRequest = webhookData.pull_request;
+const repository = webhookData.repository;
+const sender = webhookData.sender;
+
+// Build message for agent
+const agentMessage = `Update documentation for changes in ${repository.name} **PR #${pullRequest.number}: ${pullRequest.title}** Always edit files and create a pull request.`;
+
+return {
+  json: {
+    prTitle: pullRequest.title,
+    prBody: pullRequest.body || "No description provided",
+    prNumber: pullRequest.number,
+    prUrl: pullRequest.html_url,
+    prAuthor: sender.login,
+    codeRepoName: repository.full_name,
+    codeRepoShortName: repository.name,
+    branchName: pullRequest.head.ref,
+    filesChanged: pullRequest.changed_files,
+    agentMessage: agentMessage
+  }
+};
+```
+
+<Frame>
+    <img src="/images/guides/n8n/filter-merged-PRs-node.png" alt="Screenshot of the configurations for the filter merged PRs node." />
+</Frame>
+
+This code stops the workflow if the pull request wasn't merged, extracts all relevant information from the GitHub webhook, and creates a message for the agent API.
+
+### Call the agent API
+
+Add an HTTP request node to create a documentation job.
+
+1. Add an HTTP request node.
+2. Name it "Create agent job."
+3. Configure the request:
+    - Method: `POST`
+    - URL: `https://api.mintlify.com/v1/agent/YOUR_PROJECT_ID/job` (replace `YOUR_PROJECT_ID` with your project ID from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page of your dashboard)
+    - Authentication: Generic Credential Type → Header Auth
+        - Create a new credential:
+            - Name: `Authorization`
+            - Value: `Bearer mint_YOUR_API_KEY` (replace with your API key)
+    - Send Body: On
+    - Body Content Type: JSON
+    - Specify Body: Using JSON
+    - Add this JSON:
+
+    ```json
+    {
+    "branch": "docs-update-from-{{ $json.codeRepoShortName }}-pr-{{ $json.prNumber }}",
+    "messages": [
+        {
+        "role": "system",
+        "content": "{{ $json.agentMessage }}"
+        }
+    ]
+    }
+    ```
+
+<Frame>
+    <img src="/images/guides/n8n/create-agent-job-node.png" alt="Screenshot of the configurations for the create agent job node." style={{
+      width: 'auto',
+      height: '700px',
+    }} />
+</Frame>
+
+The agent creates a pull request in your documentation repository using a descriptive branch name that includes the source repository and pull request number.
+
+### Activate the workflow
+
+1. Save your workflow.
+2. Set it to active.
+
+Your workflow is now monitoring your code repository for merged pull requests.
+
+<Frame>
+    <img src="/images/guides/n8n/workflow.png" alt="Screenshot of the automation workflow in the n8n editor." />
+</Frame>
+
+## Test the automation
+
+1. Create a test branch in your code repository:
+   ```bash
+   git checkout -b test-docs-automation
+   ```
+
+2. Make a small change and commit it:
+   ```bash
+   git add .
+   git commit -m "Test: trigger docs automation"
+   git push origin test-docs-automation
+   ```
+
+3. Open a pull request on GitHub.
+4. Merge the pull request.
+
+### Verify the automation
+
+Check the following to confirm the workflow is working:
+
+- **n8n executions**: You should see a new execution with all nodes completed successfully.
+- **Documentation repository**: After a minute or two, check for a new branch and pull request with documentation updates.
+
+## Troubleshooting
+
+### Webhook not triggering
+
+- Verify the workflow is active in n8n.
+- Check GitHub repository Settings → Webhooks → Recent Deliveries for the response code.
+- Confirm the webhook URL matches your n8n webhook URL exactly.
+
+### 401 error from agent API
+
+- Verify your API key starts with `mint_`.
+- Check the Authorization header is formatted as `Bearer mint_yourkey`.
+- Confirm the API key is for the correct Mintlify organization.
+
+### 401 error from GitHub
+
+- Verify your token has the `repo` scope.
+- Check that the token hasn't expired.
+- Confirm you included the `User-Agent` header in the GitHub request.

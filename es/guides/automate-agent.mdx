@@ -1,0 +1,263 @@
+---
+title: "Tutorial: Actualiza automáticamente la documentación cuando se fusiona el código"
+sidebarTitle: "Automatiza las actualizaciones de la documentación"
+description: "Usa la API del agente y un flujo de trabajo de n8n para actualizar automáticamente tu documentación después de fusionar una solicitud de extracción"
+---
+
+<div id="what-you-will-build">
+  ## Qué construirás
+</div>
+
+Una automatización que actualiza tu documentación cuando se fusiona una solicitud de extracción. El flujo de trabajo supervisa un repositorio de GitHub para detectar PR fusionadas y luego llama a la API del agente para actualizar tu documentación en otro repositorio.
+
+Este flujo de trabajo conecta dos repositorios independientes:
+
+- **Repositorio de código**: Donde almacenas el código de la aplicación. Configurarás el webhook de GitHub en este repositorio. Ejemplos: una API de backend, una app de frontend, un SDK o una herramienta de CLI.
+- **Repositorio de documentación**: Donde almacenas tu documentación y lo conectas a tu proyecto de Mintlify. El agente crea solicitudes de extracción con actualizaciones de la documentación en este repositorio.
+
+Este tutorial supone que tu documentación está separada del código de tu aplicación. Si tienes un monorepo, modifica el flujo de trabajo para apuntar al directorio donde se almacena tu documentación en lugar de a un repositorio independiente.
+
+<div id="workflow-overview">
+  ### Descripción general del flujo de trabajo
+</div>
+
+1. Alguien fusiona una solicitud de extracción en el repositorio de código.
+2. n8n recibe el webhook de GitHub.
+3. n8n envía el contexto de la solicitud de extracción a la API del agente.
+4. El agente crea una solicitud de extracción en el repositorio de documentación.
+
+<div id="prerequisites">
+  ## Requisitos previos
+</div>
+
+- Espacio de trabajo de n8n
+- API key de administrador de Mintlify
+- Plan Mintlify Pro o Custom
+- Acceso de administrador a los repositorios de GitHub de tu código y documentación
+- Token de acceso personal de GitHub
+
+<div id="get-your-admin-api-key">
+  ### Obtén tu clave de API de administrador
+</div>
+
+1. Ve a la página [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) en tu dashboard.
+2. Selecciona **Create Admin API Key**.
+3. Copia la clave y guárdala de forma segura.
+
+<div id="get-your-github-personal-access-token">
+  ### Obtén tu token de acceso personal de GitHub
+</div>
+
+1. En GitHub, ve a **Settings**.
+2. Haz clic en **Developer settings**.
+3. Haz clic en **Personal access tokens**.
+4. Haz clic en **Tokens (classic)**.
+5. Haz clic en **Generate new token (classic)**.
+6. Selecciona estos permisos:
+    - `repo` (control total de los repositorios privados)
+    - `admin:repo_hook` (si quieres que n8n cree webhooks)
+7. Genera y guarda el token de forma segura.
+
+Para más información, consulta [Creating a personal access token (classic)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens?versionId=free-pro-team%40latest&productId=account-and-profile#creating-a-personal-access-token-classic) en la documentación de GitHub.
+
+<div id="build-the-workflow">
+  ## Crear el flujo de trabajo
+</div>
+
+<div id="create-the-webhook-trigger">
+  ### Crear el disparador del webhook
+</div>
+
+1. En n8n, crea un nuevo flujo de trabajo.
+2. Añade un nodo de webhook.
+3. Configura el webhook:
+    - Método HTTP: `POST`
+    - Ruta: `auto-update-documentation` (o cualquier ruta única)
+    - Autenticación: Ninguna
+    - Responder: Inmediatamente
+4. Guarda el flujo de trabajo.
+5. Copia la URL del webhook de producción. Tiene este formato: `https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
+
+<Frame>
+    <img src="/images/guides/n8n/webhook-node.png" alt="Captura de pantalla de la configuración del nodo de webhook." style={{
+      width: 'auto',
+      height: '700px',
+    }} />
+</Frame>
+
+<div id="set-up-the-github-webhook">
+  ### Configurar el webhook de GitHub
+</div>
+
+1. Ve a tu repositorio de código en GitHub.
+2. Haz clic en **Settings**.
+3. Haz clic en **Webhooks**.
+4. Haz clic en **Add webhook**.
+5. Configura el webhook:
+    - Payload URL: pega tu URL de webhook de n8n
+    - Content type: `application/json`
+    - Which events would you like to trigger this webhook?
+        - Select **Let me select individual events.**
+        - Select only **Pull requests**.
+    - Select **Active**
+6. Haz clic en **Add webhook**.
+
+<div id="filter-for-merged-pull-requests">
+  ### Filtrar solicitudes de extracción fusionadas
+</div>
+
+Agrega un nodo de código después del webhook para filtrar las solicitudes de extracción fusionadas y extraer la información relevante.
+
+1. Agrega un nodo de código.
+2. Asígnale el nombre &quot;Filter merged PRs.&quot;
+3. Establece el modo en **Run Once for All Items**.
+4. Agrega este JavaScript:
+
+```javascript Filter merged PRs
+const webhookData = $input.first().json.body;
+
+// Solo continuar si este es un PR cerrado Y fusionado
+if (webhookData.action !== "closed" || webhookData.pull_request?.merged !== true) {
+  return [];
+}
+
+// Extraer información
+const pullRequest = webhookData.pull_request;
+const repository = webhookData.repository;
+const sender = webhookData.sender;
+
+// Construir mensaje para el agente
+const agentMessage = `Actualizar documentación para cambios en ${repository.name} **PR #${pullRequest.number}: ${pullRequest.title}** Siempre editar archivos y crear una solicitud de extracción.`;
+
+return {
+  json: {
+    prTitle: pullRequest.title,
+    prBody: pullRequest.body || "No se proporcionó descripción",
+    prNumber: pullRequest.number,
+    prUrl: pullRequest.html_url,
+    prAuthor: sender.login,
+    codeRepoName: repository.full_name,
+    codeRepoShortName: repository.name,
+    branchName: pullRequest.head.ref,
+    filesChanged: pullRequest.changed_files,
+    agentMessage: agentMessage
+  }
+};
+```
+
+<Frame>
+  <img src="/images/guides/n8n/filter-merged-PRs-node.png" alt="Captura de pantalla de la configuración del nodo que filtra las solicitudes de extracción fusionadas." />
+</Frame>
+
+Este código detiene el flujo de trabajo si la solicitud de extracción no se fusionó, extrae toda la información relevante del webhook de GitHub y crea un mensaje para la API del agente.
+
+
+<div id="call-the-agent-api">
+  ### Llama a la API del agente
+</div>
+
+Agrega un nodo de solicitud HTTP para crear un trabajo de documentación.
+
+1. Agrega un nodo de solicitud HTTP.
+2. Asígnale el nombre "Create agent job."
+3. Configura la solicitud:
+    - Method: `POST`
+    - URL: `https://api.mintlify.com/v1/agent/YOUR_PROJECT_ID/job` (reemplaza `YOUR_PROJECT_ID` con el ID de tu proyecto desde la página [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de tu dashboard)
+    - Authentication: Generic Credential Type → Header Auth
+        - Crea una nueva credencial:
+            - Name: `Authorization`
+            - Value: `Bearer mint_YOUR_API_KEY` (reemplaza con tu API key)
+    - Send Body: On
+    - Body Content Type: JSON
+    - Specify Body: Using JSON
+    - Agrega este JSON:
+
+    ```json
+    {
+    "branch": "docs-update-from-{{ $json.codeRepoShortName }}-pr-{{ $json.prNumber }}",
+    "messages": [
+        {
+        "role": "system",
+        "content": "{{ $json.agentMessage }}"
+        }
+    ]
+    }
+    ```
+
+<Frame>
+    <img src="/images/guides/n8n/create-agent-job-node.png" alt="Captura de pantalla de la configuración del nodo para crear el trabajo del agente." style={{
+      width: 'auto',
+      height: '700px',
+    }} />
+</Frame>
+
+El agente crea una solicitud de extracción en tu repositorio de documentación utilizando un nombre de branch descriptivo que incluye el repositorio de origen y el número de la solicitud de extracción.
+
+<div id="activate-the-workflow">
+  ### Activa el flujo de trabajo
+</div>
+
+1. Guarda tu flujo de trabajo.
+2. Actívalo.
+
+Ahora tu flujo de trabajo está monitoreando tu repositorio de código para detectar solicitudes de extracción fusionadas.
+
+<Frame>
+    <img src="/images/guides/n8n/workflow.png" alt="Captura de pantalla del flujo de trabajo de automatización en el editor de n8n." />
+</Frame>
+
+<div id="test-the-automation">
+  ## Prueba la automatización
+</div>
+
+1. Crea una branch de prueba en tu repositorio de código:
+   ```bash
+   git checkout -b test-docs-automation
+   ```
+
+2. Realiza un pequeño cambio y crea una confirmación:
+   ```bash
+   git add .
+   git commit -m "Test: trigger docs automation"
+   git push origin test-docs-automation
+   ```
+
+3. Abre una solicitud de extracción en GitHub.
+4. Fusiona la solicitud de extracción.
+
+<div id="verify-the-automation">
+  ### Verificar la automatización
+</div>
+
+Comprueba lo siguiente para confirmar que el flujo de trabajo funciona:
+
+- **Ejecuciones de n8n**: Deberías ver una nueva ejecución con todos los nodos completados correctamente.
+- **Repositorio de documentación**: Tras uno o dos minutos, verifica si hay una nueva branch y una solicitud de extracción con actualizaciones de la documentación.
+
+<div id="troubleshooting">
+  ## Resolución de problemas
+</div>
+
+<div id="webhook-not-triggering">
+  ### El webhook no se activa
+</div>
+
+- Verifica que el flujo de trabajo esté activo en n8n.
+- En la configuración del repositorio de GitHub, revisa: Settings → Webhooks → Recent Deliveries para ver el código de respuesta.
+- Confirma que la URL del webhook coincida exactamente con la URL del webhook de n8n.
+
+<div id="401-error-from-agent-api">
+  ### Error 401 de la API del agente
+</div>
+
+- Verifica que tu API key comience con `mint_`.
+- Comprueba que el encabezado Authorization esté en el formato `Bearer mint_yourkey`.
+- Confirma que la API key corresponde a la organización correcta de Mintlify.
+
+<div id="401-error-from-github">
+  ### Error 401 de GitHub
+</div>
+
+- Verifica que tu token tenga el alcance `repo`.
+- Comprueba que el token no haya caducado.
+- Confirma que incluiste el encabezado `User-Agent` en la solicitud a GitHub.
