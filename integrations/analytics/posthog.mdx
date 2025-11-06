@@ -62,3 +62,32 @@ Session recordings are enabled by default when you configure PostHog. To disable
 ```
 
 You need to add the URL for your docs website to PostHog's "Authorized domains for recordings" before you can receive session recordings. The option to add your URL is in PostHog's project settings.
+
+### Conditionally enable session recording
+
+To record only the sessions that matter, disable session recording by default and opt users in when they meet your criteria.
+
+1. Set `sessionRecording` to `false` in your `docs.json` so PostHog loads without recording automatically (see the example above).
+2. Add a custom script that checks your condition and calls `posthog.startSessionRecording()` when it returns `true`. Call `posthog.stopSessionRecording()` when the condition no longer applies.
+
+```js Conditional recording (files/custom-scripts/posthog-session-recording.js)
+export default function togglePosthogRecording() {
+  if (!window.posthog) return;
+
+  const shouldRecord = window.location.pathname.startsWith('/flows');
+
+  if (shouldRecord && !window.posthog.sessionRecordingStarted()) {
+    window.posthog.startSessionRecording();
+  } else if (!shouldRecord && window.posthog.sessionRecordingStarted()) {
+    window.posthog.stopSessionRecording();
+  }
+}
+```
+
+Import the script in `docs.json`:
+
+```json
+"scripts": ["/files/custom-scripts/posthog-session-recording.js"]
+```
+
+The exported function runs when the script loads. If you perform client-side routing in additional custom code, call the function again after navigation so the recording state stays in sync. Customize the `shouldRecord` logic to match your requirements—for example, check personalization data from your auth provider or only record users on a specific plan. Review PostHog's [session recording guide](https://posthog.com/docs/session-replay/manual) for additional helper methods.
