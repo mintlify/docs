@@ -1,0 +1,101 @@
+---
+title: "Agent Description Name"
+description: "Setting up github action for the agent to use"
+---
+
+## Github Workflow
+
+{/* TODO, we likely should make this an action on Github marketplace. https://github.com/marketplace?type=actions */}
+{/* iirc you should at least just do an action from a github repository similar to build-push-action (ref https://github.com/useblacksmith/setup-docker-builder/releases/tag/v1) */}
+
+```yaml
+name: Update Docs from PR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-docs:
+    # Only run if the PR was merged
+    if: github.event.pull_request.merged == true
+    runs-on: blacksmith-4vcpu-ubuntu-2204
+    steps:
+      - uses: actions/github-script@v8
+        env:
+          MINTLIFY_API_KEY: ${{ secrets.MINTLIFY_API_KEY }}
+          PROJECT_ID: ${{ secrets.MINTLIFY_PROJECT_ID }}
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { title, body, number: prNumber, html_url } = pr;
+            const { owner, repo } = context.repo;
+
+            const projectId = process.env.PROJECT_ID;
+            const apiKey = process.env.MINTLIFY_API_KEY;
+
+            if (!projectId || !apiKey) {
+              core.setFailed('Missing MINTLIFY_PROJECT_ID or MINTLIFY_API_KEY secrets');
+              return;
+            }
+
+            const url = `https://api.mintlify.com/v1/agent/${projectId}/job`;
+            const payload = {
+              branch: `mintlify/docs-update-pr-${prNumber}`,
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are an action runner that updates documentation based on pull requests. You should never ask questions. If you are not able to access the repository or pull request, report the error and exit.'
+                },
+                {
+                  role: 'user',
+                  content: `Update the documentation for our recent pushes to `main`:\n\nRepository: ${owner}/${repo}\n`
+                }
+              ]
+            };
+
+            try {
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${apiKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+              });
+
+              if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
+              }
+
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+              let buffer = '';
+
+              while (true) {
+                const { done, value } = await reader.read();
+
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                  if (line.trim()) {
+                    console.log(line);
+                  }
+                }
+              }
+
+              if (buffer.trim()) {
+                console.log(buffer);
+              }
+
+              core.notice('Documentation update job completed for PR #${prNumber}');
+            } catch (error) {
+              core.setFailed(`Failed to create documentation update job: ${error.message}`);
+            }
+```
+
