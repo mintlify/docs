@@ -56,13 +56,34 @@ import { useChat } from '@ai-sdk/react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
+const parseSuggestionLinks = (markdown, docsURL) => {
+  // Parse (text)[/path] format from suggestions code block
+  const links = markdown
+    .split('\n')
+    .map((line) => {
+      const match = line.match(/\(([^)]*)\)\[([^\]]*)\]/);
+      if (match && match[1] && match[2]) {
+        let url = match[2];
+        // Convert relative paths to absolute URLs if docsURL is provided
+        if (docsURL && url.startsWith('/')) {
+          const baseURL = docsURL.endsWith('/') ? docsURL.slice(0, -1) : docsURL;
+          url = `${baseURL}${url}`;
+        }
+        return { text: match[1], url };
+      }
+      return null;
+    })
+    .filter(Boolean);
+  return links;
+};
+
 export function AssistantWidget({ domain, docsURL }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: `https://api-dsc.mintlify.com/v1/assistant/${domain}/message`,
     headers: {
-      'Authorization': `Bearer ${process.env.VITE_MINTLIFY_TOKEN}`,
+      'Authorization': `Bearer ${import.meta.env.VITE_MINTLIFY_TOKEN}`,
     },
     body: {
       fp: 'anonymous',
@@ -273,27 +294,6 @@ const extractSources = (parts) => {
       url: source.url || source.path,
       title: source.metadata?.title || source.path,
     })) || [];
-};
-
-const parseSuggestionLinks = (markdown, docsURL) => {
-  // Parse (text)[/path] format from suggestions code block
-  const links = markdown
-    .split('\n')
-    .map((line) => {
-      const match = line.match(/\(([^)]*)\)\[([^\]]*)\]/);
-      if (match && match[1] && match[2]) {
-        let url = match[2];
-        // Convert relative paths to absolute URLs if docsURL is provided
-        if (docsURL && url.startsWith('/')) {
-          const baseURL = docsURL.endsWith('/') ? docsURL.slice(0, -1) : docsURL;
-          url = `${baseURL}${url}`;
-        }
-        return { text: match[1], url };
-      }
-      return null;
-    })
-    .filter(Boolean);
-  return links;
 };
 
 // In your message rendering:
