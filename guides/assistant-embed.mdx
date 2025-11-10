@@ -56,7 +56,7 @@ import { useChat } from '@ai-sdk/react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
-export function AssistantWidget({ domain }) {
+export function AssistantWidget({ domain, docsURL }) {
   const [isOpen, setIsOpen] = useState(false);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
@@ -92,9 +92,48 @@ export function AssistantWidget({ domain }) {
               <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-lg px-4 py-2 break-words ${message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'}`}>
                   {message.role === 'user' ? (
-                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                    <div className="text-sm whitespace-pre-wrap break-words">{message.content}</div>
                   ) : (
-                    <ReactMarkdown className="prose prose-sm max-w-none text-sm [&_*]:break-words">{message.content}</ReactMarkdown>
+                    <div className="overflow-x-hidden">
+                      <ReactMarkdown
+                        className="prose prose-sm max-w-none text-sm break-words"
+                        components={{
+                          code: ({node, inline, className, children, ...props}) => {
+                            const match = /language-(\w+)/.exec(className || '');
+                            const language = match ? match[1] : undefined;
+
+                            // Handle suggestions code block
+                            if (language === 'suggestions' && typeof children === 'string') {
+                              const links = parseSuggestionLinks(children, docsURL);
+                              return (
+                                <div className="space-y-2 my-2">
+                                  {links.map((link, i) => (
+                                    <a
+                                      key={i}
+                                      href={link.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-sm"
+                                    >
+                                      {link.text}
+                                    </a>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // Fallback to default code rendering
+                            return (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            );
+                          }
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
                   )}
                 </div>
               </div>
@@ -147,7 +186,12 @@ Restart your development server to apply the changes.
 </Step>
 <Step title="Add the widget to your app">
 
-Import and render the component in your application. Pass your Mintlify project `domain` (the end of your dashboard URL. For example, `domain-name` from `https://dashboard.mintlify.com/org-name/domain-name`).
+Import and render the component in your application.
+
+Pass the required props.
+
+*`domain`: Your Mintlify project domain found at the end of your dashboard URL. For example, `domain-name` from `https://dashboard.mintlify.com/org-name/domain-name`)
+*`docsURL`: The full URL to your documentation site. For example, `https://docs.yourcompany.com`. This prop converts relative links like `/quickstart` from the assistant to absolute URLs like `https://docs.yourcompany.com/quickstart`, which makes the links navigable.
 
 ```jsx App.jsx
 import { AssistantWidget } from './components/AssistantWidget';
@@ -156,7 +200,10 @@ function App() {
   return (
     <div>
       {/* Your existing app content */}
-      <AssistantWidget domain="yourcompany" />
+      <AssistantWidget
+        domain="yourcompany"
+        docsURL="https://docs.yourcompany.com"
+      />
     </div>
   );
 }
@@ -178,7 +225,7 @@ export default App;
 
 ## Customization ideas
 
-This example shows a simple implementation of the assistant API. Here are some ways to begin customizing the widget.
+This guide is a starting point. Here are some ways to begin customizing your assistant widget.
 
 ### Add color customization
 
@@ -197,7 +244,7 @@ export function AssistantWidget({ domain, buttonColor = '#2563eb' }) {
 
 ### Add widget positioning options
 
-Let users position the widget in different corners:
+Position the widget in different corners:
 
 ```jsx
 export function AssistantWidget({ domain, position = 'bottom-right' }) {
@@ -226,6 +273,27 @@ const extractSources = (parts) => {
       url: source.url || source.path,
       title: source.metadata?.title || source.path,
     })) || [];
+};
+
+const parseSuggestionLinks = (markdown, docsURL) => {
+  // Parse (text)[/path] format from suggestions code block
+  const links = markdown
+    .split('\n')
+    .map((line) => {
+      const match = line.match(/\(([^)]*)\)\[([^\]]*)\]/);
+      if (match && match[1] && match[2]) {
+        let url = match[2];
+        // Convert relative paths to absolute URLs if docsURL is provided
+        if (docsURL && url.startsWith('/')) {
+          const baseURL = docsURL.endsWith('/') ? docsURL.slice(0, -1) : docsURL;
+          url = `${baseURL}${url}`;
+        }
+        return { text: match[1], url };
+      }
+      return null;
+    })
+    .filter(Boolean);
+  return links;
 };
 
 // In your message rendering:
