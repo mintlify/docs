@@ -317,6 +317,77 @@ const parseSuggestionLinks = (markdown, docsURL) => {
 })}
 ```
 
+### Track conversation thread IDs
+
+Store thread IDs to maintain conversation history across sessions:
+
+```jsx
+import { useState, useEffect } from 'react';
+
+export function AssistantWidget({ domain, docsURL }) {
+  const [threadId, setThreadId] = useState(null);
+
+  useEffect(() => {
+    // Retrieve saved thread ID from localStorage
+    const saved = localStorage.getItem('assistant-thread-id');
+    if (saved) {
+      setThreadId(saved);
+    }
+  }, []);
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    api: `https://api-dsc.mintlify.com/v1/assistant/${domain}/message`,
+    headers: {
+      'Authorization': `Bearer ${import.meta.env.VITE_MINTLIFY_TOKEN}`,
+    },
+    body: {
+      fp: 'anonymous',
+      retrievalPageSize: 5,
+      ...(threadId && { threadId }), // Include thread ID if available
+    },
+    streamProtocol: 'data',
+    sendExtraMessageFields: true,
+    fetch: async (url, options) => {
+      const response = await fetch(url, options);
+      const newThreadId = response.headers.get('x-thread-id');
+      if (newThreadId) {
+        setThreadId(newThreadId);
+        localStorage.setItem('assistant-thread-id', newThreadId);
+      }
+      return response;
+    },
+  });
+
+  // ... rest of component
+}
+```
+
+### Add keyboard shortcuts
+
+Allow users to open the widget and submit messages with keyboard shortcuts:
+
+```jsx
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    // Cmd/Ctrl + Shift + I to toggle widget
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'I') {
+      e.preventDefault();
+      setIsOpen(!isOpen);
+    }
+
+    // Enter (when widget is focused) to submit
+    if (isOpen && e.key === 'Enter' && !e.shiftKey && document.activeElement.id === 'assistant-input') {
+      e.preventDefault();
+      handleSubmit();
+      setInput('');
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, [isOpen, handleSubmit]);
+```
+
 ## Troubleshooting
 
 <AccordionGroup>
