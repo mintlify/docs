@@ -54,20 +54,23 @@ GitHub Actions is the simplest option if your code is already on GitHub. No addi
     name: Update Docs
 
     on:
-      push:
+    push:
         branches:
-          - main
+        - main
 
     jobs:
     update-docs:
         runs-on: ubuntu-latest
         steps:
         - uses: actions/github-script@v8
-          env:
+            env:
             MINTLIFY_API_KEY: ${{ secrets.MINTLIFY_API_KEY }}
             PROJECT_ID: ${{ secrets.MINTLIFY_PROJECT_ID }}
-          with:
+            with:
             script: |
+                const core = require('@actions/core');
+                const fetch = require('node-fetch');
+
                 const { owner, repo } = context.repo;
                 const projectId = process.env.PROJECT_ID;
                 const apiKey = process.env.MINTLIFY_API_KEY;
@@ -92,48 +95,46 @@ GitHub Actions is the simplest option if your code is already on GitHub. No addi
                 ]
                 };
 
+                (async () => {
                 try {
-                const response = await fetch(url, {
+                    const response = await fetch(url, {
                     method: 'POST',
                     headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
-                });
+                    });
 
-                if (!response.ok) {
+                    if (!response.ok) {
                     throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
-                }
+                    }
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
 
-                while (true) {
+                    while (true) {
                     const { done, value } = await reader.read();
-
                     if (done) break;
-
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
-
                     for (const line of lines) {
-                    if (line.trim()) {
+                        if (line.trim()) {
                         console.log(line);
+                        }
                     }
                     }
-                }
-
-                if (buffer.trim()) {
+                    if (buffer.trim()) {
                     console.log(buffer);
-                }
+                    }
 
-                core.notice(`Documentation update job triggered for ${owner}/${repo}`);
+                    core.notice(`Documentation update job triggered for ${owner}/${repo}`);
                 } catch (error) {
-                core.setFailed(`Failed to create documentation update job: ${error.message}`);
+                    core.setFailed(`Failed to create documentation update job: ${error.message}`);
                 }
+                })();
     ```
 
 ### Add secrets
