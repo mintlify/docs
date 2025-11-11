@@ -1,0 +1,236 @@
+---
+title: "教程：构建应用内文档 AI 助手"
+sidebarTitle: "构建应用内 AI 助手"
+description: "在你的应用中嵌入 AI 助手，基于你的文档信息回答问题"
+---
+
+<div id="what-you-will-build">
+  ## 你将构建的内容
+</div>
+
+一个可复用的小部件，可将[AI 助手](/zh/ai/assistant)直接嵌入到你的应用中。该小部件提供：
+
+* 浮动按钮，点击即可打开聊天面板
+* 基于你的文档信息的实时流式回复
+* 支持 Markdown 的消息渲染
+
+用户无需离开你的应用即可通过该小部件获取产品帮助。
+
+<Frame>
+  <img src="/images/assistant/assistant-embed-demo.gif" alt="演示打开助手小部件，用户输入“如何开始？”，随后助手作出回应。" />
+</Frame>
+
+<div id="prerequisites">
+  ## 先决条件
+</div>
+
+* [Mintlify Pro 或 Custom 计划](https://mintlify.com/pricing)
+* 你的 domain 名称，它位于控制台 URL 的末尾。例如，如果你的控制台 URL 是 `https://dashboard.mintlify.com/org-name/domain-name`，你的 domain 名称就是 `domain-name`
+* 一个 [AI 助手 API key](https://dashboard.mintlify.com/settings/organization/api-keys)
+* 已安装 Node.js v18 或更高版本及 npm
+* 基础的 React 知识
+
+<div id="get-your-assistant-api-key">
+  ### 获取你的 AI 助手 API key
+</div>
+
+1. 在控制台中前往 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面。
+2. 点击 **Create Assistant API Key**。
+3. 复制 AI 助手 API key（以 `mint_dsc_` 开头）并妥善保存。
+
+<Note>
+  AI 助手 API key 是一个可在前端代码中使用的公共令牌。使用该令牌的调用将计入你套餐的消息配额，并可能产生超额费用。
+</Note>
+
+<div id="set-up-the-example">
+  ## 设置示例
+</div>
+
+最快的上手方式是克隆[示例存储库](https://github.com/mintlify/assistant-embed-example)，并按需进行自定义。
+
+<Steps>
+  <Step title="克隆存储库">
+    ```bash
+    git clone https://github.com/mintlify/assistant-embed-example.git
+    cd assistant-embed-example
+    npm install
+    ```
+  </Step>
+
+  <Step title="配置你的项目">
+    打开 `src/config.js`，并填入你的 Mintlify 项目信息：
+
+    ```js src/config.js
+    export const ASSISTANT_CONFIG = {
+      domain: 'your-domain',
+      docsURL: 'https://yourdocs.mintlify.app',
+    };
+    ```
+
+    将以下内容替换为你的实际信息：
+
+    * 将 `your-domain` 替换为你在控制台 URL 末尾看到的 Mintlify 项目 domain。
+    * 将 `https://yourdocs.mintlify.app` 替换为你的文档实际 URL。
+  </Step>
+
+  <Step title="添加你的 API 令牌">
+    在项目根目录创建一个 `.env` 文件：
+
+    ```bash .env
+    VITE_MINTLIFY_TOKEN=mint_dsc_your_token_here
+    ```
+
+    将 `mint_dsc_your_token_here` 替换为你的 AI 助手 API key。
+  </Step>
+
+  <Step title="启动开发服务器">
+    ```bash
+    npm run dev
+    ```
+
+    在浏览器中打开你的应用，点击 **Ask** 按钮以打开 AI 助手挂件。
+  </Step>
+</Steps>
+
+<div id="project-structure">
+  ## 项目结构
+</div>
+
+此示例采用组件化架构。
+
+```text
+src/
+├── App.css                 # 应用样式
+├── App.jsx                 # 渲染小部件的主应用组件
+├── config.js               # 配置（domain 和 docsURL）
+├── index.css               # 全局样式
+├── main.jsx                # 入口文件
+├── utils.js                # 用于解析建议和提取源的辅助函数
+└── components/
+    ├── AssistantWidget.jsx # 包含聊天状态和 API 逻辑的主小部件组件
+    └── Message.jsx         # 用于渲染用户和 AI 助手消息的单条消息组件
+```
+
+**关键文件：**
+
+* **`src/App.jsx`**：主应用组件。演示如何导入并使用 `AssistantWidget` 组件。
+* **`src/config.js`**：集中配置。在此文件中更新你的 domain 和文档 URL。
+* **`src/components/AssistantWidget.jsx`**：主要的挂件组件。管理打开/关闭状态、聊天消息和 API 调用。
+* **`src/utils.js`**：包含用于解析 AI 助手响应格式并提取来源的实用函数。
+* **`src/components/Message.jsx`**：渲染单条消息，支持 Markdown 和建议链接。
+
+<div id="customization-ideas">
+  ## 自定义思路与示例
+</div>
+
+<div id="source-citations">
+  ### 来源引注
+</div>
+
+从 AI 助手的回复中提取并显示出处：
+
+```jsx
+const extractSources = (parts) => {
+  return parts
+    ?.filter(p => p.type === 'tool-invocation' && p.toolInvocation?.toolName === 'search')
+    .flatMap(p => p.toolInvocation?.result || [])
+    .map(source => ({
+      url: source.url || source.path,
+      title: source.metadata?.title || source.path,
+    })) || [];
+};
+
+// In your message rendering:
+{messages.map((message) => {
+  const sources = message.role === 'assistant' ? extractSources(message.parts) : [];
+  return (
+    <div key={message.id}>
+      {/* 消息内容 */}
+      {sources.length > 0 && (
+        <div className="mt-2 text-xs">
+          <p className="font-semibold">来源：</p>
+          {sources.map((s, i) => (
+            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="text-blue-600">
+              {s.title}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+})}
+```
+
+<div id="track-conversation-thread-ids">
+  ### 跟踪会话线程 ID
+</div>
+
+存储线程 ID，以在不同会话中保留对话历史：
+
+```jsx
+import { useState, useEffect } from 'react';
+
+export function AssistantWidget({ domain, docsURL }) {
+  const [threadId, setThreadId] = useState(null);
+
+  useEffect(() => {
+    // 从 localStorage 中获取已保存的会话 ID
+    const saved = localStorage.getItem('assistant-thread-id');
+    if (saved) {
+      setThreadId(saved);
+    }
+  }, []);
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    api: `https://api-dsc.mintlify.com/v1/assistant/${domain}/message`,
+    headers: {
+      'Authorization': `Bearer ${import.meta.env.VITE_MINTLIFY_TOKEN}`,
+    },
+    body: {
+      fp: 'anonymous',
+      retrievalPageSize: 5,
+      ...(threadId && { threadId }), // 如果存在则包含会话 ID
+    },
+    streamProtocol: 'data',
+    sendExtraMessageFields: true,
+    fetch: async (url, options) => {
+      const response = await fetch(url, options);
+      const newThreadId = response.headers.get('x-thread-id');
+      if (newThreadId) {
+        setThreadId(newThreadId);
+        localStorage.setItem('assistant-thread-id', newThreadId);
+      }
+      return response;
+    },
+  });
+
+  // ... 组件其余部分
+}
+```
+
+<div id="add-keyboard-shortcuts">
+  ### 添加键盘快捷键
+</div>
+
+允许用户通过键盘快捷键打开组件并提交消息：
+
+```jsx
+useEffect(() => {
+  const handleKeyDown = (e) => {
+    // Cmd/Ctrl + Shift + I 切换 AI 助手
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'I') {
+      e.preventDefault();
+      setIsOpen((prev) => !prev);
+    }
+
+    // Enter(当 AI 助手获得焦点时)提交
+    if (e.key === 'Enter' && !e.shiftKey && document.activeElement.id === 'assistant-input') {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, [handleSubmit]);
+```
