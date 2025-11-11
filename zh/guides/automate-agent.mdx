@@ -1,263 +1,391 @@
 ---
-title: "教程：代码合并后自动更新文档"
+title: "教程：代码变更时自动更新文档"
 sidebarTitle: "文档更新自动化"
-description: "使用代理 API 和 n8n 工作流，在合并拉取请求（PR；亦称“合并请求”/Merge Request）后自动更新文档"
+description: "使用 Agent API 通过不同工作流自动更新文档"
 ---
 
 <div id="what-you-will-build">
   ## 你将构建的内容
 </div>
 
-一个在拉取请求（PR）合并后自动更新文档的自动化流程。该工作流监控一个 GitHub 存储库中的已合并 PR，然后调用代理 API，在另一个存储库中更新你的文档。
+一个自动化流程：当代码推送到主 branch 时自动更新文档。该工作流可在多个平台上搭建，包括 GitHub Actions 和 n8n。它会监控你的代码存储库，然后调用代理 API，在单独的文档存储库中更新文档。
 
 此工作流连接两个独立的存储库：
 
-- **代码存储库**：用于存放应用代码。你将在此存储库上设置 GitHub webhook。示例包括后端 API、前端应用、SDK 或命令行界面（CLI）工具。
-- **文档存储库**：用于存放文档并连接到你的 Mintlify 项目。代理会在此存储库中创建包含文档更新的拉取请求（PR）。
+- **代码存储库**：用于存放应用程序代码。你将在此存储库上设置自动化触发器。示例包括后端 API、前端应用、SDK，或命令行界面（CLI）工具。
+- **文档存储库**：用于存放文档并连接到你的 Mintlify 项目。代理会在此存储库中创建包含文档更新的拉取请求（PR；亦称“合并请求”/Merge Request）。
 
-本教程假设你的文档与应用代码是分离的。如果你使用 monorepo，请修改工作流，使其针对存放文档的目录，而非单独的存储库。
+本教程假设你的文档与应用程序代码位于不同的存储库中。如果你使用 monorepo，请修改工作流以定位存放文档的目录。
 
 <div id="workflow-overview">
   ### 工作流概览
 </div>
 
-1. 有人将拉取请求（PR）合并到代码存储库。
-2. n8n 从 GitHub 接收 webhook。
-3. n8n 将该拉取请求的 context 发送到代理 API。
-4. 代理在文档存储库中创建一个拉取请求（PR）。
+1. 有人将代码推送到你的主分支。
+2. 工作流被触发。
+3. 工作流调用代理的 API 来更新你的文档。
+4. 代理在你的文档存储库中创建一个包含文档更新的拉取请求（PR）。
 
-<div id="prerequisites">
-  ## 先决条件
+<div id="choose-your-platform">
+  ## 选择你的平台
 </div>
 
-- n8n 工作区
-- Mintlify 管理 API key
-- Mintlify Pro 或自定义计划
-- 对你代码和文档所在 GitHub 仓库的管理员权限
-- GitHub 个人访问令牌
+<Tabs>
+  <Tab title="GitHub Actions">
+    如果您的代码已在 GitHub 上,GitHub Actions 是最简单的选择。无需额外服务。
 
-<div id="get-your-admin-api-key">
-  ### 获取管理员 API key
-</div>
+    ## 前提条件
 
-1. 在控制台中前往 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面。
-2. 选择 **Create Admin API Key**。
-3. 复制该 key 并妥善保存。
+    * 在你的代码仓库和文档仓库中启用 GitHub Actions
+    * [Mintlify 管理 API key](https://dashboard.mintlify.com/settings/organization/api-keys)
+    * [Mintlify 项目 ID](https://dashboard.mintlify.com/settings/organization/api-keys)
+    * [Mintlify Pro 或 Custom 计划](https://mintlify.com/pricing)
+    * 对你代码和文档所用 GitHub 仓库的管理员访问权限
 
-<div id="get-your-github-personal-access-token">
-  ### 获取 GitHub 个人访问令牌
-</div>
+    ### 获取管理员 API 密钥
 
-1. 在 GitHub 中，前往 **Settings**。
-2. 点击 **Developer settings**。
-3. 点击 **Personal access tokens**。
-4. 点击 **Tokens (classic)**。
-5. 点击 **Generate new token (classic)**。
-6. 选择以下作用域（scopes）：
-    - `repo`（对私有仓库的完整控制）
-    - `admin:repo_hook`（如果你希望 n8n 创建 webhooks）
-7. 生成令牌并妥善保存。
+    1. 在控制台中，前往 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面。
+    2. 选择 **Create Admin API Key**。
+    3. 复制该 key 并妥善保存。
 
-更多信息请参见 GitHub 文档：[Creating a personal access token (classic)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens?versionId=free-pro-team%40latest&productId=account-and-profile#creating-a-personal-access-token-classic)。
+    ## 构建工作流
 
-<div id="build-the-workflow">
-  ## 构建工作流程
-</div>
+    ### 创建工作流文件
 
-<div id="create-the-webhook-trigger">
-  ### 创建 webhook 触发器
-</div>
+    1. 在你的代码存储库中创建一个新文件：`.github/workflows/update-docs.yml`
+    2. 添加该工作流：
 
-1. 在 n8n 中创建一个新工作流。
-2. 添加一个 webhook 节点。
-3. 配置该 webhook：
-    - HTTP 方法：`POST`
-    - 路径：`auto-update-documentation`（或任意唯一路径）
-    - 认证：无
-    - 响应：立即
-4. 保存该工作流。
-5. 复制生产环境的 webhook URL。示例：`https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
+       ```yaml
+       name: 更新文档
 
-<Frame>
-    <img src="/images/guides/n8n/webhook-node.png" alt="Webhook 节点配置截图" style={{
-      width: 'auto',
-      height: '700px',
-    }} />
-</Frame>
+       on:
+       push:
+           branches:
+           - main
 
-<div id="set-up-the-github-webhook">
-  ### 设置 GitHub Webhook
-</div>
+       jobs:
+       update-docs:
+           runs-on: ubuntu-latest
+           steps:
+           - uses: actions/github-script@v8
+               env:
+               MINTLIFY_API_KEY: ${{ secrets.MINTLIFY_API_KEY }}
+               PROJECT_ID: ${{ secrets.MINTLIFY_PROJECT_ID }}
+               with:
+               script: |
+                   const { owner, repo } = context.repo;
+                   const projectId = process.env.PROJECT_ID;
+                   const apiKey = process.env.MINTLIFY_API_KEY;
 
-1. 在 GitHub 上进入你的代码存储库。
-2. 点击 **Settings**。
-3. 点击 **Webhooks**。
-4. 点击 **Add webhook**。
-5. 配置 Webhook：
-    - Payload URL：粘贴你的 n8n Webhook URL
-    - Content type：`application/json`
-    - Which events would you like to trigger this webhook?
-        - 选择 **Let me select individual events.**
-        - 仅选择 **Pull requests**。
-    - 勾选 **Active**
-6. 点击 **Add webhook**。
+                   if (!projectId || !apiKey) {
+                   core.setFailed('缺少 MINTLIFY_PROJECT_ID 或 MINTLIFY_API_KEY 密钥');
+                   return;
+                   }
 
-<div id="filter-for-merged-pull-requests">
-  ### 筛选已合并的拉取请求（PR）
-</div>
+                   const url = `https://api.mintlify.com/v1/agent/${projectId}/job`;
+                   const payload = {
+                   branch: `mintlify/docs-update-${Date.now()}`,
+                   messages: [
+                       {
+                       role: 'system',
+                       content: '你是一个根据代码变更自动更新文档的操作运行器。你不应该提出任何问题。如果无法访问存储库,请报告错误并退出。'
+                       },
+                       {
+                       role: 'user',
+                       content: `更新我们最近推送到 main 分支的文档:\n\n存储库: ${owner}/${repo}`
+                       }
+                   ]
+                   };
 
-在 webhook 之后添加一个代码节点，用于筛选已合并的拉取请求并提取相关信息。
+                   try {
+                       const response = await fetch(url, {
+                       method: 'POST',
+                       headers: {
+                           'Authorization': `Bearer ${apiKey}`,
+                           'Content-Type': 'application/json'
+                       },
+                       body: JSON.stringify(payload)
+                       });
 
-1. 添加一个代码节点。
-2. 将其命名为“Filter merged PRs.”
-3. 将模式设置为 **Run Once for All Items**。
-4. 添加以下 JavaScript：
+                       if (!response.ok) {
+                       throw new Error(`API 请求失败,状态码为 ${response.status}: ${await response.text()}`);
+                       }
 
-```javascript Filter merged PRs
-const webhookData = $input.first().json.body;
+                       const reader = response.body.getReader();
+                       const decoder = new TextDecoder();
+                       let buffer = '';
 
-// 仅在拉取请求（PR）已关闭且已合并时继续
-if (webhookData.action !== "closed" || webhookData.pull_request?.merged !== true) {
-  return [];
-}
+                       while (true) {
+                       const { done, value } = await reader.read();
+                       if (done) break;
+                       buffer += decoder.decode(value, { stream: true });
+                       const lines = buffer.split('\n');
+                       buffer = lines.pop() || '';
+                       for (const line of lines) {
+                           if (line.trim()) {
+                           console.log(line);
+                           }
+                       }
+                       }
+                       if (buffer.trim()) {
+                       console.log(buffer);
+                       }
 
-// 提取信息
-const pullRequest = webhookData.pull_request;
-const repository = webhookData.repository;
-const sender = webhookData.sender;
+                       core.notice(`已为 ${owner}/${repo} 触发文档更新任务`);
+                   } catch (error) {
+                       core.setFailed(`创建文档更新任务失败: ${error.message}`);
+                   }
+       ```
 
-// 为代理构建消息
-const agentMessage = `更新 ${repository.name} 中更改的文档 **PR #${pullRequest.number}: ${pullRequest.title}** 始终编辑文件并创建拉取请求（PR）。`;
+    ### 添加密钥
 
-return {
-  json: {
-    prTitle: pullRequest.title,
-    prBody: pullRequest.body || "未提供说明",
-    prNumber: pullRequest.number,
-    prUrl: pullRequest.html_url,
-    prAuthor: sender.login,
-    codeRepoName: repository.full_name,
-    codeRepoShortName: repository.name,
-    branchName: pullRequest.head.ref,
-    filesChanged: pullRequest.changed_files,
-    agentMessage: agentMessage
-  }
-};
-```
+    1. 在你的代码存储库中，前往 **Settings** → **Secrets and variables** → **Actions**。
+    2. 点击 **New repository secret**。
+    3. 添加以下机密信息：
+       * 名称：`MINTLIFY_API_KEY`，Secret：你的 Mintlify 管理 API key
+       * 名称：`MINTLIFY_PROJECT_ID`，Secret：你的 Mintlify 项目 ID（可在控制台的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面找到）
 
-<Frame>
-  <img src="/images/guides/n8n/filter-merged-PRs-node.png" alt="“过滤已合并 PR”节点的配置截图。" />
-</Frame>
+    有关更多信息,请参阅 GitHub 文档中的[在 GitHub Actions 中使用密钥](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)。
 
-如果该拉取请求（PR；亦称“合并请求”/Merge Request）未被合并，此代码会停止工作流，从 GitHub webhook 提取所有相关信息，并为代理 API 创建一条消息。
+    ## 测试自动化
 
+    1. 在你的代码存储库中做一个小改动，并推送到 main 分支：
+       ```bash
+       git add .
+       git commit -m "Test: trigger docs automation"
+       git push origin main
+       ```
 
-<div id="call-the-agent-api">
-  ### 调用 agent API
-</div>
+    2. 在你的代码存储库中打开 **Actions** 标签页，查看正在运行的工作流程。
 
-添加一个 HTTP 请求节点以创建文档作业。
+    3. 工作流运行完成后，检查你的文档存储库中是否有包含文档更新的新 branch 和拉取请求（PR；亦称“合并请求”/Merge Request）。
 
-1. 添加一个 HTTP 请求节点。
-2. 将其命名为“Create agent job.”
-3. 配置该请求：
-    - 方法：`POST`
-    - URL: `https://api.mintlify.com/v1/agent/YOUR_PROJECT_ID/job`（将 `YOUR_PROJECT_ID` 替换为你的项目 ID，可在控制台的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面找到）
-    - 认证：Generic Credential Type → Header Auth
-        - 创建新的凭证：
-            - 名称：`Authorization`
-            - 值：`Bearer mint_YOUR_API_KEY`（替换为你的 API key）
-    - 发送 Body：开启
-    - Body Content Type：JSON
-    - 指定 Body：使用 JSON
-    - 添加以下 JSON：
+    ## 故障排除
 
-    ```json
-    {
-    "branch": "docs-update-from-{{ $json.codeRepoShortName }}-pr-{{ $json.prNumber }}",
-    "messages": [
-        {
-        "role": "system",
-        "content": "{{ $json.agentMessage }}"
-        }
-    ]
+    ### 工作流未运行
+
+    * 确认你的代码存储库已启用 GitHub Actions。
+    * 在 **Actions** 标签页中检查错误信息。
+    * 确保工作流文件位于 `.github/workflows/` 目录下，且文件扩展名为 `.yml`。
+
+    ### 来自代理 API 的 401 错误
+
+    * 请确认你的 API key 以 `mint_` 开头。
+    * 请检查 Authorization 头的格式是否为 `Bearer mint_yourkey`。
+    * 确认该 API key 对应的 Mintlify 组织是否正确。
+
+    ### 文档更新未显示
+
+    * 检查文档存储库是否已连接到你的 Mintlify 项目。
+    * 确认该代理对文档存储库具有写入权限。
+    * 在工作流日志中检查来自代理的错误信息。
+  </Tab>
+
+  <Tab title="n8n">
+    n8n 提供可视化工作流编辑器,并可与多种服务集成。
+
+    ## 前提条件
+
+    * n8n 工作空间
+    * Mintlify 管理 API key
+    * [Mintlify Pro 或 Custom 订阅计划](https://mintlify.com/pricing)
+    * 对你的代码和文档所用 GitHub 仓库的管理员访问权限
+    * GitHub 个人访问令牌
+
+    ### 获取管理员 API 密钥
+
+    1. 在控制台中前往 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面。
+    2. 选择 **Create Admin API Key**。
+    3. 复制该 key 并妥善保存。
+
+    ### 获取你的 GitHub 个人访问令牌
+
+    1. 在 GitHub 中，进入 **Settings**。
+    2. 点击 **Developer settings**。
+    3. 点击 **Personal access tokens**。
+    4. 点击 **Tokens（经典版）**。
+    5. 点击**生成新的令牌（经典）**。
+    6. 选择以下范围：
+       * `repo`（对私有仓库的完全控制）
+       * `admin:repo_hook`（如果你希望 n8n 创建 Webhook）
+    7. 生成并安全地保存该令牌。
+
+    更多信息请参阅 GitHub 文档中的[创建个人访问令牌(经典版)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens?versionId=free-pro-team%40latest\&productId=account-and-profile#creating-a-personal-access-token-classic)。
+
+    ## 构建工作流
+
+    ### 创建 webhook 触发器
+
+    1. 在 n8n 中创建一个新工作流。
+    2. 添加一个 Webhook 节点。
+    3. 配置 Webhook：
+       * HTTP 方法：`POST`
+       * 路径：`auto-update-documentation`（或任何唯一路径）
+       * 认证：无
+       * 响应：立即
+    4. 保存工作流。
+    5. 复制生产环境的 webhook URL。格式如下：`https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
+
+    <Frame>
+      <img
+        src="/images/guides/n8n/webhook-node.png"
+        alt="Webhook 节点配置界面的截图。"
+        style={{
+width: 'auto',
+height: '700px',
+}}
+      />
+    </Frame>
+
+    ### 设置 GitHub webhook
+
+    1. 前往 GitHub 上的代码存储库。
+    2. 点击“Settings”。
+    3. 单击 **Webhooks**。
+    4. 点击**Add webhook**。
+    5. 配置 Webhook：
+       * Payload URL：粘贴你的 n8n webhook URL
+       * Content type：`application/json`
+       * 你希望由哪些事件触发此 webhook？
+         * 选择 **Let me select individual events.**
+         * 仅选择 **Push events**。
+       * 选择 **Active**
+    6. 点击“Add webhook”。
+
+    ### 筛选主分支推送
+
+    在 webhook 之后添加一个代码节点,以筛选推送到 main 分支的事件并提取相关信息。
+
+    1. 添加代码节点。
+    2. 将其命名为“过滤主推送”。
+    3. 将模式设置为**对所有条目运行一次**。
+    4. 添加这段 JavaScript：
+
+    ```javascript
+    const webhookData = $input.first().json.body;
+
+    // 仅在推送到 main 分支时继续
+    if (webhookData.ref !== "refs/heads/main") {
+      return [];
     }
+
+    // 提取信息
+    const repository = webhookData.repository;
+    const pusher = webhookData.pusher;
+
+    // 构建代理消息
+    const agentMessage = `更新 ${repository.name} 中推送到 main 分支的更改文档。始终编辑文件并创建拉取请求（PR；亦称"合并请求"/Merge Request）。`;
+
+    return {
+      json: {
+        codeRepoName: repository.full_name,
+        codeRepoShortName: repository.name,
+        agentMessage: agentMessage
+      }
+    };
     ```
 
-<Frame>
-    <img src="/images/guides/n8n/create-agent-job-node.png" alt="创建 agent 作业节点配置的截图。" style={{
-      width: 'auto',
-      height: '700px',
-    }} />
-</Frame>
+    <Frame>
+      <img src="/images/guides/n8n/filter-merged-PRs-node.png" alt="筛选已合并 PR 的节点配置截图。" />
+    </Frame>
 
-agent 会在你的文档存储库中创建一个拉取请求，使用包含来源存储库和拉取请求编号的描述性 branch 名称。
+    此代码会在推送不是到 main 分支时停止工作流，从 GitHub webhook 中提取所有相关信息，并为 agent API 创建消息。
 
-<div id="activate-the-workflow">
-  ### 启用工作流
-</div>
+    ### 调用 Agent API
 
-1. 保存工作流。
-2. 将其设为启用。
+    添加 HTTP 请求节点以创建文档任务。
 
-现在，工作流会监控你的代码存储库中已合并的拉取请求（PR）。
+    1. 添加一个 HTTP 请求节点。
+    2. 将其命名为“Create agent job”。
+    3. 配置该请求：
 
-<Frame>
-    <img src="/images/guides/n8n/workflow.png" alt="n8n 编辑器中自动化工作流的屏幕截图。" />
-</Frame>
+       * 方法：`POST`
+       * URL：`https://api.mintlify.com/v1/agent/YOUR_PROJECT_ID/job`（将 `YOUR_PROJECT_ID` 替换为你在 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面上的项目 ID）
+       * 认证：通用凭证类型 → Header Auth
+         * 创建新凭证：
+           * 名称：`Authorization`
+           * 值：`Bearer mint_YOUR_API_KEY`（替换为你的 API key）
+       * 发送 Body：开启
+       * Body 内容类型：JSON
+       * 指定 Body：使用 JSON
+       * 添加此 JSON：
 
-<div id="test-the-automation">
-  ## 测试自动化
-</div>
+       ```json
+       {
+       "branch": "docs-update-from-{{ $json.codeRepoShortName }}-{{ $now.toISOString() }}",
+       "messages": [
+           {
+           "role": "system",
+           "content": "{{ $json.agentMessage }}"
+           }
+       ]
+       }
+       ```
 
-1. 在你的代码存储库中创建一个测试 branch：
-   ```bash
-   git checkout -b test-docs-automation
-   ```
+    <Frame>
+      <img
+        src="/images/guides/n8n/create-agent-job-node.png"
+        alt="“创建代理作业”节点配置的截图。"
+        style={{
+width: 'auto',
+height: '700px',
+}}
+      />
+    </Frame>
 
-2. 做一个小改动并提交：
-   ```bash
-   git add .
-   git commit -m "Test: trigger docs automation"
-   git push origin test-docs-automation
-   ```
+    代理会在您的文档存储库中创建一个拉取请求（PR），使用包含源存储库名称和时间戳的描述性分支名称。
 
-3. 在 GitHub 上发起一个拉取请求（PR）。
-4. 合并该拉取请求。
+    ### 激活工作流
 
-<div id="verify-the-automation">
-  ### 验证自动化
-</div>
+    1. 保存你的工作流程。
+    2. 将其设为启用状态。
 
-检查以下内容以确认工作流正常运行：
+    您的工作流现在正在监控代码存储库，以检测推送到 main 分支的更改。
 
-- **n8n 执行**：你应看到一条新的执行记录，且所有节点均已成功完成。
-- **文档存储库**：一两分钟后，检查是否出现包含文档更新的新 branch 和拉取请求（PR；亦称“合并请求”/Merge Request）。
+    <Frame>
+      <img src="/images/guides/n8n/workflow.png" alt="n8n 编辑器中的自动化工作流截图。" />
+    </Frame>
 
-<div id="troubleshooting">
-  ## 疑难解答
-</div>
+    ## 测试自动化
 
-<div id="webhook-not-triggering">
-  ### Webhook 未触发
-</div>
+    1. 在你的代码存储库中创建一个测试 branch：
+       ```bash
+       git checkout -b test-docs-automation
+       ```
 
-- 确认该工作流已在 n8n 中启用。
-- 在 GitHub 存储库的 Settings → Webhooks → Recent Deliveries 中检查响应代码。
-- 确认 webhook 的 URL 与您的 n8n webhook URL 完全一致。
+    2. 做一个小改动并提交：
+       ```bash
+       git add .
+       git commit -m "Test: trigger docs automation"
+       git push origin test-docs-automation
+       ```
 
-<div id="401-error-from-agent-api">
-  ### 来自代理 API 的 401 错误
-</div>
+    3. 在 GitHub 上发起一个拉取请求（PR）。
 
-- 确认你的 API key 以 `mint_` 开头。
-- 检查 Authorization 头的格式是否为 `Bearer mint_yourkey`。
-- 确认该 API key 对应正确的 Mintlify 组织。
+    4. 合并该拉取请求（PR；亦称“合并请求”）。
 
-<div id="401-error-from-github">
-  ### 来自 GitHub 的 401 错误
-</div>
+    ### 验证自动化
 
-- 确认你的令牌具有 `repo` 权限范围。
-- 检查令牌是否已过期。
-- 确认在发送给 GitHub 的请求中包含了 `User-Agent` 头部。
+    您应该会看到一个新的 n8n 执行，其中所有节点均已成功完成，并且在您的文档存储库中会有一个新的 branch 和拉取请求（PR）。
+
+    ## 故障排除
+
+    ### Webhook 未触发
+
+    * 在 n8n 中确认该工作流已激活。
+    * 在 GitHub 存储库的 Settings → Webhooks → Recent Deliveries 中查看响应状态码。
+    * 确认该 webhook 的 URL 与你的 n8n webhook URL 完全一致。
+
+    ### 来自代理 API 的 401 错误
+
+    * 确认你的 API key 以 `mint_` 开头。
+    * 检查 Authorization 头的格式是否为 `Bearer mint_yourkey`。
+    * 确认该 API key 属于正确的 Mintlify 组织。
+
+    ### GitHub 的 401 错误
+
+    * 确认你的令牌已包含 `repo` 作用域。
+    * 检查该令牌是否未过期。
+    * 确认你在发往 GitHub 的请求中包含了 `User-Agent` 请求头。
+  </Tab>
+</Tabs>
