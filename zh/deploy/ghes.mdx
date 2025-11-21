@@ -1,0 +1,292 @@
+---
+title: "GitHub Enterprise Server"
+description: "在你的 GitHub Enterprise Server 实例上设置 GitHub 应用。"
+keywords: ["GitHub Enterprise Server", "GHES", "GitHub Enterprise"]
+---
+
+本指南将逐步引导你在 GitHub Enterprise Server（GHES）实例上配置 Mintlify GitHub App。要将 GHES 实例连接到 Mintlify，你必须在自托管环境中创建该应用的本地版本，用于与我们的远程服务器通信。
+
+如果你使用的是云托管的 GitHub 实例，请参阅 [GitHub](/zh/deploy/github) 页面了解设置方法。
+
+<div id="prerequisites">
+  ## 前提条件
+</div>
+
+* 在你要安装该应用的 GitHub Enterprise Server 组织中拥有管理员权限
+* 能访问你要安装该应用的组织仓库
+* 具备与我们外部服务通信的网络连通性（参见下方的 [网络要求](#network-requirements) 部分）
+
+<div id="network-requirements">
+  ### 网络要求
+</div>
+
+<div id="outbound-connectivity">
+  #### 出站连接
+</div>
+
+你的 GitHub Enterprise Server 必须能够访问：
+
+* Mintlify 的 API 端点 (https://leaves.mintlify.com)
+* Webhook 接收端（443 端口）
+
+<div id="firewall-configuration">
+  #### 防火墙配置
+</div>
+
+必须允许以下出站连接：
+
+* 来自 Mintlify 静态 IP 地址的连接：`54.242.90.151`
+* 到 Mintlify 服务域名的 HTTPS（端口 443）连接
+* 对 Mintlify 服务域名的 DNS 解析
+
+<div id="step-1-register-the-github-app">
+  ## 步骤 1：注册 GitHub 应用
+</div>
+
+有关详细步骤，请参阅 GitHub 文档中的[注册 GitHub 应用](https://docs.github.com/en/enterprise-server@3.18/apps/creating-github-apps/registering-a-github-app/registering-a-github-app)。
+
+<Steps>
+  <Step title="前往组织设置">
+    1. 在 GitHub 的任意页面右上角，点击你的个人头像。
+    2. 点击 **Your organizations**。
+    3. 在你想为其创建应用的组织旁边，点击 **Settings**。
+  </Step>
+
+  <Step title="创建新的 GitHub 应用">
+    1. 在左侧边栏中，点击 **Developer settings**。
+    2. 点击 **GitHub Apps**。
+    3. 点击 **New GitHub App**。
+  </Step>
+
+  <Step title="配置应用的基本信息">
+    进行如下设置：
+
+    * **GitHub App name：** `Mintlify`
+    * **Description：** `Integration with Mintlify services`
+    * **Homepage URL：** `https://mintlify.com`
+    * **User authorization callback URL：** `https://your-github-server.com/`（替换为你实际的 GHES 域名）
+  </Step>
+</Steps>
+
+<div id="step-2-configure-app-permissions">
+  ## 步骤 2：配置应用权限
+</div>
+
+<Steps>
+  <Step title="设置仓库权限">
+    为该应用设置以下权限。无需为组织（Organization）、账户（Account）或企业（Enterprise）配置任何权限：
+
+    * **Checks：** 读取和写入
+    * **Contents：** 读取和写入
+    * **Deployments：** 读取和写入
+    * **Metadata：** 只读
+    * **Pull Requests：** 读取和写入
+  </Step>
+
+  <Step title="订阅事件">
+    选择以下 webhook 事件：
+
+    * Installation（安装）
+    * Installation Target（安装目标）
+    * Create（创建）
+    * Delete（删除）
+    * Public（公开）
+    * Pull Request（拉取请求）
+    * Push（推送）
+    * Repository（仓库）
+  </Step>
+</Steps>
+
+<div id="step-3-generate-and-secure-credentials">
+  ## 步骤 3：生成并保护凭证
+</div>
+
+<Steps>
+  <Step title="创建应用">
+    点击 **Create GitHub App**。
+
+    您会被重定向到该应用的设置页面。
+  </Step>
+
+  <Step title="生成私钥">
+    1. 向下滚动至 **Private keys** 部分。
+    2. 点击 **Generate a private key**。
+    3. 下载 `.pem` 文件并安全保存。
+  </Step>
+
+  <Step title="记录应用凭证">
+    记录以下信息：
+
+    * **App ID**（显示在设置页面顶部）
+    * **Client ID**（位于 “About” 部分）
+    * **Client Secret**（生成后请妥善保存）
+  </Step>
+</Steps>
+
+<div id="step-4-install-the-app">
+  ## 步骤 4：安装应用
+</div>
+
+<Steps>
+  <Step title="导航到应用安装页面">
+    1. 在应用设置页面，点击左侧边栏中的 **Install App**。
+    2. 从列表中选择你的组织。
+  </Step>
+
+  <Step title="选择安装范围">
+    选择以下其中一项：
+
+    * **All repositories**（适用于组织内的所有代码仓库）
+    * **Only select repositories**（仅选择特定代码仓库）
+
+    <Tip>
+      我们建议选择 “Only select repositories”，并将应用的访问范围限制为存放你文档的那些仓库。
+    </Tip>
+  </Step>
+
+  <Step title="完成安装">
+    1. 点击 **Install**。
+    2. 记录 URL 中的 installation ID。例如，在 `https://your-github-server.com/settings/installations/12345` 中，字符串 `12345` 就是 installation ID。
+  </Step>
+</Steps>
+
+<div id="step-5-configure-webhook-url">
+  ## 步骤 5：配置 webhook URL
+</div>
+
+<Steps>
+  <Step title="返回应用设置">
+    1. 返回你的应用设置页面。
+    2. 向下滚动到 **Webhook** 部分。
+  </Step>
+
+  <Step title="设置 webhook URL">
+    按如下方式配置：
+
+    * **Webhook URL：** `https://leaves.mintlify.com/github-enterprise/:subdomain`（将 `:subdomain` 替换为我们提供给你的 URL）
+    * **Webhook secret：** 生成一个随机字符串（32 个以上字符）并妥善保存。Mintlify 也可以为你生成并提供此密钥。
+  </Step>
+</Steps>
+
+<div id="share-credentials-with-us">
+  ## 向我们提供凭证
+</div>
+
+请通过你选择的安全信息传输方式，将以下信息提供给我们的团队。
+
+<div id="required-credentials">
+  ### 所需凭证
+</div>
+
+* GitHub Enterprise Server 基础 URL：https://your-github-server.com
+* App ID：（来自步骤 3）
+* 应用客户端 ID：（来自步骤 3）
+* 应用客户端密钥：（来自步骤 3）
+* Installation ID：（来自步骤 4）
+* 私钥：`.pem` 文件的全部内容（应通过安全文件传输方式传递）
+* Webhook 密钥：（来自步骤 5）
+
+<div id="optional-credentials-for-troubleshooting">
+  ### 用于故障排查的可选凭据
+</div>
+
+* 组织名称：你的 GitHub 组织名称
+* 仓库名称：安装该应用的具体仓库
+* GitHub Enterprise Server 版本：可在站点管理后台中查看
+
+<div id="mintlify-connection">
+  ## Mintlify 连接
+</div>
+
+我们会使用你提供的凭据，并将其加密后安全存储起来。然后我们会与你协作，采用以下两种方式之一：
+
+* 将你的 GHES 环境与现有的 Mintlify 部署集成。
+* 将你的 GHES 环境与我们为你准备的新 Mintlify 部署集成。
+
+当你的 GHES 环境与某个 Mintlify 部署完成集成后，你就可以为 GitHub App 启用 webhook 了。
+
+<Note>
+  根据我们的配置，webhook 的 URL 可能会发生变化。我们会测试集成，并向你提供新的 URL。
+</Note>
+
+<div id="test-the-integration">
+  ## 测试集成
+</div>
+
+<Steps>
+  <Step title="验证 webhook 投递">
+    1. 前往 GitHub 应用的设置页面。
+    2. 点击 **Advanced** 选项卡。
+    3. 在 &quot;Recent Deliveries&quot; 中检查 webhook 是否成功投递。
+    4. 查找 HTTP 200 响应。
+  </Step>
+
+  <Step title="测试仓库访问">
+    1. 在已安装的仓库中创建一个测试 issue 或 pull request。
+    2. 确认 Mintlify 的响应是否符合预期。
+  </Step>
+</Steps>
+
+<div id="faq-and-troubleshooting">
+  ## 常见问题与故障排查
+</div>
+
+<AccordionGroup>
+  <Accordion title="应用安装因权限错误而失败">
+    请确保你具备：
+
+    * 创建应用所需的站点管理员权限
+    * 安装应用所需的组织所有者或管理员权限
+    * 如果要安装到特定仓库，还需具备相应仓库权限
+  </Accordion>
+
+  <Accordion title="Webhook 没有被投递">
+    * 验证 webhook URL 是否正确且可访问。
+    * 确保你的防火墙允许向外发起 HTTPS 连接。
+    * 检查 webhook secret 是否与配置时设置的一致。
+    * 在 GitHub App 设置的「Advanced」选项卡中查看 webhook 投递日志。
+  </Accordion>
+
+  <Accordion title="我遇到 SSL/TLS 证书错误">
+    你的 GHES 可能使用了自签名证书，因此我们的服务无法验证你服务器的证书。
+
+    **解决方案：** 确保你的 GHES 使用有效的 SSL 证书。
+  </Accordion>
+
+  <Accordion title="应用已安装，但没有响应事件">
+    * 确认 webhook 已成功投递，并且我们的服务器以 200 响应码进行确认。
+    * 确认安装过程中已授予所需权限。
+  </Accordion>
+
+  <Accordion title="我可以限制应用访问哪些仓库吗？">
+    可以，在安装过程中你可以选择「Only select repositories」，并挑选特定仓库。之后也可以在你组织的已安装应用设置中进行修改。这是推荐的安装方式。
+  </Accordion>
+
+  <Accordion title="之后如何更新应用权限？">
+    * 以站点管理员身份进入应用设置。
+    * 根据需要修改权限。
+    * 应用需要由组织所有者重新批准。
+    * 如有权限变更，请通知我们，因为这可能会影响功能。
+  </Accordion>
+
+  <Accordion title="我们的 GHES 部署在企业防火墙、nginx 代理或类似环境之后">
+    你需要：
+
+    * 在防火墙中将我们的服务域名加入允许列表。
+    * 确保可以向外建立 HTTPS（443 端口）连接。
+    * 如果不允许直接访问互联网，请配置代理。
+  </Accordion>
+
+  <Accordion title="这能在物理隔离（air-gapped）环境中的 GHES 上工作吗？">
+    不能，你的 GHES 必须能够与我们托管在云端的服务器通信。
+  </Accordion>
+
+  <Accordion title="如果我需要帮助，应联系谁？">
+    请联系你在 Mintlify 对接的客户成功代表，或通过 <a href="mailto:support@mintlify.com">support@mintlify.com</a> 联系我们的支持团队，并提供：
+
+    * 你的 GitHub Enterprise Server 版本
+    * 具体错误信息
+    * 相关问题的截图
+    * 网络 / 防火墙配置详情（如适用）
+  </Accordion>
+</AccordionGroup>
