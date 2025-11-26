@@ -45,37 +45,38 @@ Pour consulter les résultats de cette vérification, rendez-vous sur la page de
   ### Vale
 </div>
 
-[Vale](https://vale.sh/) est un linter de prose open source basé sur des règles, compatible avec divers types de documents, dont Markdown et MDX.
+[Vale](https://vale.sh/) est un linter de prose open source basé sur des règles qui prend en charge un large éventail de types de documents, y compris Markdown et MDX. Utilisez Vale pour vérifier la cohérence du style et du ton de votre documentation.
 
-Mintlify prend en charge l’exécution automatique de Vale dans une vérification CI et l’affichage des résultats sous forme d’état de vérification.
+Mintlify permet d’exécuter automatiquement Vale dans un contrôle CI et d’afficher les résultats comme statut de contrôle.
 
 <div id="configuration">
   #### Configuration
 </div>
 
-Si vous avez un fichier `.vale.ini` à la racine du répertoire content de votre déploiement, le contrôle Vale CI utilise ce fichier de configuration ainsi que tout fichier de configuration présent dans le `stylesPath` que vous avez spécifié.
+Si vous avez un fichier `.vale.ini` à la racine du répertoire de contenu de votre déploiement, la vérification Vale CI utilise ce fichier de configuration ainsi que tous les fichiers de configuration présents dans le `stylesPath` que vous avez spécifié.
 
-Si vous n’avez pas de fichier de configuration Vale, la configuration par défaut est chargée automatiquement.
+Si vous n’avez pas de fichier de configuration Vale, la configuration par défaut est automatiquement chargée.
 
 ```mdx Default vale.ini configuration expandable
 # Styles de niveau supérieur
 StylesPath = /app/styles
 MinAlertLevel = suggestion
+# Balises HTML en ligne à ignorer (code/tt pour les extraits de code, img/url pour les liens/images, a pour les balises d'ancrage)
 IgnoredScopes = code, tt, img, url, a
-SkippedScopes = script, style, pre, figure, code
+SkippedScopes = script, style, pre, figure
 
 # Vocabulaires
 Vocab = Mintlify
 
-# Requis car Vale ne prend pas officiellement en charge MDX
-[formats]
-mdx = md
+# Packages
+Packages = MDX
 
-# Prise en charge de MDX
+# Correspondre uniquement aux fichiers MDX
 [*.mdx]
 BasedOnStyles = Vale
 Vale.Terms = NO # Applique des règles de capitalisation très strictes, laisser désactivé
 
+# Ignorer les motifs de syntaxe spécifiques à JSX/MDX
 # `import ...`, `export ...`
 # `<Component ... />`
 # `<Component>...</Component>`
@@ -84,13 +85,13 @@ TokenIgnores = (?sm)((?:import|export) .+?$), \
 (?<!`)(<\w+ ?.+ ?\/>)(?!`), \
 (<[A-Z]\w+>.+?<\/[A-Z]\w+>)
 
-# Exclure :
+# Exclure le JSX multiligne et les accolades
 # `<Component \n ... />`
 BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
 (?sm)^({.+.*})
-
-CommentDelimiters = {/*, */}
 ```
+
+Le vocabulaire par défaut de Vale comprend les mots suivants.
 
 ```text Default Vale vocabulary expandable
 Mintlify
@@ -362,64 +363,67 @@ next
 toc
 ```
 
+Pour ajouter votre propre vocabulaire à la configuration par défaut, créez un répertoire `styles/config/vocabularies/Mintlify` contenant les fichiers `accept.txt` et `reject.txt`.
+
+* `accept.txt` : Mots à ignorer par le linter Vale. Par exemple, des noms de produits ou des termes peu courants.
+* `reject.txt` : Mots qui doivent être signalés comme des erreurs. Par exemple, du jargon ou des mots qui ne sont pas appropriés au ton de votre documentation.
+
 ```text Example Vale file structure
-  - docs.json
-  - .vale.ini
-  - styles/...
-  - text.md
+/votre-projet
+  |- docs.json
+  |- .vale.ini
+  |- styles/
+    |- config/
+      |- vocabularies/
+        |- Mintlify/
+          |- accept.txt
+          |- reject.txt
+  |- page-exemple.mdx
 ```
 
 ```text Example monorepo Vale file structure
-  - main.ts
-  - docs/
-    - docs.json
-    - .vale.ini
-    - styles/...
-    - text.md
-  - test/
+/your-monorepo
+  |- main.ts
+  |- docs/
+    |- docs.json
+    |- .vale.ini
+    |- styles/
+      |- config/
+      |- vocabularies/
+        |- Mintlify/
+          |- accept.txt
+          |- reject.txt
+    |- example-page.mdx
+  |- test/
 ```
 
 <Note>
-  Pour des raisons de sécurité, les `stylesPath` absolus ou contenant `..` ne sont pas pris en charge. Utilisez des chemins relatifs et incluez le `stylesPath` dans votre référentiel.
+  Pour des raisons de sécurité, les `stylesPath` absolus ou les `stylesPath` contenant `..` ne sont pas pris en charge.
+
+  Utilisez des chemins relatifs et incluez le `stylesPath` dans votre référentiel.
 </Note>
 
 <div id="packages">
   #### Packages
 </div>
 
-Vale prend en charge un éventail de [packages](https://vale.sh/docs/keys/packages), qui peuvent être utilisés pour détecter les fautes d’orthographe et les erreurs de style.
-Tous les packages que vous incluez dans votre référentiel sous le `stylesPath` approprié sont automatiquement installés et pris en compte dans votre configuration Vale.
+Vale prend en charge une gamme de [packages](https://vale.sh/docs/keys/packages), qui peuvent être utilisés pour détecter les fautes d’orthographe et les erreurs de style. Tous les packages que vous ajoutez à votre référentiel sous le `stylesPath` approprié sont automatiquement installés et utilisés dans votre configuration Vale.
 
-Pour les packages qui ne figurent pas dans votre référentiel, vous pouvez spécifier n’importe quels packages depuis le [registre de packages Vale](https://vale.sh/explorer) ; ils sont alors automatiquement téléchargés et utilisés dans votre configuration Vale.
+Pour les packages qui ne sont pas inclus dans votre référentiel, vous pouvez spécifier n’importe quel package du [registre de packages Vale](https://vale.sh/explorer), qui sera automatiquement téléchargé et utilisé dans votre configuration Vale.
 
 <Note>
-  Veuillez noter que, pour des raisons de sécurité, le téléchargement automatique de packages ne provenant pas du [registre de packages Vale](https://vale.sh/explorer) n’est pas pris en charge.
+  Pour des raisons de sécurité, le téléchargement automatique de packages qui ne proviennent pas du [registre de packages Vale](https://vale.sh/explorer) n’est **pas** pris en charge.
 </Note>
 
 <div id="vale-with-mdx">
   #### Vale avec `MDX`
 </div>
 
-Vale ne prend pas en charge `MDX` nativement, mais l’auteur de Vale a fourni une [extension personnalisée](https://github.com/errata-ai/MDX) pour l’ajouter.
+<Note>
+  La prise en charge native de MDX nécessite Vale 3.10.0 ou une version ultérieure. Vérifiez votre version de Vale avec `vale --version`.
+</Note>
 
-Si vous préférez ne pas utiliser cette extension, vous pouvez ajouter les lignes suivantes au fichier `.vale.ini` configuré :
-
-```ini
-[formats]
-mdx = md
-
-[*.mdx]
-CommentDelimiters = {/*, */}
-
-TokenIgnores = (?sm)((?:import|export) .+?$), \
-(?<!`)(<\w+ ?.+ ?\/>)(?!`), \
-(<[A-Z]\w+>.+?<\/[A-Z]\w+>)
-
-BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
-(?sm)^({.+.*})
-```
-
-Pour utiliser les commentaires dans le document de Vale, utilisez des commentaires au format MDX `{/* ... */}`. Si vous utilisez le [paramètre](https://vale.sh/docs/keys/commentdelimiters) `CommentDelimiters = {/*, */}` dans votre configuration, Vale interprétera automatiquement ces commentaires lors de l’analyse. Cela signifie que vous pouvez facilement utiliser les fonctionnalités intégrées de Vale, comme ignorer des lignes ou des sections.
+Pour utiliser les commentaires intégrés de Vale dans les fichiers MDX, utilisez les commentaires au format MDX `{/* ... */}` :
 
 ```mdx
 {/* vale off */}
@@ -429,14 +433,4 @@ Ce texte est ignoré par Vale
 {/* vale on */}
 ```
 
-Si vous choisissez de ne pas utiliser `CommentDelimiters` tout en utilisant les commentaires de Vale, vous devez entourer tous les commentaires de Vale de commentaires MDX `{/* ... */}`. Par exemple :
-
-```mdx
-{/* <!-- vale off --> */}
-
-Ce texte est ignoré par Vale
-
-{/* <!-- vale on --> */}
-```
-
-Ces balises de commentaire ne sont pas prises en charge dans les composants Mintlify, mais elles fonctionneront correctement partout au niveau de base d’un document.
+Vale reconnaît et respecte automatiquement ces commentaires dans les fichiers MDX sans configuration supplémentaire. Utilisez les commentaires pour ignorer les lignes ou sections qui doivent être ignorées par le linter.
