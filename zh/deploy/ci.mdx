@@ -45,7 +45,7 @@ keywords: ["continuous integration", "CI/CD", "checks", "Vale", "linter"]
   ### Vale
 </div>
 
-[Vale](https://vale.sh/) 是一款开源的规则驱动型文本风格检查器，支持包括 Markdown 和 MDX 在内的多种文档类型。
+[Vale](https://vale.sh/) 是一款开源的、基于规则的文本风格检查工具（prose linter），支持多种文档类型，包括 Markdown 和 MDX。使用 Vale 可以检查文档中的写作风格和语气是否一致。
 
 Mintlify 支持在 CI 检查中自动运行 Vale，并将结果显示为检查状态。
 
@@ -53,29 +53,30 @@ Mintlify 支持在 CI 检查中自动运行 Vale，并将结果显示为检查�
   #### 配置
 </div>
 
-如果在你的部署的根 content 目录下有 `.vale.ini` 文件，Vale CI 检查将使用该配置文件，以及你在 `stylesPath` 中指定的任何其他配置文件。
+如果在你的部署的内容根目录中有一个 `.vale.ini` 文件，那么 Vale CI 检查会使用该配置文件以及你在 `stylesPath` 中指定的任何配置文件。
 
-如果没有 Vale 配置文件，则会自动加载默认配置。
+如果你没有 Vale 配置文件，则会自动加载默认配置。
 
 ```mdx Default vale.ini configuration expandable
 # 顶层样式
 StylesPath = /app/styles
 MinAlertLevel = suggestion
+# 要忽略的内联 HTML 标签（code/tt 用于代码片段，img/url 用于链接/图像，a 用于锚标签）
 IgnoredScopes = code, tt, img, url, a
-SkippedScopes = script, style, pre, figure, code
+SkippedScopes = script, style, pre, figure
 
 # 词汇表
 Vocab = Mintlify
 
-# 由于 Vale 官方不支持 MDX,此配置为必填项
-[formats]
-mdx = md
+# 包
+Packages = MDX
 
-# MDX 支持
+# 仅匹配 MDX
 [*.mdx]
 BasedOnStyles = Vale
-Vale.Terms = NO # 强制执行严格的大写规则,建议保持关闭
+Vale.Terms = NO # 强制执行非常严格的大写规则，保持关闭状态
 
+# 忽略 JSX/MDX 特定语法模式
 # `import ...`, `export ...`
 # `<Component ... />`
 # `<Component>...</Component>`
@@ -84,13 +85,13 @@ TokenIgnores = (?sm)((?:import|export) .+?$), \
 (?<!`)(<\w+ ?.+ ?\/>)(?!`), \
 (<[A-Z]\w+>.+?<\/[A-Z]\w+>)
 
-# 排除:
+# 排除多行 JSX 和花括号
 # `<Component \n ... />`
 BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
 (?sm)^({.+.*})
-
-CommentDelimiters = {/*, */}
 ```
+
+默认的 Vale 词汇列表包含以下词汇。
 
 ```text Default Vale vocabulary expandable
 Mintlify
@@ -98,12 +99,12 @@ mintlify
 VSCode
 openapi
 OpenAPI
-Github
-APIs
+GitHub
+API
 
-repo
+仓库
 npm
-dev
+开发
 
 Lorem
 ipsum
@@ -124,14 +125,14 @@ ModeToggle
 isHidden
 autoplay
 
-_italic_
-Strikethrough
-Blockquotes
-Blockquote
-Singleline
-Multiline
+_斜体_
+删除线
+块引用
+块引用
+单行
+多行
 
-onboarding
+入门引导
 
 async
 await
@@ -165,8 +166,8 @@ jwt
 oauth
 websocket
 localhost
-middleware
-runtime
+中间件
+运行时
 webhook
 stdin
 stdout
@@ -353,73 +354,76 @@ tmp
 val
 vars
 
-todo
+待办
 href
 lang
 nav
-prev
-next
-toc
+上一页
+下一页
+目录
 ```
 
+要在默认配置中添加你自己的词表，请创建一个 `styles/config/vocabularies/Mintlify` 目录，并在其中添加 `accept.txt` 和 `reject.txt` 文件。
+
+* `accept.txt`: 应由 Vale linter 忽略的词语，例如产品名称或不常见的术语。
+* `reject.txt`: 应被标记为错误的词语，例如与你文档语气不相符的行话或用词。
+
 ```text Example Vale file structure
-  - docs.json
-  - .vale.ini
-  - styles/...
-  - text.md
+/your-project
+  |- docs.json
+  |- .vale.ini
+  |- styles/
+    |- config/
+      |- vocabularies/
+        |- Mintlify/
+          |- accept.txt
+          |- reject.txt
+  |- example-page.mdx
 ```
 
 ```text Example monorepo Vale file structure
-  - main.ts
-  - docs/
-    - docs.json
-    - .vale.ini
-    - styles/...
-    - text.md
-  - test/
+/your-monorepo
+  |- main.ts
+  |- docs/
+    |- docs.json
+    |- .vale.ini
+    |- styles/
+      |- config/
+      |- vocabularies/
+        |- Mintlify/
+          |- accept.txt
+          |- reject.txt
+    |- example-page.mdx
+  |- test/
 ```
 
 <Note>
-  请注意，出于安全原因，不支持绝对路径的 `stylesPath`，或包含 `..` 的 `stylesPath`。请使用相对路径，并将该 `stylesPath` 提交到你的存储库中。
+  出于安全原因，不支持使用绝对路径形式的 `stylesPath`，也不支持包含 `..` 的 `stylesPath`。
+
+  请使用相对路径，并在你的存储库中包含该 `stylesPath`。
 </Note>
 
 <div id="packages">
-  #### 包
+  #### 软件包
 </div>
 
-Vale 支持一系列[包](https://vale.sh/docs/keys/packages)，可用于检查拼写和写作风格错误。
-任何你在存储库中按正确的 `stylesPath` 添加的包，都会在你的 Vale 配置中自动安装并使用。
+Vale 支持一系列[软件包](https://vale.sh/docs/keys/packages)，可用于检查拼写和写作风格错误。任何你在存储库中放在正确 `stylesPath` 下的软件包，都会被自动安装并在你的 Vale 配置中使用。
 
-对于未包含在存储库中的包，你可以从 [Vale package registry](https://vale.sh/explorer) 指定任意包，它们会自动下载并在你的 Vale 配置中使用。
+对于未包含在存储库中的软件包，你可以指定来自 [Vale package registry](https://vale.sh/explorer) 的任意软件包，它们会被自动下载并在你的 Vale 配置中使用。
 
 <Note>
-  请注意，出于安全考虑，不支持自动下载不来自 [Vale package registry](https://vale.sh/explorer) 的包。
+  出于安全原因，**不**支持自动下载不来自 [Vale package registry](https://vale.sh/explorer) 的软件包。
 </Note>
 
 <div id="vale-with-mdx">
-  #### 在 `MDX` 中使用 Vale
+  #### 将 Vale 与 `MDX` 搭配使用
 </div>
 
-Vale 并不原生支持 `MDX`，但其作者提供了一个[自定义扩展](https://github.com/errata-ai/MDX)以实现支持。
+<Note>
+  对 MDX 的原生支持需要 Vale 3.10.0 或更高版本。使用 `vale --version` 来检查你的 Vale 版本。
+</Note>
 
-如果你不想使用该扩展，可以在已配置的 `.vale.ini` 文件中添加以下内容：
-
-```ini
-[formats]
-mdx = md
-
-[*.mdx]
-CommentDelimiters = {/*, */}
-
-TokenIgnores = (?sm)((?:import|export) .+?$), \
-(?<!`)(<\w+ ?.+ ?\/>)(?!`), \
-(<[A-Z]\w+>.+?<\/[A-Z]\w+>)
-
-BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
-(?sm)^({.+.*})
-```
-
-要在文档中使用 Vale 的文内注释，请采用 MDX 风格的注释 `{/* ... */}`。如果你在配置中启用 `CommentDelimiters = {/*, */}` [设置](https://vale.sh/docs/keys/commentdelimiters)，Vale 会在检查时自动识别这些注释。这样你就可以轻松使用 Vale 的内置功能，例如跳过指定的行或段落。
+要在 MDX 文件中使用 Vale 的文内注释，请使用 MDX 风格的注释 `{/* ... */}`：
 
 ```mdx
 {/* vale off */}
@@ -429,14 +433,4 @@ BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
 {/* vale on */}
 ```
 
-如果你不使用 `CommentDelimiters`，但仍要使用 Vale 的注释，则必须将所有 Vale 注释包裹在 MDX 注释 `{/* ... */}` 中。例如：
-
-```mdx
-{/* <!-- vale off --> */}
-
-此文本将被 Vale 忽略
-
-{/* <!-- vale on --> */}
-```
-
-这些注释标签在 Mintlify 组件内不受支持，但在文档的顶层任意位置都能正常工作。
+Vale 会在 MDX 文件中自动识别并遵守这些注释，无需额外配置。使用注释来跳过需要被 linter 忽略的行或片段。
