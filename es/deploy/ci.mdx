@@ -45,15 +45,15 @@ Para ver los resultados de esta verificación, visita la página de resultados d
   ### Vale
 </div>
 
-[Vale](https://vale.sh/) es un linter de prosa de código abierto basado en reglas que admite una variedad de tipos de documentos, incluidos Markdown y MDX.
+[Vale](https://vale.sh/) es un linter de prosa de código abierto basado en reglas que admite una variedad de tipos de documentos, incluidos Markdown y MDX. Usa Vale para comprobar la coherencia del estilo y el tono en tu documentación.
 
-Mintlify permite ejecutar Vale automáticamente en una verificación de CI y mostrar los resultados como un estado de comprobación.
+Mintlify admite ejecutar Vale automáticamente en una comprobación de CI y mostrar los resultados como un estado de comprobación.
 
 <div id="configuration">
   #### Configuración
 </div>
 
-Si tienes un archivo `.vale.ini` en el directorio raíz de contenido de tu implementación, la verificación de Vale CI utiliza ese archivo de configuración y cualquier archivo de configuración en el `stylesPath` que especifiques.
+Si tienes un archivo `.vale.ini` en el directorio raíz de contenido de tu implementación, la verificación de Vale CI usa ese archivo de configuración y cualquier archivo de configuración en el `stylesPath` que especifiques.
 
 Si no tienes un archivo de configuración de Vale, se cargará automáticamente la configuración predeterminada.
 
@@ -61,21 +61,22 @@ Si no tienes un archivo de configuración de Vale, se cargará automáticamente 
 # Estilos de nivel superior
 StylesPath = /app/styles
 MinAlertLevel = suggestion
+# Etiquetas HTML en línea a ignorar (code/tt para fragmentos de código, img/url para enlaces/imágenes, a para etiquetas ancla)
 IgnoredScopes = code, tt, img, url, a
-SkippedScopes = script, style, pre, figure, code
+SkippedScopes = script, style, pre, figure
 
 # Vocabularios
 Vocab = Mintlify
 
-# Esto es necesario ya que Vale no soporta oficialmente MDX
-[formats]
-mdx = md
+# Paquetes
+Packages = MDX
 
-# Soporte para MDX
+# Coincidir solo con MDX
 [*.mdx]
 BasedOnStyles = Vale
 Vale.Terms = NO # Aplica reglas de mayúsculas muy estrictas, mantener desactivado
 
+# Ignorar patrones de sintaxis específicos de JSX/MDX
 # `import ...`, `export ...`
 # `<Component ... />`
 # `<Component>...</Component>`
@@ -84,13 +85,13 @@ TokenIgnores = (?sm)((?:import|export) .+?$), \
 (?<!`)(<\w+ ?.+ ?\/>)(?!`), \
 (<[A-Z]\w+>.+?<\/[A-Z]\w+>)
 
-# Excluir:
+# Excluir JSX multilínea y llaves
 # `<Component \n ... />`
 BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
 (?sm)^({.+.*})
-
-CommentDelimiters = {/*, */}
 ```
+
+El vocabulario predeterminado de Vale incluye las siguientes palabras.
 
 ```text Default Vale vocabulary expandable
 Mintlify
@@ -362,64 +363,67 @@ next
 toc
 ```
 
+Para agregar tu propio vocabulario a la configuración predeterminada, crea un directorio `styles/config/vocabularies/Mintlify` con los archivos `accept.txt` y `reject.txt`.
+
+* `accept.txt`: Palabras que deben ser ignoradas por el linter Vale. Por ejemplo, nombres de productos o términos poco comunes.
+* `reject.txt`: Palabras que deben marcarse como errores. Por ejemplo, jerga o palabras que no son apropiadas para el tono de tu documentación.
+
 ```text Example Vale file structure
-  - docs.json
-  - .vale.ini
-  - styles/...
-  - text.md
+/your-project
+  |- docs.json
+  |- .vale.ini
+  |- styles/
+    |- config/
+      |- vocabularies/
+        |- Mintlify/
+          |- accept.txt
+          |- reject.txt
+  |- example-page.mdx
 ```
 
 ```text Example monorepo Vale file structure
-  - main.ts
-  - docs/
-    - docs.json
-    - .vale.ini
-    - styles/...
-    - text.md
-  - test/
+/your-monorepo
+  |- main.ts
+  |- docs/
+    |- docs.json
+    |- .vale.ini
+    |- styles/
+      |- config/
+      |- vocabularies/
+        |- Mintlify/
+          |- accept.txt
+          |- reject.txt
+    |- example-page.mdx
+  |- test/
 ```
 
 <Note>
-  Ten en cuenta que, por razones de seguridad, no se admiten `stylesPath` absolutos ni `stylesPath` que incluyan `..`. Usa rutas relativas e incluye el `stylesPath` en tu repositorio.
+  Por razones de seguridad, no se admite el uso de un `stylesPath` absoluto ni de un `stylesPath` que incluya `..`.
+
+  Usa rutas relativas e incluye el `stylesPath` en tu repositorio.
 </Note>
 
 <div id="packages">
   #### Paquetes
 </div>
 
-Vale admite una variedad de [paquetes](https://vale.sh/docs/keys/packages) que se pueden usar para detectar errores ortográficos y de estilo.
-Cualquier paquete que incluyas en tu repositorio dentro del `stylesPath` correcto se instalará automáticamente y se usará en tu configuración de Vale.
+Vale es compatible con una variedad de [paquetes](https://vale.sh/docs/keys/packages), que puedes usar para detectar errores ortográficos y de estilo. Cualquier paquete que incluyas en tu repositorio bajo el `stylesPath` correcto se instala automáticamente y se utiliza en tu configuración de Vale.
 
-Para los paquetes que no estén incluidos en tu repositorio, puedes especificar cualquiera del [registro de paquetes de Vale](https://vale.sh/explorer); se descargarán automáticamente y se usarán en tu configuración de Vale.
+Para los paquetes que no estén incluidos en tu repositorio, puedes especificar cualquiera del [registro de paquetes de Vale](https://vale.sh/explorer); se descargarán automáticamente y se utilizarán en tu configuración de Vale.
 
 <Note>
-  Ten en cuenta que, por razones de seguridad, no se admite la descarga automática de paquetes que no provengan del [registro de paquetes de Vale](https://vale.sh/explorer).
+  Por motivos de seguridad, **no** se admite la descarga automática de paquetes que no provengan del [registro de paquetes de Vale](https://vale.sh/explorer).
 </Note>
 
 <div id="vale-with-mdx">
   #### Vale con `MDX`
 </div>
 
-Vale no admite `MDX` de forma nativa, pero el autor de Vale ha proporcionado una [extensión personalizada](https://github.com/errata-ai/MDX) para darle soporte.
+<Note>
+  La compatibilidad nativa con MDX requiere Vale 3.10.0 o posterior. Comprueba tu versión de Vale con `vale --version`.
+</Note>
 
-Si prefieres no usar esta extensión, puedes agregar las siguientes líneas al archivo `.vale.ini` configurado:
-
-```ini
-[formats]
-mdx = md
-
-[*.mdx]
-CommentDelimiters = {/*, */}
-
-TokenIgnores = (?sm)((?:import|export) .+?$), \
-(?<!`)(<\w+ ?.+ ?\/>)(?!`), \
-(<[A-Z]\w+>.+?<\/[A-Z]\w+>)
-
-BlockIgnores = (?sm)^(<\w+\n .*\s\/>)$, \
-(?sm)^({.+.*})
-```
-
-Para usar los comentarios en el documento de Vale, utiliza comentarios con estilo MDX `{/* ... */}`. Si en tu configuración usas el [ajuste](https://vale.sh/docs/keys/commentdelimiters) `CommentDelimiters = {/*, */}`, Vale interpretará automáticamente estos comentarios durante el análisis. Esto significa que puedes aprovechar fácilmente las funciones integradas de Vale, como omitir líneas o secciones.
+Para usar los comentarios dentro del documento de Vale en archivos MDX, utiliza comentarios al estilo MDX `{/* ... */}`:
 
 ```mdx
 {/* vale off */}
@@ -429,14 +433,4 @@ Este texto es ignorado por Vale
 {/* vale on */}
 ```
 
-Si decides no usar `CommentDelimiters` pero aun así usar los comentarios de Vale, debes envolver cualquier comentario de Vale en comentarios de MDX `{/* ... */}`. Por ejemplo:
-
-```mdx
-{/* <!-- vale off --> */}
-
-Este texto es ignorado por Vale
-
-{/* <!-- vale on --> */}
-```
-
-Estas etiquetas de comentario no son compatibles dentro de los componentes de Mintlify, pero funcionan correctamente en cualquier lugar del nivel base de un documento.
+Vale reconoce y respeta automáticamente estos comentarios en los archivos MDX sin necesidad de configuración adicional. Usa los comentarios para omitir líneas o secciones que el linter deba ignorar.
