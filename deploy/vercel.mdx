@@ -1,55 +1,51 @@
 ---
 title: "Vercel"
-description: "Deploy documentation on Vercel with automatic builds and custom domains."
+description: "Deploy documentation to a subpath on Vercel."
 keywords: ["vercel.json", "Vercel deployment", "rewrites configuration", "subpath routing"]
 ---
 
 import { VercelJsonGenerator } from "/snippets/vercel-json-generator.mdx";
 
+Configure your `vercel.json` file to proxy requests from your main domain to your documentation at a subpath.
+
 ## vercel.json file
 
-The `vercel.json` file configures how your project is built and deployed. It sits in your project's root directory and controls various aspects of your deployment, including routing, redirects, headers, and build settings.
+The `vercel.json` file configures how your project builds and deploys. It sits in your project's root directory and controls various aspects of your deployment, including routing, redirects, headers, and build settings.
 
-We use the `rewrites` configuration to proxy requests from your main domain to your documentation.
+We use the `rewrites` configuration in your `vercel.json` file to proxy requests from your main domain to your documentation.
 
 Rewrites map incoming requests to different destinations without changing the URL in the browser. When someone visits `yoursite.com/docs`, Vercel internally fetches content from `your-subdomain.mintlify.dev/docs`, but the user still sees `yoursite.com/docs` in their browser. This is different from redirects, which send users to another URL entirely.
 
-You can customize the subpath to any value you prefer, such as `/docs`, `/help`, or `/guides`. Additionally, you can use deeply nested subpaths like `/product/docs`.
-
 ## Configuration
 
-### Host from `/docs`
-
-The `/docs` subpath is the only self-service option. You can enable it directly from your dashboard without additional infrastructure setup.
-
-<Note>
-  For any subpath other than `/docs` (e.g., `/help`, `/guides`), you must use a reverse proxy. See the [Cloudflare](/deploy/cloudflare) or [AWS](/deploy/route53-cloudfront) guides.
-</Note>
+### Host at `/docs` subpath
 
 1. Navigate to [Custom domain setup](https://dashboard.mintlify.com/settings/deployment/custom-domain) in your dashboard.
 2. Click the **Host at `/docs`** toggle to the on position.
-  <Frame>
-    <img alt="Screenshot of the Custom domain setup page. The Host at `/docs` toggle is on and highlighted by an orange rectangle." src="/images/subpath/toggle-light.png" className="block dark:hidden" />
-    <img alt="Screenshot of the Custom domain setup page. The Host at `/docs` toggle is on and highlighted by an orange rectangle." src="/images/subpath/toggle-dark.png" className="hidden dark:block" />
-  </Frame>
+    <Frame>
+      <img alt="Screenshot of the Custom domain setup page. The Host at `/docs` toggle is on and highlighted by an orange rectangle." src="/images/subpath/toggle-light.png" className="block dark:hidden" />
+      <img alt="Screenshot of the Custom domain setup page. The Host at `/docs` toggle is on and highlighted by an orange rectangle." src="/images/subpath/toggle-dark.png" className="hidden dark:block" />
+    </Frame>
 3. Enter your domain.
 4. Select **Add domain**.
-5. Add the following rewrites to your `vercel.json` file. Replace `[subdomain]` with your subdomain:
+5. Add the following rewrites to your `vercel.json` file. Replace `[subdomain]` with your subdomain, which is found at the end of your dashboard URL. For example, `dashboard.mintlify.com/your-organization/your-subdomain` has a domain identifier of `your-subdomain`.
 
-  ```json
-  {
-    "rewrites": [
-      {
-        "source": "/docs",
-        "destination": "https://[subdomain].mintlify.dev/docs"
-      },
-      {
-        "source": "/docs/:match*",
-        "destination": "https://[subdomain].mintlify.dev/docs/:match*"
-      }
-    ]
-  }
-  ```
+    ```json
+    {
+      "rewrites": [
+        {
+          "source": "/docs",
+          "destination": "https://[subdomain].mintlify.dev/docs"
+        },
+        {
+          "source": "/docs/:match*",
+          "destination": "https://[subdomain].mintlify.dev/docs/:match*"
+        }
+      ]
+    }
+    ```
+
+The `rewrites` configuration maps the `/docs` subpath on your domain to the `/docs` subpath on your documentation.
 
 - **`source`**: The path pattern on your domain that triggers the rewrite.
 - **`destination`**: Where the request should be proxied to.
@@ -57,40 +53,14 @@ The `/docs` subpath is the only self-service option. You can enable it directly 
 
 For more information, see [Configuring projects with vercel.json: Rewrites](https://vercel.com/docs/projects/project-configuration#rewrites) in the Vercel documentation.
 
-### Host from custom path
+### Host at custom subpath
+
+<Note>
+  Custom subpaths require a Custom plan and manual setup. Contact [Mintlify support](mailto:support@mintlify.com) with details about your desired subpath and hosting setup.
+</Note>
 
 To use a custom subpath (any path other than `/docs`), you must organize your documentation files within your repository to match your subpath structure. For example, if your documentation is hosted at `yoursite.com/help`, your documentation files must be in a `help/` directory.
 
 Use the generator below to create your rewrites configuration. Add the rewrites to your `vercel.json` file.
 
 <VercelJsonGenerator />
-
-## Using external proxies with Vercel
-
-If you're using an external proxy (like Cloudflare or AWS CloudFront) in front of your Vercel deployment, you must configure it properly to avoid conflicts with Vercel's domain verification and SSL certificate provisioning.
-
-Improper proxy configuration can prevent Vercel from provisioning Let's Encrypt SSL certificates and cause domain verification failures.
-
-See the [supported providers](https://vercel.com/guides/how-to-setup-verified-proxy#supported-providers-verified-proxy-lite) in the Vercel documentation.
-
-### Required path allowlist
-
-Your external proxy must allow traffic to these specific paths without blocking, redirecting, or heavily caching:
-
-- `/.well-known/acme-challenge/*` - Required for Let's Encrypt certificate verification
-- `/.well-known/vercel/*` - Required for Vercel domain verification
-- `/mintlify-assets/_next/static/*` - Required for static assets
-
-These paths should pass through directly to your Vercel deployment without modification.
-
-### Header forwarding requirements
-
-Ensure that your proxy correctly forwards the `HOST` header. Without proper header forwarding, verification requests will fail.
-
-### Testing your proxy setup
-
-To verify your proxy is correctly configured:
-
-1. Test that `https://[yourdomain].com/.well-known/vercel/` returns a response.
-2. Ensure SSL certificates are provisioning correctly in your Vercel dashboard.
-3. Check that domain verification completes successfully.
