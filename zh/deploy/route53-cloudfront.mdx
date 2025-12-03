@@ -1,40 +1,34 @@
 ---
-title: "AWS Route 53 与 CloudFront"
+title: "AWS Route 53 和 CloudFront"
 sidebarTitle: "AWS"
-description: "使用 Route 53 DNS 和 CloudFront CDN 在 AWS 上部署文档。"
-keywords: ["AWS 部署", "Route 53 DNS", "CloudFront CDN", "缓存策略"]
+description: "使用 AWS 的 Route 53 DNS（域名系统）和 CloudFront CDN 在子路径上部署文档。"
+keywords: ["AWS 部署", "Route 53 DNS（域名系统）", "CloudFront CDN", "缓存策略"]
 ---
 
 import Propagating from "/snippets/zh/custom-subpath-propagating.mdx";
 
-要使用 AWS Route 53 和 CloudFront 将文档托管在自定义子路径（例如 `yoursite.com/docs`），你需要在 DNS（域名系统）提供商处配置记录，将其指向你的 CloudFront 分配。
+若要使用 AWS Route 53 和 CloudFront 将文档托管在类似 `yoursite.com/docs` 这样的子路径上，你必须将 DNS（域名系统）服务提供商配置为将其解析到你的 CloudFront 分配。
 
 
-<div id="repository-structure">
-  ## 存储库结构
+<div id="overview">
+  ## 概览
 </div>
 
-你需要在存储库中根据所选的子路径结构来组织文档文件。比如，如果你希望文档位于 `yoursite.com/docs`，则需要创建一个 `docs/` 目录，并将所有文档文件放入其中。
+将流量路由到以下路径，并将缓存策略（Cache Policy）设置为 **CachingDisabled**：
 
-<div id="high-level-overview">
-  ## 高层概览
-</div>
+- `/.well-known/acme-challenge/*` - 用于 Let's Encrypt 证书验证
+- `/.well-known/vercel/*` - 用于域名验证
+- `/docs/*` - 用于子路径路由
+- `/docs/` - 用于子路径路由
 
-将流量路由到以下路径，并将缓存策略设置为**CachingDisabled**：
-
-- `/.well-known/acme-challenge/*` - Let's Encrypt 证书验证所需
-- `/.well-known/vercel/*` - 用于 domain 验证
-- `/docs/*` - 子路径路由所需
-- `/docs/` - 子路径路由所需
-
-将流量路由到以下路径，并将缓存策略设置为**CachingEnabled**：
+将流量路由到以下路径，并将缓存策略（Cache Policy）设置为 **CachingEnabled**：
 
 - `/mintlify-assets/_next/static/*`
-- `Default (*)` - 你的网站登录页
+- `Default (*)` - 你的网站着陆页
 
-所有 Behaviors 的**origin request policy**都必须为 `AllViewerExceptHostHeader`。
+所有 Behaviors 都必须将 **origin request policy** 设置为 `AllViewerExceptHostHeader`。
 
-![CloudFront "Behaviors" 页面包含 4 个行为：`/docs/*`、`/docs`、`Default` 和 `/.well-known/*`。](/images/cloudfront/all-behaviors.png)
+![CloudFront「Behaviors」页面，其中包含 4 个 behaviors：`/docs/*`、`/docs`、`Default` 和 `/.well-known/*`。](/images/cloudfront/all-behaviors.png)
 
 <div id="create-cloudfront-distribution">
   ## 创建 CloudFront 分配
@@ -127,31 +121,31 @@ CloudFront 中的行为用于控制子路径逻辑。总体而言，我们希望
   - `/.well-known/acme-challenge/*` - Let's Encrypt 证书验证所必需
 </Info>
 
-<div id="your-custom-subpath">
-  ### 自定义子路径
+<div id="your-subpath">
+  ### 你的子路径
 </div>
 
-使用你选定的子路径作为 **Path pattern** 创建一个行为（behavior），例如 `/docs`，并将 **Origin and origin groups** 指向 `.mintlify.dev` 的 URL（本例为 `acme.mintlify.dev`）。
+创建一个行为，将 **Path pattern** 设置为你选择的子路径，例如 `/docs`，并将 **Origin and origin groups** 指向 `.mintlify.dev` 的 URL（在我们的示例中为 `acme.mintlify.dev`）。
 
-- 将“Cache policy”设置为 **CachingOptimized**。
-- 将“Origin request policy”设置为 **AllViewerExceptHostHeader**。
-- 将“Viewer Protocol Policy”设置为 **Redirect HTTP to HTTPS**。
+- 将 "Cache policy" 设置为 **CachingOptimized**。
+- 将 "Origin request policy" 设置为 **AllViewerExceptHostHeader**。
+- 将 "Viewer Protocol Policy" 设置为 **Redirect HTTP to HTTPS**。
 
 <Frame>
-  ![CloudFront “Create behavior” 页面，"Path pattern" 为 “/docs/*”，"Origin and origin groups" 指向 `acme.mintlify.dev` 的 URL。](/images/cloudfront/behavior-1.png)
+  ![CloudFront 的 "Create behavior" 页面，其中 "Path pattern" 设置为 "/docs/*"，并且 "Origin and origin groups" 指向 `acme.mintlify.dev` 的 URL。](/images/cloudfront/behavior-1.png)
 </Frame>
 
-<div id="your-custom-subpath-with-wildcard">
-  ### 带通配符的自定义子路径
+<div id="your-subpath-with-wildcard">
+  ### 带通配符的子路径
 </div>
 
-创建一个行为，将你选定的子路径后接 `/*` 作为 **Path pattern**，例如 `/docs/*`，并将 **Origin and origin groups** 指向相同的 `.mintlify.dev` URL。
+创建一个行为，在 **Path pattern** 中填写你选择的子路径并在后面添加 `/*`，例如 `/docs/*`，并将 **Origin and origin groups** 指向相同的 `.mintlify.dev` URL。
 
-除 **Path pattern** 外，其他设置应与基础子路径行为完全一致。
+除 **Path pattern** 外，其余设置应与基础子路径行为完全一致。
 
-- 将“Cache policy”设置为 **CachingOptimized**。
-- 将“Origin request policy”设置为 **AllViewerExceptHostHeader**。
-- 将“Viewer protocol policy”设置为 **Redirect HTTP to HTTPS**。
+- 将 "Cache policy" 设置为 **CachingOptimized**
+- 将 "Origin request policy" 设置为 **AllViewerExceptHostHeader**
+- 将 "Viewer protocol policy" 设置为 **Redirect HTTP to HTTPS**
 
 <div id="mintlify-assets_nextstatic">
   ### `/mintlify-assets/_next/static/*`
