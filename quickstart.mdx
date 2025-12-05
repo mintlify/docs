@@ -648,9 +648,9 @@ When you're satisfied with your edits, select the **Publish** button in the top-
 
 For more details about using the web editor, including using branches and pull requests to collaborate and preview changes, see our [web editor documentation](/editor).
 
-## Adding a custom domain
+## Adding a custom domain with SSL
 
-While your `<your-project-name>.mintlify.app` subdomain works well for testing and development, most teams prefer using a custom domain for production documentation.
+While your `<your-project-name>.mintlify.app` subdomain works well for testing and development, production documentation requires a custom domain with SSL/TLS encryption.
 
 To add a custom domain, navigate to the [Domain Setup](https://dashboard.mintlify.com/settings/deployment/custom-domain) page in your dashboard.
 
@@ -670,15 +670,117 @@ To add a custom domain, navigate to the [Domain Setup](https://dashboard.mintlif
 
 Enter your domain (for example, `docs.yourcompany.com`) and follow the provided instructions to configure DNS settings with your domain provider.
 
-<Table>
-  | Record Type | Name                | Value                | TTL  |
-  | ----------- | ------------------- | -------------------- | ---- |
-  | CNAME       | docs (or subdomain) | cname.vercel-dns.com | 3600 |
-</Table>
+### DNS configuration
+
+Configure your DNS records based on your hosting setup:
+
+<Tabs>
+  <Tab title="Standard CNAME">
+    For most subdomain configurations:
+    
+    <Table>
+      | Record Type | Name                | Value                | TTL  |
+      | ----------- | ------------------- | -------------------- | ---- |
+      | CNAME       | docs (or subdomain) | cname.vercel-dns.com | 3600 |
+    </Table>
+  </Tab>
+  
+  <Tab title="Apex Domain">
+    For root domain configurations (requires ALIAS or ANAME support):
+    
+    <Table>
+      | Record Type | Name | Value                | TTL  |
+      | ----------- | ---- | -------------------- | ---- |
+      | ALIAS       | @    | cname.vercel-dns.com | 3600 |
+    </Table>
+    
+    <Warning>
+      Not all DNS providers support ALIAS records. Check with your provider or use a subdomain instead.
+    </Warning>
+  </Tab>
+  
+  <Tab title="Multiple Domains">
+    For serving documentation on multiple domains:
+    
+    ```json docs.json
+    {
+      "domains": [
+        "docs.yourcompany.com",
+        "documentation.yourcompany.com"
+      ],
+      "redirects": [
+        {
+          "source": "/old-path/:slug",
+          "destination": "/new-path/:slug",
+          "permanent": true
+        }
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
 
 <Info>
-  DNS changes can take up to 48 hours to propagate, though changes often complete much sooner.
+  DNS changes can take up to 48 hours to propagate, though changes often complete much sooner. Use [DNSChecker](https://dnschecker.org) to verify propagation status.
 </Info>
+
+### SSL certificate provisioning
+
+Mintlify automatically provisions and renews SSL certificates for your custom domain:
+
+1. After DNS records are configured and verified, SSL provisioning begins automatically
+2. Certificate issuance typically completes within 10-15 minutes
+3. Certificates auto-renew 30 days before expiration
+4. All traffic is automatically redirected from HTTP to HTTPS
+
+<Accordion title="Troubleshooting SSL issues">
+  If SSL provisioning fails:
+  
+  - **Verify DNS records**: Ensure CNAME points to `cname.vercel-dns.com`
+  - **Check CAA records**: If you have CAA records, add `letsencrypt.org` as an authorized CA
+  - **Remove conflicting records**: Delete any existing A or AAAA records for the subdomain
+  - **Wait for propagation**: DNS changes must fully propagate before SSL can be issued
+  
+  Contact support if issues persist after 24 hours.
+</Accordion>
+
+### Configure domain security headers
+
+Add security headers to your custom domain for enhanced protection:
+
+```json docs.json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    }
+  ]
+}
+```
+
+These headers protect against common web vulnerabilities and enforce HTTPS usage.
 
 ## Next steps
 
