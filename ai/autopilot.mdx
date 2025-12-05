@@ -1,0 +1,144 @@
+---
+title: "Autopilot"
+description: "Automatically detect when pull requests require documentation updates"
+keywords: ["autopilot", "automation", "PR analysis", "documentation suggestions"]
+---
+
+<Info>
+  Autopilot is available on [Pro and Custom plans](https://mintlify.com/pricing?ref=autopilot).
+</Info>
+
+Autopilot monitors your code repositories and automatically detects when merged pull requests require documentation updates. When it identifies changes that need documentation, it creates suggestions in your dashboard that you can review and act on.
+
+## How autopilot works
+
+Autopilot uses an agentic workflow to analyze pull requests:
+
+1. **Monitors merged PRs**: When you merge a pull request in a watched repository, autopilot automatically queues an analysis
+2. **Explores the changes**: The autopilot agent uses tools to:
+   - Fetch and read the full PR details including diffs
+   - Explore files in your code repository
+   - Review your current documentation structure
+   - Understand your documentation navigation and organization
+3. **Makes intelligent decisions**: Based on the analysis, autopilot determines if documentation updates are needed
+4. **Creates suggestions**: When updates are required, autopilot creates a suggestion in your dashboard with context about what needs to be documented
+
+## Analysis criteria
+
+Autopilot looks for changes that typically require documentation updates:
+
+- New features or functionality
+- API changes (endpoints, parameters, responses)
+- Configuration changes
+- Breaking changes
+- New user-facing behavior
+- Authentication or authorization changes
+
+Autopilot ignores changes that don't affect users:
+
+- Internal refactoring
+- Test updates
+- Build configuration
+- Development tooling
+- Dependency updates (unless they affect the public API)
+
+## Configure autopilot
+
+### Connect repositories
+
+1. Navigate to the [Autopilot](https://dashboard.mintlify.com/products/autopilot) page in your dashboard
+2. Click **Add repository**
+3. Select the repository you want to monitor
+4. Configure the target branch (defaults to `main`)
+
+The [Mintlify GitHub App](/deploy/github) must be installed on the repository for autopilot to access it.
+
+### View suggestions
+
+Autopilot suggestions appear in your [dashboard](https://dashboard.mintlify.com/products/autopilot). Each suggestion includes:
+
+- The pull request title and link
+- The repository name
+- When the suggestion was created
+- The current status (open, resolved, or cancelled)
+
+### Act on suggestions
+
+When you receive a suggestion:
+
+1. Review the pull request to understand the changes
+2. Use the [agent](/ai/agent) to create documentation updates based on the PR
+3. Mark the suggestion as resolved when you've updated the documentation
+4. Or mark it as cancelled if no documentation update is needed
+
+## Trigger analysis manually
+
+You can manually trigger autopilot analysis for any pull request using the [API endpoint](/api-reference/autopilot/check-pr):
+
+```bash
+curl -X POST https://api.mintlify.com/v1/autopilot/my-docs/suggestions/check \
+  -H "Authorization: Bearer mint_YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "owner": "acme-corp",
+    "repo": "api-server",
+    "pullRequestNumber": 123
+  }'
+```
+
+This is useful for:
+
+- Analyzing PRs that were merged before autopilot was enabled
+- Re-analyzing PRs if you think autopilot missed something
+- Integrating autopilot checks into your CI/CD pipeline
+
+## Autopilot vs agent
+
+Autopilot and the agent work together but serve different purposes:
+
+- **Autopilot**: Automatically detects when documentation updates are needed by analyzing merged PRs. Creates suggestions for you to review.
+- **Agent**: Creates pull requests with actual documentation changes based on your prompts. You control what gets written.
+
+A typical workflow:
+
+1. Autopilot detects a merged PR needs documentation
+2. You review the autopilot suggestion
+3. You prompt the agent to create the documentation updates
+4. The agent creates a PR with the changes
+5. You review and merge the agent's PR
+6. You mark the autopilot suggestion as resolved
+
+## Technical details
+
+### Agentic analysis
+
+Autopilot uses a streaming agentic workflow powered by Claude Sonnet 4.5. The agent has access to these tools:
+
+- `list`: List files in your documentation repository
+- `read`: Read files from your documentation
+- `read_navigation`: Understand your documentation structure
+- `external_list`: List files in your code repository
+- `external_read`: Read files from your code repository
+- `fetch_pull_request`: Get full PR details including diffs
+- `generate_suggestion`: Create a suggestion with context about what needs to be documented
+
+The agent explores your codebase and documentation to make informed decisions about whether updates are needed.
+
+### Webhook integration
+
+When you merge a pull request, GitHub sends a webhook to Mintlify. Autopilot:
+
+1. Checks if any of your documentation sites are watching the repository
+2. Queues an analysis job for each watching deployment
+3. Runs the agentic analysis asynchronously
+4. Creates suggestions in your dashboard when updates are needed
+
+The analysis runs in the background and doesn't block your PR merge.
+
+## Best practices
+
+- **Connect all relevant repositories**: Add any repository that contains code your users interact with
+- **Review suggestions promptly**: Fresh suggestions are easier to act on while the changes are still in context
+- **Use the agent to implement updates**: The agent can read the PR and create appropriate documentation changes
+- **Mark suggestions as resolved**: Keep your dashboard clean by marking suggestions as resolved or cancelled
+- **Combine with CI checks**: Use the [manual trigger API](/api-reference/autopilot/check-pr) to check PRs before they're merged
