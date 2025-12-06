@@ -1,0 +1,347 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Mintlify Admin API",
+    "description": "Una API de operaciones administrativas, incluidas las actualizaciones de documentación y la gestión de agentes.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/agent/{projectId}/job": {
+      "post": {
+        "summary": "Crear tarea de agente",
+        "description": "Crea un nuevo trabajo de agente capaz de generar y editar documentación basándose en los mensajes proporcionados y en la información de la branch.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "El ID de tu proyecto. Puedes copiarlo desde la página de [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) en tu panel de control."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "branch",
+                  "messages"
+                ],
+                "properties": {
+                  "branch": {
+                    "type": "string",
+                    "description": "El nombre de la branch de Git en la que debe trabajar el agente; se creará automáticamente si no existe"
+                  },
+                  "messages": {
+                    "type": "array",
+                    "description": "Una lista de mensajes anteriores para proporcionar al agente.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "role",
+                        "content"
+                      ],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "system",
+                            "user"
+                          ],
+                          "description": "La función del remitente del mensaje."
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "El contenido del mensaje."
+                        }
+                      }
+                    }
+                  },
+                  "asDraft": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Controla si la solicitud de extracción se crea en modo borrador o en modo no borrador. Cuando es true, crea una solicitud de extracción en borrador. Cuando es false, crea una solicitud de extracción normal (no borrador) lista para revisión."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trabajo de agente creado correctamente (respuesta en streaming). El encabezado X-Session-Id se devuelve en la respuesta",
+            "headers": {
+              "X-Message-Id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Identificador del mensaje para el trabajo creado"
+              }
+            },
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "description": "Respuesta en streaming que contiene los detalles y resultados de la ejecución de la tarea del agente."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/{projectId}/job/{id}": {
+      "get": {
+        "summary": "Obtener tarea de agente por ID",
+        "description": "Obtiene los detalles y el estado de una tarea de agente específica por su ID.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "El ID de tu proyecto. Puedes copiarlo en la página de [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de tu dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "El identificador único del trabajo de agente que se debe recuperar."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Los detalles de la tarea del agente se han recuperado correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "description": "El subdomain al que corresponde esta sesión."
+                    },
+                    "subdomain": {
+                      "type": "string",
+                      "description": "El subdominio al que pertenece esta sesión."
+                    },
+                    "branch": {
+                      "type": "string",
+                      "description": "Nombre de la branch de Git en la que se realizaron los cambios.",
+                      "nullable": true
+                    },
+                    "haulted": {
+                      "type": "boolean",
+                      "description": "Indica si se interrumpió la ejecución de la sesión."
+                    },
+                    "haultReason": {
+                      "type": "string",
+                      "enum": [
+                        "completed",
+                        "github_missconfigured",
+                        "error"
+                      ],
+                      "description": "Motivo de la interrupción de la sesión."
+                    },
+                    "pullRequestLink": {
+                      "type": "string",
+                      "description": "Enlace a la solicitud de extracción creada."
+                    },
+                    "messageToUser": {
+                      "type": "string",
+                      "description": "Mensaje para el usuario acerca del resultado de la sesión."
+                    },
+                    "todos": {
+                      "type": "array",
+                      "description": "Lista de tareas pendientes de la sesión.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "content": {
+                            "type": "string",
+                            "description": "Descripción breve de la tarea."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "in_progress",
+                              "completed",
+                              "cancelled"
+                            ],
+                            "description": "Estado actual de la tarea."
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": [
+                              "high",
+                              "medium",
+                              "low"
+                            ],
+                            "description": "Prioridad de la tarea."
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Identificador único de la tarea pendiente."
+                          }
+                        }
+                      }
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Marca de tiempo de creación de la sesión."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/{projectId}/jobs": {
+      "get": {
+        "summary": "Obtener todas las tareas de agente",
+        "description": "Recupera todos los trabajos de agente para el domain especificado, incluidos su estado y detalles.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "El ID de tu proyecto. Se puede copiar desde la página de [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de tu dashboard."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Todos los trabajos de los agentes se recuperaron correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allSessions": {
+                      "type": "array",
+                      "description": "Array con todas las sesiones de agente del dominio.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sessionId": {
+                            "type": "string",
+                            "description": "El subdominio al que pertenece esta sesión."
+                          },
+                          "subdomain": {
+                            "type": "string",
+                            "description": "El subdominio al que pertenece esta sesión."
+                          },
+                          "branch": {
+                            "type": "string",
+                            "description": "Nombre de la branch de Git en la que se realizaron los cambios.",
+                            "nullable": true
+                          },
+                          "haulted": {
+                            "type": "boolean",
+                            "description": "Indica si la ejecución de la sesión se detuvo."
+                          },
+                          "haultReason": {
+                            "type": "string",
+                            "enum": [
+                              "completed",
+                              "github_missconfigured",
+                              "error"
+                            ],
+                            "description": "Motivo de la finalización de la sesión."
+                          },
+                          "pullRequestLink": {
+                            "type": "string",
+                            "description": "Enlace a la solicitud de extracción creada."
+                          },
+                          "messageToUser": {
+                            "type": "string",
+                            "description": "Mensaje para el usuario sobre el resultado de la sesión."
+                          },
+                          "todos": {
+                            "type": "array",
+                            "description": "Lista de tareas de la sesión.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "content": {
+                                  "type": "string",
+                                  "description": "Breve descripción de la tarea."
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "pending",
+                                    "in_progress",
+                                    "completed",
+                                    "cancelled"
+                                  ],
+                                  "description": "Estado actual de la tarea."
+                                },
+                                "priority": {
+                                  "type": "string",
+                                  "enum": [
+                                    "high",
+                                    "medium",
+                                    "low"
+                                  ],
+                                  "description": "Prioridad de la tarea."
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "Identificador único de la tarea pendiente."
+                                }
+                              }
+                            }
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Marca de tiempo en la que se creó la sesión."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "El encabezado Authorization requiere un token Bearer. Crea una [Admin API Key](https://dashboard.mintlify.com/settings/organization/api-keys) aquí."
+      }
+    }
+  }
+}
