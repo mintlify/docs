@@ -22,6 +22,464 @@ Choose between full and partial authentication modes based on your access contro
 
 When configuring any handshake method below, you'll select either **Full authentication** or **Partial authentication** in your dashboard settings.
 
+## Understanding token types
+
+Different authentication methods use different token types. Understanding these tokens helps you configure authentication correctly and troubleshoot issues.
+
+### Access tokens (OAuth)
+
+Access tokens are short-lived credentials issued by your OAuth server after successful authentication. Mintlify uses these tokens to verify user identity and retrieve user information.
+
+**Where to configure:**
+- **Token URL**: The endpoint where Mintlify exchanges authorization codes for access tokens
+- **Info API URL**: Your endpoint that accepts access tokens and returns user data
+
+**Configuration example:**
+```json
+{
+  "tokenUrl": "https://auth.foo.com/oauth/token",
+  "infoApiUrl": "https://api.foo.com/user-info"
+}
+```
+
+**How it works:**
+1. User authenticates with your OAuth provider
+2. Mintlify receives an authorization code
+3. Mintlify exchanges the code for an access token at your Token URL
+4. Mintlify calls your Info API URL with the access token to get user data
+
+**Advanced access token options:**
+- **Token refresh**: Configure refresh tokens to extend sessions without re-authentication
+- **Token introspection**: Validate tokens by calling your OAuth server's introspection endpoint
+- **Custom headers**: Pass additional headers with token requests (contact support for configuration)
+- **Token caching**: Mintlify caches tokens based on expiration times to reduce API calls
+
+### API keys
+
+API keys are long-lived credentials used for server-to-server authentication. When you create a user info endpoint for OAuth, you'll typically validate the access token rather than using API keys directly.
+
+**Where to configure:**
+API keys are not directly configured in Mintlify's dashboard. Instead, they're used in your backend services that Mintlify calls.
+
+**Usage example:**
+```javascript
+// Your Info API endpoint validating an access token
+app.get('/user-info', async (req, res) => {
+  const accessToken = req.headers.authorization?.replace('Bearer ', '');
+  
+  // Validate the access token with your OAuth server
+  const userInfo = await validateToken(accessToken);
+  
+  res.json({
+    content: {
+      firstName: userInfo.firstName,
+      lastName: userInfo.lastName
+    },
+    groups: userInfo.groups
+  });
+});
+```
+
+### Bearer tokens
+
+Bearer tokens are a type of access token transmitted in the HTTP Authorization header. Mintlify uses bearer tokens when calling your Info API URL.
+
+**Format:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Where to expect them:**
+Your Info API endpoint will receive bearer tokens in the Authorization header. Your endpoint should validate these tokens before returning user data.
+
+**Implementation example:**
+```typescript
+// Express middleware to validate bearer tokens
+function validateBearerToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+  }
+  
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+  
+  // Validate token with your OAuth server
+  try {
+    const userInfo = await oauthServer.validateToken(token);
+    req.user = userInfo;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+app.get('/user-info', validateBearerToken, (req, res) => {
+  res.json({
+    content: {
+      firstName: req.user.firstName,
+      lastName: req.user.lastName
+    },
+    groups: req.user.groups
+  });
+});
+```
+
+### JWT tokens
+
+JWT (JSON Web Token) tokens are self-contained tokens that include user data and are cryptographically signed. With Mintlify's JWT authentication, you generate and sign JWTs on your server.
+
+**Where to configure:**
+- **Private key**: Generated in your Mintlify dashboard and stored securely in your backend
+- **Login URL**: The URL where users authenticate before being redirected to your docs
+
+**Configuration steps:**
+1. Generate a private key in your dashboard
+2. Store the key securely (environment variable, secrets manager)
+3. Sign JWTs using the EdDSA algorithm
+4. Redirect users to `/login/jwt-callback#{SIGNED_JWT}`
+
+**JWT structure:**
+```json
+{
+  "expiresAt": 1735862400,
+  "groups": ["admin", "engineering"],
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "email": "jane@example.com"
+  }
+}
+```
+
+**Complete implementation:**
+```typescript
+import * as jose from 'jose';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+async function generateMintlifyJWT(user) {
+  const payload = {
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000),
+    groups: user.groups,
+    content: {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email
+    }
+  };
+
+  const jwt = await new jose.SignJWT(payload)
+    .setProtectedHeader({ alg: 'EdDSA' })
+    .setExpirationTime('10s') // Short-lived JWT for the redirect
+    .sign(signingKey);
+
+  return jwt;
+}
+
+// In your login handler
+app.post('/docs-login', async (req, res) => {
+  // Authenticate user with your existing system
+  const user = await authenticateUser(req.body);
+  
+  // Generate JWT for Mintlify
+  const jwt = await generateMintlifyJWT(user);
+  
+  // Redirect to docs with JWT
+  const redirectPath = req.query.redirect || '/';
+  res.redirect(`https://docs.foo.com/login/jwt-callback?redirect=${redirectPath}#${jwt}`);
+});
+```
+
+## Token security best practices
+
+Follow these practices to keep your authentication secure.
+
+### Secure token storage
+
+**Private keys (JWT):**
+- Store in environment variables or secrets managers (AWS Secrets Manager, HashiCorp Vault)
+- Never commit keys to version control
+- Rotate keys periodically (every 90 days recommended)
+- Use different keys for development and production
+
+**Client secrets (OAuth):**
+- Store securely like private keys
+- Restrict access to authorized personnel only
+- Rotate if compromised
+
+### Token expiration
+
+**Short-lived tokens:**
+- JWT redirect tokens: 10 seconds (just long enough for the redirect)
+- OAuth access tokens: 1 hour or less
+- Session tokens: 2 weeks maximum
+
+**Example configuration:**
+```typescript
+const jwt = await new jose.SignJWT(payload)
+  .setProtectedHeader({ alg: 'EdDSA' })
+  .setExpirationTime('10s') // Short JWT expiration
+  .sign(signingKey);
+
+const payload = {
+  expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // Session expiration
+  // ... other fields
+};
+```
+
+### Token transmission
+
+**Always use HTTPS:**
+- Never transmit tokens over HTTP
+- Ensure your OAuth endpoints use HTTPS
+- Verify SSL certificates
+
+**Secure headers:**
+```typescript
+// Good: Bearer token in Authorization header
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+// Bad: Token in URL query parameter
+https://api.foo.com/user-info?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### Token validation
+
+**Validate all tokens:**
+```typescript
+// Validate signature
+const verified = await jose.jwtVerify(token, publicKey);
+
+// Validate expiration
+if (verified.payload.exp < Date.now() / 1000) {
+  throw new Error('Token expired');
+}
+
+// Validate issuer and audience
+if (verified.payload.iss !== 'your-auth-server') {
+  throw new Error('Invalid issuer');
+}
+```
+
+**Check token scope:**
+```typescript
+// Ensure token has required scopes
+const requiredScopes = ['docs.read', 'user.info'];
+const tokenScopes = verified.payload.scope.split(' ');
+
+if (!requiredScopes.every(scope => tokenScopes.includes(scope))) {
+  throw new Error('Insufficient permissions');
+}
+```
+
+### Rate limiting
+
+Implement rate limiting on your token endpoints to prevent abuse:
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+const tokenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: 'Too many token requests, please try again later'
+});
+
+app.post('/oauth/token', tokenLimiter, handleTokenRequest);
+```
+
+## Common token issues
+
+### Issue: "Invalid token" errors
+
+**Symptoms:**
+- Users see authentication errors
+- Logs show 401 Unauthorized responses
+
+**Causes and solutions:**
+
+**Expired tokens:**
+```typescript
+// Check token expiration
+const payload = jose.decodeJwt(token);
+console.log('Token expires at:', new Date(payload.exp * 1000));
+
+// Solution: Increase session expiration or implement token refresh
+const payload = {
+  expiresAt: Math.floor((Date.now() + FOUR_WEEKS_IN_MS) / 1000), // Longer session
+  // ...
+};
+```
+
+**Wrong signing algorithm:**
+```typescript
+// Wrong: Using HS256 instead of EdDSA
+const jwt = await new jose.SignJWT(payload)
+  .setProtectedHeader({ alg: 'HS256' }) // ❌ Wrong algorithm
+  .sign(signingKey);
+
+// Correct: Use EdDSA for Mintlify JWT
+const jwt = await new jose.SignJWT(payload)
+  .setProtectedHeader({ alg: 'EdDSA' }) // ✅ Correct algorithm
+  .sign(signingKey);
+```
+
+**Incorrect key format:**
+```typescript
+// Ensure you're using PKCS8 format for EdDSA keys
+const signingKey = await jose.importPKCS8(
+  process.env.MINTLIFY_PRIVATE_KEY,
+  'EdDSA'
+);
+```
+
+### Issue: OAuth redirect loops
+
+**Symptoms:**
+- Users get stuck in redirect loops
+- Browser shows "too many redirects" error
+
+**Causes and solutions:**
+
+**Incorrect redirect URL:**
+```json
+// Wrong: Missing /login/jwt-callback path
+"redirectUrl": "https://docs.foo.com"
+
+// Correct: Include the callback path
+"redirectUrl": "https://docs.foo.com/login/jwt-callback"
+```
+
+**Missing redirect parameter:**
+```typescript
+// Preserve the original destination
+const redirectPath = req.query.redirect || '/';
+res.redirect(`https://docs.foo.com/login/jwt-callback?redirect=${redirectPath}#${jwt}`);
+```
+
+### Issue: User info not loading
+
+**Symptoms:**
+- Authentication succeeds but user data is empty
+- Personalization features don't work
+
+**Causes and solutions:**
+
+**Info API URL not configured:**
+Check your OAuth settings and ensure the Info API URL is set.
+
+**Info API returning wrong format:**
+```typescript
+// Wrong format
+{
+  "firstName": "Jane",
+  "lastName": "Doe"
+}
+
+// Correct format
+{
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Doe"
+  },
+  "groups": ["engineering"]
+}
+```
+
+**Bearer token not validated:**
+```typescript
+// Your Info API must validate the bearer token
+app.get('/user-info', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  // Validate token with your OAuth server
+  const userInfo = await oauthServer.introspect(token);
+  
+  if (!userInfo.active) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  
+  res.json({
+    content: {
+      firstName: userInfo.firstName,
+      lastName: userInfo.lastName
+    },
+    groups: userInfo.groups
+  });
+});
+```
+
+### Issue: Scope errors
+
+**Symptoms:**
+- OAuth flow fails with "insufficient scope" error
+- User info endpoint returns 403 Forbidden
+
+**Causes and solutions:**
+
+**Incomplete scope configuration:**
+```json
+// Wrong: Partial scope string
+"scopes": ["users.docs"]
+
+// Correct: Complete scope string including provider prefix
+"scopes": ["provider.users.docs"]
+```
+
+**Multiple scopes:**
+```json
+// Configure multiple scopes if needed
+"scopes": ["provider.users.docs", "provider.users.profile", "provider.users.email"]
+```
+
+**Scope validation in Info API:**
+```typescript
+// Validate that the token has required scopes
+app.get('/user-info', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const tokenData = await oauthServer.introspect(token);
+  
+  const requiredScope = 'provider.users.docs';
+  if (!tokenData.scope.includes(requiredScope)) {
+    return res.status(403).json({ 
+      error: 'Insufficient scope',
+      required: requiredScope,
+      provided: tokenData.scope
+    });
+  }
+  
+  // Return user info
+});
+```
+
+### Issue: CORS errors with Info API
+
+**Symptoms:**
+- Browser console shows CORS errors
+- Info API requests fail from the docs site
+
+**Solution:**
+```typescript
+// Add CORS headers to your Info API
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://docs.foo.com');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+});
+```
+
 ## Configure authentication
 
 Select the handshake method that you want to configure.
