@@ -108,3 +108,295 @@ If your API pages aren't displaying correctly, check these common configuration 
     3. **Case sensitivity**: OpenAPI operation matching is case-sensitive. Ensure HTTP methods are uppercase in navigation entries.
   </Accordion>
 </AccordionGroup>
+
+## OpenAPI validation errors
+
+When running `mint openapi-check` or `mint dev`, you may encounter validation errors that prevent your API documentation from generating correctly. This section explains common validation errors and how to fix them.
+
+### Understanding validation error messages
+
+Validation errors include a JSON path that points to the exact location of the problem in your OpenAPI document. The path format is:
+
+```
+/path/to/operation/property
+```
+
+For example:
+- `/shot/get/responses/200` - Points to the 200 response in the GET operation for the `/shot` path
+- `/users/{id}/post/requestBody/content` - Points to the content field in the request body of the POST operation for `/users/{id}`
+- `/components/schemas/User/properties/email` - Points to the email property in the User schema
+
+### Response schema validation errors
+
+Response objects must include either a `$ref` to a schema component or define the schema inline. A common error occurs when responses are missing required properties.
+
+#### Error: must have required property $ref
+
+**Error message:**
+```
+error Failed to validate OpenAPI schema:/shot/get/responses/200: must have required property $ref
+```
+
+This error means the response object is incomplete. According to the [OpenAPI specification](https://spec.openapis.org/oas/v3.1.0#response-object), each response must have a `description` field, and if you want to define the response structure, you need either `content` or `$ref`.
+
+**Incorrect:**
+```json
+{
+  "paths": {
+    "/shot": {
+      "get": {
+        "responses": {
+          "200": {}
+        }
+      }
+    }
+  }
+}
+```
+
+**Correct - Using $ref:**
+```json
+{
+  "paths": {
+    "/shot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "$ref": "#/components/responses/ShotResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "ShotResponse": {
+        "description": "Shot data",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Shot"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Correct - Inline definition:**
+```json
+{
+  "paths": {
+    "/shot": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Common $ref errors
+
+#### Error: $ref must reference a valid component
+
+**Error message:**
+```
+error Failed to validate OpenAPI schema: $ref '#/components/schemas/UserResponse' does not exist
+```
+
+This error occurs when a `$ref` points to a component that doesn't exist in your OpenAPI document.
+
+**Incorrect:**
+```json
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object"
+      }
+    }
+  }
+}
+```
+
+**Correct:**
+```json
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Error: External $ref not supported
+
+**Error message:**
+```
+error Failed to validate OpenAPI schema: External $ref not supported
+```
+
+Mintlify only supports internal `$ref` references within a single OpenAPI document. External references to other files or URLs are not supported.
+
+**Incorrect:**
+```json
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "$ref": "./schemas/user.json"
+      }
+    }
+  }
+}
+```
+
+**Correct:**
+```json
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Troubleshooting workflow for validation errors
+
+When `mint openapi-check` fails with validation errors, follow this workflow:
+
+<Steps>
+  <Step title="Identify the error location">
+    Read the JSON path in the error message to locate the exact operation or component with the issue.
+
+    Example: `/users/{id}/get/responses/200` means the problem is in the 200 response of the GET operation for `/users/{id}`.
+  </Step>
+
+  <Step title="Check the OpenAPI specification">
+    Verify that the problematic section follows the [OpenAPI 3.0+ specification](https://spec.openapis.org/oas/latest.html).
+
+    Common sections to check:
+    - [Response Object](https://spec.openapis.org/oas/v3.1.0#response-object) - Must include `description`
+    - [Schema Object](https://spec.openapis.org/oas/v3.1.0#schema-object) - Must follow JSON Schema
+    - [Reference Object](https://spec.openapis.org/oas/v3.1.0#reference-object) - Must use `$ref` with internal paths only
+  </Step>
+
+  <Step title="Validate with external tools">
+    Use the [Swagger Editor](https://editor.swagger.io/) to validate your OpenAPI document:
+
+    1. Visit [editor.swagger.io](https://editor.swagger.io/)
+    2. Switch to the "Validate text" tab
+    3. Paste your OpenAPI document
+    4. Click "Validate it!"
+
+    The Swagger Editor provides detailed error messages and highlights problematic sections.
+  </Step>
+
+  <Step title="Fix the validation error">
+    Apply the appropriate fix based on the error type:
+
+    - **Missing required properties**: Add the required fields (e.g., `description` for responses)
+    - **Invalid $ref**: Ensure the reference path exists in `components`
+    - **External $ref**: Move external schemas into your OpenAPI document's `components` section
+    - **Invalid schema**: Ensure schemas follow JSON Schema specification
+  </Step>
+
+  <Step title="Re-run validation">
+    After fixing the error, run `mint openapi-check` again to verify the fix:
+
+    ```bash
+    mint openapi-check path/to/openapi.json
+    ```
+
+    If successful, you should see a confirmation message. If there are additional errors, repeat the workflow.
+  </Step>
+</Steps>
+
+### Additional resources
+
+- [OpenAPI 3.1.0 Specification](https://spec.openapis.org/oas/v3.1.0) - Complete reference for OpenAPI syntax
+- [Response Object specification](https://spec.openapis.org/oas/v3.1.0#response-object) - Details on response structure
+- [Schema Object specification](https://spec.openapis.org/oas/v3.1.0#schema-object) - JSON Schema requirements
+- [Reference Object specification](https://spec.openapis.org/oas/v3.1.0#reference-object) - How to use `$ref` correctly
+- [Swagger Editor](https://editor.swagger.io/) - Online validator and editor for OpenAPI documents
