@@ -26,6 +26,15 @@ The admin API key is used for the [Trigger update](/api-reference/update/trigger
 
 Admin API keys begin with the `mint_` prefix. Keep your admin API keys secret.
 
+**Example request:**
+
+```bash
+curl https://api.mintlify.com/v1/project/update/your-project-id \
+  -H "Authorization: Bearer mint_your_api_key" \
+  -H "Content-Type: application/json" \
+  -X POST
+```
+
 ### Assistant API key
 
 The assistant API key is used for the [Generate assistant message](/api-reference/assistant/create-assistant-message) and [Search documentation](/api-reference/assistant/search) endpoints.
@@ -36,6 +45,216 @@ The assistant API **key** is a server-side token that should be kept secret.
 
 The assistant API **token** is a public token that can be referenced in your frontend code.
 
+**Example request:**
+
+```bash
+curl https://api.mintlify.com/v1/assistant/message \
+  -H "Authorization: Bearer mint_dsc_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "domain": "docs.example.com",
+    "message": "How do I get started?"
+  }' \
+  -X POST
+```
+
 <Note>
   Calls using the assistant API token can incur costs: either using your AI assistant credits or incurring overages.
 </Note>
+
+## Rate limits
+
+API requests are rate limited to prevent abuse:
+
+| Endpoint Type | Rate Limit |
+|--------------|------------|
+| Admin endpoints | 100 requests per minute |
+| Assistant endpoints | 1000 requests per minute |
+
+When you exceed the rate limit, you'll receive a `429 Too Many Requests` response.
+
+## Error handling
+
+The API uses standard HTTP status codes to indicate success or failure:
+
+| Status Code | Description |
+|------------|-------------|
+| `200` | Success |
+| `400` | Bad request - check your request parameters |
+| `401` | Unauthorized - invalid or missing API key |
+| `403` | Forbidden - API key doesn't have access to this resource |
+| `404` | Not found - resource doesn't exist |
+| `429` | Too many requests - rate limit exceeded |
+| `500` | Internal server error - contact support |
+
+**Error response format:**
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "The project ID is invalid",
+    "details": {
+      "field": "projectId",
+      "reason": "Project not found"
+    }
+  }
+}
+```
+
+**Handling errors in your code:**
+
+<CodeGroup>
+```javascript JavaScript
+try {
+  const response = await fetch('https://api.mintlify.com/v1/project/update/project-id', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer mint_your_api_key',
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('API Error:', error.error.message);
+    
+    if (response.status === 429) {
+      // Handle rate limit - implement retry with backoff
+      console.log('Rate limited. Retrying after delay...');
+    }
+  }
+
+  const data = await response.json();
+  console.log('Success:', data);
+} catch (error) {
+  console.error('Network error:', error);
+}
+```
+
+```python Python
+import requests
+import time
+
+def call_api_with_retry(url, headers, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers)
+            
+            if response.status_code == 429:
+                # Rate limited - wait and retry
+                wait_time = 2 ** attempt  # Exponential backoff
+                print(f"Rate limited. Waiting {wait_time}s...")
+                time.sleep(wait_time)
+                continue
+            
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.exceptions.HTTPError as e:
+            error_data = e.response.json()
+            print(f"API Error: {error_data['error']['message']}")
+            raise
+        except requests.exceptions.RequestException as e:
+            print(f"Network error: {e}")
+            raise
+    
+    raise Exception("Max retries exceeded")
+
+# Usage
+headers = {
+    'Authorization': 'Bearer mint_your_api_key',
+    'Content-Type': 'application/json'
+}
+result = call_api_with_retry(
+    'https://api.mintlify.com/v1/project/update/project-id',
+    headers
+)
+```
+
+```go Go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+    "time"
+)
+
+type APIError struct {
+    Error struct {
+        Code    string `json:"code"`
+        Message string `json:"message"`
+    } `json:"error"`
+}
+
+func callAPIWithRetry(url, apiKey string, maxRetries int) error {
+    client := &http.Client{Timeout: 10 * time.Second}
+    
+    for attempt := 0; attempt < maxRetries; attempt++ {
+        req, err := http.NewRequest("POST", url, nil)
+        if err != nil {
+            return err
+        }
+        
+        req.Header.Set("Authorization", "Bearer "+apiKey)
+        req.Header.Set("Content-Type", "application/json")
+        
+        resp, err := client.Do(req)
+        if err != nil {
+            return err
+        }
+        defer resp.Body.Close()
+        
+        if resp.StatusCode == 429 {
+            // Rate limited - exponential backoff
+            waitTime := time.Duration(1<<attempt) * time.Second
+            fmt.Printf("Rate limited. Waiting %v...\n", waitTime)
+            time.Sleep(waitTime)
+            continue
+        }
+        
+        if resp.StatusCode != 200 {
+            body, _ := io.ReadAll(resp.Body)
+            var apiErr APIError
+            json.Unmarshal(body, &apiErr)
+            return fmt.Errorf("API error: %s", apiErr.Error.Message)
+        }
+        
+        // Success
+        return nil
+    }
+    
+    return fmt.Errorf("max retries exceeded")
+}
+```
+</CodeGroup>
+
+## Best practices
+
+### Secure your API keys
+
+- Never commit API keys to version control
+- Use environment variables to store keys
+- Rotate keys regularly
+- Use separate keys for development and production
+
+### Implement retry logic
+
+Network requests can fail. Implement exponential backoff for retries:
+
+1. Wait 1 second after first failure
+2. Wait 2 seconds after second failure
+3. Wait 4 seconds after third failure
+4. Give up after 3-5 attempts
+
+### Monitor usage
+
+Track your API usage to:
+- Identify performance issues
+- Optimize request patterns
+- Stay within rate limits
+- Monitor costs (for assistant endpoints)
