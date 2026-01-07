@@ -17,7 +17,7 @@ If you want an exception to ANY rule, YOU MUST STOP and get explicit permission 
 - Format: MDX files with YAML frontmatter
 - Config: docs.json for navigation, theme, settings
   - See the docs.json schema: https://mintlify.com/docs.json
-- Components: Mintlify components. If you ever need to learn how a component works, search the Mintlify, look in the docs/components/ dir
+- Use Mintlify components. If you ever need to learn how a component works, search in the docs/components/ dir
 
 ## Content strategy
 - We document just enough so that users are successful. Too much content makes it hard to find what people are looking for. Too little makes it too challenging to accomplish users' goals.
