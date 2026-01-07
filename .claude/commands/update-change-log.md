@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(gh pr list *)
-description: Generate a new change log for a date time
+description: Update changelog.mdx with summaries of recent pull requests from specified repositories. Highlights bug fixes and new features for end users. Use when the user asks to update the changelog, document recent changes, or add new releases to the changelog.
 agent: opus
 argument-hint: [...repo]
 ---
