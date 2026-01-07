@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(mint *), Bash(vale *)
-description: Lint the docs and fix errors
+description: Check documentation for broken links, Vale style errors, and OpenAPI spec validity. Fix linting issues found. Use when the user asks to lint, check for broken links, run Vale, or fix documentation errors.
 ---
 
 Run `mint broken-links` and check the given git diff. For OpenAPI reference updates run `mint openai-check`.

@@ -1,6 +1,6 @@
 ---
 argument-hint: [extra context]
-description: Review the changes on a branch
+description: Review documentation changes for writing standards, technical accuracy, frontmatter completeness, and style consistency. Use when the user asks to review changes, check if docs follow standards, or verify documentation quality.
 ---
 
 Please review the changes I'm about to commit and check:

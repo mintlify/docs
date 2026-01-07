@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(gh pr *)
-description: Document a new feature
+description: Analyze a pull request and create or update documentation for new features. Identifies what pages need updates and suggests content locations. Use when the user asks to document a PR, add docs for a feature, or write documentation for a pull request.
 argument-hint: [pr-number] [repository]
 ---
 
