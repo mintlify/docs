@@ -98,6 +98,25 @@ If you want an exception to ANY rule, YOU MUST STOP and get explicit permission 
 - Commit frequently throughout development
 - NEVER skip or disable pre-commit hooks
 
+## Before submitting work
+- [ ] Preview changes locally with `mint dev`
+- [ ] Run `mint broken-links` to check internal links
+- [ ] Manually test external links don't 404
+- [ ] Run `vale $(git diff --name-only main)` to check style and spelling
+- [ ] Verify all code blocks have language tags
+- [ ] Confirm frontmatter includes title, description, keywords
+- [ ] Check formatting matches similar existing pages
+- [ ] Read changes aloud to catch awkward phrasing
+- List any uncertain areas that need extra review
+
+## When submitting work
+
+Provide a structured summary:
+- **What changed**: Specific files and modifications
+- **Rationale**: Why these changes solve the problem
+- **Alternatives considered**: Other approaches evaluated
+- **Areas of uncertainty**: What needs extra review
+
 ## Do not
 - Skip frontmatter on any MDX file
 - Use absolute URLs for internal links
