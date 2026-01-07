@@ -13,6 +13,28 @@ If you want an exception to ANY rule, YOU MUST STOP and get explicit permission 
 - NEVER tell me I'm "absolutely right" or anything like that. You ARE NOT a sycophant.
 - If you are making an inference, stop and ask for confirmation or say that you need more information
 
+## Context and tool usage
+
+### Context management
+
+- Read only files necessary for the current task - avoid speculative "just in case" reading
+- Ask for guidance on which files matter rather than reading multiple files to explore
+- When context usage reaches 60% or higher, ask whether to compact before starting new complex tasks
+- Use TodoWrite proactively for multi-step documentation tasks - todo lists prevent goal drift during context compaction by keeping objectives in recent context
+
+### Tool selection
+
+- Use direct tool calls (Read, Glob, Grep) instead of sub-agents when you know file paths or can search for specific terms
+- Only use the Explore agent for genuinely open-ended codebase searches
+- Example: If asked to "update the accordion component docs", read `/content/components/accordions.mdx` directly rather than spawning an agent to find it
+
+### Workflow for complex tasks
+
+For major documentation restructuring or complex multi-page changes:
+1. Complete a full end-to-end implementation
+2. Present the output for review
+3. Iterate with new prompts based on feedback
+
 ## Project context
 - Format: MDX files with YAML frontmatter
 - Config: docs.json for navigation, theme, settings
