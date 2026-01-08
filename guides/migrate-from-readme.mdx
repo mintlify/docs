@@ -1,0 +1,461 @@
+---
+title: Migrate from ReadMe
+description: Step-by-step guide to migrate your documentation from ReadMe to Mintlify
+---
+
+This guide walks you through migrating your documentation from ReadMe to Mintlify.
+
+## Before you start
+
+<Steps>
+  <Step title="Use the automated scraper">
+    Mintlify provides an automated scraper for ReadMe. This is the recommended approach:
+    
+    ```bash
+    npm install @mintlify/scraping@latest -g
+    mintlify-scrape section https://your-docs.readme.io
+    ```
+    
+    For large sites, migrate sections individually.
+  </Step>
+  
+  <Step title="Or export manually">
+    If you prefer manual control:
+    
+    1. Access your ReadMe dashboard
+    2. Navigate to each page and copy the Markdown content
+    3. Save locally for conversion
+  </Step>
+</Steps>
+
+## Migration process
+
+### 1. Understand ReadMe structure
+
+ReadMe organizes content into:
+- **Categories**: Top-level groups
+- **Pages**: Individual documentation pages
+- **API Reference**: Auto-generated from OpenAPI specs
+
+Mintlify uses a similar structure with groups and pages in `docs.json`.
+
+### 2. Convert navigation
+
+**ReadMe structure:**
+```
+Getting Started
+├── Introduction
+├── Quickstart
+└── Installation
+
+API Reference
+├── Authentication
+├── Users
+└── Webhooks
+```
+
+**Mintlify `docs.json`:**
+```json
+{
+  "navigation": {
+    "pages": [
+      {
+        "group": "Getting started",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "installation"
+        ]
+      },
+      {
+        "group": "API reference",
+        "pages": [
+          "api-reference/authentication",
+          "api-reference/users",
+          "api-reference/webhooks"
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 3. Convert ReadMe-specific syntax
+
+#### Callouts
+
+**ReadMe syntax:**
+```markdown
+[block:callout]
+{
+  "type": "info",
+  "title": "Note",
+  "body": "This is important information"
+}
+[/block]
+```
+
+**Mintlify syntax:**
+```mdx
+<Info>
+**Note**
+
+This is important information
+</Info>
+```
+
+Available callout types:
+- `info` → `<Info>`
+- `warning` → `<Warning>`
+- `danger` → `<Danger>`
+- `success` → `<Check>`
+
+#### Code blocks
+
+**ReadMe syntax:**
+```markdown
+[block:code]
+{
+  "codes": [
+    {
+      "code": "console.log('Hello');",
+      "language": "javascript",
+      "name": "JavaScript"
+    },
+    {
+      "code": "print('Hello')",
+      "language": "python",
+      "name": "Python"
+    }
+  ]
+}
+[/block]
+```
+
+**Mintlify syntax:**
+```mdx
+<CodeGroup>
+```javascript JavaScript
+console.log('Hello');
+```
+
+```python Python
+print('Hello')
+```
+</CodeGroup>
+```
+
+#### API blocks
+
+**ReadMe syntax:**
+```markdown
+[block:api-header]
+{
+  "title": "Get User"
+}
+[/block]
+
+[block:parameters]
+{
+  "data": {
+    "h-0": "Parameter",
+    "h-1": "Type",
+    "h-2": "Description",
+    "0-0": "id",
+    "0-1": "string",
+    "0-2": "User ID"
+  }
+}
+[/block]
+```
+
+**Mintlify approach:**
+
+Use OpenAPI specifications instead. Create an `openapi.json` file:
+
+```json
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/users/{id}": {
+      "get": {
+        "summary": "Get User",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "User ID"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+Then reference in `docs.json`:
+
+```json
+{
+  "openapi": "/openapi.json",
+  "navigation": {
+    "pages": [
+      {
+        "group": "API reference",
+        "openapi": "/openapi.json",
+        "pages": ["GET /users/{id}"]
+      }
+    ]
+  }
+}
+```
+
+#### Embedded content
+
+**ReadMe syntax:**
+```markdown
+[block:embed]
+{
+  "html": "<iframe src='...'></iframe>",
+  "url": "https://example.com",
+  "title": "Example"
+}
+[/block]
+```
+
+**Mintlify syntax:**
+```mdx
+<Frame>
+  <iframe src="https://example.com" />
+</Frame>
+```
+
+#### Images
+
+**ReadMe syntax:**
+```markdown
+[block:image]
+{
+  "images": [
+    {
+      "image": [
+        "https://files.readme.io/abc123.png",
+        "image.png",
+        100,
+        200,
+        "#fff"
+      ],
+      "caption": "Image caption"
+    }
+  ]
+}
+[/block]
+```
+
+**Mintlify syntax:**
+```mdx
+<Frame caption="Image caption">
+  <img src="/images/image.png" alt="Image caption" />
+</Frame>
+```
+
+### 4. Migrate API documentation
+
+If you have OpenAPI specs in ReadMe:
+
+1. Export your OpenAPI specification from ReadMe
+2. Add it to your Mintlify project
+3. Configure in `docs.json`:
+
+```json
+{
+  "openapi": "/openapi.json",
+  "api": {
+    "baseUrl": "https://api.example.com",
+    "auth": {
+      "method": "bearer"
+    }
+  }
+}
+```
+
+### 5. Handle ReadMe features
+
+#### Variables
+
+**ReadMe:**
+```markdown
+<<glossary:API_KEY>>
+```
+
+**Mintlify:**
+
+Use MDX variables or environment-specific content:
+
+```mdx
+<ParamField path="api_key" type="string">
+  Your API key from the dashboard
+</ParamField>
+```
+
+#### Suggested edits
+
+ReadMe's suggested edits feature doesn't have a direct equivalent. Use Git-based workflows:
+
+1. Enable GitHub/GitLab integration
+2. Contributors create pull requests
+3. Review and merge changes
+
+#### Versioning
+
+**ReadMe versions** → **Mintlify versions**
+
+Configure in `docs.json`:
+
+```json
+{
+  "versions": [
+    {
+      "version": "v2.0",
+      "navigation": {
+        "pages": ["v2/introduction"]
+      }
+    },
+    {
+      "version": "v1.0",
+      "navigation": {
+        "pages": ["v1/introduction"]
+      }
+    }
+  ]
+}
+```
+
+### 6. Migrate custom CSS and scripts
+
+**ReadMe custom CSS:**
+
+Add to your Mintlify project:
+
+```json
+{
+  "customScripts": [
+    "/custom.css"
+  ]
+}
+```
+
+Create `public/custom.css` with your styles.
+
+### 7. Set up analytics
+
+ReadMe analytics → Mintlify integrations
+
+```json
+{
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-XXXXXXXXXX"
+    },
+    "mixpanel": {
+      "projectToken": "your-token"
+    }
+  }
+}
+```
+
+## Testing your migration
+
+Run locally to verify:
+
+```bash
+mintlify dev
+```
+
+Check:
+- All pages render correctly
+- API playground works
+- Code examples display properly
+- Images load
+- Links work
+- Search functions correctly
+
+## Common migration issues
+
+### Block syntax not converting
+
+**Problem**: ReadMe `[block:...]` syntax appears as plain text.
+
+**Solution**: Use the automated scraper or manually convert to Mintlify components.
+
+### API reference not displaying
+
+**Problem**: API endpoints don't show up.
+
+**Solution**:
+- Verify OpenAPI spec is valid
+- Check `openapi` path in `docs.json`
+- Ensure page names match OpenAPI operation IDs
+
+### Missing custom domain
+
+**Problem**: Need to maintain existing domain.
+
+**Solution**:
+1. Configure custom domain in Mintlify dashboard
+2. Update DNS records
+3. Set up redirects from old URLs
+
+### Lost search functionality
+
+**Problem**: Search doesn't work as expected.
+
+**Solution**:
+- Ensure all pages are in navigation
+- Add descriptive titles and descriptions
+- Wait for search index to rebuild (5-10 minutes after deployment)
+
+## Deployment
+
+After migration:
+
+1. Push to GitHub/GitLab
+2. Connect repository in Mintlify dashboard
+3. Configure custom domain
+4. Set up redirects:
+
+```json
+{
+  "redirects": [
+    {
+      "source": "/docs/:slug*",
+      "destination": "/:slug*"
+    }
+  ]
+}
+```
+
+## Feature comparison
+
+| ReadMe Feature | Mintlify Equivalent |
+|----------------|---------------------|
+| Categories | Groups in navigation |
+| Suggested Edits | Git pull requests |
+| API Explorer | API Playground |
+| Custom CSS | Custom scripts |
+| Metrics | Analytics integrations |
+| Versioning | Versions in docs.json |
+| Variables | MDX variables |
+| Changelog | Changelog pages |
+
+## Getting help
+
+Need assistance with migration?
+
+- Review the [troubleshooting guide](/troubleshooting)
+- Check [API playground setup](/api-playground/overview)
+- [Contact support](https://www.mintlify.com/docs/contact-support)

@@ -1,0 +1,341 @@
+---
+title: Migrate from GitBook
+description: Step-by-step guide to migrate your documentation from GitBook to Mintlify
+---
+
+This guide walks you through migrating your documentation from GitBook to Mintlify.
+
+## Before you start
+
+<Steps>
+  <Step title="Export your GitBook content">
+    GitBook stores content in Markdown format. Export your content:
+    
+    1. Go to your GitBook space settings
+    2. Navigate to **Advanced** → **Export**
+    3. Choose **Markdown & Images** format
+    4. Download the ZIP file
+  </Step>
+  
+  <Step title="Set up your Mintlify project">
+    If you haven't already, create a new Mintlify project:
+    
+    ```bash
+    npm i -g mintlify
+    mintlify init
+    ```
+  </Step>
+</Steps>
+
+## Migration process
+
+### 1. Extract and organize content
+
+Extract your GitBook export and review the structure:
+
+```
+gitbook-export/
+├── README.md
+├── SUMMARY.md
+├── page-1.md
+├── page-2.md
+└── .gitbook/
+    └── assets/
+```
+
+GitBook uses `SUMMARY.md` for navigation. You'll convert this to Mintlify's `docs.json` format.
+
+### 2. Convert navigation structure
+
+GitBook's `SUMMARY.md` looks like this:
+
+```markdown
+# Table of contents
+
+* [Introduction](README.md)
+* [Getting Started](getting-started.md)
+  * [Installation](getting-started/installation.md)
+  * [Configuration](getting-started/configuration.md)
+* [API Reference](api-reference/README.md)
+  * [Authentication](api-reference/authentication.md)
+```
+
+Convert this to Mintlify's `docs.json` navigation:
+
+```json
+{
+  "navigation": {
+    "pages": [
+      "introduction",
+      {
+        "group": "Getting started",
+        "pages": [
+          "getting-started/installation",
+          "getting-started/configuration"
+        ]
+      },
+      {
+        "group": "API reference",
+        "pages": [
+          "api-reference/overview",
+          "api-reference/authentication"
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 3. Update frontmatter
+
+GitBook files may have minimal or no frontmatter. Add Mintlify frontmatter to each file:
+
+**Before (GitBook):**
+```markdown
+# Page Title
+
+Content here...
+```
+
+**After (Mintlify):**
+```mdx
+---
+title: Page Title
+description: Brief description of this page
+---
+
+Content here...
+```
+
+### 4. Convert GitBook-specific syntax
+
+#### Hints and callouts
+
+**GitBook syntax:**
+```markdown
+{% hint style="info" %}
+This is an info hint
+{% endhint %}
+
+{% hint style="warning" %}
+This is a warning
+{% endhint %}
+```
+
+**Mintlify syntax:**
+```mdx
+<Info>
+This is an info hint
+</Info>
+
+<Warning>
+This is a warning
+</Warning>
+```
+
+#### Tabs
+
+**GitBook syntax:**
+```markdown
+{% tabs %}
+{% tab title="JavaScript" %}
+```javascript
+console.log('Hello');
+```
+{% endtab %}
+
+{% tab title="Python" %}
+```python
+print('Hello')
+```
+{% endtab %}
+{% endtabs %}
+```
+
+**Mintlify syntax:**
+```mdx
+<CodeGroup>
+```javascript JavaScript
+console.log('Hello');
+```
+
+```python Python
+print('Hello')
+```
+</CodeGroup>
+```
+
+#### Page links
+
+**GitBook syntax:**
+```markdown
+[Link text](../other-page.md)
+[Link with anchor](page.md#section)
+```
+
+**Mintlify syntax:**
+```mdx
+[Link text](/other-page)
+[Link with anchor](/page#section)
+```
+
+Remove `.md` extensions and use absolute paths from the root.
+
+#### Embedded content
+
+**GitBook syntax:**
+```markdown
+{% embed url="https://www.youtube.com/watch?v=VIDEO_ID" %}
+```
+
+**Mintlify syntax:**
+```mdx
+<Frame>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/VIDEO_ID"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</Frame>
+```
+
+### 5. Migrate assets
+
+Move images from `.gitbook/assets/` to your Mintlify project:
+
+```bash
+mkdir -p images
+cp -r .gitbook/assets/* images/
+```
+
+Update image references in your Markdown files:
+
+**Before:**
+```markdown
+![Alt text](.gitbook/assets/image.png)
+```
+
+**After:**
+```mdx
+![Alt text](/images/image.png)
+```
+
+### 6. Handle special GitBook features
+
+#### API documentation
+
+If you used GitBook's API blocks, convert them to OpenAPI format:
+
+1. Create an OpenAPI specification file
+2. Add it to your `docs.json`:
+
+```json
+{
+  "openapi": "/path/to/openapi.json",
+  "navigation": {
+    "pages": [
+      {
+        "group": "API reference",
+        "openapi": "/path/to/openapi.json",
+        "pages": ["GET /users", "POST /users"]
+      }
+    ]
+  }
+}
+```
+
+#### Integrations
+
+GitBook integrations need to be reconfigured in Mintlify:
+
+- **Analytics**: Add to `docs.json` under `integrations`
+- **Search**: Built-in with Mintlify
+- **Custom scripts**: Add to `docs.json` under `scripts`
+
+### 7. Configure settings
+
+Update your `docs.json` with GitBook-equivalent settings:
+
+```json
+{
+  "name": "Your Docs",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373"
+  },
+  "favicon": "/favicon.png",
+  "navigation": {
+    // Your navigation structure
+  }
+}
+```
+
+## Testing your migration
+
+Before deploying, test locally:
+
+```bash
+mintlify dev
+```
+
+Check for:
+- All pages render correctly
+- Navigation works as expected
+- Images load properly
+- Links resolve correctly
+- Code blocks display with syntax highlighting
+- Components render properly
+
+## Common migration issues
+
+### Broken internal links
+
+**Problem**: Links don't work after migration.
+
+**Solution**: 
+- Remove `.md` extensions from links
+- Use absolute paths from root (e.g., `/getting-started/installation`)
+- Update anchor links to use lowercase with hyphens
+
+### Missing images
+
+**Problem**: Images don't display.
+
+**Solution**:
+- Verify images are in the `images/` directory
+- Update paths to use `/images/` prefix
+- Check file names match exactly (case-sensitive)
+
+### Unsupported GitBook syntax
+
+**Problem**: GitBook-specific syntax doesn't render.
+
+**Solution**:
+- Replace `{% hint %}` blocks with Mintlify callouts
+- Convert `{% tabs %}` to `<CodeGroup>` or `<Tabs>`
+- Replace `{% embed %}` with `<Frame>` components
+
+## Deployment
+
+Once your migration is complete:
+
+1. Push your code to GitHub
+2. Connect your repository in the Mintlify dashboard
+3. Configure your custom domain (if applicable)
+4. Set up redirects from your old GitBook URLs
+
+## Getting help
+
+If you encounter issues during migration:
+
+- Check the [troubleshooting guide](/troubleshooting)
+- Review [Mintlify components](/components/index)
+- [Contact support](https://www.mintlify.com/docs/contact-support)
