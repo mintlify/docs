@@ -37,8 +37,8 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
 
     ## Requisitos previos
 
-    * GitHub Actions habilitado en tus repositorios de código y documentación
-    * [Aplicación de GitHub de Mintlify](/es/deploy/github) instalada en ambos repositorios, de código y de documentación
+    * GitHub Actions habilitadas en tus repositorios de código y documentación
+    * [Aplicación de GitHub de Mintlify](/es/deploy/github) instalada en tus repositorios de código y documentación
     * [Clave de API de administración de Mintlify](https://dashboard.mintlify.com/settings/organization/api-keys)
     * [ID del proyecto de Mintlify](https://dashboard.mintlify.com/settings/organization/api-keys)
     * [Plan Pro o personalizado de Mintlify](https://mintlify.com/pricing)
@@ -70,7 +70,7 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
 
     1. Ve a la página de [claves de API](https://dashboard.mintlify.com/settings/organization/api-keys) en tu panel de control.
     2. Selecciona la opción **Create Admin API Key**.
-    3. Copia la clave y almacénala de forma segura.
+    3. Copia la clave y guárdala en un lugar seguro.
 
     ## Construye el flujo de trabajo
 
@@ -80,85 +80,85 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
     2. Añade este flujo de trabajo:
 
        ```yaml
-       name: Actualizar Documentación
+       name: Update Docs
 
        on:
-       push:
+         push:
            branches:
-           - main
+             - main
 
        jobs:
-       update-docs:
+         update-docs:
            runs-on: ubuntu-latest
            steps:
-           - uses: actions/github-script@v8
+             - uses: actions/github-script@v8
                env:
-               MINTLIFY_API_KEY: ${{ secrets.MINTLIFY_API_KEY }}
-               PROJECT_ID: ${{ secrets.MINTLIFY_PROJECT_ID }}
+                 MINTLIFY_API_KEY: ${{ secrets.MINTLIFY_API_KEY }}
+                 PROJECT_ID: ${{ secrets.MINTLIFY_PROJECT_ID }}
                with:
-               script: |
+                 script: |
                    const { owner, repo } = context.repo;
                    const projectId = process.env.PROJECT_ID;
                    const apiKey = process.env.MINTLIFY_API_KEY;
 
                    if (!projectId || !apiKey) {
-                   core.setFailed('Faltan los secretos MINTLIFY_PROJECT_ID o MINTLIFY_API_KEY');
-                   return;
+                     core.setFailed('Missing MINTLIFY_PROJECT_ID or MINTLIFY_API_KEY secrets');
+                     return;
                    }
 
                    const url = `https://api.mintlify.com/v1/agent/${projectId}/job`;
                    const payload = {
-                   branch: `mintlify/docs-update-${Date.now()}`,
-                   messages: [
+                     branch: `mintlify/docs-update-${Date.now()}`,
+                     messages: [
                        {
-                       role: 'system',
-                       content: 'Eres un ejecutor de acciones que actualiza la documentación según los cambios en el código. Nunca debes hacer preguntas. Si no puedes acceder al repositorio, reporta el error y finaliza.'
+                         role: 'system',
+                         content: 'Eres un ejecutor de acciones que actualiza la documentación según los cambios en el código. Nunca debes hacer preguntas. Si no puedes acceder al repositorio, reporta el error y finaliza.'
                        },
                        {
-                       role: 'user',
-                       content: `Actualiza la documentación para nuestros pushes recientes a main:\n\nRepositorio: ${owner}/${repo}`
+                         role: 'user',
+                         content: `Update the documentation for our recent pushes to main:\n\nRepository: ${owner}/${repo}`
                        }
-                   ],
-                   asDraft: false
+                     ],
+                     asDraft: false
                    };
 
                    try {
-                       const response = await fetch(url, {
+                     const response = await fetch(url, {
                        method: 'POST',
                        headers: {
-                           'Authorization': `Bearer ${apiKey}`,
-                           'Content-Type': 'application/json'
+                         'Authorization': `Bearer ${apiKey}`,
+                         'Content-Type': 'application/json'
                        },
                        body: JSON.stringify(payload)
-                       });
+                     });
 
-                       if (!response.ok) {
-                       throw new Error(`La solicitud a la API falló con estado ${response.status}: ${await response.text()}`);
-                       }
+                     if (!response.ok) {
+                       throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
+                     }
 
-                       const reader = response.body.getReader();
-                       const decoder = new TextDecoder();
-                       let buffer = '';
+                     const reader = response.body.getReader();
+                     const decoder = new TextDecoder();
+                     let buffer = '';
 
-                       while (true) {
+                     while (true) {
                        const { done, value } = await reader.read();
                        if (done) break;
                        buffer += decoder.decode(value, { stream: true });
                        const lines = buffer.split('\n');
                        buffer = lines.pop() || '';
                        for (const line of lines) {
-                           if (line.trim()) {
+                         if (line.trim()) {
                            console.log(line);
-                           }
+                         }
                        }
-                       }
-                       if (buffer.trim()) {
+                     }
+                     if (buffer.trim()) {
                        console.log(buffer);
-                       }
+                     }
 
-                       core.notice(`Trabajo de actualización de documentación activado para ${owner}/${repo}`);
+                     core.notice(`Documentation update job triggered for ${owner}/${repo}`);
                    } catch (error) {
-                       core.setFailed(`Error al crear el trabajo de actualización de documentación: ${error.message}`);
+                     core.setFailed(`Failed to create documentation update job: ${error.message}`);
                    }
        ```
 
@@ -183,7 +183,7 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
 
     2. Comprueba la pestaña **Actions** de tu repositorio de código para ver el flujo de trabajo en ejecución.
 
-    3. Cuando termine el flujo de trabajo, revisa tu repositorio de documentación para verificar que se haya creado una nueva branch y una solicitud de extracción con actualizaciones de la documentación.
+    3. Cuando termine el flujo de trabajo, revisa tu repositorio de documentación para comprobar si se ha creado una nueva branch y una solicitud de extracción con actualizaciones en la documentación.
 
     ## Solución de problemas
 
@@ -197,7 +197,7 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
 
     * Verifica que tu clave de API empiece por `mint_`.
     * Comprueba que el encabezado Authorization tenga el formato `Bearer mint_yourkey`.
-    * Confirma que la clave de API corresponde a la organización correcta de Mintlify.
+    * Confirma que la clave de API corresponda a la organización correcta de Mintlify.
 
     ### Las actualizaciones de documentación no aparecen
 
@@ -214,7 +214,7 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
     * Espacio de trabajo de n8n
     * [Plan Pro o personalizado de Mintlify](https://mintlify.com/pricing)
     * Aplicación de Mintlify instalada en tu repositorio de código
-    * Clave de API de administrador de Mintlify
+    * Clave de API de administración de Mintlify
     * Acceso de administrador a los repositorios de GitHub que contienen tu código y tu documentación
     * Token de acceso personal de GitHub
 
@@ -255,7 +255,7 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
     5. Haz clic en **Generate new token (classic)**.
     6. Selecciona estos permisos:
        * `repo` (control total de los repositorios privados)
-       * `admin:repo_hook` (si quieres que n8n cree webhooks)
+       * `admin:repo_hook` (si quieres que n8n pueda crear webhooks)
     7. Genera y almacena el token de forma segura.
 
     Para obtener más información, consulta [Crear un token de acceso personal (clásico)](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens?versionId=free-pro-team%40latest\&productId=account-and-profile#creating-a-personal-access-token-classic) en la documentación de GitHub.
@@ -266,13 +266,13 @@ Este tutorial asume que tu documentación está en un repositorio separado del c
 
     1. En n8n, crea un nuevo flujo de trabajo.
     2. Añade un nodo de webhook.
-    3. Configurar el webhook:
+    3. Configura el webhook:
        * Método HTTP: `POST`
        * Ruta: `auto-update-documentation` (o cualquier ruta única)
        * Autenticación: ninguna
        * Responder: inmediatamente
     4. Guarda el flujo de trabajo.
-    5. Copia la URL del webhook de producción. Tiene este formato: `https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
+    5. Copia la URL del webhook de producción. Tiene el siguiente formato: `https://your-n8n-instance.app.n8n.cloud/webhook/auto-update-documentation`
 
     <Frame>
       <img
@@ -305,23 +305,23 @@ height: '700px',
     Agrega un nodo de código después del webhook para filtrar los pushes a main y extraer la información relevante.
 
     1. Añade un nodo de código.
-    2. Llámalo &quot;Filtrar envíos a main.&quot;
-    3. Configura el modo en **Ejecutar una vez para todos los elementos**.
-    4. Añade este código JavaScript:
+    2. Llámalo &quot;Filtrar pushes a main.&quot;
+    3. Configura el modo en **Run Once for All Items**.
+    4. Agrega este código JavaScript:
 
     ```javascript
     const webhookData = $input.first().json.body;
 
-    // Solo continuar si es un push a main
+    // Only continue if this is a push to main
     if (webhookData.ref !== "refs/heads/main") {
       return [];
     }
 
-    // Extraer información
+    // Extract information
     const repository = webhookData.repository;
     const pusher = webhookData.pusher;
 
-    // Construir mensaje para el agente
+    // Build message for agent
     const agentMessage = `Actualiza la documentación para los cambios enviados a main en ${repository.name}. Siempre edita los archivos y crea una solicitud de extracción.`;
 
     return {
@@ -334,7 +334,7 @@ height: '700px',
     ```
 
     <Frame>
-      <img src="/images/guides/n8n/filter-merged-PRs-node.png" alt="Captura de pantalla de la configuración del nodo «Filtrar pushes a main»." />
+      <img src="/images/guides/n8n/filter-merged-PRs-node.png" alt="Captura de pantalla de las configuraciones del nodo «Filtrar pushes a main»." />
     </Frame>
 
     Este código detiene el flujo de trabajo si el push no se realizó a main, extrae toda la información relevante del webhook de GitHub y crea un mensaje para la API del agente.
@@ -387,7 +387,7 @@ height: '700px',
     ### Activar el flujo de trabajo
 
     1. Guarda tu flujo de trabajo.
-    2. Actívalo.
+    2. Configúralo como activo.
 
     Tu flujo de trabajo ahora está monitoreando tu repositorio de código en busca de pushes a main.
 
@@ -402,7 +402,7 @@ height: '700px',
        git checkout -b test-docs-automation
        ```
 
-    2. Realiza un pequeño cambio y crea un commit:
+    2. Realiza un pequeño cambio y haz una confirmación:
        ```bash
        git add .
        git commit -m "Prueba: activar automatización de docs"
