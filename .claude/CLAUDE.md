@@ -40,7 +40,7 @@ For major documentation restructuring or complex multi-page changes:
 - Config: docs.json for navigation, theme, settings
   - See the docs.json schema: https://mintlify.com/docs.json
 - Use Mintlify components. If you ever need to learn how a component works, search in the docs/components/ dir
-- Only update English language content. All translations are handled automatically after a PR merges into the docs repo
+- Only update English language content. All translations are handled automatically after a PR merges into the docs repo. This includes languages other than english in the docs.json navigation.
 
 ## Content strategy
 - We document just enough so that users are successful. Too much content makes it hard to find what people are looking for. Too little makes it too challenging to accomplish users' goals.
