@@ -38,6 +38,12 @@ groups: ["admin"]
 ---
 ```
 
+### Logout behavior
+
+For all personalization methods, logout is handled client-side. When users click the logout button, Mintlify clears their stored session data in the browser. You do not need to implement a logout endpoint for personalization.
+
+If you need to limit how long Mintlify keeps personalization data, set the `expiresAt` field in your user info response. When the current time passes `expiresAt`, the user's stored data is automatically deleted and they must authenticate again to access personalized content. This does not revoke sessions or tokens in your identity provider. Handle server-side revocation in your own system, if needed.
+
 ## User data format
 
 When implementing personalization, your system returns user data in a specific format that enables content customization. This data can be sent as either a raw JSON object or within a signed JWT, depending on your handshake method. The shape of the data is the same for both.
@@ -234,9 +240,12 @@ To redirect users to specific sections after login, use this URL format: `https:
 <Steps>
   <Step title="Create user info API endpoint.">
     Create an API endpoint that:
-    * Accepts OAuth access tokens for authentication.
+    * Responds to `GET` requests.
+    * Accepts an `Authorization: Bearer <access_token>` header for authentication.
     * Returns user data in the `User` format. See the [User data format](#user-data-format) section above for more information.
     * Defines the scopes for access.
+    
+    Mintlify calls this endpoint with the OAuth access token to retrieve user information. No additional query parameters are sent.
   </Step>
   <Step title="Configure your OAuth personalization settings.">
     1. In your dashboard, go to [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
@@ -267,9 +276,14 @@ Your documentation is hosted at `foo.com/docs` and you have an existing OAuth se
     "firstName": "Jane",
     "lastName": "Doe"
   },
-  "groups": ["engineering", "admin"]
+  "groups": ["engineering", "admin"],
+  "expiresAt": 1735689600
 }
 ```
+
+<Note>
+  Control session length with the `expiresAt` field in your user info response. This is a Unix timestamp--seconds since epoch--indicating when the session should expire. When the session expires, the user's stored data is deleted and they must log in again.
+</Note>
 
 **Configure your OAuth server details** in your dashboard:
 * **Authorization URL**: `https://auth.foo.com/authorization`
@@ -296,8 +310,9 @@ Your documentation is hosted at `foo.com/docs` and you have an existing OAuth se
 <Steps>
   <Step title="Create user info API endpoint.">
     Create an API endpoint that:
-    * Uses your existing session authentication to identify users
-    * Returns user data in the `User` format (see the [User data format](#user-data-format) section above)
+    * Responds to `GET` requests.
+    * Uses your existing session cookies to identify users. Mintlify calls this endpoint with credentials included, so your session cookies are automatically sent. No `Authorization` header is used.
+    * Returns user data in the `User` format (see the [User data format](#user-data-format) section above).
     * If the API domain and the docs domain **do not exactly match**:
       * Add the docs domain to your API's `Access-Control-Allow-Origin` header (must not be `*`).
       * Set your API's `Access-Control-Allow-Credentials` header to `true`.
