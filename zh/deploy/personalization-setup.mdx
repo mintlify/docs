@@ -48,6 +48,14 @@ groups: ["admin"]
 ```
 
 
+<div id="logout-behavior">
+  ### 登出行为
+</div>
+
+对于所有个性化方法，登出都在客户端处理。当用户点击登出按钮时，Mintlify 会清除其在浏览器中存储的会话数据。你不需要为个性化实现登出接口。
+
+如果你需要限制 Mintlify 保留个性化数据的时长，请在用户信息响应中设置 `expiresAt` 字段。当当前时间超过 `expiresAt` 时，用户已存储的数据会被自动删除，他们必须重新认证才能访问个性化内容。这不会撤销你的身份提供方中已有的会话或令牌。如有需要，请在你自己的系统中处理服务端的撤销逻辑。
+
 <div id="user-data-format">
   ## 用户数据格式
 </div>
@@ -255,9 +263,12 @@ type User = {
       <Step title="Create user info API endpoint.">
         创建一个 API 端点，用于：
 
-        * 接收 OAuth 访问令牌进行认证。
+        * 响应 `GET` 请求。
+        * 接收 `Authorization: Bearer <access_token>` 请求头进行认证。
         * 以 `User` 格式返回用户数据。更多信息参见上面的[用户数据格式](#user-data-format)部分。
         * 定义访问所需的 scopes。
+
+        Mintlify 会使用 OAuth 访问令牌调用此端点以获取用户信息。不会发送任何额外的 query 参数。
       </Step>
 
       <Step title="Configure your OAuth personalization settings.">
@@ -292,9 +303,14 @@ type User = {
         "firstName": "Jane",
         "lastName": "Doe"
       },
-      "groups": ["engineering", "admin"]
+      "groups": ["engineering", "admin"],
+      "expiresAt": 1735689600
     }
     ```
+
+    <Note>
+      使用用户信息响应中的 `expiresAt` 字段控制会话有效期。该字段是一个 Unix 时间戳（自 Unix 纪元起经过的秒数），用于指示会话何时过期。会话过期后，用户存储的数据会被删除，用户必须重新登录。
+    </Note>
 
     **在控制台中配置你的 OAuth 服务器详细信息**：
 
@@ -324,8 +340,9 @@ type User = {
       <Step title="Create user info API endpoint.">
         创建一个 API 端点，其功能包括：
 
-        * 使用你现有的会话认证来识别用户
-        * 以 `User` 格式返回用户数据（参见上面的 [User data format](#user-data-format) 部分）
+        * 响应 `GET` 请求。
+        * 使用你现有的会话 Cookie 来识别用户。Mintlify 在调用此端点时会携带凭据，因此你的会话 Cookie 会自动发送；不会使用 `Authorization` 头。
+        * 以 `User` 格式返回用户数据（参见上面的 [User data format](#user-data-format) 部分）。
         * 如果 API 的 domain 与文档的 domain **不完全匹配**：
 
           * 将文档的 domain 添加到你的 API 的 `Access-Control-Allow-Origin` 头（不得为 `*`）。
