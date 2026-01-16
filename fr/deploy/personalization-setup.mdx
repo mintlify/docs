@@ -48,6 +48,14 @@ groups: ["admin"]
 ```
 
 
+<div id="logout-behavior">
+  ### Comportement de déconnexion
+</div>
+
+Pour toutes les méthodes de personnalisation, la déconnexion est gérée côté client. Lorsque les utilisateurs cliquent sur le bouton de déconnexion, Mintlify efface leurs données de session stockées dans le navigateur. Vous n'avez pas besoin d'implémenter un point de terminaison de déconnexion pour la personnalisation.
+
+Si vous devez limiter la durée de conservation des données de personnalisation par Mintlify, définissez le champ `expiresAt` dans la réponse contenant les informations utilisateur. Lorsque l'heure actuelle dépasse `expiresAt`, les données stockées de l'utilisateur sont automatiquement supprimées et il doit s'authentifier à nouveau pour accéder au contenu personnalisé. Cela ne révoque pas les sessions ni les jetons auprès de votre fournisseur d'identité. Gérez la révocation côté serveur dans votre propre système, si nécessaire.
+
 <div id="user-data-format">
   ## Format des données utilisateur
 </div>
@@ -255,9 +263,12 @@ Sélectionnez la méthode de handshake que vous souhaitez configurer.
       <Step title="Create user info API endpoint.">
         Créez un endpoint d’API qui :
 
-        * Accepte les jetons d’accès OAuth pour l’authentification.
+        * Répond aux requêtes `GET`.
+        * Accepte un en-tête `Authorization: Bearer <access_token>` pour l’authentification.
         * Renvoie les données utilisateur au format `User`. Consultez la section [User data format](#user-data-format) ci-dessus pour plus d’informations.
         * Définit les scopes d’accès.
+
+        Mintlify appelle cet endpoint avec le jeton d’accès OAuth pour récupérer les informations utilisateur. Aucun paramètre de requête supplémentaire n’est envoyé.
       </Step>
 
       <Step title="Configure your OAuth personalization settings.">
@@ -292,9 +303,14 @@ Sélectionnez la méthode de handshake que vous souhaitez configurer.
         "firstName": "Jane",
         "lastName": "Doe"
       },
-      "groups": ["engineering", "admin"]
+      "groups": ["engineering", "admin"],
+      "expiresAt": 1735689600
     }
     ```
+
+    <Note>
+      Contrôlez la durée de la session avec le champ `expiresAt` dans votre réponse contenant les informations utilisateur. Il s’agit d’un timestamp Unix — nombre de secondes depuis l’époque (epoch) — indiquant quand la session doit expirer. Lorsque la session expire, les données stockées de l&#39;utilisateur sont supprimées et il doit se reconnecter.
+    </Note>
 
     **Configurez les paramètres de votre serveur OAuth** dans votre Dashboard :
 
@@ -324,8 +340,9 @@ Sélectionnez la méthode de handshake que vous souhaitez configurer.
       <Step title="Create user info API endpoint.">
         Créez un endpoint d’API qui :
 
-        * Utilise votre authentification de session existante pour identifier les utilisateurs
-        * Renvoie les données utilisateur au format `User` (voir la section [User data format](#user-data-format) ci-dessus)
+        * Répond aux requêtes `GET`.
+        * Utilise vos cookies de session existants pour identifier les utilisateurs. Mintlify appelle cet endpoint avec les informations d’authentification incluses, de sorte que vos cookies de session sont envoyés automatiquement. Aucun en-tête `Authorization` n’est utilisé.
+        * Renvoie les données utilisateur au format `User` (voir la section [User data format](#user-data-format) ci-dessus).
         * Si le domaine de l’API et le domaine de la documentation **ne correspondent pas exactement** :
 
           * Ajoutez le domaine de la documentation à l’en-tête `Access-Control-Allow-Origin` de votre API (ne doit pas être `*`).
