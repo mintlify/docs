@@ -1,7 +1,8 @@
 ---
 name: mintlify-docs
-description: Skill for building and maintaining documentation sites with Mintlify.
+description: Build and maintain documentation sites with Mintlify. Use when creating docs pages, configuring navigation, adding components, or setting up API references.
 license: MIT
+compatibility: Requires Node.js for CLI. Works with any Git-based workflow.
 metadata:
   author: mintlify
   version: "1.0"
@@ -16,7 +17,7 @@ Mintlify is a documentation platform that transforms MDX files into documentatio
 ## Quick reference
 
 ### CLI commands
-- `npm i - g mint` - Install the Mintlify CLI tool
+- `npm i -g mint` - Install the Mintlify CLI
 - `mint dev` - Local preview at localhost:3000
 - `mint broken-links` - Check internal links
 - `mint a11y` - Check for accessibility issues in content
