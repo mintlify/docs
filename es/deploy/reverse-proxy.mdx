@@ -1,7 +1,7 @@
 ---
 title: "Proxy inverso"
 description: "Configura un proxy inverso personalizado para publicar tu documentación."
-keywords: ["reverse proxy configuration", "nginx", "proxy routing", "header forwarding"]
+keywords: ["reverse proxy configuration","nginx","proxy routing","header forwarding"]
 ---
 
 <Note>
@@ -18,14 +18,16 @@ Al implementar un proxy inverso, supervisa posibles problemas con la verificaci�
 
 Encamina estas rutas a tu subdomain de Mintlify con las políticas de caché especificadas:
 
-| Ruta | Destino | Caché |
-|------|-------------|---------|
-| `/.well-known/acme-challenge/*` | `<your-subdomain>.mintlify.app` | Sin caché |
-| `/.well-known/vercel/*` | `<your-subdomain>.mintlify.app` | Sin caché |
+| Ruta                              | Destino                         | Caché            |
+| --------------------------------- | ------------------------------- | ---------------- |
+| `/.well-known/acme-challenge/*`   | `<your-subdomain>.mintlify.app` | Sin caché        |
+| `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.app` | Sin caché        |
+| `/.well-known/skills/*`           | `<your-subdomain>.mintlify.app` | Sin caché        |
+| `/skill.md`                       | `<your-subdomain>.mintlify.app` | Sin caché        |
 | `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | Caché habilitada |
-| `/_mintlify/*` | `<your-subdomain>.mintlify.app` | Sin caché |
-| `/*` | `<your-subdomain>.mintlify.app` | Sin caché |
-| `/` | `<your-subdomain>.mintlify.app` | Sin caché |
+| `/_mintlify/*`                    | `<your-subdomain>.mintlify.app` | Sin caché        |
+| `/*`                              | `<your-subdomain>.mintlify.app` | Sin caché        |
+| `/`                               | `<your-subdomain>.mintlify.app` | Sin caché        |
 
 <div id="required-header-configuration">
   ## Configuración obligatoria de encabezados
@@ -52,7 +54,7 @@ server {
     listen 80;
     server_name <your-domain>.com;
 
-    # Rutas de verificación de Let's Encrypt
+    # Let's Encrypt verification paths
     location ~ ^/\.well-known/acme-challenge/ {
         proxy_pass https://<your-subdomain>.mintlify.app;
         proxy_set_header Origin <your-subdomain>.mintlify.app;
@@ -65,7 +67,7 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
-    # Rutas de verificación de Vercel
+    # Vercel verification paths
     location ~ ^/\.well-known/vercel/ {
         proxy_pass https://<your-subdomain>.mintlify.app;
         proxy_set_header Origin <your-subdomain>.mintlify.app;
@@ -78,7 +80,33 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
-    # Recursos estáticos con caché
+    # AI skills paths
+    location ^~ /.well-known/skills/ {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Deshabilitar caché para rutas de verificación
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Skill manifest
+    location = /skill.md {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        # Disable caching for skill manifest
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Static assets with caching
     location ~ ^/mintlify-assets/_next/static/ {
         proxy_pass https://<your-subdomain>.mintlify.app;
         proxy_set_header Origin <your-subdomain>.mintlify.app;
@@ -87,11 +115,11 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header User-Agent $http_user_agent;
 
-        # Habilitar caché para recursos estáticos
+        # Enable caching for static assets
         add_header Cache-Control "public, max-age=86400";
     }
 
-    # Rutas específicas de Mintlify
+    # Mintlify-specific paths
     location ~ ^/_mintlify/ {
         proxy_pass https://<your-subdomain>.mintlify.app;
         proxy_set_header Origin <your-subdomain>.mintlify.app;
@@ -100,11 +128,11 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header User-Agent $http_user_agent;
 
-        # Deshabilitar caché para rutas de Mintlify
+        # Disable caching for Mintlify paths
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
-    # Ruta raíz
+    # Root path
     location = / {
         proxy_pass https://<your-subdomain>.mintlify.app;
         proxy_set_header Origin <your-subdomain>.mintlify.app;
@@ -113,11 +141,11 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header User-Agent $http_user_agent;
 
-        # Deshabilitar caché para contenido dinámico
+        # Disable caching for dynamic content
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
-    # Todas las demás rutas de documentación
+    # All other documentation paths
     location / {
         proxy_pass https://<your-subdomain>.mintlify.app;
         proxy_set_header Origin <your-subdomain>.mintlify.app;
@@ -126,7 +154,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header User-Agent $http_user_agent;
 
-        # Deshabilitar caché para contenido dinámico
+        # Disable caching for dynamic content
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 }
