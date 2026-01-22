@@ -1,0 +1,116 @@
+---
+title: "Agent Skills Discovery"
+description: "Enable AI agents to discover your documentation's skills through a standardized endpoint."
+keywords: ["agent skills", "skills discovery", "well-known", "RFC", "AI agents", "Claude"]
+---
+
+import { PreviewButton } from "/snippets/previewbutton.jsx"
+
+Mintlify implements the [Agent Skills Discovery RFC](https://github.com/cloudflare/agent-skills-discovery-rfc) by automatically hosting a `/.well-known/skills/index.json` endpoint that helps AI agents discover what skills your documentation provides.
+
+This endpoint works alongside your [`skill.md` file](/ai/skillmd) to give AI agents a complete understanding of your product's capabilities. While `skill.md` describes what agents can do with your product, the skills discovery endpoint provides a standardized way for agents to find and access that information.
+
+## How it works
+
+The `/.well-known/skills/index.json` endpoint returns a JSON index that lists all available skills for your documentation site. AI agents can query this endpoint to discover your skills without prior configuration.
+
+When an AI agent visits your documentation, it can:
+
+1. Check `/.well-known/skills/index.json` for available skills.
+2. Read the skill metadata (name and description).
+3. Fetch the full skill file at `/.well-known/skills/default/skill.md`.
+4. Use the skill instructions to help users accomplish tasks with your product.
+
+View your skills discovery endpoint by appending `/.well-known/skills/index.json` to your documentation site's URL.
+
+<PreviewButton href="https://mintlify.com/docs/.well-known/skills/index.json">Open the index.json for this site.</PreviewButton>
+
+## Index structure
+
+The `index.json` file follows the [Cloudflare Agent Skills Discovery RFC](https://github.com/cloudflare/agent-skills-discovery-rfc) specification and contains a `skills` array with metadata about each available skill.
+
+```json Example index.json
+{
+  "skills": [
+    {
+      "name": "default",
+      "description": "Documentation for building and deploying technical documentation with Mintlify",
+      "files": ["SKILL.md"]
+    }
+  ]
+}
+```
+
+Each skill entry includes:
+
+- **name**: The skill identifier (currently always `default` for the main documentation skill).
+- **description**: A brief summary of what the skill enables (limited to 1024 characters).
+- **files**: An array of skill files available for this skill (currently `["SKILL.md"]`).
+
+## Configure your skill
+
+The skills discovery endpoint automatically generates its content from your `skill.md` file's frontmatter. To customize what appears in the index, add or update the frontmatter in your `skill.md` file.
+
+Create a `skill.md` file at the root of your project with the following frontmatter:
+
+```mdx skill.md
+---
+name: your-product-name
+description: Brief description of what AI agents can accomplish with your product
+---
+
+# Your Product Skills
+
+[Rest of your skill.md content...]
+```
+
+### Frontmatter fields
+
+- **name**: The skill identifier. Use lowercase alphanumeric characters and hyphens only.
+- **description**: A concise summary of your product's capabilities. This appears in the skills index and helps agents decide when to use your skill. Keep it under 1024 characters.
+
+The description is the most important field for agent discovery. Write it to clearly communicate what tasks agents can accomplish with your product.
+
+## Progressive disclosure
+
+The skills discovery endpoint implements a progressive disclosure pattern that helps agents manage context efficiently:
+
+**Level 1: Index metadata** - Agents fetch `index.json` to learn what skills exist. Only the name and description are loaded into context initially (approximately 100 tokens per skill).
+
+**Level 2: Skill instructions** - When a task matches a skill's description, the agent fetches the full `skill.md` file and loads its instructions into context (recommended under 5,000 tokens).
+
+**Level 3: Supporting resources** - The `skill.md` file can reference additional documentation pages. Agents fetch these on demand as needed for specific tasks.
+
+This pattern means agents can discover your skills without consuming significant context until they actually need to use them.
+
+## AI agent compatibility
+
+The skills discovery endpoint works with AI agents that support the Agent Skills Discovery RFC, including:
+
+- **Claude**: Can discover and use skills through the skills discovery endpoint.
+- **Claude Code**: Supports automatic skill discovery from well-known endpoints.
+- **Other RFC-compliant agents**: Any agent implementing the Cloudflare Agent Skills Discovery RFC can use this endpoint.
+
+## Relationship to MCP servers
+
+Skills discovery complements [MCP servers](/ai/model-context-protocol) but serves a different purpose:
+
+- **MCP servers** provide AI agents with access to search your documentation content in real-time.
+- **Skills discovery** tells AI agents what capabilities your product offers and how to use them.
+
+Think of MCP as providing the data and skills as providing the instructions. Together, they give AI agents both the information and the knowledge to help users effectively.
+
+<Tip>
+  Some AI tools like Claude support both MCP and Skills. MCP gives the AI access to your documentation content, while Skills instruct the AI how to use that content effectively. They're complementary features that work best together.
+</Tip>
+
+## Availability
+
+Mintlify automatically generates the `/.well-known/skills/index.json` endpoint for all public documentation sites. The endpoint:
+
+- Updates automatically when you modify your `skill.md` file.
+- Returns a 404 status if no `skill.md` file exists.
+- Caches responses for 24 hours for optimal performance.
+- Requires no configuration or maintenance.
+
+Documentation behind end-user authentication cannot generate a skills discovery endpoint, as the endpoint must be publicly accessible for agents to discover it.
