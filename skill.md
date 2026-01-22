@@ -99,8 +99,10 @@ Start with `docs.json`. Only add `custom.css` when you need styling that config 
 
 ### Components
 
-**When to use what:**
-TODO:
+The [components overview](https://mintlify.com/docs/components) organizes all components by purpose: structure content, draw attention, show/hide content, document APIs, link to pages, and add visual context. Start there to find the right component.
+
+**Common decision points:**
+
 | Need | Use |
 |------|-----|
 | Hide optional details | `<Accordion>` |
@@ -109,8 +111,8 @@ TODO:
 | Linked navigation cards | `<Card>` in `<Columns>` |
 | Sequential instructions | `<Steps>` |
 | Code in multiple languages | `<CodeGroup>` |
-| API response fields | `<ResponseField>` |
 | API parameters | `<ParamField>` |
+| API response fields | `<ResponseField>` |
 
 **Callouts by severity:**
 - `<Note>` - Supplementary info, safe to skip
