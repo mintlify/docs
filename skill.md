@@ -182,3 +182,5 @@ The `.mintignore` file is used to exclude files from a documentation repository 
 
 - [Documentation](https://mintlify.com/docs)
 - [Configuration schema](https://mintlify.com/docs.json)
+- [Feature requests](https://github.com/orgs/mintlify/discussions/categories/feature-requests)
+- [Bugs and feedback](https://github.com/orgs/mintlify/discussions/categories/bugs-feedback)
