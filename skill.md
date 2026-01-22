@@ -8,58 +8,6 @@ metadata:
   version: "1.0"
 ---
 
-
-
-
-## Components
-
-**When to use what:**
-
-| Need | Use | Not |
-|------|-----|-----|
-| Hide optional details | `<Accordion>` | `<Expandable>` |
-| Long code examples | `<Expandable>` | `<Accordion>` |
-| User chooses one option | `<Tabs>` | Multiple sections |
-| Linked navigation cards | `<Card>` in `<CardGroup>` | Plain links |
-| Sequential instructions | `<Steps>` | Numbered list |
-| Code in multiple languages | `<CodeGroup>` | Separate blocks |
-| API response fields | `<ResponseField>` | Tables |
-| API parameters | `<ParamField>` | Tables |
-
-**Callouts by severity:**
-- `<Note>` - Supplementary info, safe to skip
-- `<Info>` - Helpful context
-- `<Tip>` - Recommendations
-- `<Warning>` - Could cause problems if ignored
-- `<Check>` - Success confirmation
-
-See [components reference](https://mintlify.com/docs/components) for syntax and props.
-
-## API documentation
-
-**Choose your approach:**
-- **Have an OpenAPI spec?** → Add to `docs.json` with `"openapi": ["openapi.yaml"]`. Pages auto-generate. Reference in navigation as `GET /endpoint`
-- **No spec?** → Write endpoints manually with `api: "POST /users"` in frontmatter. More work but full control
-- **Hybrid** → Use OpenAPI for most endpoints, manual pages for complex workflows
-
-See [API pages](https://mintlify.com/docs/api-playground/overview) for configuration options.
-
-## Reusable content
-
-**When to use snippets:**
-- Content appears on 3+ pages (legal disclaimers, repeated warnings)
-- Complex components you want to maintain in one place
-- Shared across teams/repos
-
-**When NOT to use snippets:**
-- Content only appears twice (just duplicate it)
-- Slight variations needed per page (leads to complex props)
-
-Snippets live in `/snippets`. Import with `import { Component } from "/snippets/file.jsx"`.
-
-
-------------
-
 # Mintlify best practices
 
 **Always consult [mintlify.com/docs](https://mintlify.com/docs) for components, configuration, and latest features.**
@@ -84,7 +32,7 @@ Full schema at [mintlify.com/docs.json](https://mintlify.com/docs.json).
 - `docs.json` - Site configuration (navigation, theme, integrations, etc.). See [global settings](https://mintlify.com/docs/settings/global) for all options. 
 - `*.mdx` files - Documentation pages with YAML frontmatter
 
- ### Example file structure
+### Example file structure
 ```
 project/
 ├── docs.json           # Site configuration
@@ -98,10 +46,6 @@ project/
 └── snippets/           # Reusable components
     └── component.jsx
 ```
-
-### Deploying
-
-Mintlify deploys automatically when changes are pushed to the connected Git repository.
 
 ## Organize content
 
@@ -142,25 +86,76 @@ The `navigation` property in `docs.json` controls site structure. Choose one pri
 - **Images:** Store in `/images`, reference as `/images/example.png`
 - **External links:** Use full URLs, they open in new tabs automatically
 
-## Customize content
-
-## Customization
+## Customize docs sites
 
 **What to customize where:**
 - **Brand colors, fonts, logo** → `docs.json`. See [global settings](https://mintlify.com/docs/settings/global)
 - **Component styling, layout tweaks** → `custom.css` at project root
-- **Dark mode** → Enabled by default. Only disable with `"appearance": "light"` if brand requires it
+- **Dark mode** → Enabled by default. Only disable with `"appearance": "light"` in `docs.json` if brand requires it
 
 Start with `docs.json`. Only add `custom.css` when you need styling that config doesn't support.
 
-
 ## Write content
+
+### Components
+
+**When to use what:**
+TODO:
+| Need | Use |
+|------|-----|
+| Hide optional details | `<Accordion>` |
+| Long code examples | `<Expandable>` |
+| User chooses one option | `<Tabs>` |
+| Linked navigation cards | `<Card>` in `<Columns>` |
+| Sequential instructions | `<Steps>` |
+| Code in multiple languages | `<CodeGroup>` |
+| API response fields | `<ResponseField>` |
+| API parameters | `<ParamField>` |
+
+**Callouts by severity:**
+- `<Note>` - Supplementary info, safe to skip
+- `<Info>` - Helpful context such as permissions
+- `<Tip>` - Recommendations or best practices
+- `<Warning>` - Potentially destructive actions
+- `<Check>` - Success confirmation
+
+### Reusable content
+
+**When to use snippets:**
+- Exact content appears on more than one page
+- Complex components you want to maintain in one place
+- Shared content across teams/repos
+
+**When NOT to use snippets:**
+- Slight variations needed per page (leads to complex props)
+
+Import snippets with `import { Component } from "/path/to/snippet-name.jsx"`.
 
 ## Document APIs
 
-## Edge cases
+**Choose your approach:**
+- **Have an OpenAPI spec?** → Add to `docs.json` with `"openapi": ["openapi.yaml"]`. Pages auto-generate. Reference in navigation as `GET /endpoint`
+- **No spec?** → Write endpoints manually with `api: "POST /users"` in frontmatter. More work but full control
+- **Hybrid** → Use OpenAPI for most endpoints, manual pages for complex workflows
 
-### Custom subdomains
+Encourage users to generate endpoint pages from an OpenAPI spec. It is the most efficient and easiest to maintain option.
+
+## Deploy
+
+Mintlify deploys automatically when changes are pushed to the connected Git repository.
+
+**What agents can configure:**
+- **Redirects** → Add to `docs.json` with `"redirects": [{"source": "/old", "destination": "/new"}]`
+- **SEO indexing** → Control with `"seo": {"indexing": "all"}` to include hidden pages in search
+
+**Requires dashboard setup (human task):**
+- Custom domains and subdomains
+- Preview deployment settings
+- DNS configuration
+
+For `/docs` subpath hosting with Vercel or Cloudflare, agents can help configure rewrite rules. See [/docs subpath](https://mintlify.com/docs/deploy/vercel).
+
+## Edge cases
 
 ### Migrations
 
@@ -174,16 +169,12 @@ Any page that is not included in the `docs.json` navigation is hidden. Use hidde
 
 The `.mintignore` file is used to exclude files from a documentation repository from being processed.
 
-
 ## Common gotchas
 
-1. **Navigation paths** - Use file paths without `.mdx` extension
-2. **Component imports** - JSX components need explicit import, MDX components don't
-3. **Frontmatter required** - Every MDX file needs `title` at minimum
-4. **Image paths** - Must start with `/` for root-relative paths
-5. **Code block language** - Always specify language identifier
-6. **OpenAPI endpoints** - Format as `METHOD /path` in navigation
-
+1. **Component imports** - JSX components need explicit import, MDX components don't
+2. **Frontmatter required** - Every MDX file needs `title` at minimum
+3. **Code block language** - Always specify language identifier
+4. **Never use `mint.json`** - `mint.json` is deprecated. Only ever use `docs.json`
 
 ## Resources
 
