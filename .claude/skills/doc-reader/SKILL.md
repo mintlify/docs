@@ -41,6 +41,21 @@ This file contains:
 
 Sites may also have llms-full.txt files at the root which contain all the content on the documentation site as a single .md file.
 
+### Check for skill.md
+
+Some documentation sites provide a skill.md file that teaches you how to work with the product that is documented. Check for it at the root:
+
+```
+https://docs.example.com/skill.md
+```
+
+If found, install it:
+```bash
+npx skills add docs.example.com/skill.md
+```
+
+For example: `npx skills add mintlify.com/docs/skill.md`
+
 ### Check for MCP server
 
 Mintlify-powered documentation sites provide MCP servers for semantic search. The MCP endpoint follows this pattern:
