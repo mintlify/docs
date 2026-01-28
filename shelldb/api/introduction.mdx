@@ -1,0 +1,283 @@
+---
+title: API introduction
+description: Get started with the ShellDB HTTP API
+keywords: shelldb, api, rest, http, integration
+---
+
+# ShellDB API
+
+The ShellDB HTTP API provides programmatic access to your databases, allowing you to integrate ShellDB into applications, scripts, and services.
+
+## Base URL
+
+All API requests are made to:
+```
+https://api.shelldb.com/v1
+```
+
+For self-hosted instances:
+```
+http://your-server:8080/api/v1
+```
+
+## Authentication
+
+ShellDB uses API key authentication. Include your API key in the Authorization header:
+
+```http
+Authorization: Bearer your_api_key_here
+```
+
+### Generate API key
+```bash
+# Generate a new API key
+shelldb auth create-key --name "my-app" --permissions read,write
+
+# List existing keys
+shelldb auth list-keys
+
+# Revoke a key
+shelldb auth revoke-key --key-id abc123
+```
+
+## Request format
+
+### Content Type
+All requests should use JSON content type:
+```http
+Content-Type: application/json
+```
+
+### Request structure
+```json
+{
+  "database": "myapp",
+  "query": "SELECT * FROM users WHERE active = true",
+  "parameters": {}
+}
+```
+
+## Response format
+
+### Success response
+```json
+{
+  "success": true,
+  "data": {
+    "rows": [
+      {"id": 1, "name": "John Doe", "email": "john@example.com"},
+      {"id": 2, "name": "Jane Smith", "email": "jane@example.com"}
+    ],
+    "rowCount": 2,
+    "executionTime": "45ms",
+    "metadata": {
+      "columns": [
+        {"name": "id", "type": "integer"},
+        {"name": "name", "type": "text"},
+        {"name": "email", "type": "text"}
+      ]
+    }
+  }
+}
+```
+
+### Error response
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_QUERY",
+    "message": "Syntax error near 'SELCT'",
+    "details": {
+      "line": 1,
+      "column": 1
+    }
+  }
+}
+```
+
+## Quick start
+
+### 1. Create a database connection
+```bash
+curl -X POST https://api.shelldb.com/v1/databases \
+  -H "Authorization: Bearer your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "myapp",
+    "description": "My application database"
+  }'
+```
+
+### 2. Execute a query
+```bash
+curl -X POST https://api.shelldb.com/v1/query \
+  -H "Authorization: Bearer your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "database": "myapp",
+    "query": "CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT, email TEXT)"
+  }'
+```
+
+### 3. Insert data
+```bash
+curl -X POST https://api.shelldb.com/v1/query \
+  -H "Authorization: Bearer your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "database": "myapp",
+    "query": "INSERT INTO users (name, email) VALUES ($1, $2)",
+    "parameters": ["John Doe", "john@example.com"]
+  }'
+```
+
+### 4. Query data
+```bash
+curl -X POST https://api.shelldb.com/v1/query \
+  -H "Authorization: Bearer your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "database": "myapp",
+    "query": "SELECT * FROM users"
+  }'
+```
+
+## Client libraries
+
+### JavaScript/Node.js
+```javascript
+const ShellDB = require('@shelldb/client');
+
+const client = new ShellDB({
+  apiKey: 'your_api_key',
+  baseURL: 'https://api.shelldb.com/v1'
+});
+
+// Execute query
+const result = await client.query('myapp', 
+  'SELECT * FROM users WHERE active = $1', 
+  [true]
+);
+
+console.log(result.rows);
+```
+
+### Python
+```python
+import shelldb
+
+client = shelldb.Client(
+    api_key='your_api_key',
+    base_url='https://api.shelldb.com/v1'
+)
+
+# Execute query
+result = client.query(
+    database='myapp',
+    query='SELECT * FROM users WHERE active = %s',
+    parameters=[True]
+)
+
+print(result['rows'])
+```
+
+### Go
+```go
+package main
+
+import (
+    "github.com/shelldb/go-client"
+    "fmt"
+)
+
+func main() {
+    client := shelldb.NewClient(&shelldb.Config{
+        APIKey:  "your_api_key",
+        BaseURL: "https://api.shelldb.com/v1",
+    })
+
+    result, err := client.Query(shelldb.QueryRequest{
+        Database: "myapp",
+        Query:    "SELECT * FROM users WHERE active = $1",
+        Parameters: []interface{}{true},
+    })
+
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Printf("Rows: %+v\n", result.Rows)
+}
+```
+
+## Rate limits
+
+The ShellDB API has the following rate limits:
+
+| Plan | Requests per minute | Concurrent connections |
+|------|-------------------|------------------------|
+| Free | 100 | 5 |
+| Pro | 1,000 | 25 |
+| Enterprise | 10,000 | 100 |
+
+Rate limit headers are included in responses:
+```http
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1640995200
+```
+
+## Error codes
+
+Common API error codes:
+
+| Code | Description |
+|------|-------------|
+| `INVALID_API_KEY` | API key is missing or invalid |
+| `DATABASE_NOT_FOUND` | Specified database doesn't exist |
+| `INVALID_QUERY` | SQL query has syntax errors |
+| `PERMISSION_DENIED` | Insufficient permissions for operation |
+| `RATE_LIMIT_EXCEEDED` | Too many requests |
+| `INTERNAL_ERROR` | Server error occurred |
+
+## Webhooks
+
+ShellDB can send webhooks for database events:
+
+```json
+{
+  "event": "row_inserted",
+  "database": "myapp",
+  "table": "users",
+  "data": {
+    "id": 123,
+    "name": "John Doe",
+    "email": "john@example.com"
+  },
+  "timestamp": "2024-01-28T10:30:00Z"
+}
+```
+
+Configure webhooks:
+```bash
+shelldb webhook create \
+  --database myapp \
+  --url https://myapp.com/webhooks/shelldb \
+  --events row_inserted,row_updated
+```
+
+## Best practices
+
+1. **Use connection pooling** - Reuse connections when possible
+2. **Handle rate limits** - Implement exponential backoff
+3. **Validate parameters** - Use parameterized queries to prevent SQL injection
+4. **Monitor usage** - Track API usage and performance
+5. **Cache results** - Cache frequently accessed data
+6. **Use batch operations** - Group multiple operations when possible
+
+## Next steps
+
+- Explore [API endpoints](/shelldb/api/endpoints)
+- Learn about [authentication](/shelldb/api/authentication)
+- See [integration examples](/shelldb/examples/integrations)
