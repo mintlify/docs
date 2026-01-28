@@ -1,0 +1,224 @@
+---
+title: Basic usage examples
+description: Simple examples to get started with ShellDB
+keywords: shelldb, examples, tutorial, basic usage
+---
+
+# Basic usage examples
+
+Practical examples to help you get started with ShellDB.
+
+## Creating your first table
+
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    full_name TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true
+);
+```
+
+## Basic CRUD operations
+
+### Insert data
+```sql
+INSERT INTO users (username, email, full_name) VALUES
+    ('john_doe', 'john@example.com', 'John Doe'),
+    ('jane_smith', 'jane@example.com', 'Jane Smith'),
+    ('bob_wilson', 'bob@example.com', 'Bob Wilson');
+```
+
+### Query data
+```sql
+-- Get all active users
+SELECT * FROM users WHERE is_active = true;
+
+-- Get users created in the last 7 days
+SELECT username, email, created_at 
+FROM users 
+WHERE created_at >= NOW() - INTERVAL '7 days';
+```
+
+### Update data
+```sql
+-- Update a user's full name
+UPDATE users 
+SET full_name = 'Jonathan Doe' 
+WHERE username = 'john_doe';
+
+-- Deactivate users with old emails
+UPDATE users 
+SET is_active = false 
+WHERE email LIKE '%@oldcompany.com';
+```
+
+### Delete data
+```sql
+-- Delete inactive users older than 1 year
+DELETE FROM users 
+WHERE is_active = false 
+  AND created_at < NOW() - INTERVAL '1 year';
+```
+
+## Working with relationships
+
+### Create related tables
+```sql
+CREATE TABLE posts (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    title TEXT NOT NULL,
+    content TEXT,
+    published_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE comments (
+    id SERIAL PRIMARY KEY,
+    post_id INTEGER REFERENCES posts(id),
+    user_id INTEGER REFERENCES users(id),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Query with joins
+```sql
+-- Get posts with author information
+SELECT 
+    p.title,
+    p.content,
+    u.full_name as author,
+    p.published_at
+FROM posts p
+JOIN users u ON p.user_id = u.id
+WHERE p.published_at IS NOT NULL
+ORDER BY p.published_at DESC;
+
+-- Get users with their post count
+SELECT 
+    u.username,
+    u.full_name,
+    COUNT(p.id) as post_count
+FROM users u
+LEFT JOIN posts p ON u.id = p.user_id
+GROUP BY u.id, u.username, u.full_name
+ORDER BY post_count DESC;
+```
+
+## Application integration
+
+### Python example
+```python
+import shelldb
+
+# Connect to database
+client = shelldb.connect('myapp')
+
+# Create a new user
+def create_user(username, email, full_name):
+    return client.execute(
+        "INSERT INTO users (username, email, full_name) VALUES (?, ?, ?) RETURNING id",
+        [username, email, full_name]
+    )
+
+# Get user by ID
+def get_user(user_id):
+    result = client.execute(
+        "SELECT * FROM users WHERE id = ?",
+        [user_id]
+    )
+    return result.first() if result.rows else None
+
+# Example usage
+user_id = create_user('alice', 'alice@example.com', 'Alice Cooper')
+user = get_user(user_id)
+print(f"Created user: {user['full_name']}")
+```
+
+### JavaScript example
+```javascript
+const ShellDB = require('@shelldb/client');
+
+const db = new ShellDB('myapp');
+
+// Create a new post
+async function createPost(userId, title, content) {
+  const result = await db.query(
+    'INSERT INTO posts (user_id, title, content) VALUES ($1, $2, $3) RETURNING id',
+    [userId, title, content]
+  );
+  return result.rows[0].id;
+}
+
+// Get recent posts with authors
+async function getRecentPosts(limit = 10) {
+  const result = await db.query(`
+    SELECT 
+      p.title,
+      p.content,
+      u.full_name as author,
+      p.created_at
+    FROM posts p
+    JOIN users u ON p.user_id = u.id
+    ORDER BY p.created_at DESC
+    LIMIT $1
+  `, [limit]);
+  
+  return result.rows;
+}
+
+// Example usage
+(async () => {
+  const postId = await createPost(1, 'Hello World', 'This is my first post!');
+  const posts = await getRecentPosts();
+  console.log('Recent posts:', posts);
+})();
+```
+
+## Data validation
+
+### Using constraints
+```sql
+-- Add check constraints
+ALTER TABLE users 
+ADD CONSTRAINT check_email_format 
+CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+
+ALTER TABLE users 
+ADD CONSTRAINT check_username_length 
+CHECK (LENGTH(username) >= 3);
+```
+
+### Application-level validation
+```python
+def validate_user_data(username, email, full_name):
+    errors = []
+    
+    if len(username) < 3:
+        errors.append("Username must be at least 3 characters")
+    
+    if '@' not in email:
+        errors.append("Invalid email format")
+    
+    if not full_name or len(full_name.strip()) == 0:
+        errors.append("Full name is required")
+    
+    return errors
+
+# Usage
+errors = validate_user_data('ab', 'invalid-email', '')
+if errors:
+    print("Validation errors:", errors)
+else:
+    create_user(username, email, full_name)
+```
+
+## Next steps
+
+- Learn [advanced querying techniques](/shelldb/features/querying)
+- Explore [performance optimization](/shelldb/features/performance)
+- See [integration examples](/shelldb/examples/integrations)

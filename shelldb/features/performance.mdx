@@ -1,0 +1,363 @@
+---
+title: Performance optimization
+description: Tune ShellDB for maximum performance
+keywords: shelldb, performance, optimization, tuning
+---
+
+# Performance optimization
+
+Maximize ShellDB performance with proper configuration, query optimization, and monitoring techniques.
+
+## Configuration tuning
+
+### Memory settings
+```yaml
+# ~/.shelldb/config.yaml
+memory:
+  shared_buffers: "256MB"        # 25% of available RAM
+  work_mem: "4MB"               # Per-operation memory
+  maintenance_work_mem: "64MB"   # For maintenance operations
+  effective_cache_size: "1GB"   # Available OS cache
+```
+
+### Connection settings
+```yaml
+connections:
+  max_connections: 100
+  connection_timeout: "30s"
+  idle_timeout: "5m"
+  pool_size: 10
+```
+
+### Storage optimization
+```yaml
+storage:
+  checkpoint_segments: 32
+  checkpoint_completion_target: 0.9
+  wal_buffers: "16MB"
+  fsync: true
+  synchronous_commit: on
+```
+
+## Query optimization
+
+### Use EXPLAIN to analyze queries
+```sql
+-- Basic query plan
+EXPLAIN SELECT * FROM orders WHERE user_id = 123;
+
+-- Detailed analysis with timing
+EXPLAIN (ANALYZE, BUFFERS, VERBOSE) 
+SELECT u.name, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY u.id, u.name;
+```
+
+### Optimize WHERE clauses
+<Tabs>
+  <Tab title="Optimized">
+    ```sql
+    -- Use indexes effectively
+    SELECT * FROM orders 
+    WHERE user_id = 123 
+      AND status = 'pending'
+      AND created_at >= '2024-01-01';
+    
+    -- Avoid functions in WHERE clauses
+    SELECT * FROM orders 
+    WHERE status = 'completed';
+    ```
+  </Tab>
+  <Tab title="Unoptimized">
+    ```sql
+    -- Avoid OR conditions that prevent index usage
+    SELECT * FROM orders 
+    WHERE user_id = 123 OR status = 'pending';
+    
+    -- Functions prevent index usage
+    SELECT * FROM orders 
+    WHERE UPPER(status) = 'COMPLETED';
+    ```
+  </Tab>
+</Tabs>
+
+### Optimize JOINs
+```sql
+-- Use appropriate JOIN types
+SELECT u.name, o.total_amount
+FROM users u
+INNER JOIN orders o ON u.id = o.user_id  -- Only matching records
+WHERE u.active = true;
+
+-- Consider JOIN order for large tables
+SELECT /*+ USE_NL(u o) */ u.name, o.total_amount
+FROM small_table u
+JOIN large_table o ON u.id = o.user_id;
+```
+
+## Monitoring and profiling
+
+### Built-in monitoring
+```sql
+-- Check current connections
+SELECT * FROM shelldb_connections;
+
+-- View active queries
+SELECT 
+    pid,
+    user,
+    database,
+    state,
+    query_start,
+    query
+FROM shelldb_activity
+WHERE state = 'active';
+
+-- Monitor lock contention
+SELECT * FROM shelldb_locks
+WHERE NOT granted;
+```
+
+### Performance metrics
+```sql
+-- Database statistics
+SELECT 
+    datname,
+    xact_commit,
+    xact_rollback,
+    blks_read,
+    blks_hit,
+    temp_files,
+    temp_bytes
+FROM shelldb_stat_database;
+
+-- Table statistics
+SELECT 
+    relname as table_name,
+    seq_scan,
+    seq_tup_read,
+    idx_scan,
+    idx_tup_fetch,
+    n_tup_ins,
+    n_tup_upd,
+    n_tup_del
+FROM shelldb_stat_user_tables;
+```
+
+### Slow query log
+```yaml
+# Enable slow query logging
+logging:
+  slow_query_log: true
+  slow_query_time: "1s"
+  log_file: "/var/log/shelldb/slow.log"
+```
+
+## Caching strategies
+
+### Query result caching
+```sql
+-- Enable query caching
+SET query_cache_enabled = true;
+SET query_cache_size = '128MB';
+
+-- Cache specific queries
+SELECT /*+ CACHE(3600) */ 
+    category, 
+    COUNT(*) as product_count
+FROM products 
+GROUP BY category;
+```
+
+### Connection pooling
+```yaml
+# Connection pool configuration
+connection_pool:
+  min_connections: 5
+  max_connections: 20
+  acquire_timeout: "10s"
+  idle_timeout: "5m"
+  max_lifetime: "1h"
+```
+
+### Application-level caching
+```python
+# Example with Redis caching
+import redis
+import json
+
+cache = redis.Redis()
+
+def get_user_orders(user_id):
+    cache_key = f"user_orders:{user_id}"
+    
+    # Try cache first
+    cached = cache.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
+    # Query database
+    result = db.execute(
+        "SELECT * FROM orders WHERE user_id = ?", 
+        [user_id]
+    )
+    
+    # Cache for 5 minutes
+    cache.setex(cache_key, 300, json.dumps(result))
+    return result
+```
+
+## Batch operations
+
+### Bulk inserts
+```sql
+-- Use multi-row inserts
+INSERT INTO products (name, category_id, price) VALUES
+    ('Product 1', 1, 29.99),
+    ('Product 2', 1, 39.99),
+    ('Product 3', 2, 19.99);
+
+-- Use COPY for large datasets
+COPY products (name, category_id, price)
+FROM '/path/to/data.csv'
+WITH (FORMAT csv, HEADER true);
+```
+
+### Bulk updates
+```sql
+-- Batch updates in transactions
+BEGIN;
+UPDATE inventory 
+SET quantity = quantity - order_quantities.qty
+FROM (
+    VALUES 
+        (1, 5),    -- product_id, quantity
+        (2, 3),
+        (3, 10)
+) AS order_quantities(product_id, qty)
+WHERE inventory.product_id = order_quantities.product_id;
+COMMIT;
+```
+
+### Transaction optimization
+```sql
+-- Group related operations
+BEGIN;
+    INSERT INTO orders (user_id, total_amount) 
+    VALUES (123, 99.99);
+    
+    INSERT INTO order_items (order_id, product_id, quantity)
+    VALUES (currval('orders_id_seq'), 1, 2);
+    
+    UPDATE inventory 
+    SET quantity = quantity - 2 
+    WHERE product_id = 1;
+COMMIT;
+```
+
+## Hardware considerations
+
+### Storage optimization
+- Use SSDs for database files
+- Separate WAL files to different disk
+- Configure appropriate file systems (ext4, XFS)
+
+### Memory allocation
+```bash
+# OS-level tuning
+echo 'vm.swappiness = 10' >> /etc/sysctl.conf
+echo 'vm.dirty_ratio = 15' >> /etc/sysctl.conf
+echo 'vm.dirty_background_ratio = 5' >> /etc/sysctl.conf
+```
+
+### CPU optimization
+```yaml
+# Use multiple worker processes
+workers:
+  query_workers: 4
+  maintenance_workers: 2
+  parallel_degree: 2
+```
+
+## Maintenance tasks
+
+### Regular VACUUM
+```sql
+-- Automatic vacuum settings
+SET autovacuum = on;
+SET autovacuum_vacuum_threshold = 50;
+SET autovacuum_vacuum_scale_factor = 0.2;
+
+-- Manual vacuum for heavy-write tables
+VACUUM ANALYZE orders;
+```
+
+### Index maintenance
+```sql
+-- Reindex periodically
+REINDEX INDEX idx_orders_user_date;
+
+-- Monitor index bloat
+SELECT 
+    tablename,
+    indexname,
+    pg_size_pretty(pg_relation_size(indexname::regclass)) as size
+FROM pg_indexes 
+WHERE schemaname = 'public'
+ORDER BY pg_relation_size(indexname::regclass) DESC;
+```
+
+### Statistics updates
+```sql
+-- Update table statistics
+ANALYZE users;
+ANALYZE orders;
+
+-- Automate with cron
+-- 0 2 * * * shelldb -d myapp -c "ANALYZE;"
+```
+
+## Performance monitoring tools
+
+### Built-in profiler
+```sql
+-- Enable profiling
+SET profiling = on;
+
+-- Run queries
+SELECT COUNT(*) FROM orders;
+
+-- View profile results
+SELECT * FROM shelldb_profiling;
+```
+
+### External monitoring
+```yaml
+# Prometheus metrics endpoint
+monitoring:
+  enabled: true
+  port: 9090
+  metrics:
+    - query_duration
+    - connection_count
+    - cache_hit_ratio
+    - disk_usage
+```
+
+## Best practices summary
+
+1. **Index strategically** - Create indexes based on query patterns
+2. **Monitor regularly** - Use built-in statistics and profiling
+3. **Optimize queries** - Use EXPLAIN to understand query plans  
+4. **Batch operations** - Group related database operations
+5. **Configure memory** - Tune memory settings for your workload
+6. **Maintain regularly** - Schedule VACUUM and ANALYZE operations
+7. **Cache wisely** - Implement appropriate caching strategies
+8. **Scale hardware** - Use SSDs and sufficient RAM
+
+## Next steps
+
+- Review [indexing strategies](/shelldb/features/indexing)
+- Explore [advanced querying techniques](/shelldb/features/querying)
+- Check out [performance examples](/shelldb/examples/advanced-queries)
