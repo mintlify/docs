@@ -1,0 +1,335 @@
+---
+title: Advanced query examples
+description: Complex query patterns and techniques in ShellDB
+keywords: shelldb, advanced queries, sql, complex examples
+---
+
+# Advanced query examples
+
+Sophisticated query patterns and techniques for complex data analysis.
+
+## Window functions
+
+### Running totals and rankings
+```sql
+-- Calculate running total of sales by month
+SELECT 
+    DATE_TRUNC('month', order_date) as month,
+    SUM(total_amount) as monthly_sales,
+    SUM(SUM(total_amount)) OVER (
+        ORDER BY DATE_TRUNC('month', order_date)
+    ) as running_total,
+    RANK() OVER (
+        ORDER BY SUM(total_amount) DESC
+    ) as sales_rank
+FROM orders
+GROUP BY DATE_TRUNC('month', order_date)
+ORDER BY month;
+```
+
+### Customer analytics
+```sql
+-- Find top customers with purchase patterns
+WITH customer_metrics AS (
+    SELECT 
+        u.id,
+        u.full_name,
+        COUNT(o.id) as order_count,
+        SUM(o.total_amount) as total_spent,
+        AVG(o.total_amount) as avg_order_value,
+        MAX(o.created_at) as last_order_date,
+        EXTRACT(DAYS FROM NOW() - MAX(o.created_at)) as days_since_last_order
+    FROM users u
+    LEFT JOIN orders o ON u.id = o.user_id
+    GROUP BY u.id, u.full_name
+)
+SELECT 
+    *,
+    NTILE(5) OVER (ORDER BY total_spent DESC) as spending_quintile,
+    CASE 
+        WHEN days_since_last_order <= 30 THEN 'Active'
+        WHEN days_since_last_order <= 90 THEN 'At Risk'
+        ELSE 'Inactive'
+    END as customer_status
+FROM customer_metrics
+WHERE order_count > 0
+ORDER BY total_spent DESC;
+```
+
+## Complex aggregations
+
+### Product performance analysis
+```sql
+-- Analyze product performance across categories
+SELECT 
+    c.name as category,
+    p.name as product,
+    COUNT(oi.id) as times_ordered,
+    SUM(oi.quantity) as total_quantity,
+    SUM(oi.quantity * oi.price) as total_revenue,
+    AVG(oi.price) as avg_price,
+    -- Percentage of category revenue
+    ROUND(
+        SUM(oi.quantity * oi.price) * 100.0 / 
+        SUM(SUM(oi.quantity * oi.price)) OVER (
+            PARTITION BY c.id
+        ), 2
+    ) as pct_of_category_revenue,
+    -- Revenue rank within category
+    DENSE_RANK() OVER (
+        PARTITION BY c.id 
+        ORDER BY SUM(oi.quantity * oi.price) DESC
+    ) as revenue_rank_in_category
+FROM categories c
+JOIN products p ON c.id = p.category_id
+JOIN order_items oi ON p.id = oi.product_id
+JOIN orders o ON oi.order_id = o.id
+WHERE o.created_at >= '2024-01-01'
+GROUP BY c.id, c.name, p.id, p.name
+ORDER BY c.name, total_revenue DESC;
+```
+
+### Time series analysis
+```sql
+-- Daily sales with moving averages and growth rates
+WITH daily_sales AS (
+    SELECT 
+        DATE(created_at) as sale_date,
+        COUNT(*) as order_count,
+        SUM(total_amount) as daily_revenue
+    FROM orders
+    WHERE created_at >= '2024-01-01'
+    GROUP BY DATE(created_at)
+)
+SELECT 
+    sale_date,
+    order_count,
+    daily_revenue,
+    -- 7-day moving average
+    AVG(daily_revenue) OVER (
+        ORDER BY sale_date 
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ) as ma_7_day,
+    -- 30-day moving average
+    AVG(daily_revenue) OVER (
+        ORDER BY sale_date 
+        ROWS BETWEEN 29 PRECEDING AND CURRENT ROW
+    ) as ma_30_day,
+    -- Day-over-day growth
+    ROUND(
+        (daily_revenue - LAG(daily_revenue) OVER (ORDER BY sale_date)) * 100.0 / 
+        LAG(daily_revenue) OVER (ORDER BY sale_date), 2
+    ) as dod_growth_pct,
+    -- Week-over-week growth
+    ROUND(
+        (daily_revenue - LAG(daily_revenue, 7) OVER (ORDER BY sale_date)) * 100.0 / 
+        LAG(daily_revenue, 7) OVER (ORDER BY sale_date), 2
+    ) as wow_growth_pct
+FROM daily_sales
+ORDER BY sale_date;
+```
+
+## Recursive queries
+
+### Organizational hierarchy
+```sql
+-- Find all employees under a manager (including indirect reports)
+WITH RECURSIVE employee_hierarchy AS (
+    -- Base case: direct reports of manager with ID 1
+    SELECT 
+        id,
+        name,
+        manager_id,
+        1 as level,
+        name as path
+    FROM employees 
+    WHERE manager_id = 1
+    
+    UNION ALL
+    
+    -- Recursive case: find reports of current level
+    SELECT 
+        e.id,
+        e.name,
+        e.manager_id,
+        eh.level + 1,
+        eh.path || ' > ' || e.name
+    FROM employees e
+    JOIN employee_hierarchy eh ON e.manager_id = eh.id
+    WHERE eh.level < 5  -- Prevent infinite recursion
+)
+SELECT 
+    level,
+    REPEAT('  ', level - 1) || name as indented_name,
+    path
+FROM employee_hierarchy
+ORDER BY level, name;
+```
+
+### Category tree navigation
+```sql
+-- Build complete category tree with product counts
+WITH RECURSIVE category_tree AS (
+    -- Root categories
+    SELECT 
+        id,
+        name,
+        parent_id,
+        1 as level,
+        name as path,
+        ARRAY[id] as id_path
+    FROM categories 
+    WHERE parent_id IS NULL
+    
+    UNION ALL
+    
+    -- Child categories
+    SELECT 
+        c.id,
+        c.name,
+        c.parent_id,
+        ct.level + 1,
+        ct.path || ' > ' || c.name,
+        ct.id_path || c.id
+    FROM categories c
+    JOIN category_tree ct ON c.parent_id = ct.id
+)
+SELECT 
+    ct.level,
+    REPEAT('  ', ct.level - 1) || ct.name as indented_name,
+    ct.path,
+    COUNT(p.id) as product_count,
+    SUM(COUNT(p.id)) OVER (
+        PARTITION BY ct.id_path[1]  -- Products in entire subtree
+    ) as total_in_branch
+FROM category_tree ct
+LEFT JOIN products p ON ct.id = p.category_id
+GROUP BY ct.id, ct.level, ct.name, ct.path, ct.id_path
+ORDER BY ct.id_path;
+```
+
+## JSON operations
+
+### Working with JSON data
+```sql
+-- Query users with JSON preferences
+SELECT 
+    username,
+    preferences->>'theme' as theme,
+    preferences->>'language' as language,
+    (preferences->'notifications'->>'email')::boolean as email_notifications,
+    jsonb_array_length(preferences->'tags') as tag_count
+FROM users 
+WHERE preferences IS NOT NULL
+  AND preferences->>'theme' = 'dark';
+
+-- Aggregate JSON data
+SELECT 
+    preferences->>'theme' as theme,
+    COUNT(*) as user_count,
+    AVG((preferences->>'score')::numeric) as avg_score,
+    json_agg(username) as users
+FROM users
+WHERE preferences IS NOT NULL
+GROUP BY preferences->>'theme';
+```
+
+### JSON transformations
+```sql
+-- Update JSON fields
+UPDATE users 
+SET preferences = jsonb_set(
+    preferences, 
+    '{notifications,push}', 
+    'true'::jsonb
+)
+WHERE preferences->>'theme' = 'mobile';
+
+-- Build JSON responses
+SELECT json_build_object(
+    'user', json_build_object(
+        'id', u.id,
+        'username', u.username,
+        'profile', u.preferences
+    ),
+    'orders', json_agg(
+        json_build_object(
+            'id', o.id,
+            'total', o.total_amount,
+            'date', o.created_at
+        )
+    ),
+    'summary', json_build_object(
+        'total_orders', COUNT(o.id),
+        'total_spent', SUM(o.total_amount),
+        'avg_order', AVG(o.total_amount)
+    )
+) as user_data
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+WHERE u.id = 123
+GROUP BY u.id, u.username, u.preferences;
+```
+
+## Performance optimization examples
+
+### Using indexes effectively
+```sql
+-- Create composite index for common query pattern
+CREATE INDEX CONCURRENTLY idx_orders_user_status_date 
+ON orders (user_id, status, created_at);
+
+-- Query that benefits from the index
+SELECT * FROM orders 
+WHERE user_id = 123 
+  AND status = 'completed'
+  AND created_at >= '2024-01-01'
+ORDER BY created_at DESC
+LIMIT 10;
+```
+
+### Batch operations
+```sql
+-- Efficient bulk update using CTE
+WITH updated_prices AS (
+    SELECT 
+        id,
+        price * 1.1 as new_price  -- 10% increase
+    FROM products 
+    WHERE category_id IN (1, 2, 3)
+      AND price < 100
+)
+UPDATE products 
+SET 
+    price = up.new_price,
+    updated_at = NOW()
+FROM updated_prices up
+WHERE products.id = up.id;
+```
+
+## Advanced filtering
+
+### Dynamic search queries
+```sql
+-- Flexible product search
+SELECT p.*
+FROM products p
+JOIN categories c ON p.category_id = c.id
+WHERE 
+    ($1::text IS NULL OR p.name ILIKE '%' || $1 || '%')
+    AND ($2::integer IS NULL OR p.category_id = $2)
+    AND ($3::numeric IS NULL OR p.price >= $3)
+    AND ($4::numeric IS NULL OR p.price <= $4)
+    AND ($5::boolean IS NULL OR p.is_active = $5)
+ORDER BY 
+    CASE WHEN $6 = 'price_asc' THEN p.price END ASC,
+    CASE WHEN $6 = 'price_desc' THEN p.price END DESC,
+    CASE WHEN $6 = 'name' THEN p.name END ASC,
+    p.created_at DESC;
+```
+
+## Next steps
+
+- Learn about [indexing strategies](/shelldb/features/indexing)
+- Explore [performance optimization](/shelldb/features/performance)
+- See [integration patterns](/shelldb/examples/integrations)

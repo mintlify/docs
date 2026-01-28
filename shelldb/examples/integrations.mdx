@@ -1,0 +1,595 @@
+---
+title: Integration examples
+description: Real-world examples of integrating ShellDB with applications
+keywords: shelldb, integrations, applications, examples, frameworks
+---
+
+# Integration examples
+
+Real-world examples of integrating ShellDB with popular frameworks and applications.
+
+## Web frameworks
+
+### Express.js (Node.js)
+```javascript
+const express = require('express');
+const ShellDB = require('@shelldb/client');
+
+const app = express();
+const db = new ShellDB({
+  database: 'myapp',
+  apiKey: process.env.SHELLDB_API_KEY
+});
+
+app.use(express.json());
+
+// Get all users
+app.get('/api/users', async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const offset = (page - 1) * limit;
+    
+    let query = 'SELECT id, username, email, created_at FROM users';
+    let params = [];
+    
+    if (search) {
+      query += ' WHERE username ILIKE $1 OR email ILIKE $1';
+      params.push(`%${search}%`);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+    params.push(limit, offset);
+    
+    const result = await db.query(query, params);
+    
+    res.json({
+      users: result.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: result.total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create user
+app.post('/api/users', async (req, res) => {
+  try {
+    const { username, email, full_name } = req.body;
+    
+    const result = await db.query(
+      'INSERT INTO users (username, email, full_name) VALUES ($1, $2, $3) RETURNING *',
+      [username, email, full_name]
+    );
+    
+    res.status(201).json({ user: result.rows[0] });
+  } catch (error) {
+    if (error.code === 'UNIQUE_VIOLATION') {
+      res.status(400).json({ error: 'Username or email already exists' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Server running on port 3000');
+});
+```
+
+### Django (Python)
+```python
+# models.py
+from django.db import models
+import shelldb
+
+class ShellDBManager:
+    def __init__(self):
+        self.client = shelldb.Client(
+            database='myapp',
+            api_key=settings.SHELLDB_API_KEY
+        )
+    
+    def get_user_analytics(self, user_id):
+        return self.client.query(
+            '''
+            SELECT 
+                COUNT(o.id) as total_orders,
+                SUM(o.total_amount) as total_spent,
+                AVG(o.total_amount) as avg_order_value,
+                MAX(o.created_at) as last_order_date
+            FROM users u
+            LEFT JOIN orders o ON u.id = o.user_id
+            WHERE u.id = %s
+            GROUP BY u.id
+            ''',
+            [user_id]
+        )
+
+# views.py
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.views import View
+import json
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserAnalyticsView(View):
+    def __init__(self):
+        super().__init__()
+        self.db = ShellDBManager()
+    
+    def get(self, request, user_id):
+        try:
+            analytics = self.db.get_user_analytics(user_id)
+            if analytics['rows']:
+                return JsonResponse({
+                    'user_id': user_id,
+                    'analytics': analytics['rows'][0]
+                })
+            else:
+                return JsonResponse({'error': 'User not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+# urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('api/users/<int:user_id>/analytics/', views.UserAnalyticsView.as_view()),
+]
+```
+
+### Rails (Ruby)
+```ruby
+# Gemfile
+gem 'shelldb'
+
+# config/initializers/shelldb.rb
+ShellDB.configure do |config|
+  config.database = 'myapp'
+  config.api_key = ENV['SHELLDB_API_KEY']
+end
+
+# app/services/analytics_service.rb
+class AnalyticsService
+  def self.user_summary(user_id)
+    ShellDB.query(
+      """
+      WITH user_stats AS (
+        SELECT 
+          u.id,
+          u.username,
+          COUNT(o.id) as order_count,
+          SUM(o.total_amount) as total_spent
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE u.id = $1
+        GROUP BY u.id, u.username
+      )
+      SELECT 
+        *,
+        CASE 
+          WHEN total_spent > 1000 THEN 'VIP'
+          WHEN total_spent > 500 THEN 'Premium'
+          ELSE 'Standard'
+        END as customer_tier
+      FROM user_stats
+      """,
+      [user_id]
+    )
+  end
+end
+
+# app/controllers/api/users_controller.rb
+class Api::UsersController < ApplicationController
+  def analytics
+    user_id = params[:id]
+    
+    begin
+      result = AnalyticsService.user_summary(user_id)
+      
+      if result['rows'].any?
+        render json: {
+          user: result['rows'].first,
+          generated_at: Time.current
+        }
+      else
+        render json: { error: 'User not found' }, status: :not_found
+      end
+    rescue => e
+      render json: { error: e.message }, status: :internal_server_error
+    end
+  end
+end
+```
+
+## Mobile applications
+
+### React Native
+```javascript
+// services/ShellDBService.js
+import ShellDB from '@shelldb/react-native';
+
+class ShellDBService {
+  constructor() {
+    this.client = new ShellDB({
+      database: 'mobile_app',
+      apiKey: process.env.REACT_NATIVE_SHELLDB_API_KEY
+    });
+  }
+  
+  async getProducts(category = null, limit = 20) {
+    let query = 'SELECT * FROM products WHERE is_active = true';
+    let params = [];
+    
+    if (category) {
+      query += ' AND category_id = $1';
+      params.push(category);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1);
+    params.push(limit);
+    
+    return await this.client.query(query, params);
+  }
+  
+  async createOrder(userId, items) {
+    const transaction = [
+      {
+        query: 'INSERT INTO orders (user_id, status) VALUES ($1, $2) RETURNING id',
+        params: [userId, 'pending']
+      }
+    ];
+    
+    // Add order items
+    items.forEach((item, index) => {
+      transaction.push({
+        query: 'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ((SELECT id FROM orders ORDER BY id DESC LIMIT 1), $1, $2, $3)',
+        params: [item.productId, item.quantity, item.price]
+      });
+    });
+    
+    return await this.client.transaction(transaction);
+  }
+}
+
+export default new ShellDBService();
+
+// components/ProductList.js
+import React, { useState, useEffect } from 'react';
+import { View, FlatList, Text, TouchableOpacity } from 'react-native';
+import ShellDBService from '../services/ShellDBService';
+
+export const ProductList = ({ categoryId, onProductSelect }) => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    loadProducts();
+  }, [categoryId]);
+  
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const result = await ShellDBService.getProducts(categoryId);
+      setProducts(result.rows);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const renderProduct = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.productItem}
+      onPress={() => onProductSelect(item)}
+    >
+      <Text style={styles.productName}>{item.name}</Text>
+      <Text style={styles.productPrice}>${item.price}</Text>
+    </TouchableOpacity>
+  );
+  
+  if (loading) {
+    return <Text>Loading products...</Text>;
+  }
+  
+  return (
+    <FlatList
+      data={products}
+      renderItem={renderProduct}
+      keyExtractor={item => item.id.toString()}
+      refreshing={loading}
+      onRefresh={loadProducts}
+    />
+  );
+};
+```
+
+## Data pipelines
+
+### Apache Airflow
+```python
+# dags/shelldb_etl.py
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
+from datetime import datetime, timedelta
+import shelldb
+import pandas as pd
+
+default_args = {
+    'owner': 'data-team',
+    'depends_on_past': False,
+    'start_date': datetime(2024, 1, 1),
+    'email_on_failure': True,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5)
+}
+
+def extract_daily_sales(**context):
+    """Extract daily sales data from ShellDB"""
+    client = shelldb.Client(database='analytics')
+    
+    execution_date = context['ds']
+    
+    query = """
+    SELECT 
+        DATE(created_at) as sale_date,
+        user_id,
+        product_id,
+        quantity,
+        price,
+        total_amount
+    FROM orders o
+    JOIN order_items oi ON o.id = oi.order_id
+    WHERE DATE(created_at) = %s
+    """
+    
+    result = client.query(query, [execution_date])
+    
+    # Store in temporary location for next task
+    df = pd.DataFrame(result['rows'])
+    df.to_parquet(f'/tmp/sales_{execution_date}.parquet')
+    
+    return f'/tmp/sales_{execution_date}.parquet'
+
+def transform_sales_data(**context):
+    """Transform sales data for analysis"""
+    file_path = context['task_instance'].xcom_pull(task_ids='extract_sales')
+    
+    df = pd.read_parquet(file_path)
+    
+    # Add derived columns
+    df['revenue'] = df['quantity'] * df['price']
+    df['profit_margin'] = 0.3  # Assume 30% margin
+    df['profit'] = df['revenue'] * df['profit_margin']
+    
+    # Aggregate by product
+    product_summary = df.groupby('product_id').agg({
+        'quantity': 'sum',
+        'revenue': 'sum',
+        'profit': 'sum',
+        'user_id': 'nunique'
+    }).reset_index()
+    
+    product_summary.columns = [
+        'product_id', 'total_quantity', 'total_revenue', 
+        'total_profit', 'unique_customers'
+    ]
+    
+    # Save transformed data
+    transformed_path = f'/tmp/transformed_sales_{context["ds"]}.parquet'
+    product_summary.to_parquet(transformed_path)
+    
+    return transformed_path
+
+def load_to_warehouse(**context):
+    """Load transformed data back to ShellDB warehouse"""
+    file_path = context['task_instance'].xcom_pull(task_ids='transform_sales')
+    
+    df = pd.read_parquet(file_path)
+    client = shelldb.Client(database='warehouse')
+    
+    # Insert data
+    for _, row in df.iterrows():
+        client.query(
+            """
+            INSERT INTO daily_product_summary 
+            (sale_date, product_id, total_quantity, total_revenue, total_profit, unique_customers)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (sale_date, product_id) 
+            DO UPDATE SET 
+                total_quantity = EXCLUDED.total_quantity,
+                total_revenue = EXCLUDED.total_revenue,
+                total_profit = EXCLUDED.total_profit,
+                unique_customers = EXCLUDED.unique_customers
+            """,
+            [context['ds'], row['product_id'], row['total_quantity'], 
+             row['total_revenue'], row['total_profit'], row['unique_customers']]
+        )
+
+dag = DAG(
+    'shelldb_daily_etl',
+    default_args=default_args,
+    description='Daily ETL pipeline for ShellDB data',
+    schedule_interval='0 2 * * *',  # Run at 2 AM daily
+    catchup=False
+)
+
+extract_task = PythonOperator(
+    task_id='extract_sales',
+    python_callable=extract_daily_sales,
+    dag=dag
+)
+
+transform_task = PythonOperator(
+    task_id='transform_sales',
+    python_callable=transform_sales_data,
+    dag=dag
+)
+
+load_task = PythonOperator(
+    task_id='load_to_warehouse',
+    python_callable=load_to_warehouse,
+    dag=dag
+)
+
+extract_task >> transform_task >> load_task
+```
+
+## Real-time applications
+
+### WebSocket integration
+```javascript
+// server.js - Real-time order tracking
+const WebSocket = require('ws');
+const ShellDB = require('@shelldb/client');
+
+const wss = new WebSocket.Server({ port: 8080 });
+const db = new ShellDB({ database: 'realtime_app' });
+
+// Store client connections
+const clients = new Map();
+
+wss.on('connection', (ws) => {
+  ws.on('message', async (message) => {
+    const data = JSON.parse(message);
+    
+    if (data.type === 'subscribe_orders') {
+      // Subscribe to order updates for a user
+      clients.set(ws, { userId: data.userId });
+      
+      // Send current orders
+      const orders = await db.query(
+        'SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC',
+        [data.userId]
+      );
+      
+      ws.send(JSON.stringify({
+        type: 'orders_update',
+        orders: orders.rows
+      }));
+    }
+  });
+  
+  ws.on('close', () => {
+    clients.delete(ws);
+  });
+});
+
+// Listen for database changes (webhook endpoint)
+const express = require('express');
+const app = express();
+
+app.use(express.json());
+
+app.post('/webhook/orders', (req, res) => {
+  const { event, data } = req.body;
+  
+  if (event === 'order_updated') {
+    // Notify relevant clients
+    clients.forEach((clientData, ws) => {
+      if (clientData.userId === data.user_id) {
+        ws.send(JSON.stringify({
+          type: 'order_updated',
+          order: data
+        }));
+      }
+    });
+  }
+  
+  res.status(200).send('OK');
+});
+
+app.listen(3001);
+```
+
+## Microservices
+
+### API Gateway pattern
+```javascript
+// gateway.js - API Gateway with ShellDB
+const express = require('express');
+const httpProxy = require('http-proxy-middleware');
+const ShellDB = require('@shelldb/client');
+const jwt = require('jsonwebtoken');
+
+const app = express();
+const db = new ShellDB({ database: 'gateway' });
+
+// Authentication middleware
+const authenticate = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Check if user exists and is active
+    const user = await db.query(
+      'SELECT id, username, is_active FROM users WHERE id = $1',
+      [decoded.userId]
+    );
+    
+    if (!user.rows.length || !user.rows[0].is_active) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    req.user = user.rows[0];
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
+// Rate limiting middleware
+const rateLimit = async (req, res, next) => {
+  const userId = req.user.id;
+  const now = Date.now();
+  const window = 60000; // 1 minute
+  const limit = 100; // 100 requests per minute
+  
+  const requests = await db.query(
+    'SELECT COUNT(*) FROM api_requests WHERE user_id = $1 AND created_at > $2',
+    [userId, new Date(now - window)]
+  );
+  
+  if (requests.rows[0].count >= limit) {
+    return res.status(429).json({ error: 'Rate limit exceeded' });
+  }
+  
+  // Log request
+  await db.query(
+    'INSERT INTO api_requests (user_id, path, method, created_at) VALUES ($1, $2, $3, $4)',
+    [userId, req.path, req.method, new Date()]
+  );
+  
+  next();
+};
+
+// Apply middleware
+app.use(authenticate);
+app.use(rateLimit);
+
+// Proxy to microservices
+app.use('/api/users', httpProxy({ target: 'http://user-service:3000' }));
+app.use('/api/orders', httpProxy({ target: 'http://order-service:3000' }));
+app.use('/api/products', httpProxy({ target: 'http://product-service:3000' }));
+
+app.listen(8080);
+```
+
+## Next steps
+
+- Explore [performance optimization](/shelldb/features/performance) for production deployments
+- Learn about [API authentication](/shelldb/api/authentication) best practices
+- Review [advanced querying techniques](/shelldb/features/querying) for complex use cases
