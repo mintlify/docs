@@ -1,0 +1,266 @@
+---
+title: Advanced querying
+description: Master complex queries in ShellDB
+keywords: shelldb, queries, sql, joins, subqueries
+---
+
+# Advanced querying
+
+ShellDB supports sophisticated SQL querying capabilities, from basic SELECT statements to complex analytical queries with window functions and CTEs.
+
+## Basic queries
+
+### Simple SELECT
+```sql
+SELECT name, email FROM users WHERE active = true;
+```
+
+### Filtering and sorting
+```sql
+SELECT * FROM products 
+WHERE price BETWEEN 10.00 AND 100.00 
+ORDER BY created_at DESC 
+LIMIT 10;
+```
+
+### Aggregations
+```sql
+SELECT 
+    category,
+    COUNT(*) as product_count,
+    AVG(price) as avg_price,
+    MAX(price) as max_price
+FROM products 
+GROUP BY category 
+HAVING COUNT(*) > 5;
+```
+
+## JOIN operations
+
+### INNER JOIN
+```sql
+SELECT u.name, u.email, o.total_amount
+FROM users u
+INNER JOIN orders o ON u.id = o.user_id
+WHERE o.created_at >= '2024-01-01';
+```
+
+### LEFT JOIN with aggregation
+```sql
+SELECT 
+    u.name,
+    COALESCE(SUM(o.total_amount), 0) as total_spent
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY u.id, u.name
+ORDER BY total_spent DESC;
+```
+
+### Multiple JOINs
+```sql
+SELECT 
+    u.name,
+    o.order_date,
+    p.name as product_name,
+    oi.quantity,
+    oi.price
+FROM users u
+JOIN orders o ON u.id = o.user_id
+JOIN order_items oi ON o.id = oi.order_id
+JOIN products p ON oi.product_id = p.id
+WHERE o.order_date >= '2024-01-01';
+```
+
+## Subqueries
+
+### WHERE subqueries
+```sql
+SELECT name, email FROM users
+WHERE id IN (
+    SELECT user_id FROM orders 
+    WHERE total_amount > 1000
+);
+```
+
+### SELECT subqueries
+```sql
+SELECT 
+    name,
+    email,
+    (SELECT COUNT(*) FROM orders WHERE user_id = u.id) as order_count
+FROM users u;
+```
+
+### EXISTS queries
+```sql
+SELECT name FROM products p
+WHERE EXISTS (
+    SELECT 1 FROM order_items oi 
+    WHERE oi.product_id = p.id 
+    AND oi.created_at >= '2024-01-01'
+);
+```
+
+## Common Table Expressions (CTEs)
+
+### Simple CTE
+```sql
+WITH high_value_customers AS (
+    SELECT user_id, SUM(total_amount) as total_spent
+    FROM orders
+    GROUP BY user_id
+    HAVING SUM(total_amount) > 5000
+)
+SELECT u.name, hvc.total_spent
+FROM high_value_customers hvc
+JOIN users u ON hvc.user_id = u.id;
+```
+
+### Recursive CTE
+```sql
+WITH RECURSIVE category_tree AS (
+    -- Base case: root categories
+    SELECT id, name, parent_id, 1 as level
+    FROM categories 
+    WHERE parent_id IS NULL
+    
+    UNION ALL
+    
+    -- Recursive case: child categories
+    SELECT c.id, c.name, c.parent_id, ct.level + 1
+    FROM categories c
+    JOIN category_tree ct ON c.parent_id = ct.id
+)
+SELECT * FROM category_tree ORDER BY level, name;
+```
+
+## Window functions
+
+### Ranking functions
+```sql
+SELECT 
+    name,
+    salary,
+    department,
+    ROW_NUMBER() OVER (PARTITION BY department ORDER BY salary DESC) as rank_in_dept,
+    RANK() OVER (ORDER BY salary DESC) as overall_rank
+FROM employees;
+```
+
+### Running totals
+```sql
+SELECT 
+    order_date,
+    total_amount,
+    SUM(total_amount) OVER (ORDER BY order_date) as running_total
+FROM orders
+ORDER BY order_date;
+```
+
+### Moving averages
+```sql
+SELECT 
+    order_date,
+    total_amount,
+    AVG(total_amount) OVER (
+        ORDER BY order_date 
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ) as seven_day_avg
+FROM daily_sales
+ORDER BY order_date;
+```
+
+## Full-text search
+
+### Basic text search
+```sql
+SELECT title, content 
+FROM articles
+WHERE content LIKE '%database%'
+   OR title LIKE '%database%';
+```
+
+### Advanced text search
+```sql
+SELECT title, content,
+       ts_rank(to_tsvector('english', content), query) as rank
+FROM articles,
+     to_tsquery('english', 'database & performance') query
+WHERE to_tsvector('english', content) @@ query
+ORDER BY rank DESC;
+```
+
+## JSON queries
+
+### JSON path queries
+```sql
+SELECT 
+    id,
+    data->>'name' as name,
+    data->'address'->>'city' as city
+FROM users
+WHERE data->>'active' = 'true';
+```
+
+### JSON aggregations
+```sql
+SELECT 
+    json_agg(json_build_object(
+        'name', name,
+        'email', email,
+        'order_count', order_count
+    )) as users_json
+FROM (
+    SELECT u.name, u.email, COUNT(o.id) as order_count
+    FROM users u
+    LEFT JOIN orders o ON u.id = o.user_id
+    GROUP BY u.id, u.name, u.email
+) user_stats;
+```
+
+## Performance tips
+
+### Use indexes effectively
+```sql
+-- Good: Uses index on user_id
+SELECT * FROM orders WHERE user_id = 123;
+
+-- Bad: Function prevents index usage
+SELECT * FROM orders WHERE UPPER(status) = 'COMPLETED';
+
+-- Better: Use functional index or direct comparison
+SELECT * FROM orders WHERE status = 'completed';
+```
+
+### Limit large result sets
+```sql
+-- Use LIMIT and OFFSET for pagination
+SELECT * FROM products 
+ORDER BY created_at DESC 
+LIMIT 20 OFFSET 40;
+
+-- Use cursors for large datasets
+SELECT * FROM orders 
+WHERE id > 1000000 
+ORDER BY id 
+LIMIT 1000;
+```
+
+### Optimize JOINs
+```sql
+-- Prefer EXISTS over IN for subqueries
+SELECT name FROM users u
+WHERE EXISTS (
+    SELECT 1 FROM orders o WHERE o.user_id = u.id
+);
+
+-- Better than:
+-- SELECT DISTINCT name FROM users u
+-- WHERE u.id IN (SELECT user_id FROM orders);
+```
+
+## Next steps
+
+- Learn about [indexing strategies](/shelldb/features/indexing)
+- Explore [performance optimization](/shelldb/features/performance)
+- See more [query examples](/shelldb/examples/advanced-queries)
