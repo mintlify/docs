@@ -1,0 +1,303 @@
+---
+title: Smart indexing
+description: Optimize query performance with strategic indexing
+keywords: shelldb, indexing, performance, database optimization
+---
+
+# Smart indexing
+
+Indexes are crucial for query performance in ShellDB. Learn how to create, manage, and optimize indexes for your specific use cases.
+
+## Index types
+
+### B-tree indexes
+The default index type, ideal for range queries and sorting.
+
+```sql
+-- Create a simple B-tree index
+CREATE INDEX idx_users_email ON users(email);
+
+-- Composite B-tree index
+CREATE INDEX idx_orders_user_date ON orders(user_id, order_date);
+```
+
+### Hash indexes
+Optimized for equality comparisons.
+
+```sql
+-- Hash index for exact lookups
+CREATE INDEX idx_products_sku ON products USING HASH(sku);
+```
+
+### Partial indexes
+Index only rows that meet specific conditions.
+
+```sql
+-- Index only active users
+CREATE INDEX idx_active_users ON users(email) 
+WHERE active = true;
+
+-- Index only recent orders
+CREATE INDEX idx_recent_orders ON orders(user_id) 
+WHERE created_at >= '2024-01-01';
+```
+
+### Full-text indexes
+Enable fast text search capabilities.
+
+```sql
+-- Full-text search index
+CREATE INDEX idx_articles_search ON articles 
+USING GIN(to_tsvector('english', title || ' ' || content));
+```
+
+## Index strategies
+
+### Single-column indexes
+```sql
+-- Good for filtering on one column
+CREATE INDEX idx_users_status ON users(status);
+
+-- Usage example
+SELECT * FROM users WHERE status = 'active';
+```
+
+### Composite indexes
+```sql
+-- Column order matters - most selective first
+CREATE INDEX idx_orders_composite ON orders(status, user_id, created_at);
+
+-- This query uses the index effectively
+SELECT * FROM orders 
+WHERE status = 'completed' 
+  AND user_id = 123 
+  AND created_at >= '2024-01-01';
+```
+
+### Covering indexes
+Include additional columns to avoid table lookups.
+
+```sql
+-- Include frequently accessed columns
+CREATE INDEX idx_orders_covering ON orders(user_id, status) 
+INCLUDE (total_amount, created_at);
+
+-- This query can be satisfied entirely from the index
+SELECT user_id, status, total_amount, created_at 
+FROM orders 
+WHERE user_id = 123 AND status = 'pending';
+```
+
+## Automatic indexing
+
+ShellDB can automatically suggest and create indexes based on query patterns.
+
+### Enable auto-indexing
+```sql
+-- Enable automatic index recommendations
+SET auto_index_mode = 'recommend';
+
+-- Enable automatic index creation
+SET auto_index_mode = 'auto';
+```
+
+### View recommendations
+```sql
+-- See index recommendations
+SELECT * FROM shelldb_index_recommendations
+WHERE confidence > 0.8;
+```
+
+### Example recommendation output
+```
+table_name | columns           | reason              | confidence
+-----------|-------------------|---------------------|----------
+orders     | user_id, status   | frequent filtering  | 0.95
+products   | category_id       | join performance    | 0.87
+users      | email             | unique lookups      | 0.92
+```
+
+## Index monitoring
+
+### View existing indexes
+```sql
+-- List all indexes
+SELECT 
+    tablename,
+    indexname,
+    indexdef
+FROM pg_indexes 
+WHERE schemaname = 'public';
+```
+
+### Index usage statistics
+```sql
+-- Check index usage
+SELECT 
+    schemaname,
+    tablename,
+    indexname,
+    idx_scan as scans,
+    idx_tup_read as tuples_read,
+    idx_tup_fetch as tuples_fetched
+FROM pg_stat_user_indexes
+ORDER BY idx_scan DESC;
+```
+
+### Index size information
+```sql
+-- View index sizes
+SELECT 
+    tablename,
+    indexname,
+    pg_size_pretty(pg_relation_size(indexname::regclass)) as size
+FROM pg_indexes 
+WHERE schemaname = 'public'
+ORDER BY pg_relation_size(indexname::regclass) DESC;
+```
+
+## Performance considerations
+
+### Index maintenance
+Indexes require maintenance overhead for INSERT, UPDATE, and DELETE operations.
+
+<Tabs>
+  <Tab title="Good practice">
+    ```sql
+    -- Create indexes after bulk data loading
+    INSERT INTO products (name, category_id, price) 
+    SELECT name, category_id, price FROM staging_products;
+    
+    -- Now create indexes
+    CREATE INDEX idx_products_category ON products(category_id);
+    CREATE INDEX idx_products_price ON products(price);
+    ```
+  </Tab>
+  <Tab title="Avoid">
+    ```sql
+    -- Don't create indexes before bulk loading
+    CREATE INDEX idx_products_category ON products(category_id);
+    
+    -- This will be slower due to index maintenance
+    INSERT INTO products (name, category_id, price) 
+    SELECT name, category_id, price FROM staging_products;
+    ```
+  </Tab>
+</Tabs>
+
+### Index selectivity
+High-selectivity columns benefit most from indexing.
+
+```sql
+-- High selectivity - good for indexing
+CREATE INDEX idx_users_email ON users(email); -- email is unique
+
+-- Low selectivity - less beneficial
+-- CREATE INDEX idx_users_gender ON users(gender); -- only M/F values
+```
+
+### Query patterns
+Design indexes based on your actual query patterns.
+
+```sql
+-- If you frequently query by user_id and date range:
+CREATE INDEX idx_orders_user_date ON orders(user_id, created_at);
+
+-- If you need to sort by amount within user groups:
+CREATE INDEX idx_orders_user_amount ON orders(user_id, total_amount DESC);
+```
+
+## Index optimization
+
+### REINDEX operations
+Rebuild indexes to reclaim space and improve performance.
+
+```sql
+-- Reindex a specific index
+REINDEX INDEX idx_users_email;
+
+-- Reindex all indexes on a table
+REINDEX TABLE orders;
+
+-- Reindex entire database (use carefully)
+REINDEX DATABASE myapp;
+```
+
+### Analyze statistics
+Keep query planner statistics up to date.
+
+```sql
+-- Update statistics for a table
+ANALYZE users;
+
+-- Update statistics for entire database
+ANALYZE;
+```
+
+### Drop unused indexes
+Remove indexes that aren't being used.
+
+```sql
+-- Find unused indexes
+SELECT 
+    schemaname,
+    tablename,
+    indexname
+FROM pg_stat_user_indexes
+WHERE idx_scan = 0
+  AND idx_tup_read = 0;
+
+-- Drop unused index
+DROP INDEX IF EXISTS idx_unused_column;
+```
+
+## Best practices
+
+### Index naming conventions
+Use descriptive, consistent names:
+
+```sql
+-- Good naming
+CREATE INDEX idx_tablename_columns ON table_name(column1, column2);
+CREATE INDEX idx_users_email_active ON users(email, active);
+
+-- Avoid generic names
+-- CREATE INDEX user_idx ON users(email);
+```
+
+### Monitor query plans
+Use EXPLAIN to verify index usage:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS) 
+SELECT * FROM orders 
+WHERE user_id = 123 
+  AND status = 'pending'
+ORDER BY created_at DESC;
+```
+
+### Regular maintenance
+Set up automated index maintenance:
+
+```sql
+-- Schedule regular ANALYZE
+-- Add to cron job or use ShellDB scheduler
+ANALYZE;
+
+-- Monitor index bloat
+SELECT 
+    tablename,
+    indexname,
+    pg_size_pretty(pg_relation_size(indexname::regclass)) as size,
+    pg_stat_get_live_tuples(c.oid) as live_tuples,
+    pg_stat_get_dead_tuples(c.oid) as dead_tuples
+FROM pg_indexes i
+JOIN pg_class c ON c.relname = i.indexname
+WHERE schemaname = 'public';
+```
+
+## Next steps
+
+- Learn about [performance optimization techniques](/shelldb/features/performance)
+- Explore [query optimization strategies](/shelldb/features/querying)
+- See [indexing examples](/shelldb/examples/advanced-queries)
