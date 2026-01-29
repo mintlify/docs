@@ -21,7 +21,7 @@ Select the handshake method that you want to configure.
 <Tabs>
 <Tab title="Password">
 <Info>
-  Password authentication provides access control only and does **not** support content personalization.
+  Password authentication provides access control only and does **not** support user-specific features like group-based access control or API playground pre-filling.
 </Info>
 
 ### Prerequisites
@@ -140,7 +140,12 @@ Your host your documentation at `foo.com/docs` and you have an existing OAuth se
 ```json
 {
   "groups": ["engineering", "admin"],
-  "expiresAt": 1735689600
+  "expiresAt": 1735689600,
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer user_abc123"
+    }
+  }
 }
 ```
 
@@ -202,6 +207,11 @@ export async function handleRequest(req: Request, res: Response) {
   const user = {
     expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
     groups: res.locals.user.groups,
+    apiPlaygroundInputs: {
+      header: {
+        "Authorization": `Bearer ${res.locals.user.apiKey}`,
+      },
+    },
   };
 
   const jwt = await new jose.SignJWT(user)
@@ -229,6 +239,11 @@ async def return_mintlify_auth_status(current_user):
       'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
       'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 week session expiration
       'groups': ['admin'] if current_user.is_admin else [],
+      'apiPlaygroundInputs': {
+        'header': {
+          'Authorization': f'Bearer {current_user.api_key}',
+        },
+      },
     },
     key=private_key,
     algorithm='EdDSA'
@@ -358,13 +373,27 @@ When using OAuth or JWT authentication, your system returns user data that contr
 type User = {
   expiresAt?: number;
   groups?: string[];
+  apiPlaygroundInputs?: {
+    server?: Record<string, string>;
+    header?: Record<string, unknown>;
+    query?: Record<string, unknown>;
+    cookie?: Record<string, unknown>;
+  };
 };
 ```
 
 ```json Example
 {
   "expiresAt": 1735689600,
-  "groups": ["admin", "beta-users"]
+  "groups": ["admin", "beta-users"],
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer user_abc123"
+    },
+    "server": {
+      "baseUrl": "https://api.foo.com"
+    }
+  }
 }
 ```
 </CodeGroup>
@@ -379,4 +408,25 @@ type User = {
   List of groups the user belongs to. Pages with matching `groups` in their frontmatter are accessible to this user.
 
   **Example**: A user with `groups: ["admin", "engineering"]` can access pages tagged with either the `admin` or `engineering` groups.
+</ParamField>
+
+<ParamField path="apiPlaygroundInputs" type="object">
+  Pre-fills API playground fields with user-specific values. When a user authenticates, these values populate the corresponding input fields in the API playground. Users can override pre-filled values, and their overrides persist in local storage.
+
+  Only values that match the current endpoint's security scheme are applied.
+
+  <Expandable title="properties">
+    <ParamField path="header" type="Record<string, unknown>">
+      Header values to pre-fill, keyed by header name.
+    </ParamField>
+    <ParamField path="query" type="Record<string, unknown>">
+      Query parameter values to pre-fill, keyed by parameter name.
+    </ParamField>
+    <ParamField path="cookie" type="Record<string, unknown>">
+      Cookie values to pre-fill, keyed by cookie name.
+    </ParamField>
+    <ParamField path="server" type="Record<string, string>">
+      Server variable values to pre-fill, keyed by variable name.
+    </ParamField>
+  </Expandable>
 </ParamField>
