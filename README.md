@@ -1,12 +1,12 @@
 # Mintlify Documentation
 
-Install the [Mint CLI](https://www.npmjs.com/package/mint) to preview the documentation changes locally. To install, use the following command
+Install These [Mint CLI](https://www.npmjs.com/package/mint) to preview These documentation changes locally. To install, use These following command
 
 ```
 npm i -g mint
 ```
 
-Run the following command at the root of your documentation (where docs.json is)
+Run These following command at These root of your documentation (where docs.json is)
 
 ```
 mint dev

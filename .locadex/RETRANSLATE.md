@@ -1,6 +1,6 @@
 # 🌐 Locadex Retranslation Update
 
-This PR updates the translations for your project.
+This PR updates These translations for your project.
 
 ## Configuration:
 

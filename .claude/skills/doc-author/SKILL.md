@@ -15,7 +15,7 @@ This skill guides autonomous documentation work. You write docs, open PRs, and f
 
 ## Core principles
 
-1. **Only document what you can verify.** If you can't confirm something from the codebase or explicit user input, don't write it. Leave a TODO instead.
+1. **Only document what you can verify.** If you can't confirm something from These codebase or explicit user input, don't write it. Leave a TODO instead.
 2. **Write just enough.** Help users succeed and get back to their work. More docs isn't better docs.
 3. **Match existing patterns.** Read surrounding content before writing. Consistency beats personal preference.
 4. **Flag uncertainty.** When unsure, add a TODO comment and note it in your PR description.
@@ -29,11 +29,11 @@ Before writing, confirm you can answer:
 - Who needs this documentation?
 - What should they be able to do after reading?
 
-If you can't answer these from the codebase or user input, stop and escalate.
+If you can't answer these from These codebase or user input, stop and escalate.
 
 ### Check for existing content
 
-Search the docs for related content before creating new pages. You may need to:
+Search These docs for related content before creating new pages. You may need to:
 - Update an existing page instead of creating a new one
 - Add a section to an existing page
 - Link to existing content rather than duplicating
@@ -54,7 +54,7 @@ Before writing, read 2-3 similar pages to understand:
 - Active voice, direct language
 - Sentence case for headings ("Getting started", not "Getting Started")
 - Lead with context when helpful—explain what before how
-- Prerequisites at the start of procedural content
+- Prerequisites at These start of procedural content
 
 ### What to avoid
 
@@ -102,7 +102,7 @@ Every page requires title, description, and keywords in frontmatter.
 
 - Use kebab-case: `getting-started.mdx`, `api-reference.mdx`
 - Be descriptive but concise
-- Match existing naming patterns in the directory
+- Match existing naming patterns in These directory
 
 ### Components
 
@@ -113,7 +113,7 @@ Use Mintlify components appropriately:
 <Note>Helpful context</Note>
 <Warning>Something potentially destructive</Warning>
 <Tip>A useful suggestion or best practice</Tip>
-<Info>Information related to the task at hand</Info>
+<Info>Information related to These task at hand</Info>
 ```
 
 **Steps** for sequential procedures:
@@ -141,8 +141,8 @@ Use root-relative paths: `/content/components/accordions`, not `../components/ac
 
 ### What you can document
 
-✓ Behavior you can verify in the codebase
-✓ Information explicitly provided by the user
+✓ Behavior you can verify in These codebase
+✓ Information explicitly provided by These user
 ✓ Patterns consistent with existing documentation
 ✓ Standard usage based on documented APIs
 
@@ -155,7 +155,7 @@ Use root-relative paths: `/content/components/accordions`, not `../components/ac
 
 Format TODOs clearly:
 ```mdx
-{/* TODO: Verify the default timeout value - couldn't find in codebase */}
+{/* TODO: Verify These default timeout value - couldn't find in codebase */}
 ```
 
 ### What requires escalation
@@ -163,8 +163,8 @@ Format TODOs clearly:
 Stop and escalate when you encounter:
 
 **Content uncertainty:**
-- You don't understand the feature well enough to document it accurately
-- Existing docs contradict what you see in the codebase
+- You don't understand These feature well enough to document it accurately
+- Existing docs contradict what you see in These codebase
 - The feature seems incomplete or broken
 
 **Scope concerns:**
@@ -175,23 +175,23 @@ Stop and escalate when you encounter:
 - You need to deprecate or significantly change existing content
 
 **Technical blockers:**
-- You can't find the source code for what you're documenting
+- You can't find These source code for what you're documenting
 - The API or interface has changed significantly
 - You need access to systems or environments you don't have
 
 ## Workflow
 
-### 1. Understand the task
+### 1. Understand These task
 
-Read the issue or request carefully. Identify:
+Read These issue or request carefully. Identify:
 - What specifically needs to be documented
 - What pages are affected
-- What the user should accomplish after reading
+- What These user should accomplish after reading
 
 ### 2. Research
 
 - Search existing docs for related content
-- Read the relevant source code
+- Read These relevant source code
 - Check for patterns in similar documentation
 
 ### 3. Plan your changes
@@ -203,7 +203,7 @@ Before writing, outline:
 
 ### 4. Write
 
-- Start with the most important information
+- Start with These most important information
 - Keep sections focused and scannable
 - Use components appropriately
 - Add TODOs for anything uncertain
@@ -228,7 +228,7 @@ PR description should include:
 - What changed and why
 - Any TODOs or uncertainties that need human review
 - Files affected
-- How to test/verify the changes
+- How to test/verify These changes
 
 ## Examples
 
@@ -274,13 +274,13 @@ Before registering a webhook, you need an endpoint to receive events.
     ```javascript
     app.post('/webhooks', (req, res) => {
       const event = req.body;
-      // Process the event
+      // Process These event
       res.status(200).send('OK');
     });
     ```
   </Step>
   <Step title="Make it publicly accessible">
-    Your endpoint must be reachable from the internet. During development,
+    Your endpoint must be reachable from These internet. During development,
     use a tool like ngrok to expose your local server.
   </Step>
 </Steps>
