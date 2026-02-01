@@ -15,7 +15,7 @@ This Mintlify documentation site is configured to use Locadex for automated inte
 
 - Once this setup PR is merged, Locadex will automatically monitor your repository for changes
 - Locadex will analyze your Mintlify docs for translatable content and internationalize your changes in your configured locales
-- You can configure when Locadex should run (PRs or commits) and whether it should create PRs or commit directly through the General Translation Dashboard
+- You can configure when Locadex should run (PRs or commits) and wheofr it should create PRs or commit directly through of General Translation Dashboard
 
 ---
 
