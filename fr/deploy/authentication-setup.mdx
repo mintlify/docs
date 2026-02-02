@@ -23,7 +23,7 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
 <Tabs>
   <Tab title="Mot de passe">
     <Info>
-      L&#39;authentification par mot de passe fournit uniquement un contrôle d&#39;accès et ne prend **pas** en charge la personnalisation du contenu.
+      L&#39;authentification par mot de passe fournit uniquement un contrôle d&#39;accès et ne prend **pas** en charge les fonctionnalités spécifiques aux utilisateurs comme le contrôle d&#39;accès basé sur les groupes ou le pré-remplissage du bac à sable d’API.
     </Info>
 
     ### Prérequis
@@ -62,7 +62,7 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
 
     <Steps>
       <Step title="Activer l’authentification via le Tableau de bord Mintlify.">
-        1. Dans votre Tableau de bord Mintlify, allez à [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
+        1. Dans votre Dashboard, accédez à [Authentication](https://dashboard.mintlify.com/settings/deployment/authentication).
         2. Activez l’authentification.
         3. Dans la section **Custom Authentication**, cliquez sur **Mintlify Auth**.
         4. Cliquez sur **Enable Mintlify Auth**.
@@ -89,7 +89,7 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
   <Tab title="OAuth 2.0">
     ### Prérequis
 
-    * Un serveur OAuth ou OIDC qui prend en charge le flux « Authorization Code ».
+    * Un serveur OAuth ou OIDC qui prend en charge le flux « Authorization Code ».
     * La possibilité de créer un endpoint d’API accessible par des jetons d’accès OAuth (facultatif, pour activer le contrôle d’accès basé sur les groupes).
 
     ### Configuration
@@ -136,7 +136,7 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
 
     ### Exemple
 
-    Vous hébergez votre documentation sur `foo.com/docs` et vous disposez d’un serveur OAuth existant sur `auth.foo.com` qui prend en charge le flux « Authorization Code ».
+    Vous hébergez votre documentation sur `foo.com/docs` et vous disposez d’un serveur OAuth existant sur `auth.foo.com` qui prend en charge le flux « Authorization Code ».
 
     **Configurez les détails de votre serveur OAuth** dans votre Dashboard :
 
@@ -152,7 +152,12 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
     ```json
     {
       "groups": ["engineering", "admin"],
-      "expiresAt": 1735689600
+      "expiresAt": 1735689600,
+      "apiPlaygroundInputs": {
+        "header": {
+          "Authorization": "Bearer user_abc123"
+        }
+      }
     }
     ```
 
@@ -217,6 +222,11 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
         const user = {
           expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // expiration de session de 2 semaines
           groups: res.locals.user.groups,
+          apiPlaygroundInputs: {
+            header: {
+              "Authorization": `Bearer ${res.locals.user.apiKey}`,
+            },
+          },
         };
 
         const jwt = await new jose.SignJWT(user)
@@ -244,6 +254,11 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
             'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # expiration du JWT de 10 secondes
             'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # expiration de session de 2 semaines
             'groups': ['admin'] if current_user.is_admin else [],
+            'apiPlaygroundInputs': {
+              'header': {
+                'Authorization': f'Bearer {current_user.api_key}',
+              },
+            },
           },
           key=private_key,
           algorithm='EdDSA'
@@ -342,69 +357,114 @@ groups: ["admin"]
 
 Les utilisateurs doivent appartenir à au moins un des groupes répertoriés pour accéder à la page. Si un utilisateur tente d’accéder à une page sans le groupe requis, il recevra une erreur 404.
 
-
 <div id="how-groups-interact-with-public-pages">
   ### Fonctionnement des groupes avec les pages publiques
 </div>
 
-- Par défaut, toutes les pages nécessitent une authentification.
-- Les pages comportant une propriété `groups` ne sont accessibles qu’aux utilisateurs authentifiés appartenant à ces groupes.
-- Les pages sans propriété `groups` sont accessibles à tous les utilisateurs authentifiés.
-- Les pages avec `public: true` et sans propriété `groups` sont accessibles à tout le monde.
+* Par défaut, toutes les pages nécessitent une authentification.
+* Les pages comportant une propriété `groups` ne sont accessibles qu’aux utilisateurs authentifiés appartenant à ces groupes.
+* Les pages sans propriété `groups` sont accessibles à tous les utilisateurs authentifiés.
+* Les pages avec `public: true` et sans propriété `groups` sont accessibles à tout le monde.
 
 <CodeGroup>
+  ```mdx Page publique
+  ---
+  title: "Guide public"
+  public: true
+  ---
+  ```
 
-```mdx Page publique
----
-title: "Guide public"
-public: true
----
-```
+  ```mdx Page protégée
+  ---
+  title: "Référence API"
+  ---
+  ```
 
-```mdx Page protégée
----
-title: "Référence API"
----
-```
-
-```mdx Page protégée avec groupes
----
-title: "Configurations avancées"
-groups: ["pro", "enterprise"]
----
-```
+  ```mdx Page protégée avec groupes
+  ---
+  title: "Configurations avancées"
+  groups: ["pro", "enterprise"]
+  ---
+  ```
 </CodeGroup>
 
 <div id="user-data-format">
   ## Format des données utilisateur
 </div>
 
-Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie des données utilisateur qui contrôlent la durée de la session et l’appartenance à des groupes pour le contrôle d’accès.
+Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie des données utilisateur qui contrôlent la durée de la session et l’appartenance à des groupes pour le contrôle d’accès, ainsi que la [personnalisation du contenu](/fr/create/personalization).
 
 <CodeGroup>
-```tsx Format
-type User = {
-  expiresAt?: number;
-  groups?: string[];
-};
-```
+  ```tsx Format
+  type User = {
+    expiresAt?: number;
+    groups?: string[];
+    content?: Record<string, any>;
+    apiPlaygroundInputs?: {
+      server?: Record<string, string>;
+      header?: Record<string, unknown>;
+      query?: Record<string, unknown>;
+      cookie?: Record<string, unknown>;
+    };
+  };
+  ```
 
-```json Example
-{
-  "expiresAt": 1735689600,
-  "groups": ["admin", "beta-users"]
-}
-```
+  ```json Example
+  {
+    "expiresAt": 1735689600,
+    "groups": ["admin", "beta-users"],
+    "content": {
+      "firstName": "Jane",
+      "company": "Acme Corp"
+    },
+    "apiPlaygroundInputs": {
+      "header": {
+        "Authorization": "Bearer user_abc123"
+      },
+      "server": {
+        "baseUrl": "https://api.foo.com"
+      }
+    }
+  }
+  ```
 </CodeGroup>
 
 <ParamField path="expiresAt" type="number">
   Heure d’expiration de la session, en secondes depuis l’époque Unix. Lorsque l’heure actuelle dépasse cette valeur, l’utilisateur doit s’authentifier de nouveau.
 
-  <Warning>**Pour les JWT :** cela diffère de la revendication `exp` d’un JWT, qui détermine le moment où un JWT est considéré comme invalide. Par mesure de sécurité, définissez la revendication `exp` du JWT sur une durée courte (10&nbsp;secondes ou moins). Utilisez `expiresAt` pour la durée réelle de la session (de quelques heures à plusieurs semaines).</Warning>
+  <Warning>**Pour les JWT :** cela diffère de la revendication `exp` d’un JWT, qui détermine le moment où un JWT est considéré comme invalide. Par mesure de sécurité, définissez la revendication `exp` du JWT sur une durée courte (10 secondes ou moins). Utilisez `expiresAt` pour la durée réelle de la session (de quelques heures à plusieurs semaines).</Warning>
 </ParamField>
 
 <ParamField path="groups" type="string[]">
   Liste des groupes auxquels l’utilisateur appartient. Les pages dont le champ `groups` dans le frontmatter contient une valeur correspondante sont accessibles à cet utilisateur.
 
   **Exemple** : Un utilisateur avec `groups: ["admin", "engineering"]` peut accéder aux pages étiquetées avec `admin` ou `engineering` dans leur champ `groups` du frontmatter.
+</ParamField>
+
+<ParamField path="content" type="Record<string, any>">
+  Données personnalisées accessibles dans les pages MDX via la variable `user` pour le [contenu personnalisé](/fr/create/personalization#dynamic-mdx-content).
+</ParamField>
+
+<ParamField path="apiPlaygroundInputs" type="object">
+  Préremplit les champs du bac à sable d’API avec des valeurs propres à l’utilisateur. Lorsqu’un utilisateur s’authentifie, ces valeurs renseignent les champs de saisie correspondants dans le bac à sable d’API. Les utilisateurs peuvent remplacer les valeurs préremplies, et leurs remplacements sont conservés dans le stockage local.
+
+  Seules les valeurs qui correspondent au schéma de sécurité du point de terminaison actuel sont appliquées.
+
+  <Expandable title="propriétés">
+    <ParamField path="header" type="Record<string, unknown>">
+      Valeurs d’en-tête à préremplir, indexées par nom d’en-tête.
+    </ParamField>
+
+    <ParamField path="query" type="Record<string, unknown>">
+      Valeurs de paramètres de requête à préremplir, indexées par nom de paramètre.
+    </ParamField>
+
+    <ParamField path="cookie" type="Record<string, unknown>">
+      Valeurs de cookie à préremplir, indexées par nom de cookie.
+    </ParamField>
+
+    <ParamField path="server" type="Record<string, string>">
+      Valeurs de variables de serveur à préremplir, indexées par nom de variable.
+    </ParamField>
+  </Expandable>
 </ParamField>

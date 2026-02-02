@@ -1,0 +1,235 @@
+---
+title: "Contenido personalizado"
+description: "Muestra contenido personalizado según los datos del usuario y la autenticación."
+keywords: ["personalización de contenido", "personalización", "datos de usuario", "grupos", "dinámico", "rellenado previo"]
+---
+
+<Note>
+  La personalización requiere que la [autenticación](/es/deploy/authentication-setup) esté configurada con OAuth o JWT (JSON Web Token).
+</Note>
+
+Personaliza el contenido para tus usuarios al iniciar sesión en tu sitio de documentación. Puedes rellenar automáticamente las claves de API, mostrar contenido específico para el plan o el rol de un usuario y filtrar el contenido de referencia de la API en función de su pertenencia a grupos.
+
+<div id="api-key-prefilling">
+  ## Relleno automático de claves de la API
+</div>
+
+Rellena automáticamente los campos del área de pruebas de la API con valores específicos de cada usuario devolviendo nombres de campos coincidentes en tus datos de usuario. Incluye esos valores en el campo `apiPlaygroundInputs` de tus [datos de usuario](/es/deploy/authentication-setup#user-data-format).
+
+```json
+{
+  "apiPlaygroundInputs": {
+    "header": { "X-API-Key": "user_api_key_123" },
+    "server": { "subdomain": "acme" }
+  }
+}
+```
+
+Los nombres de los campos deben coincidir con los definidos en tu especificación de OpenAPI. Solo se aplican los valores que coinciden con el esquema de seguridad del endpoint actual.
+
+<div id="dynamic-mdx-content">
+  ## Contenido MDX dinámico
+</div>
+
+Muestra contenido en función de la información del usuario, como el nombre, el plan u organización, utilizando la variable `user` en tus páginas MDX. Incluye datos personalizados en el campo `content` de tus [datos de usuario](/es/deploy/authentication-setup#user-data-format).
+
+```json
+{
+  "content": {
+    "firstName": "Jane",
+    "company": "Acme Corp",
+    "plan": "Enterprise"
+  }
+}
+```
+
+Utiliza estos valores en tu MDX.
+
+```mdx
+¡Bienvenido de nuevo, {user.firstName}! Tu plan {user.plan} incluye 100 espacios para miembros de tu organización {user.company}.
+```
+
+Para el renderizado condicional basado en datos de usuario, usa la variable `user` en componentes JSX.
+
+```jsx
+{
+  user.plan === 'enterprise'
+    ? <>Contacta con tu administrador para habilitar esta función.</>
+    : <>Consulta <a href="https://yoursite.com/pricing">precios</a> para obtener información sobre la actualización.</>
+}
+```
+
+<Note>
+  La variable `user` es un objeto vacío para los usuarios que no han iniciado sesión. Utiliza el encadenamiento opcional en todas las propiedades de `user` para evitar errores. Por ejemplo, `{user.org?.plan}` en lugar de `{user.org.plan}`.
+</Note>
+
+<div id="page-visibility">
+  ## Visibilidad de páginas
+</div>
+
+Restringe las páginas a grupos específicos de usuarios añadiendo `groups` al frontmatter de la página. Los usuarios deben pertenecer a al menos uno de los grupos indicados para acceder a la página.
+
+```mdx
+---
+title: "Configuración de administrador"
+groups: ["admin"]
+---
+```
+
+Para obtener más detalles sobre cómo interactúan los groups con las páginas públicas, consulta [Controlar el acceso con groups](/es/deploy/authentication-setup#control-access-with-groups).
+
+<div id="openapi-content-filtering">
+  ## Filtrado de contenido de OpenAPI
+</div>
+
+Filtra el contenido de referencia de tu API en función de los grupos de usuarios mediante la extensión `x-mint` en tu especificación de OpenAPI. Puedes filtrar endpoints completos, propiedades individuales de esquemas, variantes de `oneOf` y valores de enum.
+
+<div id="filter-endpoints">
+  ### Filtrar endpoints
+</div>
+
+Agrega `x-mint.groups` a una operación o ruta para restringir la página del endpoint a grupos de usuarios específicos. Los usuarios que no pertenezcan a los grupos indicados no verán el endpoint en la navegación ni podrán acceder a su página.
+
+<CodeGroup>
+  ```json {6-8} Operación restringida
+  {
+    "paths": {
+      "/billing": {
+        "get": {
+          "summary": "Obtener detalles de facturación",
+          "x-mint": {
+            "groups": ["admin", "billing"]
+          },
+          "responses": {
+            "200": {
+              "description": "Detalles de facturación"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+
+  ```json {3-5} Ruta restringida
+  {
+    "paths": {
+      "x-mint": {
+        "groups": ["admin", "billing"]
+      },
+      "/billing": {
+        "get": {
+          "summary": "Obtener detalles de facturación",
+        }
+      },
+      "/users": {
+        "get": {
+          "summary": "Obtener detalles de usuarios",
+        }
+      }
+    }
+  }
+  ```
+</CodeGroup>
+
+<div id="filter-schema-properties">
+  ### Filtrar propiedades del esquema
+</div>
+
+Agrega `x-mint.groups` a propiedades individuales dentro de los cuerpos de las solicitudes, parámetros o respuestas. Las propiedades sin `x-mint.groups` siguen siendo visibles para todos los usuarios.
+
+```json {11-13} Restricted property
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "internal_id": {
+            "type": "string",
+            "x-mint": {
+              "groups": ["admin"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+En este ejemplo, todos los usuarios pueden ver la propiedad `name`. Solo los usuarios del grupo `admin` pueden ver la propiedad `internal_id`.
+
+<div id="filter-oneof-variants">
+  ### Filtrar variantes de oneOf
+</div>
+
+Agrega `x-mint.groups` a las opciones individuales de `oneOf` para restringir qué variantes de esquema puede ver un usuario.
+
+```json {7-9} Restricted oneOf variant
+{
+  "schema": {
+    "oneOf": [
+      {
+        "title": "Enterprise config",
+        "type": "object",
+        "x-mint": {
+          "groups": ["enterprise"]
+        },
+        "properties": {
+          "sso_enabled": { "type": "boolean" }
+        }
+      },
+      {
+        "title": "Standard config",
+        "type": "object",
+        "properties": {
+          "notifications": { "type": "boolean" }
+        }
+      }
+    ]
+  }
+}
+```
+
+<div id="filter-enum-values">
+  ### Filtrar valores de enum
+</div>
+
+Usa la extensión `x-mint-enum` para restringir valores individuales de enum por grupo. Enumera cada valor restringido como una key, con sus grupos permitidos como value. Los valores de enum que no estén listados en `x-mint-enum` son visibles para todos los usuarios.
+
+```json {4-7} Restricted enum values
+{
+  "type": "string",
+  "enum": ["free", "pro", "enterprise"],
+  "x-mint-enum": {
+    "pro": ["pro", "enterprise"],
+    "enterprise": ["enterprise"]
+  }
+}
+```
+
+En este ejemplo, todos los usuarios ven `free`. Los usuarios de los grupos `pro` o `enterprise` ven `pro`. Solo los usuarios del grupo `enterprise` ven `enterprise`.
+
+<Note>
+  `x-mint-enum` es una extensión independiente de nivel superior en el objeto de esquema y no está anidada dentro de `x-mint`.
+</Note>
+
+<div id="user-data-format">
+  ## Formato de datos de usuario
+</div>
+
+Tu sistema de autenticación devuelve datos de usuario que gestionan la personalización. Los campos `groups`, `content` y `apiPlaygroundInputs` descritos en esta página forman parte del objeto de datos de usuario.
+
+Para obtener el formato completo de los datos de usuario y la referencia de campos, consulta [Formato de datos de usuario](/es/deploy/authentication-setup#user-data-format).
+
+<div id="logout-behavior">
+  ## Comportamiento de cierre de sesión
+</div>
+
+El cierre de sesión se realiza en el cliente. Cuando los usuarios hacen clic en el botón de cerrar sesión, Mintlify borra los datos de la sesión almacenados en el navegador.
+
+Para limitar el tiempo durante el cual persisten los datos de personalización, configura el campo `expiresAt` en los datos de usuario.

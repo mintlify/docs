@@ -23,7 +23,7 @@ Selecciona el método de handshake que quieres configurar.
 <Tabs>
   <Tab title="Contraseña">
     <Info>
-      La autenticación mediante contraseña proporciona únicamente control de acceso y **no** permite la personalización del contenido.
+      La autenticación mediante contraseña proporciona únicamente control de acceso y **no** admite funciones específicas por usuario, como el control de acceso basado en grupos o el autocompletado previo del área de pruebas de la API.
     </Info>
 
     ### Requisitos previos
@@ -152,7 +152,12 @@ Selecciona el método de handshake que quieres configurar.
     ```json
     {
       "groups": ["engineering", "admin"],
-      "expiresAt": 1735689600
+      "expiresAt": 1735689600,
+      "apiPlaygroundInputs": {
+        "header": {
+          "Authorization": "Bearer user_abc123"
+        }
+      }
     }
     ```
 
@@ -163,7 +168,7 @@ Selecciona el método de handshake que quieres configurar.
     **Configura tu servidor OAuth para permitir redirecciones** a tu URL de callback.
   </Tab>
 
-  <Tab title="JWT (JSON Web Token)">
+  <Tab title="JWT">
     ### Requisitos previos
 
     * Un sistema de autenticación que pueda generar y firmar JWT.
@@ -181,7 +186,7 @@ Selecciona el método de handshake que quieres configurar.
         6. Haz clic en **Generate new key**.
         7. Almacena tu clave de forma segura donde tu backend pueda acceder a ella.
 
-        Después de generar una clave privada, tu sitio se vuelve a implementar. Cuando termina la implementación, cualquier persona que visite tu sitio debe iniciar sesión en tu sistema de autenticación JWT para acceder a tu contenido.
+        Después de generar una clave privada, tu sitio se vuelve a implementar automáticamente. Cuando la implementación haya finalizado, cualquier persona que visite tu sitio debe iniciar sesión en tu sistema de autenticación JWT para acceder a tu contenido.
       </Step>
 
       <Step title="Integra la autenticación de Mintlify en tu flujo de inicio de sesión.">
@@ -195,7 +200,7 @@ Selecciona el método de handshake que quieres configurar.
 
     ### Ejemplo
 
-    Hospedas tu documentación en `docs.foo.com` con un sistema de autenticación existente en `foo.com`. Quieres ampliar tu flujo de inicio de sesión para conceder acceso a la documentación manteniéndola separada de tu dashboard (o no tienes un dashboard).
+    Alojas tu documentación en `docs.foo.com` con un sistema de autenticación existente en `foo.com`. Quieres ampliar tu flujo de inicio de sesión para conceder acceso a la documentación manteniéndola separada de tu dashboard (o no tienes un dashboard).
 
     Crea un endpoint de inicio de sesión en `https://foo.com/docs-login` que amplíe tu autenticación existente.
 
@@ -217,6 +222,11 @@ Selecciona el método de handshake que quieres configurar.
         const user = {
           expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // vencimiento de la sesión de 2 semanas
           groups: res.locals.user.groups,
+          apiPlaygroundInputs: {
+            header: {
+              "Authorization": `Bearer ${res.locals.user.apiKey}`,
+            },
+          },
         };
 
         const jwt = await new jose.SignJWT(user)
@@ -244,6 +254,11 @@ Selecciona el método de handshake que quieres configurar.
             'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # vencimiento del JWT de 10 segundos
             'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # vencimiento de la sesión de 2 semanas
             'groups': ['admin'] if current_user.is_admin else [],
+            'apiPlaygroundInputs': {
+              'header': {
+                'Authorization': f'Bearer {current_user.api_key}',
+              },
+            },
           },
           key=private_key,
           algorithm='EdDSA'
@@ -342,59 +357,76 @@ groups: ["admin"]
 
 Los usuarios deben pertenecer al menos a uno de los groups enumerados para acceder a la página. Si un usuario intenta acceder a una página sin el group requerido, recibirá un error 404.
 
-
 <div id="how-groups-interact-with-public-pages">
   ### Cómo interactúan los groups con las páginas públicas
 </div>
 
-- Todas las páginas requieren Autenticación de forma predeterminada.
-- Las páginas con una propiedad `groups` solo son accesibles para usuarios autenticados dentro de esos groups.
-- Las páginas sin la propiedad `groups` son accesibles para todos los usuarios autenticados.
-- Las páginas con `public: true` y sin la propiedad `groups` son accesibles para cualquier persona.
+* Todas las páginas requieren Autenticación de forma predeterminada.
+* Las páginas con una propiedad `groups` solo son accesibles para usuarios autenticados dentro de esos groups.
+* Las páginas sin la propiedad `groups` son accesibles para todos los usuarios autenticados.
+* Las páginas con `public: true` y sin la propiedad `groups` son accesibles para cualquier persona.
 
 <CodeGroup>
+  ```mdx Public page
+  ---
+  title: "Guía pública"
+  public: true
+  ---
+  ```
 
-```mdx Public page
----
-title: "Guía pública"
-public: true
----
-```
+  ```mdx Protected page
+  ---
+  title: "Referencia de API"
+  ---
+  ```
 
-```mdx Protected page
----
-title: "Referencia de API"
----
-```
-
-```mdx Protected page with groups
----
-title: "Configuraciones avanzadas"
-groups: ["pro", "enterprise"]
----
-```
+  ```mdx Protected page with groups
+  ---
+  title: "Configuraciones avanzadas"
+  groups: ["pro", "enterprise"]
+  ---
+  ```
 </CodeGroup>
 
 <div id="user-data-format">
   ## Formato de datos de usuario
 </div>
 
-Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuario que controlan la duración de la sesión y la pertenencia a grupos para el control de acceso.
+Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuario que controlan la duración de la sesión, la pertenencia a grupos y la [personalización de contenido](/es/create/personalization).
 
 <CodeGroup>
-```tsx Format
-type User = {
-  expiresAt?: number;
-  groups?: string[];
-};
-```
+  ```tsx Format
+  type User = {
+    expiresAt?: number;
+    groups?: string[];
+    content?: Record<string, any>;
+    apiPlaygroundInputs?: {
+      server?: Record<string, string>;
+      header?: Record<string, unknown>;
+      query?: Record<string, unknown>;
+      cookie?: Record<string, unknown>;
+    };
+  };
+  ```
 
-```json Example
-{
-  "expiresAt": 1735689600,
-  "groups": ["admin", "beta-users"]
-}
-```
+  ```json Example
+  {
+    "expiresAt": 1735689600,
+    "groups": ["admin", "beta-users"],
+    "content": {
+      "firstName": "Jane",
+      "company": "Acme Corp"
+    },
+    "apiPlaygroundInputs": {
+      "header": {
+        "Authorization": "Bearer user_abc123"
+      },
+      "server": {
+        "baseUrl": "https://api.foo.com"
+      }
+    }
+  }
+  ```
 </CodeGroup>
 
 <ParamField path="expiresAt" type="number">
@@ -407,4 +439,32 @@ type User = {
   Lista de los grupos a los que pertenece el usuario. Las páginas cuyo frontmatter tenga un `groups` coincidente son accesibles para este usuario.
 
   **Ejemplo**: Un usuario con `groups: ["admin", "engineering"]` puede acceder a páginas etiquetadas con los grupos `admin` o `engineering`.
+</ParamField>
+
+<ParamField path="content" type="Record<string, any>">
+  Datos personalizados accesibles en páginas MDX mediante la variable `user` para [contenido personalizado](/es/create/personalization#dynamic-mdx-content).
+</ParamField>
+
+<ParamField path="apiPlaygroundInputs" type="object">
+  Rellena previamente los campos del área de pruebas de la API con valores específicos del usuario. Cuando un usuario se autentica, estos valores rellenan los campos de entrada correspondientes en el área de pruebas de la API. Los usuarios pueden sobrescribir los valores rellenados previamente, y sus cambios persisten en el almacenamiento local.
+
+  Solo se aplican los valores que coinciden con el esquema de seguridad del endpoint actual.
+
+  <Expandable title="properties">
+    <ParamField path="header" type="Record<string, unknown>">
+      Valores de encabezado que se van a rellenar previamente, indexados por nombre de encabezado.
+    </ParamField>
+
+    <ParamField path="query" type="Record<string, unknown>">
+      Valores de parámetros de búsqueda que se van a rellenar previamente, indexados por nombre de parámetro.
+    </ParamField>
+
+    <ParamField path="cookie" type="Record<string, unknown>">
+      Valores de cookies que se van a rellenar previamente, indexados por nombre de cookie.
+    </ParamField>
+
+    <ParamField path="server" type="Record<string, string>">
+      Valores de variables de servidor que se van a rellenar previamente, indexados por nombre de variable.
+    </ParamField>
+  </Expandable>
 </ParamField>

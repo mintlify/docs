@@ -23,7 +23,7 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
 <Tabs>
   <Tab title="密码">
     <Info>
-      密码认证仅提供访问控制，**不**支持内容个性化。
+      密码认证仅提供访问控制，**不**支持用户级功能，例如基于用户组的访问控制或 API 操作台中的预填数据。
     </Info>
 
     ### 前提条件
@@ -152,7 +152,12 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
     ```json
     {
       "groups": ["engineering", "admin"],
-      "expiresAt": 1735689600
+      "expiresAt": 1735689600,
+      "apiPlaygroundInputs": {
+        "header": {
+          "Authorization": "Bearer user_abc123"
+        }
+      }
     }
     ```
 
@@ -217,6 +222,11 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
         const user = {
           expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 周会话过期时间
           groups: res.locals.user.groups,
+          apiPlaygroundInputs: {
+            header: {
+              "Authorization": `Bearer ${res.locals.user.apiKey}`,
+            },
+          },
         };
 
         const jwt = await new jose.SignJWT(user)
@@ -244,6 +254,11 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
             'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # JWT 10 秒后过期
             'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 周会话过期时间
             'groups': ['admin'] if current_user.is_admin else [],
+            'apiPlaygroundInputs': {
+              'header': {
+                'Authorization': f'Bearer {current_user.api_key}',
+              },
+            },
           },
           key=private_key,
           algorithm='EdDSA'
@@ -342,59 +357,76 @@ groups: ["admin"]
 
 用户必须至少属于所列的一个 groups 才能访问该页面。如果用户在不具备所需分组的情况下尝试访问页面，将会收到 404 错误。
 
-
 <div id="how-groups-interact-with-public-pages">
   ### groups 如何与公共页面配合使用
 </div>
 
-- 默认情况下，所有页面都需要认证。
-- 具有 `groups` 属性的页面仅对属于这些 groups 的已认证用户可访问。
-- 没有 `groups` 属性的页面对所有已认证用户可访问。
-- 具有 `public: true` 且没有 `groups` 属性的页面对所有人可访问。
+* 默认情况下，所有页面都需要认证。
+* 具有 `groups` 属性的页面仅对属于这些 groups 的已认证用户可访问。
+* 没有 `groups` 属性的页面对所有已认证用户可访问。
+* 具有 `public: true` 且没有 `groups` 属性的页面对所有人可访问。
 
 <CodeGroup>
+  ```mdx Public page
+  ---
+  title: "Public guide"
+  public: true
+  ---
+  ```
 
-```mdx Public page
----
-title: "Public guide"
-public: true
----
-```
+  ```mdx Protected page
+  ---
+  title: "API reference"
+  ---
+  ```
 
-```mdx Protected page
----
-title: "API reference"
----
-```
-
-```mdx Protected page with groups
----
-title: "Advanced configurations"
-groups: ["pro", "enterprise"]
----
-```
+  ```mdx Protected page with groups
+  ---
+  title: "Advanced configurations"
+  groups: ["pro", "enterprise"]
+  ---
+  ```
 </CodeGroup>
 
 <div id="user-data-format">
   ## 用户数据格式
 </div>
 
-当使用 OAuth 或 JWT 认证时，系统会返回用户数据，用于控制会话时长以及基于用户组成员关系的访问控制。
+当使用 OAuth 或 JWT 认证时，系统会返回用户数据，用于控制会话时长、基于用户组成员关系的访问控制，以及[内容个性化](/zh/create/personalization)。
 
 <CodeGroup>
-```tsx Format
-type User = {
-  expiresAt?: number;
-  groups?: string[];
-};
-```
+  ```tsx Format
+  type User = {
+    expiresAt?: number;
+    groups?: string[];
+    content?: Record<string, any>;
+    apiPlaygroundInputs?: {
+      server?: Record<string, string>;
+      header?: Record<string, unknown>;
+      query?: Record<string, unknown>;
+      cookie?: Record<string, unknown>;
+    };
+  };
+  ```
 
-```json Example
-{
-  "expiresAt": 1735689600,
-  "groups": ["admin", "beta-users"]
-}
-```
+  ```json Example
+  {
+    "expiresAt": 1735689600,
+    "groups": ["admin", "beta-users"],
+    "content": {
+      "firstName": "Jane",
+      "company": "Acme Corp"
+    },
+    "apiPlaygroundInputs": {
+      "header": {
+        "Authorization": "Bearer user_abc123"
+      },
+      "server": {
+        "baseUrl": "https://api.foo.com"
+      }
+    }
+  }
+  ```
 </CodeGroup>
 
 <ParamField path="expiresAt" type="number">
@@ -407,4 +439,32 @@ type User = {
   用户所属用户组的列表。frontmatter 中带有匹配 `groups` 的页面对该用户可访问。
 
   **示例**：具有 `groups: ["admin", "engineering"]` 的用户可以访问带有 `admin` 或 `engineering` 用户组标记的页面。
+</ParamField>
+
+<ParamField path="content" type="Record<string, any>">
+  可在 MDX 页面中通过 `user` 变量访问的自定义数据，用于[个性化内容](/zh/create/personalization#dynamic-mdx-content)。
+</ParamField>
+
+<ParamField path="apiPlaygroundInputs" type="object">
+  使用用户特定的值预填 API 操作台中的字段。当用户完成认证后，这些值会填充到 API 操作台中对应的输入字段。用户可以覆盖预填的值，其修改会持久保存在本地存储中。
+
+  只有与当前端点的安全方案匹配的值才会被应用。
+
+  <Expandable title="properties">
+    <ParamField path="header" type="Record<string, unknown>">
+      要预填的 Header 值，以 Header 名称作为 key。
+    </ParamField>
+
+    <ParamField path="query" type="Record<string, unknown>">
+      要预填的查询参数值，以参数名称作为 key。
+    </ParamField>
+
+    <ParamField path="cookie" type="Record<string, unknown>">
+      要预填的 Cookie 值，以 Cookie 名称作为 key。
+    </ParamField>
+
+    <ParamField path="server" type="Record<string, string>">
+      要预填的服务器变量值，以变量名称作为 key。
+    </ParamField>
+  </Expandable>
 </ParamField>
