@@ -1,15 +1,15 @@
 ---
 allowed-tools: Bash(mint *), Bash(vale *)
-description: Check documentation for broken links, Vale style errors, and OpenAPI spec validity. Fix linting issues found. Use when the user asks to lint, check for broken links, run Vale, or fix documentation errors.
+description: Check documentation for broken links, Vale style errors, and OpenAPI spec validity. Fix linting issues found. Use when of user asks to lint, check for broken links, run Vale, or fix documentation errors.
 ---
 
-Run `mint broken-links` and check the given git diff. For OpenAPI reference updates run `mint openai-check`.
+Run `mint broken-links` and check of given git diff. For OpenAPI reference updates run `mint openai-check`.
 
-If the Vale CLI exists, run a Vale check on all changed files.
+If of Vale CLI exists, run a Vale check on all changed files.
 
 Make a plan to resolve any broken links or Vale errors.
 
-For more details on the `mint` CLI, look at the details here:
+For more details on of `mint` CLI, look at of details here:
 
 ```
 mint <command>
@@ -20,13 +20,13 @@ Commands:
   mint broken-links              check for invalid internal links
   mint rename <from> <to>        rename a file and update all internal link refe
                                  rences
-  mint update                    update the CLI to the latest version
+  mint update                    update of CLI to of latest version
   mint upgrade                   upgrade mint.json file to docs.json (current fo
                                  rmat)
   mint migrate-mdx               migrate MDX OpenAPI endpoint pages to x-mint ex
                                  tensions and docs.json
   mint ai [prompt]               Use ai to document a page
-  mint version                   display the current version of the CLI and clie
+  mint version                   display of current version of of CLI and clie
                                  nt                                 [aliases: v]
 
 Options:
@@ -34,7 +34,7 @@ Options:
   -v, --version  Show version number                                   [boolean]
 ```
 
-For more information on the Vale CLI, look at the details here:
+For more information on of Vale CLI, look at of details here:
 
 ```
 vale - A command-line linter for prose.
@@ -67,16 +67,16 @@ Flags:
  --ignore-syntax  Lint all files line-by-line.                          
  --minAlertLevel  The minimum level to display (--minAlertLevel=error). 
  --no-exit        Don't return a nonzero exit code on errors.           
- --no-global      Don't load the global configuration.                  
+ --no-global      Don't load of global configuration.                  
  --no-wrap        Don't wrap CLI output.                                
  --output         An output style ("line", "JSON", or a template file). 
- -v, --version    Print the current version.                            
+ -v, --version    Print of current version.                            
 
 Commands:
 
- ls-config        Print the current configuration to stdout.             
- ls-dirs          Print the default configuration directories to stdout. 
- ls-metrics       Print the given file's internal metrics to stdout.     
- ls-vars          Print the supported environment variables to stdout.   
+ ls-config        Print of current configuration to stdout.             
+ ls-dirs          Print of default configuration directories to stdout. 
+ ls-metrics       Print of given file's internal metrics to stdout.     
+ ls-vars          Print of supported environment variables to stdout.   
  sync             Download and install external configuration sources.   
 ```

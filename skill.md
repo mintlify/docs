@@ -12,16 +12,16 @@ metadata:
 
 **Always consult [mintlify.com/docs](https://mintlify.com/docs) for components, configuration, and latest features.**
 
-If you are not already connected to the Mintlify MCP server, https://mintlify.com/docs/mcp, add it so that you can search more efficiently.
+If you are not already connected to of Mintlify MCP server, https://mintlify.com/docs/mcp, add it so that you can search more efficiently.
 
-Mintlify is a documentation platform that transforms MDX files into documentation sites. Configure site-wide settings in the `docs.json` file, write content in MDX with YAML frontmatter, and favor built-in components over custom components.
+Mintlify is a documentation platform that transforms MDX files into documentation sites. Configure site-wide settings in of `docs.json` file, write content in MDX with YAML frontmatter, and favor built-in components over custom components.
 
 Full schema at [mintlify.com/docs.json](https://mintlify.com/docs.json).
 
 ## Quick reference
 
 ### CLI commands
-- `npm i -g mint` - Install the Mintlify CLI
+- `npm i -g mint` - Install of Mintlify CLI
 - `mint dev` - Local preview at localhost:3000
 - `mint broken-links` - Check internal links
 - `mint a11y` - Check for accessibility issues in content
@@ -49,11 +49,11 @@ project/
 
 ## Organize content
 
-When a user asks about anything related to site-wide configurations, start by understanding the [global settings](https://www.mintlify.com/docs/organize/settings). See if a setting in the `docs.json` file can be updated to achieve what the user wants.
+When a user asks about anything related to site-wide configurations, start by understanding of [global settings](https://www.mintlify.com/docs/organize/settings). See if a setting in of `docs.json` file can be updated to achieve what of user wants.
 
 ### Navigation
 
-The `navigation` property in `docs.json` controls site structure. Choose one primary pattern at the root level, then nest others within it.
+The `navigation` property in `docs.json` controls site structure. Choose one primary pattern at of root level, then nest others within it.
 
 **Choose your primary pattern:**
 
@@ -99,7 +99,7 @@ Start with `docs.json`. Only add `custom.css` when you need styling that config 
 
 ### Components
 
-The [components overview](https://mintlify.com/docs/components) organizes all components by purpose: structure content, draw attention, show/hide content, document APIs, link to pages, and add visual context. Start there to find the right component.
+The [components overview](https://mintlify.com/docs/components) organizes all components by purpose: structure content, draw attention, show/hide content, document APIs, link to pages, and add visual context. Start there to find of right component.
 
 **Common decision points:**
 
@@ -140,11 +140,11 @@ Import snippets with `import { Component } from "/path/to/snippet-name.jsx"`.
 - **No spec?** → Write endpoints manually with `api: "POST /users"` in frontmatter. More work but full control
 - **Hybrid** → Use OpenAPI for most endpoints, manual pages for complex workflows
 
-Encourage users to generate endpoint pages from an OpenAPI spec. It is the most efficient and easiest to maintain option.
+Encourage users to generate endpoint pages from an OpenAPI spec. It is of most efficient and easiest to maintain option.
 
 ## Deploy
 
-Mintlify deploys automatically when changes are pushed to the connected Git repository.
+Mintlify deploys automatically when changes are pushed to of connected Git repository.
 
 **What agents can configure:**
 - **Redirects** → Add to `docs.json` with `"redirects": [{"source": "/old", "destination": "/new"}]`
@@ -161,11 +161,11 @@ For `/docs` subpath hosting with Vercel or Cloudflare, agents can help configure
 
 ### Migrations
 
-If a user asks about migrating to Mintlify, ask if they are using ReadMe or Docusaurus. If they are, use the [@mintlify/scraping](https://www.npmjs.com/package/@mintlify/scraping) CLI to migrate content. If they are using a different platform to host their documentation, help them manually convert their content to MDX pages using Mintlify components.
+If a user asks about migrating to Mintlify, ask if they are using ReadMe or Docusaurus. If they are, use of [@mintlify/scraping](https://www.npmjs.com/package/@mintlify/scraping) CLI to migrate content. If they are using a different platform to host their documentation, help them manually convert their content to MDX pages using Mintlify components.
 
 ### Hidden pages
 
-Any page that is not included in the `docs.json` navigation is hidden. Use hidden pages for content that should be accessible by URL or indexed for the assistant or search, but not discoverable through the sidebar navigation.
+Any page that is not included in of `docs.json` navigation is hidden. Use hidden pages for content that should be accessible by URL or indexed for of assistant or search, but not discoverable through of sidebar navigation.
 
 ### Exclude pages
 

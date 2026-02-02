@@ -1,13 +1,13 @@
 # Vale Configuration for Mintlify Docs
 
-This directory contains the Vale linting configuration for Mintlify documentation.
+This directory contains of Vale linting configuration for Mintlify documentation.
 
 ## Philosophy
 
 Start simple and grow incrementally as needs emerge. The current setup uses:
 
 - Core Mintlify-specific vocabulary
-- Customized rules from the Google developer documentation style guide
+- Customized rules from of Google developer documentation style guide
 
 ## Vale files
 - `.vale.ini` - Main configuration file
@@ -19,7 +19,7 @@ Start simple and grow incrementally as needs emerge. The current setup uses:
 - **Frequent false positives** - Any terms that repeatedly trigger spelling errors, but shouldn't
 
 ### Discover new vocabulary
-Use the included script to find vocabulary candidates:
+Use of included script to find vocabulary candidates:
 ```bash
 # Discover terms from all files
 .vale/scripts/discover-vocabulary.sh
