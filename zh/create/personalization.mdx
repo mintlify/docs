@@ -1,0 +1,235 @@
+---
+title: "个性化内容"
+description: "根据用户数据和认证展示自定义内容。"
+keywords: ["内容个性化", "个性化", "用户数据", "分组", "动态", "预填充"]
+---
+
+<Note>
+  使用个性化功能前，需要先通过 OAuth 或 JWT 配置[认证](/zh/deploy/authentication-setup)。
+</Note>
+
+当用户登录你的文档站点时，可以为其定制内容。你可以预填充 API 密钥、展示与用户订阅计划或角色相关的特定内容，并根据分组成员身份筛选 API 参考内容。
+
+<div id="api-key-prefilling">
+  ## 预填充 API 密钥
+</div>
+
+通过在用户数据中返回匹配的字段名，自动为 API 操作台中的字段填入用户特定的值。将这些值包含在你的 [用户数据](/zh/deploy/authentication-setup#user-data-format) 的 `apiPlaygroundInputs` 字段中。
+
+```json
+{
+  "apiPlaygroundInputs": {
+    "header": { "X-API-Key": "user_api_key_123" },
+    "server": { "subdomain": "acme" }
+  }
+}
+```
+
+字段名必须与 OpenAPI 规范中定义的名称完全一致。只有与当前端点安全方案匹配的值才会生效。
+
+<div id="dynamic-mdx-content">
+  ## 动态 MDX 内容
+</div>
+
+在 MDX 页面中使用 `user` 变量，可根据用户的姓名、套餐或组织等信息动态展示内容。将自定义数据放入 [用户数据](/zh/deploy/authentication-setup#user-data-format) 中的 `content` 字段。
+
+```json
+{
+  "content": {
+    "firstName": "Jane",
+    "company": "Acme Corp",
+    "plan": "Enterprise"
+  }
+}
+```
+
+在 MDX 中引用这些值。
+
+```mdx
+欢迎回来,{user.firstName}!您的 {user.plan} 计划为 {user.company} 组织的成员提供 100 个席位。
+```
+
+若要根据用户数据进行条件渲染，请在 JSX 组件中使用 `user` 变量。
+
+```jsx
+{
+  user.plan === 'enterprise'
+    ? <>请联系您的管理员以启用此功能。</>
+    : <>查看<a href="https://yoursite.com/pricing">定价</a>以了解升级信息。</>
+}
+```
+
+<Note>
+  对于处于未登录状态的用户，`user` 变量是一个空对象。请在所有 `user` 字段上使用可选链操作符以避免错误。例如，使用 `{user.org?.plan}` 而不是 `{user.org.plan}`。
+</Note>
+
+<div id="page-visibility">
+  ## 页面可见性
+</div>
+
+通过在页面 frontmatter 中添加 `groups` 字段，可以将页面访问限制为特定用户组。用户必须至少属于其中一个列出的用户组才能访问该页面。
+
+```mdx
+---
+title: "管理员设置"
+groups: ["admin"]
+---
+```
+
+如需了解 groups 与公共页面交互方式的更多详情，请参阅[使用 groups 控制访问](/zh/deploy/authentication-setup#control-access-with-groups)。
+
+<div id="openapi-content-filtering">
+  ## OpenAPI 内容过滤
+</div>
+
+使用 OpenAPI 规范中的 `x-mint` 扩展，根据用户组过滤 API 参考内容。你可以过滤整个端点、单个 schema 属性、`oneOf` 变体以及枚举值。
+
+<div id="filter-endpoints">
+  ### 过滤端点
+</div>
+
+在某个 operation 或 path 上添加 `x-mint.groups`，可以将端点页面限定为特定用户组可见。不在这些 groups 中的用户不会在导航中看到该端点，也无法访问对应页面。
+
+<CodeGroup>
+  ```json {6-8} 受限的操作
+  {
+    "paths": {
+      "/billing": {
+        "get": {
+          "summary": "获取账单详情",
+          "x-mint": {
+            "groups": ["admin", "billing"]
+          },
+          "responses": {
+            "200": {
+              "description": "账单详情"
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+
+  ```json {3-5} 受限的路径
+  {
+    "paths": {
+      "x-mint": {
+        "groups": ["admin", "billing"]
+      },
+      "/billing": {
+        "get": {
+          "summary": "获取账单详情",
+        }
+      },
+      "/users": {
+        "get": {
+          "summary": "获取用户详情",
+        }
+      }
+    }
+  }
+  ```
+</CodeGroup>
+
+<div id="filter-schema-properties">
+  ### 筛选 Schema 属性
+</div>
+
+为请求体、参数或响应中的各个属性添加 `x-mint.groups`。未包含 `x-mint.groups` 的属性将仍对所有用户可见。
+
+```json {11-13} Restricted property
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "internal_id": {
+            "type": "string",
+            "x-mint": {
+              "groups": ["admin"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+在本示例中，所有用户都可以看到 `name` 属性。只有属于 `admin` 组的用户可以看到 `internal_id` 属性。
+
+<div id="filter-oneof-variants">
+  ### 筛选 oneOf 变体
+</div>
+
+为各个 `oneOf` 选项添加 `x-mint.groups`，以限制用户可见的架构变体。
+
+```json {7-9} Restricted oneOf variant
+{
+  "schema": {
+    "oneOf": [
+      {
+        "title": "Enterprise config",
+        "type": "object",
+        "x-mint": {
+          "groups": ["enterprise"]
+        },
+        "properties": {
+          "sso_enabled": { "type": "boolean" }
+        }
+      },
+      {
+        "title": "Standard config",
+        "type": "object",
+        "properties": {
+          "notifications": { "type": "boolean" }
+        }
+      }
+    ]
+  }
+}
+```
+
+<div id="filter-enum-values">
+  ### 筛选枚举值
+</div>
+
+使用 `x-mint-enum` 扩展按分组来限制单个枚举值。将每个受限的枚举值作为一个 key，并将其允许访问的分组作为对应的值。未在 `x-mint-enum` 中列出的枚举值对所有用户可见。
+
+```json {4-7} Restricted enum values
+{
+  "type": "string",
+  "enum": ["free", "pro", "enterprise"],
+  "x-mint-enum": {
+    "pro": ["pro", "enterprise"],
+    "enterprise": ["enterprise"]
+  }
+}
+```
+
+在此示例中，所有用户都会看到 `free`。属于 `pro` 或 `enterprise` 分组的用户会看到 `pro`。只有属于 `enterprise` 分组的用户会看到 `enterprise`。
+
+<Note>
+  `x-mint-enum` 是 schema 对象上的一个单独的顶层扩展，而不是嵌套在 `x-mint` 下。
+</Note>
+
+<div id="user-data-format">
+  ## 用户数据格式
+</div>
+
+认证系统会返回用于控制个性化的用户数据。本页中描述的 `groups`、`content` 和 `apiPlaygroundInputs` 字段都是用户数据对象的一部分。
+
+有关完整的用户数据格式和字段说明，请参见[用户数据格式](/zh/deploy/authentication-setup#user-data-format)。
+
+<div id="logout-behavior">
+  ## 登出行为
+</div>
+
+登出操作在客户端完成。当用户点击登出按钮时，Mintlify 会清除他们在浏览器中存储的会话数据。
+
+要限制个性化数据的保留时间，请在用户数据中设置 `expiresAt` 字段。
