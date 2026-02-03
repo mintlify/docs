@@ -1,7 +1,16 @@
 ---
 tag: "最新"
 openapi: /zh/discovery-openapi.json POST /v2/assistant/{domain}/message
-keywords: [ "assistant message", "embed", "chat", "integrate", "v2", "ai sdk v5" ]
+keywords:
+  [
+    "assistant message",
+    "embed",
+    "chat",
+    "integrate",
+    "v2",
+    "ai sdk v5",
+    "ai sdk v6"
+  ]
 ---
 
 <Info>
@@ -17,45 +26,60 @@ Vercel 的 AI SDK 提供的 `useChat` hook 是在你的应用程序中集成 ass
 <Steps>
   <Step title="安装 AI SDK">
     ```bash
-    npm i @ai-sdk/react
+    npm i ai@^6 @ai-sdk/react
     ```
   </Step>
 
   <Step title="使用 hook">
     ```tsx
-    import { useChat } from '@ai-sdk/react';
+    import { useState } from "react";
+    import { useChat } from "@ai-sdk/react";
+    import { DefaultChatTransport } from "ai";
 
     function MyComponent({ domain }) {
-      const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-        api: `https://api.mintlify.com/discovery/v2/assistant/${domain}/message`,
-        headers: {
-          'Authorization': `Bearer ${process.env.PUBLIC_MINTLIFY_ASSISTANT_KEY}`,
-        },
-        body: {
-          fp: 'anonymous',
-          retrievalPageSize: 5,
-          context: [
-            {
-              type: 'code',
-              value: 'const example = "code snippet";',
-              elementId: 'code-block-1',
-            },
-          ],
-        },
+      const [input, setInput] = useState("");
+
+      const { messages, sendMessage } = useChat({
+        transport: new DefaultChatTransport({
+          api: `https://api.mintlify.com/discovery/v2/assistant/${domain}/message`,
+          headers: {
+            Authorization: `Bearer ${process.env.PUBLIC_MINTLIFY_ASSISTANT_KEY}`,
+          },
+          body: {
+            fp: "anonymous",
+            retrievalPageSize: 5,
+            context: [
+              {
+                type: "code",
+                value: 'const example = "code snippet";',
+                elementId: "code-block-1",
+              },
+            ],
+          },
+        }),
       });
 
       return (
         <div>
           {messages.map((message) => (
             <div key={message.id}>
-              {message.role === 'user' ? 'User: ' : 'Assistant: '}
-              {message.parts.map((part, i) =>
-                part.type === 'text' ? <span key={i}>{part.text}</span> : null
-              )}
+              {message.role === "user" ? "User: " : "Assistant: "}
+              {message.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("")}
             </div>
           ))}
-          <form onSubmit={handleSubmit}>
-            <input value={input} onChange={handleInputChange} />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (input.trim()) {
+                sendMessage({ text: input });
+                setInput("");
+              }
+            }}
+          >
+            <input value={input} onChange={(e) => setInput(e.target.value)} />
             <button type="submit">Send</button>
           </form>
         </div>
@@ -63,9 +87,10 @@ Vercel 的 AI SDK 提供的 `useChat` hook 是在你的应用程序中集成 ass
     }
     ```
 
-    **Mintlify 的必填配置：**
+    **必填配置：**
 
-    * `body.fp` - 指纹标识符（使用 `'anonymous'` 或用户标识符）。
+    * `transport` - 使用 `DefaultChatTransport` 来配置 API 连接。
+    * `body.fp` - 指纹标识符（使用 `'anonymous'` 或唯一的用户标识符）。
     * `body.retrievalPageSize` - 要使用的搜索结果数量（推荐：5）。
 
     **可选配置：**
@@ -78,7 +103,7 @@ Vercel 的 AI SDK 提供的 `useChat` hook 是在你的应用程序中集成 ass
   </Step>
 </Steps>
 
-更多详情参见 AI SDK 文档中的 [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat)。
+更多详情参见 AI SDK 文档中的 [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) 和 [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport)。
 
 <div id="rate-limits">
   ## 速率限制

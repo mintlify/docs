@@ -1,7 +1,16 @@
 ---
 tag: "Dernier"
 openapi: /fr/discovery-openapi.json POST /v2/assistant/{domain}/message
-keywords: [ "assistant message", "embed", "chat", "intégrer", "v2", "ai sdk v5" ]
+keywords:
+  [
+    "assistant message",
+    "embed",
+    "chat",
+    "intégrer",
+    "v2",
+    "ai sdk v5",
+    "ai sdk v6"
+  ]
 ---
 
 <Info>
@@ -17,45 +26,60 @@ Le hook `useChat` de l&#39;AI SDK de Vercel est la méthode recommandée pour in
 <Steps>
   <Step title="Installer l'AI SDK">
     ```bash
-    npm i @ai-sdk/react
+    npm i ai@^6 @ai-sdk/react
     ```
   </Step>
 
   <Step title="Utiliser le hook">
     ```tsx
-    import { useChat } from '@ai-sdk/react';
+    import { useState } from "react";
+    import { useChat } from "@ai-sdk/react";
+    import { DefaultChatTransport } from "ai";
 
     function MyComponent({ domain }) {
-      const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-        api: `https://api.mintlify.com/discovery/v2/assistant/${domain}/message`,
-        headers: {
-          'Authorization': `Bearer ${process.env.PUBLIC_MINTLIFY_ASSISTANT_KEY}`,
-        },
-        body: {
-          fp: 'anonymous',
-          retrievalPageSize: 5,
-          context: [
-            {
-              type: 'code',
-              value: 'const example = "code snippet";',
-              elementId: 'code-block-1',
-            },
-          ],
-        },
+      const [input, setInput] = useState("");
+
+      const { messages, sendMessage } = useChat({
+        transport: new DefaultChatTransport({
+          api: `https://api.mintlify.com/discovery/v2/assistant/${domain}/message`,
+          headers: {
+            Authorization: `Bearer ${process.env.PUBLIC_MINTLIFY_ASSISTANT_KEY}`,
+          },
+          body: {
+            fp: "anonymous",
+            retrievalPageSize: 5,
+            context: [
+              {
+                type: "code",
+                value: 'const example = "code snippet";',
+                elementId: "code-block-1",
+              },
+            ],
+          },
+        }),
       });
 
       return (
         <div>
           {messages.map((message) => (
             <div key={message.id}>
-              {message.role === 'user' ? 'User: ' : 'Assistant: '}
-              {message.parts.map((part, i) =>
-                part.type === 'text' ? <span key={i}>{part.text}</span> : null
-              )}
+              {message.role === "user" ? "User: " : "Assistant: "}
+              {message.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("")}
             </div>
           ))}
-          <form onSubmit={handleSubmit}>
-            <input value={input} onChange={handleInputChange} />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (input.trim()) {
+                sendMessage({ text: input });
+                setInput("");
+              }
+            }}
+          >
+            <input value={input} onChange={(e) => setInput(e.target.value)} />
             <button type="submit">Send</button>
           </form>
         </div>
@@ -63,9 +87,10 @@ Le hook `useChat` de l&#39;AI SDK de Vercel est la méthode recommandée pour in
     }
     ```
 
-    **Configuration requise pour Mintlify :**
+    **Configuration requise :**
 
-    * `body.fp` - Identifiant d’empreinte (utilisez `anonymous` ou un identifiant utilisateur).
+    * `transport` - Utilisez `DefaultChatTransport` pour configurer la connexion à l&#39;API.
+    * `body.fp` - Identifiant d’empreinte (utilisez `'anonymous'` ou un identifiant utilisateur unique).
     * `body.retrievalPageSize` - Nombre de résultats de recherche à utiliser (recommandé : 5).
 
     **Configuration optionnelle :**
@@ -78,7 +103,7 @@ Le hook `useChat` de l&#39;AI SDK de Vercel est la méthode recommandée pour in
   </Step>
 </Steps>
 
-Voir [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) dans la documentation de l&#39;AI SDK pour plus de détails.
+Voir [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) et [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport) dans la documentation de l&#39;AI SDK pour plus de détails.
 
 <div id="rate-limits">
   ## Limites de débit
