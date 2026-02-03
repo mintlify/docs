@@ -8,7 +8,8 @@ keywords:
     "chat",
     "integrar",
     "v2",
-    "ai sdk v5"
+    "ai sdk v5",
+    "ai sdk v6"
   ]
 ---
 
@@ -25,45 +26,60 @@ El hook `useChat` del AI SDK de Vercel es la forma recomendada de integrar la as
 <Steps>
   <Step title="Instalar AI SDK">
     ```bash
-    npm i @ai-sdk/react
+    npm i ai@^6 @ai-sdk/react
     ```
   </Step>
 
   <Step title="Usar el hook">
     ```tsx
-    import { useChat } from '@ai-sdk/react';
+    import { useState } from "react";
+    import { useChat } from "@ai-sdk/react";
+    import { DefaultChatTransport } from "ai";
 
     function MyComponent({ domain }) {
-      const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-        api: `https://api.mintlify.com/discovery/v2/assistant/${domain}/message`,
-        headers: {
-          'Authorization': `Bearer ${process.env.PUBLIC_MINTLIFY_ASSISTANT_KEY}`,
-        },
-        body: {
-          fp: 'anonymous',
-          retrievalPageSize: 5,
-          context: [
-            {
-              type: 'code',
-              value: 'const example = "code snippet";',
-              elementId: 'code-block-1',
-            },
-          ],
-        },
+      const [input, setInput] = useState("");
+
+      const { messages, sendMessage } = useChat({
+        transport: new DefaultChatTransport({
+          api: `https://api.mintlify.com/discovery/v2/assistant/${domain}/message`,
+          headers: {
+            Authorization: `Bearer ${process.env.PUBLIC_MINTLIFY_ASSISTANT_KEY}`,
+          },
+          body: {
+            fp: "anonymous",
+            retrievalPageSize: 5,
+            context: [
+              {
+                type: "code",
+                value: 'const example = "code snippet";',
+                elementId: "code-block-1",
+              },
+            ],
+          },
+        }),
       });
 
       return (
         <div>
           {messages.map((message) => (
             <div key={message.id}>
-              {message.role === 'user' ? 'User: ' : 'Assistant: '}
-              {message.parts.map((part, i) =>
-                part.type === 'text' ? <span key={i}>{part.text}</span> : null
-              )}
+              {message.role === "user" ? "User: " : "Assistant: "}
+              {message.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("")}
             </div>
           ))}
-          <form onSubmit={handleSubmit}>
-            <input value={input} onChange={handleInputChange} />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (input.trim()) {
+                sendMessage({ text: input });
+                setInput("");
+              }
+            }}
+          >
+            <input value={input} onChange={(e) => setInput(e.target.value)} />
             <button type="submit">Send</button>
           </form>
         </div>
@@ -71,9 +87,10 @@ El hook `useChat` del AI SDK de Vercel es la forma recomendada de integrar la as
     }
     ```
 
-    **Configuración obligatoria para Mintlify:**
+    **Configuración obligatoria:**
 
-    * `body.fp` - Identificador de huella digital (usa &#39;anonymous&#39; o un identificador de usuario).
+    * `transport` - Usa `DefaultChatTransport` para configurar la conexión con la API.
+    * `body.fp` - Identificador de huella digital (usa `'anonymous'` o un identificador único de usuario).
     * `body.retrievalPageSize` - Número de resultados de búsqueda que se usarán (recomendado: 5).
 
     **Configuración opcional:**
@@ -86,7 +103,7 @@ El hook `useChat` del AI SDK de Vercel es la forma recomendada de integrar la as
   </Step>
 </Steps>
 
-Consulta [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) en la documentación del AI SDK para más detalles.
+Consulta [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) y [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport) en la documentación del AI SDK para más detalles.
 
 <div id="rate-limits">
   ## Límites de uso
