@@ -16,8 +16,8 @@ When you implement a reverse proxy, monitor for potential issues with domain ver
 
 Mintlify supports two reverse proxy configurations depending on your subpath requirements.
 
-- **Host at `/docs`**: Use `mintlify.dev` as the proxy target. This approach has a simpler configuration with fewer routes and supports automatic cache invalidation when you publish updates.
-- **Custom subpath**: Use `mintlify.app` as the proxy target. This approach supports any subpath (like `/help` or `/resources`) and requires additional routing rules.
+- **Host at `/docs`**: Use `mintlify.dev` as the proxy target. Enable the **Host at `/docs`** toggle on the [Custom domain setup](https://dashboard.mintlify.com/settings/deployment/custom-domain) page in your dashboard. This is a simpler configuration with fewer routes.
+- **Custom subpath**: Use `mintlify.app` as the proxy target. This approach supports any subpath and requires additional routing rules.
 
 ## Host at `/docs` subpath
 
@@ -29,18 +29,23 @@ Before configuring your reverse proxy:
 2. Enable the **Host at `/docs`** toggle.
 3. Enter your domain and select **Add domain**.
 
+<Warning>
+  Enabling **Host at `/docs`** stops cache invalidation on `mintlify.app`. You must proxy to `mintlify.dev` for updates to appear.
+</Warning>
+
 ### Routing configuration
 
 Proxy these paths to your Mintlify subdomain:
 
-| Path                            | Destination                          | Caching  |
-| ------------------------------- | ------------------------------------ | -------- |
-| `/docs`                         | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/docs/*`                       | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/.well-known/acme-challenge/*` | `<your-subdomain>.mintlify.dev`      | No cache |
-| `/.well-known/vercel/*`         | `<your-subdomain>.mintlify.dev`      | No cache |
-| `/.well-known/skills/*`         | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/skill.md` (optional)          | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| Path                              | Destination                          | Caching  |
+| --------------------------------- | ------------------------------------ | -------- |
+| `/docs`                           | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/docs/*`                         | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.dev`      | No cache |
+| `/.well-known/skills/*` (optional)| `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/skill.md` (optional)            | `<your-subdomain>.mintlify.dev/docs` | No cache |
+
+The `/.well-known/skills/*` and `/skill.md` routes are optional. Include them only if you want to serve AI skills files at root paths like `your-domain.com/skills.md` instead of under your docs subpath like `your-domain.com/docs/skills.md`.
 
 ### Required header configuration
 
@@ -62,18 +67,6 @@ Configure your reverse proxy with these header requirements:
 server {
     listen 80;
     server_name <your-domain>.com;
-
-    # Let's Encrypt verification paths
-    location ~ ^/\.well-known/acme-challenge/ {
-        proxy_pass https://<your-subdomain>.mintlify.dev;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
 
     # Vercel verification paths
     location ~ ^/\.well-known/vercel/ {
@@ -145,7 +138,6 @@ Proxy these paths to your Mintlify subdomain with the specified caching policies
 
 | Path                              | Destination                     | Caching       |
 | --------------------------------- | ------------------------------- | ------------- |
-| `/.well-known/acme-challenge/*`   | `<your-subdomain>.mintlify.app` | No cache      |
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.app` | No cache      |
 | `/.well-known/skills/*`           | `<your-subdomain>.mintlify.app` | No cache      |
 | `/skill.md`                       | `<your-subdomain>.mintlify.app` | No cache      |
@@ -174,19 +166,6 @@ Configure your reverse proxy with these header requirements:
 server {
     listen 80;
     server_name <your-domain>.com;
-
-    # Let's Encrypt verification paths
-    location ~ ^/\.well-known/acme-challenge/ {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for verification paths
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
 
     # Vercel verification paths
     location ~ ^/\.well-known/vercel/ {
@@ -282,6 +261,14 @@ server {
 ```
 
 ## Troubleshooting
+
+### Changes not appearing
+
+**Symptoms**: You publish documentation updates, but the changes don't appear on your site.
+
+**Cause**: You have **Host at `/docs`** enabled in your dashboard but your reverse proxy points to `mintlify.app` instead of `mintlify.dev`.
+
+**Solution**: Update your reverse proxy configuration to point to `<your-subdomain>.mintlify.dev` instead of `<your-subdomain>.mintlify.app`.
 
 ### 404 error
 
