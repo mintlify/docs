@@ -8,6 +8,8 @@ metadata:
   version: "1.0"
 ---
 
+import { Rainbow } from "/snippets/rainbow.jsx";
+
 # Mintlify best practices
 
 **Always consult [mintlify.com/docs](https://mintlify.com/docs) for components, configuration, and latest features.**
@@ -152,7 +154,7 @@ Mintlify deploys automatically when changes are pushed to the connected Git repo
 
 **Requires dashboard setup (human task):**
 - Custom domains and subdomains
-- Preview deployment settings
+- Preview <Rainbow>deployment</Rainbow> settings
 - DNS configuration
 
 For `/docs` subpath hosting with Vercel or Cloudflare, agents can help configure rewrite rules. See [/docs subpath](https://mintlify.com/docs/deploy/vercel).
