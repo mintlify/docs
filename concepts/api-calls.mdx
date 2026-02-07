@@ -1,0 +1,179 @@
+---
+title: "API calls"
+description: "Best practices for making API calls to the Spotify Web API"
+---
+
+# API calls
+
+Making efficient and reliable API calls is essential for building robust Spotify applications. Follow these best practices to optimize your integration.
+
+## Request structure
+
+Every API call requires:
+
+1. **Base URL**: `https://api.spotify.com/v1`
+2. **Endpoint path**: The specific resource you're accessing
+3. **HTTP method**: GET, POST, PUT, or DELETE
+4. **Authorization header**: Your access token
+5. **Parameters** (optional): Query params or request body
+
+Example request:
+
+```bash
+curl -X GET "https://api.spotify.com/v1/tracks/11dFghVXANMlKmJXsNCbNl?market=US" \
+  -H "Authorization: Bearer {access_token}"
+```
+
+## Batch requests
+
+Retrieve multiple items in a single request to minimize API calls:
+
+```bash
+# Instead of multiple single requests
+GET /albums/id1
+GET /albums/id2
+GET /albums/id3
+
+# Use batch endpoint
+GET /albums?ids=id1,id2,id3
+```
+
+Most batch endpoints accept up to 50 IDs per request.
+
+## Pagination
+
+Handle paginated responses efficiently:
+
+```javascript
+async function getAllPlaylists(accessToken) {
+  let playlists = [];
+  let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
+  
+  while (url) {
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const data = await response.json();
+    
+    playlists = playlists.concat(data.items);
+    url = data.next; // null when no more pages
+  }
+  
+  return playlists;
+}
+```
+
+## Error handling
+
+Implement robust error handling:
+
+```javascript
+async function makeApiCall(url, token) {
+  try {
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      
+      switch (response.status) {
+        case 401:
+          // Token expired, refresh and retry
+          return await refreshAndRetry(url);
+        case 429:
+          // Rate limited, wait and retry
+          const retryAfter = response.headers.get('Retry-After');
+          await delay(retryAfter * 1000);
+          return await makeApiCall(url, token);
+        case 500:
+        case 502:
+        case 503:
+          // Server error, retry with backoff
+          return await retryWithBackoff(url, token);
+        default:
+          throw new Error(error.error.message);
+      }
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API call failed:', error);
+    throw error;
+  }
+}
+```
+
+## Caching
+
+Cache responses to reduce API calls:
+
+```javascript
+const cache = new Map();
+const CACHE_TTL = 3600000; // 1 hour
+
+async function getCachedAlbum(albumId, token) {
+  const cacheKey = `album:${albumId}`;
+  const cached = cache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  
+  const data = await fetchAlbum(albumId, token);
+  cache.set(cacheKey, {
+    data,
+    timestamp: Date.now()
+  });
+  
+  return data;
+}
+```
+
+<Tip>
+Cache data that doesn't change frequently, like album metadata and artist information.
+</Tip>
+
+## Rate limiting
+
+Respect rate limits to avoid throttling:
+
+<AccordionGroup>
+  <Accordion title="Monitor rate limit headers">
+    Check `X-RateLimit-Remaining` to track available requests.
+  </Accordion>
+  <Accordion title="Implement exponential backoff">
+    Wait progressively longer between retries after errors.
+  </Accordion>
+  <Accordion title="Use batch endpoints">
+    Reduce total requests by batching operations.
+  </Accordion>
+  <Accordion title="Cache aggressively">
+    Store responses to minimize redundant calls.
+  </Accordion>
+</AccordionGroup>
+
+Learn more about [rate limits](/concepts/rate-limits).
+
+## Common parameters
+
+Most endpoints accept these parameters:
+
+- **market**: ISO 3166-1 alpha-2 country code for localized content
+- **limit**: Maximum items to return (default 20, max usually 50)
+- **offset**: Starting index for pagination (default 0)
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Making API calls guide" icon="code" href="/getting-started/making-api-calls">
+    Complete guide to API calls
+  </Card>
+  <Card title="Rate limits" icon="gauge" href="/concepts/rate-limits">
+    Understanding rate limiting
+  </Card>
+  <Card title="API reference" icon="book" href="/api-reference/overview">
+    Browse all endpoints
+  </Card>
+</CardGroup>
+

@@ -1,0 +1,170 @@
+---
+title: "Getting started"
+description: "Build your first Spotify API integration"
+---
+
+# Getting started tutorial
+
+This tutorial walks you through building your first Spotify API integration from scratch. You'll learn how to authenticate users and fetch their playlists.
+
+## Prerequisites
+
+- Node.js installed on your computer
+- A Spotify account (free or premium)
+- Basic knowledge of JavaScript
+
+## Step 1: Create a Spotify app
+
+<Steps>
+  <Step title="Go to the Dashboard">
+    Visit the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in.
+  </Step>
+  <Step title="Create an app">
+    Click "Create app" and fill in:
+    - App name: "My First Spotify App"
+    - App description: "Learning the Spotify API"
+    - Redirect URI: `http://localhost:3000/callback`
+  </Step>
+  <Step title="Save your credentials">
+    Note your Client ID and Client Secret (click "Show Client Secret").
+  </Step>
+</Steps>
+
+## Step 2: Set up your project
+
+Create a new directory and initialize a Node.js project:
+
+```bash
+mkdir spotify-app
+cd spotify-app
+npm init -y
+npm install express spotify-web-api-node dotenv
+```
+
+## Step 3: Create environment variables
+
+Create a `.env` file:
+
+```env
+CLIENT_ID=your_client_id
+CLIENT_SECRET=your_client_secret
+REDIRECT_URI=http://localhost:3000/callback
+```
+
+<Warning>
+Never commit `.env` files to version control. Add `.env` to your `.gitignore`.
+</Warning>
+
+## Step 4: Create the server
+
+Create `server.js`:
+
+```javascript
+require('dotenv').config();
+const express = require('express');
+const SpotifyWebApi = require('spotify-web-api-node');
+
+const app = express();
+const port = 3000;
+
+// Configure Spotify API
+const spotifyApi = new SpotifyWebApi({
+  clientId: process.env.CLIENT_ID,
+  clientSecret: process.env.CLIENT_SECRET,
+  redirectUri: process.env.REDIRECT_URI
+});
+
+// Generate authorization URL
+const scopes = ['user-read-private', 'user-read-email', 'playlist-read-private'];
+
+app.get('/login', (req, res) => {
+  const authorizeURL = spotifyApi.createAuthorizeURL(scopes);
+  res.redirect(authorizeURL);
+});
+
+// Handle callback
+app.get('/callback', async (req, res) => {
+  const { code } = req.query;
+  
+  try {
+    const data = await spotifyApi.authorizationCodeGrant(code);
+    const { access_token, refresh_token } = data.body;
+    
+    // Set tokens
+    spotifyApi.setAccessToken(access_token);
+    spotifyApi.setRefreshToken(refresh_token);
+    
+    res.redirect('/playlists');
+  } catch (error) {
+    res.send('Error during authentication');
+  }
+});
+
+// Get user's playlists
+app.get('/playlists', async (req, res) => {
+  try {
+    const data = await spotifyApi.getUserPlaylists();
+    const playlists = data.body.items.map(playlist => ({
+      name: playlist.name,
+      tracks: playlist.tracks.total
+    }));
+    
+    res.json(playlists);
+  } catch (error) {
+    res.send('Error fetching playlists');
+  }
+});
+
+app.get('/', (req, res) => {
+  res.send('<a href="/login">Login with Spotify</a>');
+});
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
+```
+
+## Step 5: Run your app
+
+Start the server:
+
+```bash
+node server.js
+```
+
+Visit `http://localhost:3000` and click "Login with Spotify".
+
+## What's happening?
+
+<Steps>
+  <Step title="Authorization">
+    User is redirected to Spotify to approve your app's access.
+  </Step>
+  <Step title="Callback">
+    Spotify redirects back with an authorization code.
+  </Step>
+  <Step title="Token exchange">
+    Your app exchanges the code for an access token.
+  </Step>
+  <Step title="API calls">
+    Your app uses the token to fetch the user's playlists.
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Authorization Code Flow" href="/tutorials/authorization-code-flow">
+    Learn more about this auth flow
+  </Card>
+  <Card title="API Reference" href="/api-reference/overview">
+    Explore other endpoints
+  </Card>
+  <Card title="Refreshing tokens" href="/tutorials/refreshing-tokens">
+    Handle expired tokens
+  </Card>
+  <Card title="Web Playback SDK" href="/tutorials/web-playback-sdk">
+    Add playback controls
+  </Card>
+</CardGroup>
+

@@ -1,0 +1,279 @@
+---
+title: "Authorization"
+description: "Understand how authorization works in the Spotify Web API"
+---
+
+# Authorization
+
+Authorization is the process of granting your application permission to access Spotify resources on behalf of a user. The Spotify Web API uses OAuth 2.0 for authorization.
+
+## Authorization process
+
+The authorization process typically follows these steps:
+
+<Steps>
+  <Step title="User initiates authorization">
+    Your application redirects the user to Spotify's authorization page.
+  </Step>
+  <Step title="User grants permission">
+    The user reviews the requested permissions (scopes) and approves or denies access.
+  </Step>
+  <Step title="Spotify redirects back">
+    Spotify redirects the user back to your application with an authorization code or token.
+  </Step>
+  <Step title="Exchange for access token">
+    Your application exchanges the authorization code for an access token (if using Authorization Code flow).
+  </Step>
+  <Step title="Access granted">
+    Your application can now make API requests with the access token.
+  </Step>
+</Steps>
+
+## Authorization endpoints
+
+### Authorization endpoint
+
+```
+https://accounts.spotify.com/authorize
+```
+
+This is where users are redirected to grant permission to your application.
+
+### Token endpoint
+
+```
+https://accounts.spotify.com/api/token
+```
+
+This endpoint is used to exchange authorization codes for access tokens or refresh expired tokens.
+
+## Authorization request
+
+When requesting authorization, your application constructs a URL with specific parameters:
+
+```
+https://accounts.spotify.com/authorize?
+  client_id=YOUR_CLIENT_ID&
+  response_type=code&
+  redirect_uri=YOUR_REDIRECT_URI&
+  scope=user-read-private%20user-read-email&
+  state=RANDOM_STATE_STRING
+```
+
+### Required parameters
+
+<ParamField query="client_id" type="string" required>
+  Your application's client ID from the Developer Dashboard
+</ParamField>
+
+<ParamField query="response_type" type="string" required>
+  Set to `code` for Authorization Code flow
+</ParamField>
+
+<ParamField query="redirect_uri" type="string" required>
+  The URI to redirect to after authorization (must match registered URI)
+</ParamField>
+
+### Optional parameters
+
+<ParamField query="state" type="string">
+  Provides protection against CSRF attacks. Should be a random string.
+</ParamField>
+
+<ParamField query="scope" type="string">
+  Space-separated list of scopes your app needs
+</ParamField>
+
+<ParamField query="show_dialog" type="boolean">
+  Whether to force the user to approve the app again (default: false)
+</ParamField>
+
+## Authorization response
+
+After the user approves or denies access, Spotify redirects back to your redirect URI with query parameters:
+
+### Successful authorization
+
+```
+https://your-redirect-uri.com/callback?
+  code=AUTHORIZATION_CODE&
+  state=RANDOM_STATE_STRING
+```
+
+<ResponseField name="code" type="string">
+  Authorization code to exchange for an access token
+</ResponseField>
+
+<ResponseField name="state" type="string">
+  The state parameter you provided (verify this matches)
+</ResponseField>
+
+### Failed authorization
+
+```
+https://your-redirect-uri.com/callback?
+  error=access_denied&
+  state=RANDOM_STATE_STRING
+```
+
+<ResponseField name="error" type="string">
+  Error code (e.g., `access_denied`, `invalid_request`)
+</ResponseField>
+
+## Exchanging code for token
+
+After receiving the authorization code, exchange it for an access token:
+
+```bash
+curl -X POST "https://accounts.spotify.com/api/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -H "Authorization: Basic BASE64_ENCODED_CLIENT_CREDENTIALS" \
+  -d "grant_type=authorization_code" \
+  -d "code=AUTHORIZATION_CODE" \
+  -d "redirect_uri=YOUR_REDIRECT_URI"
+```
+
+<Note>
+The `Authorization` header contains Base64-encoded `client_id:client_secret`.
+</Note>
+
+### Token response
+
+```json
+{
+  "access_token": "NgCXRK...MzYjw",
+  "token_type": "Bearer",
+  "scope": "user-read-private user-read-email",
+  "expires_in": 3600,
+  "refresh_token": "NgAagA...Um_SHo"
+}
+```
+
+<ResponseField name="access_token" type="string">
+  The access token to use in API requests
+</ResponseField>
+
+<ResponseField name="token_type" type="string">
+  Always "Bearer"
+</ResponseField>
+
+<ResponseField name="scope" type="string">
+  Space-separated list of granted scopes
+</ResponseField>
+
+<ResponseField name="expires_in" type="integer">
+  Token lifetime in seconds (typically 3600)
+</ResponseField>
+
+<ResponseField name="refresh_token" type="string">
+  Token used to refresh the access token
+</ResponseField>
+
+## Authorization flows comparison
+
+Different flows are suited for different application types:
+
+<Tabs>
+  <Tab title="Authorization Code">
+    **Best for**: Server-side web applications
+    
+    - Most secure option
+    - Requires client secret
+    - Returns refresh token
+    - User authorizes once
+  </Tab>
+  <Tab title="PKCE">
+    **Best for**: Mobile, desktop, and SPAs
+    
+    - Secure for public clients
+    - No client secret needed
+    - Returns refresh token
+    - Uses code challenge/verifier
+  </Tab>
+  <Tab title="Client Credentials">
+    **Best for**: Server-to-server
+    
+    - No user authorization needed
+    - Only accesses public data
+    - No refresh token
+    - Quick and simple
+  </Tab>
+</Tabs>
+
+## Scope management
+
+When requesting authorization, specify only the scopes your application needs:
+
+```javascript
+const scopes = [
+  'user-read-private',
+  'user-read-email',
+  'playlist-read-private'
+].join(' ');
+
+const authUrl = `https://accounts.spotify.com/authorize?` +
+  `client_id=${clientId}&` +
+  `response_type=code&` +
+  `redirect_uri=${redirectUri}&` +
+  `scope=${encodeURIComponent(scopes)}`;
+```
+
+<Tip>
+Request minimal scopes to increase user trust and approval rates.
+</Tip>
+
+Learn more about [scopes](/concepts/scopes).
+
+## Security considerations
+
+<AccordionGroup>
+  <Accordion title="Use state parameter">
+    Always include a random state parameter and verify it matches in the callback. This prevents CSRF attacks.
+  </Accordion>
+  <Accordion title="Validate redirect URI">
+    Ensure redirect URIs match exactly what's registered in your app settings.
+  </Accordion>
+  <Accordion title="Secure client secret">
+    Never expose your client secret in client-side code or version control.
+  </Accordion>
+  <Accordion title="Use HTTPS">
+    Always use HTTPS for redirect URIs and API calls to prevent token interception.
+  </Accordion>
+  <Accordion title="Implement PKCE for public clients">
+    Use Authorization Code with PKCE for applications that can't secure a client secret.
+  </Accordion>
+</AccordionGroup>
+
+## Common authorization errors
+
+<AccordionGroup>
+  <Accordion title="invalid_client">
+    Client authentication failed. Check your client ID and secret.
+  </Accordion>
+  <Accordion title="invalid_grant">
+    Authorization code is invalid or expired. Request a new code.
+  </Accordion>
+  <Accordion title="redirect_uri_mismatch">
+    Redirect URI doesn't match registered URIs. Update in Developer Dashboard.
+  </Accordion>
+  <Accordion title="access_denied">
+    User denied authorization. Handle gracefully in your application.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication flows" icon="flow" href="/getting-started/authentication-flows">
+    Learn about different authentication flows
+  </Card>
+  <Card title="Scopes" icon="shield" href="/concepts/scopes">
+    Understand authorization scopes
+  </Card>
+  <Card title="Access tokens" icon="key" href="/concepts/access-tokens">
+    Learn about access tokens
+  </Card>
+  <Card title="Tutorials" icon="book" href="/tutorials/authorization-code-flow">
+    Follow step-by-step tutorials
+  </Card>
+</CardGroup>

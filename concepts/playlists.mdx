@@ -1,0 +1,287 @@
+---
+title: "Playlists"
+description: "Working with playlists in the Spotify Web API"
+---
+
+# Playlists
+
+Playlists are collections of tracks curated by users or Spotify. The API provides comprehensive tools for creating, modifying, and managing playlists.
+
+## Playlist types
+
+### User playlists
+
+Created and owned by Spotify users:
+- Private playlists (only owner can see)
+- Public playlists (anyone can view)
+- Collaborative playlists (multiple users can edit)
+
+### Spotify playlists
+
+Curated by Spotify:
+- Featured playlists
+- Category playlists
+- Algorithmic playlists (Discover Weekly, Release Radar)
+
+<Note>
+You can read from Spotify's curated playlists but cannot modify them.
+</Note>
+
+## Creating playlists
+
+Create a playlist for a user:
+
+```javascript
+async function createPlaylist(userId, name, description, isPublic, token) {
+  const response = await fetch(
+    `https://api.spotify.com/v1/users/${userId}/playlists`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: name,
+        description: description,
+        public: isPublic
+      })
+    }
+  );
+  
+  return await response.json();
+}
+```
+
+Required scope: `playlist-modify-public` or `playlist-modify-private`
+
+## Modifying playlists
+
+### Add tracks
+
+```javascript
+async function addTracksToPlaylist(playlistId, trackUris, token) {
+  await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        uris: trackUris
+      })
+    }
+  );
+}
+```
+
+### Remove tracks
+
+```javascript
+async function removeTracksFromPlaylist(playlistId, trackUris, token) {
+  await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        tracks: trackUris.map(uri => ({ uri }))
+      })
+    }
+  );
+}
+```
+
+### Reorder tracks
+
+```javascript
+async function reorderPlaylistTracks(playlistId, rangeStart, insertBefore, token) {
+  await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        range_start: rangeStart,
+        insert_before: insertBefore
+      })
+    }
+  );
+}
+```
+
+## Playlist details
+
+### Update playlist information
+
+```javascript
+async function updatePlaylistDetails(playlistId, updates, token) {
+  await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updates)
+    }
+  );
+}
+
+// Example usage
+await updatePlaylistDetails(
+  playlistId,
+  {
+    name: 'New Name',
+    description: 'Updated description',
+    public: false
+  },
+  token
+);
+```
+
+### Custom cover images
+
+Upload a custom cover image (must be base64-encoded JPEG):
+
+```javascript
+async function uploadPlaylistCover(playlistId, base64Image, token) {
+  await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}/images`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'image/jpeg'
+      },
+      body: base64Image
+    }
+  );
+}
+```
+
+Required scope: `ugc-image-upload` and `playlist-modify-public` or `playlist-modify-private`
+
+## Collaborative playlists
+
+Make a playlist collaborative so multiple users can edit it:
+
+```javascript
+await updatePlaylistDetails(
+  playlistId,
+  { collaborative: true, public: false }, // Collaborative playlists must be private
+  token
+);
+```
+
+<Warning>
+Collaborative playlists must be private. You cannot have a public collaborative playlist.
+</Warning>
+
+## Featured playlists
+
+Get Spotify's featured playlists:
+
+```javascript
+async function getFeaturedPlaylists(country, limit, token) {
+  const response = await fetch(
+    `https://api.spotify.com/v1/browse/featured-playlists?` +
+    `country=${country}&limit=${limit}`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+  
+  return await response.json();
+}
+```
+
+## Category playlists
+
+Get playlists for a specific category:
+
+```javascript
+async function getCategoryPlaylists(categoryId, country, token) {
+  const response = await fetch(
+    `https://api.spotify.com/v1/browse/categories/${categoryId}/playlists?` +
+    `country=${country}`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+  
+  return await response.json();
+}
+```
+
+## Following playlists
+
+Users can follow playlists:
+
+```javascript
+// Follow a playlist
+async function followPlaylist(playlistId, token) {
+  await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}/followers`,
+    {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+}
+
+// Unfollow a playlist
+async function unfollowPlaylist(playlistId, token) {
+  await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}/followers`,
+    {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+}
+```
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Batch track operations">
+    Add or remove multiple tracks in a single request (up to 100 tracks per request).
+  </Accordion>
+  <Accordion title="Handle pagination">
+    Playlist tracks are paginated. Fetch all pages to get complete track list.
+  </Accordion>
+  <Accordion title="Respect user ownership">
+    Only modify playlists the user owns or has collaborative access to.
+  </Accordion>
+  <Accordion title="Provide descriptive names">
+    Use clear, descriptive names and descriptions for playlists.
+  </Accordion>
+  <Accordion title="Cache playlist metadata">
+    Playlist details don't change frequently. Cache basic info to reduce API calls.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Playlists API" icon="list" href="/api-reference/playlists/get-playlist">
+    Browse playlist endpoints
+  </Card>
+  <Card title="Create playlist tutorial" icon="plus" href="/tutorials/getting-started">
+    Step-by-step playlist creation
+  </Card>
+  <Card title="Scopes" icon="shield" href="/concepts/scopes">
+    Required permissions
+  </Card>
+</CardGroup>
+
