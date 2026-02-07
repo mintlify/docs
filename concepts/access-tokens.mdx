@@ -1,0 +1,194 @@
+---
+title: "Access tokens"
+description: "Learn about access tokens and how to use them with the Spotify Web API"
+---
+
+# Access tokens
+
+Access tokens are credentials used to authenticate your requests to the Spotify Web API. Every API call must include a valid access token in the authorization header.
+
+## What is an access token?
+
+An access token is a string that represents the authorization granted to your application by a user or the Spotify authentication service. It allows your app to access Spotify resources on behalf of a user or access public data.
+
+## Token format
+
+Access tokens are JSON Web Tokens (JWT) that contain:
+
+- User permissions (scopes)
+- Expiration time
+- Client information
+- Signature for validation
+
+<Warning>
+Never share your access tokens publicly or commit them to version control. Treat them like passwords.
+</Warning>
+
+## Token lifetime
+
+All access tokens expire after a short period (typically 1 hour). When a token expires, you need to:
+
+- **With refresh token**: Request a new access token using your refresh token
+- **Without refresh token**: Re-authenticate to get a new token
+
+## Using access tokens
+
+Include your access token in the `Authorization` header of every API request:
+
+```bash
+curl -X GET "https://api.spotify.com/v1/me/playlists" \
+  -H "Authorization: Bearer {access_token}"
+```
+
+The format is always `Bearer` followed by a space and the token string.
+
+### Example with JavaScript
+
+```javascript
+const response = await fetch('https://api.spotify.com/v1/me/playlists', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+
+const data = await response.json();
+```
+
+### Example with Python
+
+```python
+import requests
+
+headers = {
+    'Authorization': f'Bearer {access_token}'
+}
+
+response = requests.get(
+    'https://api.spotify.com/v1/me/playlists',
+    headers=headers
+)
+
+data = response.json()
+```
+
+## Obtaining access tokens
+
+The method for obtaining an access token depends on your [authentication flow](/getting-started/authentication-flows):
+
+<CardGroup cols={2}>
+  <Card title="Authorization Code" href="/tutorials/authorization-code-flow">
+    For server-side web applications
+  </Card>
+  <Card title="Authorization Code with PKCE" href="/tutorials/authorization-code-pkce">
+    For mobile, desktop, and SPAs
+  </Card>
+  <Card title="Client Credentials" href="/tutorials/client-credentials-flow">
+    For server-to-server authentication
+  </Card>
+</CardGroup>
+
+## Refresh tokens
+
+Some authentication flows provide a refresh token along with the access token. Refresh tokens are long-lived credentials that can be used to obtain new access tokens without user interaction.
+
+### Flows with refresh tokens
+
+- Authorization Code Flow
+- Authorization Code with PKCE Flow
+
+### Flows without refresh tokens
+
+- Client Credentials Flow (request a new token when expired)
+- Implicit Grant Flow (deprecated)
+
+Learn how to [refresh tokens](/tutorials/refreshing-tokens).
+
+## Token scopes
+
+Access tokens include information about the scopes (permissions) granted to your application. Scopes determine what resources and actions your app can access.
+
+Example scopes:
+- `user-read-private` - Read user's private information
+- `playlist-modify-public` - Modify user's public playlists
+- `user-modify-playback-state` - Control playback
+
+Learn more about [scopes](/concepts/scopes).
+
+## Security best practices
+
+<AccordionGroup>
+  <Accordion title="Store tokens securely">
+    Never store tokens in client-side code, localStorage, or cookies without proper encryption. Use secure server-side storage or encrypted databases.
+  </Accordion>
+  <Accordion title="Use HTTPS only">
+    Always transmit tokens over HTTPS to prevent interception.
+  </Accordion>
+  <Accordion title="Implement token refresh">
+    Automatically refresh expired tokens to maintain uninterrupted access.
+  </Accordion>
+  <Accordion title="Revoke unused tokens">
+    Allow users to revoke access and implement token cleanup for inactive users.
+  </Accordion>
+  <Accordion title="Monitor token usage">
+    Log and monitor token usage for unusual patterns that might indicate compromise.
+  </Accordion>
+</AccordionGroup>
+
+## Handling expired tokens
+
+When a token expires, the API returns a 401 Unauthorized response:
+
+```json
+{
+  "error": {
+    "status": 401,
+    "message": "The access token expired"
+  }
+}
+```
+
+Your application should:
+
+1. Detect the 401 error
+2. Attempt to refresh the token (if refresh token is available)
+3. Retry the original request with the new token
+4. Prompt user to re-authenticate if refresh fails
+
+Example error handling:
+
+```javascript
+async function makeRequest(url, token) {
+  let response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+
+  if (response.status === 401) {
+    // Token expired, try to refresh
+    const newToken = await refreshAccessToken();
+    
+    // Retry with new token
+    response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${newToken}` }
+    });
+  }
+
+  return response.json();
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication flows" icon="key" href="/getting-started/authentication-flows">
+    Choose the right flow for your app
+  </Card>
+  <Card title="Refreshing tokens" icon="rotate" href="/tutorials/refreshing-tokens">
+    Learn how to refresh access tokens
+  </Card>
+  <Card title="Scopes" icon="shield" href="/concepts/scopes">
+    Understand authorization scopes
+  </Card>
+  <Card title="Authorization" icon="lock" href="/concepts/authorization">
+    Learn about the authorization process
+  </Card>
+</CardGroup>

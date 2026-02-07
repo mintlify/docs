@@ -1,0 +1,270 @@
+---
+title: "Redirect URIs"
+description: "Configuring redirect URIs for your application"
+---
+
+# Redirect URIs
+
+Redirect URIs are the endpoints where users are redirected after authorizing your application. Proper configuration is essential for authentication to work correctly.
+
+## What are redirect URIs?
+
+A redirect URI is a URL in your application where Spotify sends users after they approve or deny authorization. It's a critical part of the OAuth 2.0 flow.
+
+### Authorization flow
+
+<Steps>
+  <Step title="Request authorization">
+    Your app redirects user to Spotify's authorization page with your redirect URI.
+  </Step>
+  <Step title="User approves">
+    User reviews permissions and approves your app.
+  </Step>
+  <Step title="Spotify redirects">
+    Spotify redirects user back to your specified redirect URI with authorization code.
+  </Step>
+  <Step title="Exchange code">
+    Your app extracts the code and exchanges it for an access token.
+  </Step>
+</Steps>
+
+## Configuring redirect URIs
+
+Register all redirect URIs in the [Developer Dashboard](https://developer.spotify.com/dashboard):
+
+<Steps>
+  <Step title="Open your app">
+    Go to your app in the Developer Dashboard.
+  </Step>
+  <Step title="Edit settings">
+    Click "Edit Settings" button.
+  </Step>
+  <Step title="Add redirect URIs">
+    Enter your redirect URIs in the "Redirect URIs" field.
+  </Step>
+  <Step title="Save">
+    Click "Save" to apply changes.
+  </Step>
+</Steps>
+
+## Format requirements
+
+Redirect URIs must follow these rules:
+
+<AccordionGroup>
+  <Accordion title="Exact match required">
+    The redirect URI in your authorization request must exactly match a registered URI (including protocol, path, and query parameters).
+  </Accordion>
+  <Accordion title="Protocol">
+    Must use `http://`, `https://`, or a custom scheme for mobile apps.
+  </Accordion>
+  <Accordion title="Localhost allowed">
+    Can use `localhost` or `127.0.0.1` for local development.
+  </Accordion>
+  <Accordion title="Path sensitive">
+    `/callback` and `/Callback` are different paths.
+  </Accordion>
+  <Accordion title="Query parameters optional">
+    Query parameters in the registered URI must be present in requests.
+  </Accordion>
+</AccordionGroup>
+
+## Common redirect URIs
+
+### Local development
+
+```
+http://localhost:3000/callback
+http://localhost:8888/callback
+http://127.0.0.1:3000/callback
+```
+
+### Web application
+
+```
+https://myapp.com/callback
+https://www.myapp.com/auth/spotify/callback
+https://app.myapp.com/api/auth/callback
+```
+
+### Mobile application
+
+```
+myapp://callback
+com.mycompany.myapp://callback
+```
+
+### Single-page application
+
+```
+https://myapp.com/
+https://myapp.com/auth/callback
+```
+
+## Example usage
+
+Authorization request with redirect URI:
+
+```javascript
+const redirectUri = 'https://myapp.com/callback';
+const authUrl = 
+  `https://accounts.spotify.com/authorize?` +
+  `client_id=${clientId}&` +
+  `response_type=code&` +
+  `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+  `scope=${encodeURIComponent(scopes)}`;
+
+// Redirect user to authUrl
+window.location.href = authUrl;
+```
+
+Handling the callback:
+
+```javascript
+// In your callback route
+const urlParams = new URLSearchParams(window.location.search);
+const code = urlParams.get('code');
+const error = urlParams.get('error');
+
+if (error) {
+  console.error('Authorization failed:', error);
+  return;
+}
+
+if (code) {
+  // Exchange code for access token
+  await exchangeCodeForToken(code);
+}
+```
+
+## Security considerations
+
+<AccordionGroup>
+  <Accordion title="Use HTTPS in production">
+    Always use HTTPS for redirect URIs in production. HTTP is only acceptable for localhost.
+  </Accordion>
+  <Accordion title="Validate state parameter">
+    Include and verify a state parameter to prevent CSRF attacks:
+    
+    ```javascript
+    const state = generateRandomString(16);
+    sessionStorage.setItem('spotify_auth_state', state);
+    
+    const authUrl = `...&state=${state}`;
+    
+    // In callback
+    const returnedState = urlParams.get('state');
+    const storedState = sessionStorage.getItem('spotify_auth_state');
+    
+    if (returnedState !== storedState) {
+      throw new Error('State mismatch - potential CSRF attack');
+    }
+    ```
+  </Accordion>
+  <Accordion title="Limit registered URIs">
+    Only register redirect URIs you actually use. Remove old or unused URIs.
+  </Accordion>
+  <Accordion title="Don't expose sensitive data">
+    Don't include sensitive data in redirect URIs or query parameters.
+  </Accordion>
+</AccordionGroup>
+
+## Common errors
+
+### redirect_uri_mismatch
+
+This error occurs when the redirect URI doesn't match any registered URI.
+
+**Causes:**
+- URI not registered in Dashboard
+- Typo in authorization request
+- Protocol mismatch (http vs https)
+- Missing or extra trailing slash
+- Different subdomain
+
+**Solution:**
+- Verify exact match including protocol and path
+- Check for typos
+- Add the URI to your app settings
+
+### invalid_request
+
+**Causes:**
+- Malformed redirect URI
+- Missing required parameters
+- Invalid characters in URI
+
+**Solution:**
+- Ensure URI is properly URL-encoded
+- Validate URI format
+- Check for special characters
+
+## Multiple environments
+
+Use different redirect URIs for different environments:
+
+```javascript
+const redirectUri = process.env.NODE_ENV === 'production'
+  ? 'https://myapp.com/callback'
+  : 'http://localhost:3000/callback';
+```
+
+Register all environment URIs in your app settings:
+
+```
+http://localhost:3000/callback     # Development
+https://staging.myapp.com/callback # Staging
+https://myapp.com/callback         # Production
+```
+
+## Mobile apps
+
+Mobile apps can use custom URL schemes:
+
+### iOS
+
+```
+myapp://callback
+com.mycompany.myapp://callback
+```
+
+### Android
+
+```
+myapp://callback
+com.mycompany.myapp://callback
+```
+
+Configure your app to handle the custom scheme and extract the authorization code.
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Use environment variables">
+    Store redirect URIs in environment variables for easy configuration across environments.
+  </Accordion>
+  <Accordion title="Include error handling">
+    Always handle both successful and failed authorization callbacks.
+  </Accordion>
+  <Accordion title="Clean up after callback">
+    Remove authorization codes and state parameters from browser history after processing.
+  </Accordion>
+  <Accordion title="Test thoroughly">
+    Test redirect URI handling in all environments before deploying.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Authorization" icon="lock" href="/concepts/authorization">
+    Learn about authorization
+  </Card>
+  <Card title="Authentication flows" icon="flow" href="/getting-started/authentication-flows">
+    Choose an auth flow
+  </Card>
+  <Card title="Apps" icon="application" href="/concepts/apps">
+    Configure your app
+  </Card>
+</CardGroup>
+

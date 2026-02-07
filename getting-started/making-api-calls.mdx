@@ -1,0 +1,265 @@
+---
+title: "Making API calls"
+description: "Learn how to structure and make requests to the Spotify Web API"
+---
+
+# Making API calls
+
+Once you have an access token, you can make requests to the Spotify Web API. This guide covers the basics of making API calls, handling responses, and following best practices.
+
+## Base URL
+
+All API requests are made to:
+
+```
+https://api.spotify.com/v1
+```
+
+## Request structure
+
+Every API request must include an authorization header with your access token:
+
+```bash
+curl -X GET "https://api.spotify.com/v1/endpoint" \
+  -H "Authorization: Bearer {access_token}"
+```
+
+### HTTP methods
+
+The API uses standard HTTP methods:
+
+- **GET**: Retrieve resources
+- **POST**: Create new resources
+- **PUT**: Update or replace resources
+- **DELETE**: Remove resources
+
+## Common parameters
+
+Many endpoints accept these common query parameters:
+
+<ParamField query="market" type="string">
+  An ISO 3166-1 alpha-2 country code (e.g., "US", "GB", "DE"). Provides localized content and applies track relinking.
+</ParamField>
+
+<ParamField query="limit" type="integer" default="20">
+  Maximum number of items to return. Default and maximum values vary by endpoint.
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  The index of the first item to return. Use with limit for pagination.
+</ParamField>
+
+## Example requests
+
+### Get a track
+
+Retrieve information about a single track:
+
+```bash
+curl -X GET "https://api.spotify.com/v1/tracks/11dFghVXANMlKmJXsNCbNl" \
+  -H "Authorization: Bearer {access_token}"
+```
+
+### Search for items
+
+Search for tracks, albums, artists, or other content:
+
+```bash
+curl -X GET "https://api.spotify.com/v1/search?q=remaster%20track:Doxy%20artist:Miles%20Davis&type=track" \
+  -H "Authorization: Bearer {access_token}"
+```
+
+### Get user's playlists
+
+Retrieve the current user's playlists (requires authentication):
+
+```bash
+curl -X GET "https://api.spotify.com/v1/me/playlists" \
+  -H "Authorization: Bearer {access_token}"
+```
+
+<Note>
+This endpoint requires the `playlist-read-private` scope.
+</Note>
+
+### Create a playlist
+
+Create a new playlist for a user:
+
+```bash
+curl -X POST "https://api.spotify.com/v1/users/{user_id}/playlists" \
+  -H "Authorization: Bearer {access_token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Playlist",
+    "description": "My playlist description",
+    "public": false
+  }'
+```
+
+<Note>
+This endpoint requires the `playlist-modify-private` scope.
+</Note>
+
+## Response format
+
+The API returns responses in JSON format. Successful requests return:
+
+- **200 OK**: Request succeeded (GET requests)
+- **201 Created**: Resource created successfully (POST requests)
+- **204 No Content**: Request succeeded with no response body (PUT/DELETE requests)
+
+Example response:
+
+```json
+{
+  "album": {
+    "name": "Kind of Blue",
+    "release_date": "1959-08-17"
+  },
+  "artists": [
+    {
+      "name": "Miles Davis",
+      "id": "0kbYTNQb4Pb1rPbbaF0pT4"
+    }
+  ],
+  "name": "So What",
+  "duration_ms": 540000,
+  "popularity": 75
+}
+```
+
+## Pagination
+
+Many endpoints return paginated results. The response includes:
+
+<ResponseField name="href" type="string">
+  Link to the current page
+</ResponseField>
+
+<ResponseField name="items" type="array">
+  Array of requested items
+</ResponseField>
+
+<ResponseField name="limit" type="integer">
+  Maximum number of items in response
+</ResponseField>
+
+<ResponseField name="next" type="string | null">
+  URL to the next page (null if no more pages)
+</ResponseField>
+
+<ResponseField name="offset" type="integer">
+  Offset of items returned
+</ResponseField>
+
+<ResponseField name="previous" type="string | null">
+  URL to the previous page (null if first page)
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total number of items available
+</ResponseField>
+
+Example paginated response:
+
+```json
+{
+  "href": "https://api.spotify.com/v1/me/playlists?offset=0&limit=20",
+  "items": [...],
+  "limit": 20,
+  "next": "https://api.spotify.com/v1/me/playlists?offset=20&limit=20",
+  "offset": 0,
+  "previous": null,
+  "total": 47
+}
+```
+
+## Error handling
+
+The API returns error responses with appropriate HTTP status codes:
+
+<AccordionGroup>
+  <Accordion title="400 Bad Request">
+    The request could not be understood. Check your parameters and request body.
+  </Accordion>
+  <Accordion title="401 Unauthorized">
+    Authentication failed or was not provided. Check your access token.
+  </Accordion>
+  <Accordion title="403 Forbidden">
+    The request is understood but refused. You may not have the required scope.
+  </Accordion>
+  <Accordion title="404 Not Found">
+    The requested resource could not be found.
+  </Accordion>
+  <Accordion title="429 Too Many Requests">
+    Rate limit exceeded. Check the `Retry-After` header for wait time.
+  </Accordion>
+  <Accordion title="500, 502, 503 Server Errors">
+    Server-side error. Implement retry logic with exponential backoff.
+  </Accordion>
+</AccordionGroup>
+
+Error response format:
+
+```json
+{
+  "error": {
+    "status": 401,
+    "message": "Invalid access token"
+  }
+}
+```
+
+## Rate limits
+
+The API uses rate limiting to protect service stability. Response headers include:
+
+- `X-RateLimit-Limit`: Rate limit ceiling for the endpoint
+- `X-RateLimit-Remaining`: Requests remaining in current window
+- `X-RateLimit-Reset`: Time when rate limit resets (Unix timestamp)
+
+When you receive a 429 error, check the `Retry-After` header for wait time in seconds.
+
+<Tip>
+Implement exponential backoff when retrying failed requests.
+</Tip>
+
+Learn more about [rate limits](/concepts/rate-limits).
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Use batch endpoints">
+    Retrieve multiple items in a single request using batch endpoints like `/albums` or `/tracks` with comma-separated IDs.
+  </Accordion>
+  <Accordion title="Implement caching">
+    Cache frequently accessed data that doesn't change often, like album metadata.
+  </Accordion>
+  <Accordion title="Handle errors gracefully">
+    Implement proper error handling and retry logic for temporary failures.
+  </Accordion>
+  <Accordion title="Respect rate limits">
+    Monitor rate limit headers and implement backoff strategies.
+  </Accordion>
+  <Accordion title="Use appropriate scopes">
+    Only request the scopes your application needs.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="API reference" icon="code" href="/api-reference/overview">
+    Explore all available endpoints
+  </Card>
+  <Card title="Tutorials" icon="book" href="/tutorials/getting-started">
+    Follow step-by-step tutorials
+  </Card>
+  <Card title="Rate limits" icon="gauge" href="/concepts/rate-limits">
+    Learn about rate limiting
+  </Card>
+  <Card title="Scopes" icon="shield" href="/concepts/scopes">
+    Understand authorization scopes
+  </Card>
+</CardGroup>

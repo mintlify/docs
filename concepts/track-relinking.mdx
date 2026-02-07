@@ -1,0 +1,194 @@
+---
+title: "Track relinking"
+description: "How track relinking works across different markets"
+---
+
+# Track relinking
+
+Track relinking ensures users can play tracks even when the specific recording isn't available in their market. The API automatically substitutes alternative versions when needed.
+
+## What is track relinking?
+
+Track relinking occurs when:
+- A track isn't available in a user's market
+- An alternative version of the same song exists
+- The API automatically links to the available version
+
+This provides a seamless experience across different markets without breaking playback.
+
+## How it works
+
+When you request track information with a market parameter:
+
+```bash
+curl "https://api.spotify.com/v1/tracks/6rqhFgbbKwnb9MLmUQDhG6?market=ES" \
+  -H "Authorization: Bearer {token}"
+```
+
+If the track isn't available in Spain (ES), the API may return a relinked version:
+
+```json
+{
+  "id": "6rqhFgbbKwnb9MLmUQDhG6",
+  "name": "Track Name",
+  "is_playable": true,
+  "linked_from": {
+    "id": "original_track_id",
+    "uri": "spotify:track:original_track_id"
+  },
+  "available_markets": ["ES", "FR", "DE", ...]
+}
+```
+
+## Response fields
+
+<ResponseField name="is_playable" type="boolean">
+  Whether the track can be played in the specified market
+</ResponseField>
+
+<ResponseField name="linked_from" type="object">
+  Present when track is relinked. Contains the originally requested track ID.
+</ResponseField>
+
+<ResponseField name="linked_from.id" type="string">
+  The ID of the originally requested track
+</ResponseField>
+
+<ResponseField name="restrictions" type="object">
+  Present when track has restrictions. Contains the reason.
+</ResponseField>
+
+## Market parameter
+
+Always include the `market` parameter for accurate availability:
+
+```javascript
+// Good: Include market
+const response = await fetch(
+  'https://api.spotify.com/v1/tracks/id?market=US',
+  { headers: { 'Authorization': `Bearer ${token}` }}
+);
+
+// Better: Use user's market
+const response = await fetch(
+  'https://api.spotify.com/v1/tracks/id?market=from_token',
+  { headers: { 'Authorization': `Bearer ${token}` }}
+);
+```
+
+### Market values
+
+- **ISO 3166-1 alpha-2 code**: Country code like "US", "GB", "ES"
+- **from_token**: Use market associated with user's account (requires user authentication)
+
+## Handling relinked tracks
+
+Check for relinking in your code:
+
+```javascript
+function getTrackInfo(track) {
+  if (track.linked_from) {
+    console.log(`Track ${track.linked_from.id} relinked to ${track.id}`);
+  }
+  
+  if (!track.is_playable) {
+    console.log('Track not available in this market');
+    return null;
+  }
+  
+  return {
+    id: track.id,
+    name: track.name,
+    originalId: track.linked_from?.id
+  };
+}
+```
+
+## Playback considerations
+
+When controlling playback, always use the returned track ID, not the originally requested ID:
+
+```javascript
+async function playTrack(requestedTrackId, market, token) {
+  // Get track info with market
+  const track = await getTrack(requestedTrackId, market, token);
+  
+  if (!track.is_playable) {
+    throw new Error('Track not playable in market');
+  }
+  
+  // Use the returned ID (may be relinked)
+  await startPlayback([track.id], token);
+}
+```
+
+## Alternative versions
+
+Tracks may have multiple versions due to:
+
+- Different release markets
+- Remastered versions
+- Regional licensing
+- Compilation albums vs original albums
+
+The API automatically selects the best available version for the specified market.
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Always include market parameter">
+    Provide a market parameter to get accurate playability information and enable relinking.
+  </Accordion>
+  <Accordion title="Check is_playable">
+    Always verify `is_playable` is true before attempting playback.
+  </Accordion>
+  <Accordion title="Store track URIs, not IDs">
+    URIs remain more consistent across markets than IDs.
+  </Accordion>
+  <Accordion title="Handle unavailable tracks gracefully">
+    Provide fallback behavior when tracks aren't available.
+  </Accordion>
+</AccordionGroup>
+
+## Example: Building a playlist player
+
+```javascript
+async function playPlaylist(playlistId, market, token) {
+  // Get playlist tracks
+  const playlist = await getPlaylist(playlistId, market, token);
+  
+  // Filter playable tracks
+  const playableTracks = playlist.tracks.items
+    .map(item => item.track)
+    .filter(track => track.is_playable)
+    .map(track => track.uri);
+  
+  if (playableTracks.length === 0) {
+    throw new Error('No playable tracks in this market');
+  }
+  
+  // Start playback with available tracks
+  await startPlayback(playableTracks, token);
+  
+  // Warn about unavailable tracks
+  const unavailableCount = playlist.tracks.total - playableTracks.length;
+  if (unavailableCount > 0) {
+    console.log(`${unavailableCount} tracks not available in your market`);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Markets" icon="globe" href="/api-reference/markets/get-available-markets">
+    Get available markets
+  </Card>
+  <Card title="Tracks API" icon="music" href="/api-reference/tracks/get-track">
+    Track endpoints
+  </Card>
+  <Card title="Player API" icon="play" href="/api-reference/player/start-resume-playback">
+    Control playback
+  </Card>
+</CardGroup>
+
