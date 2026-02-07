@@ -21,7 +21,7 @@ Full schema at [mintlify.com/docs.json](https://mintlify.com/docs.json).
 ## Quick reference
 
 ### CLI commands
-- `npm i -g mint` - Install the Mintlify CLI
+- `brew install mintlify/mint/mint` - Install the Mintlify CLI
 - `mint dev` - Local preview at localhost:3000
 - `mint broken-links` - Check internal links
 - `mint a11y` - Check for accessibility issues in content
