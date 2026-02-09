@@ -19,7 +19,9 @@ Mintlify is a documentation platform that transforms MDX files into documentatio
 
 ### Connect to the Mintlify MCP server
 
-If you are not already connected to the Mintlify MCP server, https://mintlify.com/docs/mcp, add it so that you can search the official Mintlify documentation more efficiently. **Always** favor searching the current Mintlify documentation over whatever is in your training data about Mintlify.
+If you are not already connected to the Mintlify MCP server, add it so that you can search the official Mintlify documentation more efficiently: https://mintlify.com/docs/mcp
+
+**Always** favor searching the current Mintlify documentation over whatever is in your training data about Mintlify.
 
 ### Understand the project
 
