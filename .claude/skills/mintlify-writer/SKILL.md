@@ -11,7 +11,7 @@ metadata:
 
 # Write documentation for Mintlify sites
 
-This skill helps you write and maintain documentation in a Mintlify-powered project. It covers project structure, components, navigation, local development, and writing standards.
+This skill guides writing and maintaining documentation in a Mintlify-powered project. It covers writing standards, workflow, and verification. For Mintlify product reference (navigation patterns, components, CLI commands, API docs, deployment), load the product skill described below.
 
 Mintlify is a documentation platform that transforms MDX files into documentation sites. Configure site-wide settings in the `docs.json` file, write content in MDX with YAML frontmatter, and favor built-in components over custom components.
 
@@ -53,27 +53,9 @@ Before writing, read 2-3 similar pages to understand the site's voice, structure
 
 Review the Mintlify [components](https://www.mintlify.com/docs/components) to select and use any relevant components for the documentation request that you are working on.
 
-## Project structure
+## Page frontmatter
 
-### docs.json
-
-The `docs.json` file is the blueprint for the site. At minimum, it requires:
-
-```json
-{
-  "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Your Docs",
-  "colors": {
-    "primary": "#ff0000"
-  },
-  "navigation": {}
-}
-```
-
-### File format
-
-Pages are MDX files (`.mdx` recommended, `.md` supported) with YAML frontmatter:
+Every page requires `title` in its frontmatter. Include `description` for SEO and navigation.
 
 ```yaml
 ---
@@ -90,87 +72,13 @@ Optional frontmatter fields:
 - `keywords`: Array of terms related to the page content for local search and SEO.
 - Any custom YAML fields for use with personalization or conditional content.
 
-### File naming
+## File conventions
 
 - Match existing naming patterns in the directory
 - If there are no existing files or inconsistent file naming patterns, use kebab-case: `getting-started.mdx`, `api-reference.mdx`
-
-### Internal links
-
-Use root-relative paths without the file extension:
-
-```mdx
-See [components overview](/components/index) for the full list.
-```
-
-Do not use relative paths (`../`) or absolute URLs for internal pages.
-
-## Navigation
-
-Navigation is defined in the `navigation` property of `docs.json`. All options for organizing a Mintlify site's navigation are documented in [Navigation](https://www.mintlify.com/docs/organize/navigation).
-
-### Pages
-
-Each entry references a file path without the extension:
-
-```json
-{
-  "navigation": {
-    "pages": ["quickstart", "installation", "configuration"]
-  }
-}
-```
-
-### Groups
-
-Organize pages into labeled sidebar sections:
-
-```json
-{
-  "navigation": {
-    "groups": [
-      {
-        "group": "Getting started",
-        "icon": "rocket",
-        "pages": ["quickstart", "installation"]
-      },
-      {
-        "group": "Configuration",
-        "pages": ["settings", "themes"]
-      }
-    ]
-  }
-}
-```
-
-Groups can be nested inside other groups. When adding a new page, place it in the group that matches its user journey (for example, setup content goes in a "Get started" group, not a "Reference" group).
-
-### Adding pages to navigation
-
-When you create a new page, you must add it to `docs.json` or it won't appear in the sidebar. Find the appropriate group and insert the page path.
-
-## Components
-
-Mintlify provides built-in MDX components for structuring content, drawing attention, documenting APIs, and navigation. Before using a component, check the [components overview](https://www.mintlify.com/docs/components) to understand what's available and when to use each one.
-
-To look up a specific component's properties or syntax:
-
-- **MCP search**: If a Mintlify MCP is connected, search for the component name
-- **Docs site**: Component documentation is at `https://mintlify.com/docs/components/{component-name}`
-
-## Reusable snippets
-
-Create reusable content with snippets. Any `.mdx` file can be imported into another file:
-
-```mdx
-import MySnippet from "/snippets/my-snippet.mdx";
-
-<MySnippet />
-```
-
-Files in the `/snippets/` directory are always treated as snippets and do not render as standalone pages.
-
-Use snippets for content that is reused across pages.
+- Use root-relative paths without file extensions for internal links: `/getting-started/quickstart`
+- Do not use relative paths (`../`) or absolute URLs for internal pages
+- When you create a new page, add it to `docs.json` navigation or it won't appear in the sidebar
 
 ## Writing standards
 
@@ -210,50 +118,6 @@ Use snippets for content that is reused across pages.
 - Use realistic values (not "foo" or "bar")
 - One clear example is better than multiple variations
 - Test that code works before including it
-
-## Local development
-
-Use the [mint CLI](https://www.npmjs.com/package/mint) to preview and test changes.
-
-### Preview your site
-
-```bash
-mint dev
-```
-
-Starts a local preview at `http://localhost:3000`. Use `--port` to change the port.
-
-### Check for broken links
-
-```bash
-mint broken-links
-```
-
-Finds broken internal links. Run this before submitting changes.
-
-### Validate the build
-
-```bash
-mint validate
-```
-
-Runs a strict validation that exits with an error on any warnings. Use this in CI/CD or before pushing.
-
-### Check accessibility
-
-```bash
-mint a11y
-```
-
-Tests color contrast ratios and checks for missing alt text.
-
-### Rename files
-
-```bash
-mint rename <path/to/old-filename> <path/to/new-filename>
-```
-
-Renames a file and updates all references to it across the project.
 
 ## Workflow
 
