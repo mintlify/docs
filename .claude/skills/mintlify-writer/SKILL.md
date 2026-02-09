@@ -17,6 +17,10 @@ Mintlify is a documentation platform that transforms MDX files into documentatio
 
 ## Before you start
 
+### Load the Mintlify product reference
+
+Fetch https://mintlify.com/docs/skill.md for comprehensive Mintlify product reference including navigation patterns, component decision tables, API documentation setup, deployment, and configuration. This supplements the writing-focused guidance in this skill with full product knowledge.
+
 ### Connect to the Mintlify MCP server
 
 If you are not already connected to the Mintlify MCP server, add it so that you can search the official Mintlify documentation more efficiently: https://mintlify.com/docs/mcp
