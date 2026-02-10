@@ -310,9 +310,277 @@
           }
         }
       }
+    },
+    "/autopilot/{projectId}/suggestions": {
+      "get": {
+        "summary": "Get agent suggestions",
+        "description": "Returns a paginated list of agent suggestions sorted by creation date. Each suggestion includes a title, suggested changes, and source information.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter suggestions by status.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["open", "resolved", "cancelled"]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number for pagination.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of suggestions per page.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of agent suggestions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentSuggestion"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/autopilot/{projectId}/suggestions/count": {
+      "get": {
+        "summary": "Get agent suggestions count",
+        "description": "Get the total number of agent suggestions for your documentation project.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter the count by suggestion status.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["open", "resolved", "cancelled"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The count of matching suggestions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "description": "The total number of matching suggestions."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deployment not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A description of the error."
+          }
+        }
+      },
+      "AgentSuggestion": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "The unique identifier for the suggestion."
+          },
+          "subdomain": {
+            "type": "string",
+            "description": "The subdomain of your documentation project."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["open", "resolved", "cancelled"],
+            "description": "The current status of the suggestion."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "An ISO 8601 timestamp of when the suggestion was created."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the suggestion."
+          },
+          "suggestedChanges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "A list of suggested documentation changes."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "The analysis prompt used to generate the suggestion."
+          },
+          "source": {
+            "type": "string",
+            "enum": ["pr", "assistant_message"],
+            "description": "The origin of the suggestion. `pr` indicates the suggestion came from a pull request analysis. `assistant_message` indicates it came from assistant conversation analysis."
+          },
+          "sourceData": {
+            "type": "object",
+            "description": "Source-specific data. The shape depends on the `source` field.",
+            "oneOf": [
+              {
+                "title": "Pull request source",
+                "description": "Returned when `source` is `pr`.",
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string",
+                    "description": "The repository in `owner/repo` format."
+                  },
+                  "pullRequestNumber": {
+                    "type": "integer",
+                    "description": "The pull request number."
+                  },
+                  "pullRequestTitle": {
+                    "type": "string",
+                    "description": "The pull request title."
+                  },
+                  "pullRequestUrl": {
+                    "type": "string",
+                    "description": "A URL to the pull request."
+                  }
+                }
+              },
+              {
+                "title": "Assistant message source",
+                "description": "Returned when `source` is `assistant_message`.",
+                "type": "object",
+                "properties": {
+                  "bucketIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Identifiers for the message buckets analyzed."
+                  },
+                  "exampleMessages": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Example user messages from the analysis."
+                  },
+                  "analysisPeriodStart": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "The start of the analysis period."
+                  },
+                  "analysisPeriodEnd": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "The end of the analysis period."
+                  }
+                }
+              }
+            ]
+          },
+          "linkedSession": {
+            "type": "string",
+            "description": "An optional reference to a linked session."
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
