@@ -4,19 +4,16 @@ This directory contains the Vale linting configuration for Mintlify documentatio
 
 ## Philosophy
 
-Start simple and grow incrementally as needs emerge. The current setup uses:
-
-- Core Mintlify-specific vocabulary
-- Customized rules from the Google developer documentation style guide
+Start simple and grow incrementally as needs emerge.
 
 ## Vale files
 - `.vale.ini` - Main configuration file
 - `styles/config/vocabularies/Mintlify/` - Mintlify-specific terms
-- `styles/Google/` - Google developer documentation style rules customized for Mintlify docs
+- `styles/Mintlify/` - Style rules derived from the Google developer documentation style and customized for Mintlify
 
 ## When to add vocabulary
 - **Mintlify terms** - New components, features, platform-specific concepts
-- **Frequent false positives** - Any terms that repeatedly trigger spelling errors, but shouldn't
+- **Frequent false positives** - Any terms that repeatedly trigger errors, but shouldn't
 
 ### Discover new vocabulary
 Use the included script to find vocabulary candidates:
