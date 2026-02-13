@@ -61,6 +61,14 @@ project/
 - Use root-relative paths without file extensions: `/getting-started/quickstart`
 - Do not use relative paths (`../`) or absolute URLs for internal pages
 
+### Images
+
+Store images in an `images/` directory. Reference with root-relative paths. All images require descriptive alt text.
+
+```mdx
+![Dashboard showing analytics overview](/images/dashboard.png)
+```
+
 ## Page frontmatter
 
 Every page requires `title` in its frontmatter. Include `description` and `keywords` for SEO.
@@ -147,13 +155,20 @@ greeting = "Hello, world!"
 </CodeGroup>
 ```
 
-### Cards
+### Cards and columns
 
 ```mdx
-<Card title="Card title" icon="rocket" href="/quickstart">
-  Card description text.
-</Card>
+<Columns cols={2}>
+  <Card title="First card" icon="rocket" href="/quickstart">
+    Card description text.
+  </Card>
+  <Card title="Second card" icon="book" href="/guides">
+    Card description text.
+  </Card>
+</Columns>
 ```
+
+Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-4.
 
 ### Accordions
 
@@ -184,3 +199,11 @@ greeting = "Hello, world!"
 - All images must have descriptive alt text.
 - No marketing language, filler phrases, or emoji.
 - Keep code examples simple, practical, and tested.
+
+## Common mistakes
+
+- Missing language tag on a code block (use ` ```python `, not ` ``` `).
+- Using relative paths (`../page`) instead of root-relative (`/section/page`).
+- Forgetting to add new pages to `docs.json` navigation.
+- Images without alt text.
+- Adding file extensions to internal links (`/page.mdx` instead of `/page`).
