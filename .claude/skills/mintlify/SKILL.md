@@ -41,8 +41,8 @@ project/
 
 ### File naming
 
-- Use kebab-case: `getting-started.mdx`
 - Match existing patterns in the directory
+- If no existing files or mixed file naming patterns, use kebab-case: `getting-started.mdx`
 - Add new pages to `docs.json` navigation or they won't appear in the sidebar
 
 ### Internal links
