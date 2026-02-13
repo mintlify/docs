@@ -1,6 +1,6 @@
 ---
 name: mintlify
-description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, or working with API references. Contains full inline syntax for all components and configuration options.
+description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, or working with API references. Routes to detailed reference files for all components and configuration options.
 license: MIT
 compatibility: Works with any Mintlify documentation project. Requires docs.json configuration file.
 metadata:
@@ -15,12 +15,12 @@ Reference for building documentation with Mintlify. This file covers essentials 
 
 ## Reference index
 
-Read these files **only when your task requires them**:
+Read these files **only when your task requires them**. They are in the `reference/` directory next to this file. To find them, look in the same directory as this skill file (e.g., `.claude/skills/mintlify/reference/`).
 
 | File | When to read |
 |------|-------------|
 | `reference/components.md` | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, panels, prompts, colors, tiles, updates, views). |
-| `reference/configuration.md` | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, and custom CSS/JS. |
+| `reference/configuration.md` | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
 | `reference/navigation.md` | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI in nav). |
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
 

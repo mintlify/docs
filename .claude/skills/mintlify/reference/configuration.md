@@ -25,6 +25,62 @@ The `docs.json` file controls the entire site. Required fields: `theme`, `name`,
 }
 ```
 
+## Complete frontmatter fields
+
+The SKILL.md file lists common frontmatter fields. Here is the complete set:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | Yes | Page title in navigation and browser tabs. |
+| `description` | string | No | Brief description for SEO. Displays under the title. |
+| `sidebarTitle` | string | No | Short title for sidebar navigation. |
+| `icon` | string | No | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
+| `iconType` | string | No | Font Awesome icon style: `regular`, `solid`, `light`, `thin`, `sharp-solid`, `duotone`, `brands`. |
+| `tag` | string | No | Label next to page title in sidebar (e.g., "NEW"). |
+| `hidden` | boolean | No | Remove from sidebar. Page still accessible by URL. |
+| `noindex` | boolean | No | Prevent search engine indexing. |
+| `mode` | string | No | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
+| `keywords` | array | No | Search terms for internal search and SEO. |
+| `api` | string | No | API endpoint for interactive playground (e.g., `"POST /users"`). |
+| `openapi` | string | No | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
+| `url` | string | No | External URL. Makes the nav entry link externally. |
+| `timestamp` | boolean | No | Override global timestamp setting for this page. |
+
+## Page modes
+
+Control page layout with the `mode` frontmatter field.
+
+```yaml
+# Default: standard layout with sidebar and table of contents
+---
+title: "Page title"
+---
+
+# Wide: hides table of contents for extra horizontal space
+---
+title: "Page title"
+mode: "wide"
+---
+
+# Custom: blank canvas, only top navbar visible
+---
+title: "Page title"
+mode: "custom"
+---
+
+# Frame: like custom but keeps sidebar (Aspen and Almond themes only)
+---
+title: "Page title"
+mode: "frame"
+---
+
+# Center: removes sidebar and TOC, centers content (Mint and Linden themes only)
+---
+title: "Page title"
+mode: "center"
+---
+```
+
 ## Theme
 
 One of: `mint`, `maple`, `palm`, `willow`, `linden`, `almond`, `aspen`, `sequoia`.
