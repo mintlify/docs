@@ -211,6 +211,114 @@ Keep translations accurate and synchronized with your source content.
 
 For automated translation solutions, [contact the Mintlify sales team](mailto:gtm@mintlify.com).
 
+### External translation providers
+
+If you work with your own translation vendors or regional translators, you can integrate their workflow with your Mintlify documentation using GitHub Actions or similar CI/CD tools.
+
+#### Workflow overview
+
+1. **Export source content** - Extract MDX files that need translation.
+2. **Send to translators** - Provide files to your translation provider.
+3. **Receive translations** - Get translated MDX files back.
+4. **Import and deploy** - Add translated files to language directories and update navigation.
+
+#### GitHub Actions example
+
+This workflow automatically exports changed English content for translation when PRs merge to main:
+
+```yaml .github/workflows/export-for-translation.yml
+name: Export content for translation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.mdx'
+      - '!es/**'
+      - '!fr/**'
+      - '!zh/**'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed files
+        id: changed
+        run: |
+          echo "files=$(git diff --name-only HEAD~1 HEAD -- '*.mdx' ':!es/' ':!fr/' ':!zh/' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Create translation package
+        if: steps.changed.outputs.files != ''
+        run: |
+          mkdir -p translation-export
+          for file in ${{ steps.changed.outputs.files }}; do
+            cp "$file" translation-export/
+          done
+
+      - name: Upload translation package
+        if: steps.changed.outputs.files != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-export-${{ github.sha }}
+          path: translation-export/
+```
+
+#### Import translations workflow
+
+This workflow validates and imports translated content when added via PR:
+
+```yaml .github/workflows/import-translations.yml
+name: Import translations
+
+on:
+  pull_request:
+    paths:
+      - 'es/**'
+      - 'fr/**'
+      - 'zh/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate frontmatter
+        run: |
+          for file in $(git diff --name-only origin/main...HEAD -- '*.mdx'); do
+            if ! head -1 "$file" | grep -q '^---$'; then
+              echo "Error: $file missing frontmatter"
+              exit 1
+            fi
+          done
+
+      - name: Check file structure
+        run: |
+          # Verify translated files match source structure
+          for lang in es fr zh; do
+            if [ -d "$lang" ]; then
+              for file in $(find $lang -name '*.mdx'); do
+                source_file="${file#*/}"
+                if [ ! -f "$source_file" ]; then
+                  echo "Warning: $file has no English source at $source_file"
+                fi
+              done
+            fi
+          done
+```
+
+#### Best practices for external translation workflows
+
+- **Preserve frontmatter** - Ensure translators keep YAML frontmatter intact, translating only `title` and `description` values.
+- **Protect code blocks** - Mark code blocks as "do not translate" for your vendors.
+- **Use translation memory** - Provide glossaries with technical terms that should remain in English or have specific translations.
+- **Automate validation** - Use CI checks to verify MDX syntax and frontmatter before merging translations.
+- **Version control** - Track the source version for each translation to identify outdated content.
+
 ### Images and media
 
 Store translated images in language-specific directories.
