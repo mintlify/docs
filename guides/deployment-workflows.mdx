@@ -1,0 +1,406 @@
+---
+title: Deployment workflows
+description: Comprehensive guide to managing deployment lifecycles, CI/CD pipelines, and multi-environment strategies for your documentation.
+---
+
+Effective deployment workflows ensure your documentation stays synchronized with your codebase, maintains quality through automated checks, and provides safe rollback mechanisms when issues arise.
+
+## Deployment lifecycle
+
+Understanding the complete deployment lifecycle helps you optimize your documentation workflow and troubleshoot issues effectively.
+
+### Development phase
+
+1. **Local development**: Use `mint dev` to preview changes locally before committing
+2. **Branch creation**: Create feature branches for significant changes or updates
+3. **Content validation**: Run local checks to catch errors early
+
+### Review phase
+
+1. **Pull request creation**: Open a PR against your deployment branch
+2. **Preview deployment**: Automatically generated preview URLs for review
+3. **CI checks**: Automated linting, broken link detection, and style validation
+4. **Team review**: Collaborate with stakeholders using preview deployments
+
+### Production phase
+
+1. **Merge to deployment branch**: Triggers automatic production deployment
+2. **Build process**: Mintlify builds and optimizes your documentation
+3. **Deployment**: Changes go live on your production domain
+4. **Verification**: Monitor deployment status and validate changes
+
+## Setting up CI/CD pipelines
+
+Automate quality checks and deployment processes to maintain documentation standards.
+
+### GitHub integration
+
+Connect your repository to enable automated deployments and CI checks.
+
+<Steps>
+  <Step title="Install the GitHub App">
+    Navigate to your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) and install the Mintlify GitHub App. Grant access only to your documentation repository for security.
+  </Step>
+  <Step title="Configure deployment branch">
+    Set your deployment branch in [Git Settings](https://dashboard.mintlify.com/settings/deployment/git-settings). This branch triggers production deployments when updated.
+  </Step>
+  <Step title="Enable CI checks">
+    Go to [Add-ons](https://dashboard.mintlify.com/products/addons) and enable CI checks. Choose between `Warning` (non-blocking) or `Blocking` (prevents merge on failure) levels.
+  </Step>
+</Steps>
+
+### Available CI checks
+
+Configure automated checks to maintain documentation quality:
+
+**Broken links**: Automatically detects internal broken links before deployment. Similar to running `mint dev` locally, this check scans all documentation content.
+
+**Vale linting**: Enforces style and tone consistency using Vale, an open-source prose linter. Configure with a `.vale.ini` file in your repository root, or use the default Mintlify configuration.
+
+```ini Example .vale.ini
+StylesPath = styles
+MinAlertLevel = suggestion
+Vocab = YourCompany
+
+[*.mdx]
+BasedOnStyles = Vale
+```
+
+### GitLab integration
+
+For GitLab repositories, configure webhooks to trigger deployments:
+
+1. Navigate to your GitLab repository settings
+2. Add a webhook pointing to your Mintlify deployment endpoint
+3. Configure to trigger on push events to your deployment branch
+
+## Managing multiple environments
+
+Separate staging and production environments enable safe testing before releasing changes to users.
+
+### Staging environment with preview deployments
+
+Preview deployments serve as staging environments for documentation changes.
+
+**Automatic previews**: Created automatically for pull requests targeting your deployment branch. Each preview updates with new commits.
+
+**Manual previews**: Create previews for any branch from your [dashboard](https://dashboard.mintlify.com/):
+
+<Steps>
+  <Step title="Navigate to Previews">
+    Go to the Previews section in your dashboard.
+  </Step>
+  <Step title="Create custom preview">
+    Select **Create custom preview** and enter the branch name.
+  </Step>
+  <Step title="Share preview URL">
+    Share the generated URL with stakeholders for review.
+  </Step>
+</Steps>
+
+### Production environment
+
+Your production environment deploys from your configured deployment branch (typically `main` or `master`).
+
+**Custom domains**: Configure custom domains in your [dashboard settings](https://dashboard.mintlify.com/settings/deployment/custom-domain) to serve documentation from your own domain.
+
+**Authentication**: Protect production documentation with authentication if needed. Configure in [Authentication settings](https://dashboard.mintlify.com/settings/deployment/authentication).
+
+### Environment-specific configuration
+
+Use environment variables or conditional content to manage environment-specific settings:
+
+```mdx
+{process.env.NODE_ENV === 'production' ? (
+  <Callout type="info">Production environment</Callout>
+) : (
+  <Callout type="warning">Preview environment</Callout>
+)}
+```
+
+## Deployment best practices
+
+Follow these practices to maintain reliable and efficient deployment workflows.
+
+### Branch strategy
+
+**Feature branches**: Create dedicated branches for significant updates or new sections. Use descriptive names like `feature/api-v2-docs` or `update/authentication-guide`.
+
+**Deployment branch protection**: Enable branch protection rules on your deployment branch to require:
+- Pull request reviews before merging
+- Passing CI checks
+- Up-to-date branches
+
+### Pre-deployment validation
+
+**Local testing**: Always run `mint dev` locally to catch build errors before pushing.
+
+**Link validation**: Use the CLI link checker to find broken links:
+
+```bash
+mint dev --check-links
+```
+
+**Content review**: Review changes in preview deployments before merging to production.
+
+### Deployment timing
+
+**Off-peak deployments**: Schedule major updates during low-traffic periods to minimize user impact.
+
+**Incremental updates**: Deploy small, frequent changes rather than large batches to reduce risk and simplify troubleshooting.
+
+**Communication**: Notify users of significant documentation changes through changelogs or announcements.
+
+### Quality gates
+
+Implement quality gates to prevent problematic deployments:
+
+1. **Required CI checks**: Set CI checks to `Blocking` level for critical validations
+2. **Review requirements**: Require at least one approval before merging
+3. **Automated testing**: Validate code examples and API references automatically
+
+## Rollback strategies
+
+Quickly revert problematic deployments to maintain documentation availability.
+
+### Git-based rollback
+
+The most reliable rollback method uses Git to revert changes:
+
+<Steps>
+  <Step title="Identify the problematic commit">
+    Review your deployment history in the dashboard or Git log to find the commit that introduced issues.
+  </Step>
+  <Step title="Revert the commit">
+    Use Git to revert the problematic commit:
+    ```bash
+    git revert <commit-hash>
+    git push origin <deployment-branch>
+    ```
+  </Step>
+  <Step title="Verify deployment">
+    Monitor the automatic deployment triggered by your revert commit.
+  </Step>
+</Steps>
+
+### Manual redeployment
+
+Trigger a manual deployment of a previous working state:
+
+<Steps>
+  <Step title="Reset to previous commit">
+    Checkout the last known good commit:
+    ```bash
+    git checkout <working-commit-hash>
+    git push origin <deployment-branch> --force
+    ```
+  </Step>
+  <Step title="Trigger deployment">
+    If automatic deployment doesn't trigger, manually deploy from your [dashboard](https://dashboard.mintlify.com).
+  </Step>
+</Steps>
+
+<Warning>
+  Force pushing to your deployment branch can cause issues if others are working on the same branch. Coordinate with your team before force pushing.
+</Warning>
+
+### Preview-based rollback
+
+Use preview deployments to validate rollback changes before applying to production:
+
+1. Create a branch from the last working commit
+2. Generate a preview deployment to verify functionality
+3. Merge the rollback branch to your deployment branch
+
+## Monitoring deployments
+
+Track deployment status and identify issues quickly.
+
+### Deployment dashboard
+
+Monitor deployments in your [dashboard](https://dashboard.mintlify.com):
+
+- **Deployment status**: View current and historical deployment status
+- **Build logs**: Access detailed logs for failed deployments
+- **Deployment history**: Track all deployments with timestamps and commit information
+
+### Build failure troubleshooting
+
+When deployments fail, check these common issues:
+
+<AccordionGroup>
+  <Accordion title="Invalid docs.json syntax">
+    Validate your `docs.json` file structure. Common issues include:
+    - Missing commas between array elements
+    - Incorrect navigation paths
+    - Invalid property names
+  </Accordion>
+  <Accordion title="Missing files">
+    Ensure all files referenced in navigation exist in your repository:
+    - Check file paths for typos
+    - Verify file extensions match (`.mdx` not `.md`)
+    - Confirm files are committed and pushed
+  </Accordion>
+  <Accordion title="Invalid frontmatter">
+    Check MDX file frontmatter for:
+    - Proper YAML syntax
+    - Required fields (title, description)
+    - Valid property values
+  </Accordion>
+  <Accordion title="Broken image links">
+    Verify all image references:
+    - Images exist in the repository
+    - Paths are correct (relative or absolute)
+    - Image files are committed
+  </Accordion>
+</AccordionGroup>
+
+### Performance monitoring
+
+Track documentation performance metrics:
+
+- **Build times**: Monitor deployment duration to identify performance issues
+- **Analytics**: Use [analytics integrations](/optimize/analytics) to track user engagement
+- **Feedback**: Enable [feedback features](/optimize/feedback) to gather user input
+
+## Integrating with DevOps tools
+
+Connect your documentation workflow with existing DevOps infrastructure.
+
+### Continuous integration platforms
+
+**GitHub Actions**: Create workflows that trigger on documentation changes:
+
+```yaml .github/workflows/docs-check.yml
+name: Documentation checks
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'docs.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Mintlify CLI
+        run: npm install -g mintlify
+      - name: Check for broken links
+        run: cd docs && mint dev --check-links
+```
+
+**GitLab CI**: Configure `.gitlab-ci.yml` for documentation validation:
+
+```yaml
+docs-validation:
+  stage: test
+  script:
+    - npm install -g mintlify
+    - cd docs && mint dev --check-links
+  only:
+    - merge_requests
+```
+
+### Notification integrations
+
+**Slack notifications**: Set up webhooks to notify teams of deployment events:
+
+1. Create a Slack webhook in your workspace
+2. Configure deployment notifications in your CI/CD pipeline
+3. Receive alerts for successful deployments and failures
+
+**Email notifications**: Organization admins automatically receive email notifications for:
+- Deployment failures
+- Deployment deletions
+- Critical configuration changes
+
+### Monitoring and alerting
+
+**Status checks**: Integrate deployment status into your monitoring dashboard using the [Mintlify API](/api/update/status):
+
+```bash
+curl https://api.mintlify.com/v1/deployment/status \
+  -H "Authorization: Bearer YOUR_API_TOKEN"
+```
+
+**Automated deployments**: Trigger deployments programmatically using the [deployment API](/api/update/trigger):
+
+```bash
+curl -X POST https://api.mintlify.com/v1/deployment/trigger \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+### Version control integration
+
+**Monorepo support**: For monorepo setups, configure your documentation path in [Git Settings](https://dashboard.mintlify.com/settings/deployment/git-settings). See [monorepo documentation](/deploy/monorepo) for detailed configuration.
+
+**Submodules**: If your documentation lives in a Git submodule, ensure your CI/CD pipeline initializes submodules before deployment:
+
+```bash
+git submodule update --init --recursive
+```
+
+## Advanced workflows
+
+Implement sophisticated deployment patterns for complex documentation needs.
+
+### Multi-language deployments
+
+Deploy documentation in multiple languages using the [languages configuration](/organize/navigation#languages):
+
+```json docs.json
+{
+  "languages": [
+    {
+      "language": "en",
+      "groups": [{"group": "Getting started", "pages": ["en/quickstart"]}]
+    },
+    {
+      "language": "es",
+      "groups": [{"group": "Primeros pasos", "pages": ["es/quickstart"]}]
+    }
+  ]
+}
+```
+
+### Versioned documentation
+
+Maintain multiple documentation versions using the [versions configuration](/organize/navigation#versions):
+
+```json docs.json
+{
+  "versions": [
+    {
+      "version": "2.0.0",
+      "groups": [{"group": "Getting started", "pages": ["v2/quickstart"]}]
+    },
+    {
+      "version": "1.0.0",
+      "groups": [{"group": "Getting started", "pages": ["v1/quickstart"]}]
+    }
+  ]
+}
+```
+
+### Automated content updates
+
+Use the [Mintlify Agent](/agent/index) to automate documentation updates:
+
+- Sync API documentation with OpenAPI specifications
+- Update code examples from repository changes
+- Generate changelog entries from commit messages
+
+### Blue-green deployments
+
+Implement blue-green deployment patterns using preview deployments:
+
+1. Deploy changes to a long-lived preview branch
+2. Validate thoroughly in the preview environment
+3. Swap preview to production by updating your deployment branch
+4. Keep the previous version available for quick rollback
+
+<Tip>
+  For enterprise deployments requiring advanced workflow patterns, contact [Mintlify support](https://mintlify.com/contact) to discuss custom solutions.
+</Tip>
