@@ -1,9 +1,8 @@
 ---
 name: "Changelog generator"
-trigger:
-  type: "cron"
-  schedule: "0 0 * * 2"
-repos:
+on:
+  cron: "0 0 * * 2"
+context_repos:
   - "mintlify/mint"
   - "mintlify/server"
 ---
