@@ -1,8 +1,7 @@
 ---
 name: "Translation lag tracker"
-trigger:
-  type: "cron"
-  schedule: "3 15 * * 3"
+on:
+  cron: "3 15 * * 3"
 ---
 
 Compare the English MDX files in the root of the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to identify English files that have been updated more recently than their translations.
