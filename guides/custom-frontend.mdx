@@ -1,0 +1,166 @@
+---
+title: "Create a custom frontend"
+sidebarTitle: "Custom frontend"
+description: "Use the Astro integration to render your documentation with a fully custom frontend while using Mintlify's content and AI infrastructure."
+keywords: ["Astro", "headless", "self-hosted", "custom"]
+---
+
+A custom frontend lets you control how your documentation looks and behaves while using Mintlify to manage your content. Instead of using Mintlify's hosted frontend, you can build your own with [Astro](https://astro.build) and render your MDX content and `docs.json` configuration however you want.
+
+This is useful when you need full control over your documentation's design, layout, or behavior. For example, to match an existing design system or embed documentation into a larger site.
+
+The `@mintlify/astro` integration reads your `docs.json` config and MDX content at build time, then processes everything into a format that Astro can render. Use your own layouts, components, and styles on top of it.
+
+With a custom frontend, you can still use Mintlify components without importing them and you have the publishing, search, and AI infrastructure.
+
+This guide walks you through setting up a new project with the starter template and getting it running locally.
+
+## Prerequisites
+
+- A [Mintlify account](https://dashboard.mintlify.com)
+- A [GitHub account](https://github.com)
+- [Node.js](https://nodejs.org) v20.17.0 or later (LTS versions recommended)
+- Familiarity with [Astro](https://docs.astro.build)
+
+## Set up your project
+
+<Steps>
+  <Step title="Create a repository from the starter template">
+    Navigate to the [mintlify-astro-starter](https://github.com/mintlify/mintlify-astro-starter) repository on GitHub and click **Use this template** to create a new repository on your account.
+
+    Clone the repository to your local machine.
+  </Step>
+
+  <Step title="Sign up for Mintlify">
+    If you don't have a Mintlify account, sign up at [dashboard.mintlify.com/signup](https://dashboard.mintlify.com/signup).
+  </Step>
+
+  <Step title="Install the GitHub app">
+    On the [Git settings](https://dashboard.mintlify.com/settings/deployment/git-settings) page of your Mintlify dashboard, install the [Mintlify GitHub app](/deploy/github). If you already have the app installed, uninstall it and reinstall it so that you are ready to connect your new repository.
+  </Step>
+
+  <Step title="Connect your repository">
+    1. On the [Git settings](https://dashboard.mintlify.com/settings/deployment/git-settings) page, select the repository you created from the starter template.
+    2. Enable the **Set up as monorepo** toggle.
+    3. Enter `/docs` as the path to the directory containing your `docs.json` file.
+    4. Click **Save changes**.
+
+    <Frame>
+    <img
+    src="/images/guides/astro/repo-settings-light.png"
+    alt="Repository settings in the Git settings page."
+    className="block dark:hidden"
+    />
+  <img
+    src="/images/guides/astro/repo-settings-dark.png"
+    alt="Repository settings in the Git settings page."
+    className="hidden dark:block"
+    />
+    </Frame>
+  </Step>
+
+  <Step title="Configure environment variables">
+    Clone your new repository locally and create a `.env` file at the project root with your Mintlify credentials:
+
+    ```bash .env
+    PUBLIC_MINTLIFY_SUBDOMAIN=your-subdomain
+    PUBLIC_MINTLIFY_ASSISTANT_KEY=your-assistant-api-key
+    ```
+    
+    Your subdomain is the domain name of your project. It is the part of your dashboard URL after the organization name. For example, if your dashboard URL is `https://dashboard.mintlify.com/org-name/domain-name`, your subdomain is `domain-name`.
+
+    If you have a Pro or Enterprise plan, generate an assistant API key on the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page of your dashboard. The assistant API key starts with `mint_dsc_`.
+  </Step>
+
+  <Step title="Start the dev server">
+    Install dependencies and start the local development server in your cloned repository:
+
+    ```bash
+    cd path/to/your-repository
+    npm install
+    npm run dev
+    ```
+
+    Your site now runs locally at `http://localhost:4321`.
+  </Step>
+</Steps>
+
+## How it works
+
+The integration connects three parts: the Astro build system, your content in the `docs/` directory, and the Mintlify packages that process and render that content.
+
+### Astro configuration
+
+Configure the `mintlify()` integration in `astro.config.mjs` with the path to your docs directory:
+
+```javascript astro.config.mjs
+import { defineConfig } from 'astro/config';
+import react from '@astrojs/react';
+import mdx from '@astrojs/mdx';
+import { mintlify } from '@mintlify/astro';
+
+export default defineConfig({
+  integrations: [mintlify({ docsDir: './docs' }), react(), mdx()],
+});
+```
+
+At build time, the integration reads your `docs.json` and MDX files from the `docsDir` path and processes them into `.mintlify/docs/`, where Astro's content collections pick them up.
+
+### Content structure
+
+Your documentation content lives in the `docs/` directory, structured the same way as any other Mintlify project:
+
+```text
+docs/
+├── docs.json          # Navigation and site configuration
+├── index.mdx          # MDX pages for content
+├── quickstart.mdx
+└── guides/            # Directories for organizing pages
+    ├── setup.mdx
+    └── troubleshooting.mdx
+```
+
+MDX files use standard Mintlify [frontmatter](/organize/pages#page-metadata) and can use Mintlify components without importing them.
+
+### Routing and navigation
+
+A catch-all route renders each MDX page. The `@mintlify/astro/helpers` package provides functions to resolve navigation state from your `docs.json`.
+
+- `resolvePageData()`: Returns tabs, sidebar navigation, footer links, and anchors for a given page path.
+- `unwrapNav()`: Flattens the navigation tree into a list for sidebar rendering.
+
+### Layouts and styling
+
+You control the full presentation layer. The starter template includes layouts, a sidebar, table of contents, and styles built with Tailwind CSS, but you can replace any of these with your own.
+
+Key files to customize:
+
+| File | Purpose |
+|------|---------|
+| `src/layouts/Layout.astro` | Root HTML layout |
+| `src/pages/[...slug].astro` | Page template and data loading |
+| `src/components/Header.astro` | Site header |
+| `src/components/Sidebar/` | Sidebar navigation |
+| `src/components/TableOfContents.tsx` | On-page table of contents |
+| `src/styles/` | Global styles, typography, and color scheme |
+
+## Connect search and assistant
+
+<Note>
+  The assistant is available on [Pro and Enterprise plans](https://mintlify.com/pricing).
+</Note>
+
+The starter template includes search and assistant components that connect to Mintlify's APIs using the environment variables you configure during setup.
+
+- **Search**: The `SearchBar` component in `src/components/SearchBar.tsx` queries the Mintlify search API.
+- **Assistant**: The `Assistant` component in `src/components/Assistant/` provides an AI chat interface that answers questions using your documentation content.
+
+Both require the `PUBLIC_MINTLIFY_SUBDOMAIN` and `PUBLIC_MINTLIFY_ASSISTANT_KEY` environment variables.
+
+## Next steps
+
+After setting up your project:
+
+1. Replace the starter content in `docs/` with your own MDX files and `docs.json` configuration.
+2. Customize layouts and styles to match your design system.
+3. Deploy your Astro site to your preferred hosting provider.
