@@ -1,0 +1,177 @@
+---
+title: "创建自定义前端"
+sidebarTitle: "自定义前端"
+description: "使用 Astro 集成，在借助 Mintlify 的内容与 AI 基础设施的同时，用完全自定义的前端渲染你的文档。"
+keywords: ["Astro", "headless", "自托管", "自定义"]
+---
+
+自定义前端可以让你在由 Mintlify 管理文档内容的同时，完全掌控文档的外观和行为。你可以不使用 Mintlify 托管的前端，而是用 [Astro](https://astro.build) 构建自己的前端，并按任意方式渲染你的 MDX 内容和 `docs.json` 配置。
+
+当你需要对文档的设计、布局或交互行为拥有完全控制时，这种方式会非常有用。例如，希望对齐现有的设计系统，或将文档嵌入到更大型的网站中。
+
+`@mintlify/astro` 集成会在构建时读取你的 `docs.json` 配置和 MDX 内容，然后将所有内容处理为 Astro 可以渲染的格式。你可以在此基础上使用自己的布局、组件和样式。
+
+使用自定义前端时，你仍然可以在无需显式导入的情况下使用 Mintlify 组件，并继续使用发布、搜索和 AI 基础设施。
+
+本指南将引导你使用起始模板创建一个新项目，并在本地运行起来。
+
+<div id="prerequisites">
+  ## 先决条件
+</div>
+
+* 拥有一个 [Mintlify 账号](https://dashboard.mintlify.com)
+* 拥有一个 [GitHub 账号](https://github.com)
+* 安装 [Node.js](https://nodejs.org) v20.17.0 或更高版本（推荐使用 LTS 版本）
+* 熟悉 [Astro](https://docs.astro.build)
+
+<div id="set-up-your-project">
+  ## 设置项目
+</div>
+
+<Steps>
+  <Step title="Create a repository from the starter template">
+    在 GitHub 上打开 [mintlify-astro-starter](https://github.com/mintlify/mintlify-astro-starter) 存储库，并点击 **Use this template**，在你的账户下创建一个新的存储库。
+
+    将该存储库克隆到本地环境。
+  </Step>
+
+  <Step title="Sign up for Mintlify">
+    如果你还没有 Mintlify 账户，请前往 [dashboard.mintlify.com/signup](https://dashboard.mintlify.com/signup) 注册。
+  </Step>
+
+  <Step title="Install the GitHub app">
+    在 Mintlify 控制台的 [Git settings](https://dashboard.mintlify.com/settings/deployment/git-settings) 页面中，安装 [Mintlify GitHub 应用](/zh/deploy/github)。如果你已经安装了该应用，请先卸载再重新安装，以便为连接新存储库做好准备。
+  </Step>
+
+  <Step title="Connect your repository">
+    1. 在 [Git settings](https://dashboard.mintlify.com/settings/deployment/git-settings) 页面中，选择你通过 starter 模板创建的存储库。
+    2. 启用 **Set up as monorepo** 开关。
+    3. 将 `/docs` 填写为包含 `docs.json` 文件的目录路径。
+    4. 点击 **保存更改**。
+
+    <Frame>
+      <img src="/images/guides/astro/repo-settings-light.png" alt="Git 设置页面中的存储库设置。" className="block dark:hidden" />
+
+      <img src="/images/guides/astro/repo-settings-dark.png" alt="Git 设置页面中的存储库设置。" className="hidden dark:block" />
+    </Frame>
+  </Step>
+
+  <Step title="Configure environment variables">
+    将你的新存储库克隆到本地后，在项目根目录创建一个 `.env` 文件，并填入你的 Mintlify 凭据：
+
+    ```bash .env
+    PUBLIC_MINTLIFY_SUBDOMAIN=your-subdomain
+    PUBLIC_MINTLIFY_ASSISTANT_KEY=your-assistant-api-key
+    ```
+
+    你的子域（subdomain）是项目的域名部分，即在控制台 URL 中组织名称之后的那一段。比如，如果你的控制台 URL 是 `https://dashboard.mintlify.com/org-name/domain-name`，那么你的子域就是 `domain-name`。
+
+    如果你使用的是 Pro 或 Enterprise 套餐，请在控制台的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面生成一个 AI 助手 API key。该 API key 以 `mint_dsc_` 开头。
+  </Step>
+
+  <Step title="Start the dev server">
+    在你克隆的存储库中安装依赖并启动本地开发服务器：
+
+    ```bash
+    cd path/to/your-repository
+    npm install
+    npm run dev
+    ```
+
+    你的站点现在将在本地的 `http://localhost:4321` 上运行。
+  </Step>
+</Steps>
+
+<div id="how-it-works">
+  ## 工作原理
+</div>
+
+该集成连接了三个部分：Astro 构建系统、`docs/` 目录中的内容，以及用于处理并渲染这些内容的 Mintlify 包。
+
+<div id="astro-configuration">
+  ### Astro 配置
+</div>
+
+在 `astro.config.mjs` 中配置 `mintlify()` 集成，并指定文档目录的路径：
+
+```javascript astro.config.mjs
+import { defineConfig } from 'astro/config';
+import react from '@astrojs/react';
+import mdx from '@astrojs/mdx';
+import { mintlify } from '@mintlify/astro';
+
+export default defineConfig({
+  integrations: [mintlify({ docsDir: './docs' }), react(), mdx()],
+});
+```
+
+在构建时，该集成会从 `docsDir` 路径读取你的 `docs.json` 和 MDX 文件，将它们处理为 `.mintlify/docs/` 中的内容，供 Astro 的内容集合使用。
+
+<div id="content-structure">
+  ### 内容结构
+</div>
+
+你的文档内容存放在 `docs/` 目录中，其结构与其他 Mintlify 项目相同：
+
+```text
+docs/
+├── docs.json          # 导航和站点配置
+├── index.mdx          # 用于内容的 MDX 页面
+├── quickstart.mdx
+└── guides/            # 用于组织页面的目录
+    ├── setup.mdx
+    └── troubleshooting.mdx
+```
+
+MDX 文件使用标准 Mintlify [frontmatter](/zh/organize/pages#page-metadata)，并且可以在无需导入它们的情况下使用 Mintlify 组件。
+
+<div id="routing-and-navigation">
+  ### 路由与导航
+</div>
+
+使用一个 catch-all 路由来渲染每个 MDX 页面。`@mintlify/astro/helpers` 包提供了一些函数，用于从你的 `docs.json` 中解析导航状态。
+
+* `resolvePageData()`：为指定的页面路径返回标签页（tabs）、侧边栏导航、页脚链接和页内锚点。
+* `unwrapNav()`：将导航树扁平化为列表，以便用于侧边栏渲染。
+
+<div id="layouts-and-styling">
+  ### 布局和样式
+</div>
+
+你可以完全掌控呈现层。起始模板包含布局、侧边栏、目录以及使用 Tailwind CSS 构建的样式，但你可以将其中任何部分替换为你自己的实现。
+
+需要自定义的关键文件：
+
+| File | Purpose |
+|------|---------|
+| `src/layouts/Layout.astro` | 根 HTML 布局 |
+| `src/pages/[...slug].astro` | 页面模板和数据加载 |
+| `src/components/Header.astro` | 站点头部 |
+| `src/components/Sidebar/` | 侧边栏导航 |
+| `src/components/TableOfContents.tsx` | 页面内目录 |
+| `src/styles/` | 全局样式、排版和配色方案 |
+
+<div id="connect-search-and-assistant">
+  ## 连接搜索和 AI 助手
+</div>
+
+<Note>
+  AI 助手可在 [Pro 和 Enterprise 套餐](https://mintlify.com/pricing) 中使用。
+</Note>
+
+入门模板包含搜索和 AI 助手组件，它们通过你在设置过程中配置的环境变量连接到 Mintlify 的 API。
+
+* **Search（搜索）**：`src/components/SearchBar.tsx` 中的 `SearchBar` 组件会请求 Mintlify 搜索 API。
+* **Assistant（AI 助手）**：`src/components/Assistant/` 中的 `Assistant` 组件提供一个 AI 聊天界面，使用你的文档内容回答问题。
+
+这两者都需要 `PUBLIC_MINTLIFY_SUBDOMAIN` 和 `PUBLIC_MINTLIFY_ASSISTANT_KEY` 这两个环境变量。
+
+<div id="next-steps">
+  ## 后续步骤
+</div>
+
+完成项目设置后：
+
+1. 将 `docs/` 目录中的示例内容替换为你自己的 MDX 文件和 `docs.json` 配置。
+2. 自定义布局和样式，使其符合你的设计系统。
+3. 将你的 Astro 站点部署到你首选的托管服务商。
