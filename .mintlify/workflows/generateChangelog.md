@@ -2,9 +2,9 @@
 name: "Changelog generator"
 on:
   cron: "0 0 * * 2"
-context_repos:
-  - "mintlify/mint"
-  - "mintlify/server"
+context:
+  - repo: "mintlify/mint"
+  - repo: "mintlify/server"
 ---
 
 Read every pull request merged in `mintlify/server` and `mintlify/mint`
