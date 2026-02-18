@@ -1,11 +1,10 @@
 ---
 name: "Changelog generator"
-trigger:
-  type: "cron"
-  schedule: "0 0 * * 2"
-repos:
-  - "mintlify/mint"
-  - "mintlify/server"
+on:
+  cron: "0 0 * * 2"
+context:
+  - repo: "mintlify/mint"
+  - repo: "mintlify/server"
 ---
 
 Read every pull request merged in `mintlify/server` and `mintlify/mint`
