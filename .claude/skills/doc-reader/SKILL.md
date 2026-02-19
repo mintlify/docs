@@ -1,6 +1,6 @@
 ---
 name: doc-reader
-description: Efficiently consume and navigate external documentation sites. Use when researching APIs, libraries, or tools; when the user mentions docs, documentation, or references a docs URL; or when you need to understand how something works before implementing it.
+description: Read and navigate external documentation. Invoke when the task requires checking how a specific function, endpoint, or configuration option works; when the user references an API, SDK, library, or third-party tool by name; when any docs URL or documentation site is mentioned; or when implementing something that depends on an external service or package.
 license: MIT
 compatibility: Requires internet access. Works best with Mintlify-powered documentation sites which provide MCP servers and llms.txt files.
 metadata:
