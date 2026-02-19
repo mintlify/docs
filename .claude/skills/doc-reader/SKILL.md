@@ -19,6 +19,7 @@ This skill helps you efficiently consume documentation without overwhelming your
 |-----------|----------|
 | First visit to a doc site | Check for llms.txt, then MCP |
 | Know exactly what you're looking for | MCP search or grep llms-full.txt |
+| Need to read a specific page | Try `.md` URL variant first, then HTML |
 | Exploring/browsing | View HTML page in browser |
 | Need comprehensive understanding | Load llms-full.txt (check length first) |
 | Multiple doc sites in one task | Set up MCPs for each |
@@ -29,11 +30,7 @@ When you encounter a documentation site, check for AI-friendly resources.
 
 ### Check for llms.txt
 
-Every well-structured doc site should have an llms.txt file at the root:
-
-```
-https://docs.example.com/llms.txt
-```
+Every well-structured doc site should have an llms.txt file at the root. For example `https://docs.example.com/llms.txt` or `https://example.com/docs/llms.txt`
 
 This file contains:
 - A description of what the documentation covers
@@ -41,15 +38,24 @@ This file contains:
 
 Sites may also have llms-full.txt files at the root which contain all the content on the documentation site as a single .md file.
 
+### Try markdown URL variants
+
+Many doc sites serve clean markdown versions of pages at `.md` URL variants. Prefer the `.md` URL extensions for easier to parse content.
+
+For any specific page you need to read, try the `.md` variant first:
+
+```
+https://docs.example.com/page      →  try https://docs.example.com/page.md
+```
+
+If it returns valid markdown (not a 404 or HTML error page), use that instead of fetching the HTML.
+
 ### Check for skill.md
 
-Some documentation sites provide a skill.md file that teaches you how to work with the product that is documented. Check for it at the root:
+Some documentation sites provide a skill.md file that teaches you how to work with the product that is documented. Check for it at the root like `https://docs.example.com/skill.md` or `https://example.com/docs/skill.md`.
 
-```
-https://docs.example.com/skill.md
-```
+If found, ask the user if they want to install the skill.
 
-If found, install it:
 ```bash
 npx skills add docs.example.com/skill.md
 ```
@@ -58,13 +64,11 @@ For example: `npx skills add mintlify.com/docs/skill.md`
 
 ### Check for MCP server
 
-Mintlify-powered documentation sites provide MCP servers for semantic search. The MCP endpoint follows this pattern:
+Some documentation sites provide MCP servers for semantic search. The MCP endpoint often follows this pattern:
 
 ```
 https://docs.example.com/mcp
 ```
-
-If you don't have the MCP connected, set it up before proceeding.
 
 ## Step 2: Set up MCP if available
 
@@ -107,7 +111,22 @@ Use when:
 Use the MCP search tool with a natural language query describing what you need.
 ```
 
-### Strategy B: Grep llms-full.txt (for keyword-specific searches)
+### Strategy B: Fetch markdown variant (for reading specific pages)
+
+Use when:
+- You need to read a specific documentation page
+- MCP search returned a result but you need the full page content
+- HTML rendering is adding noise or causing truncation
+
+Try the `.md` variant of the page URL:
+
+```bash
+curl -s "https://docs.example.com/page.md"
+```
+
+If it returns valid markdown, use it. If it 404s, fall back to HTML (Strategy E).
+
+### Strategy C: Grep llms-full.txt (for keyword-specific searches)
 
 Use when:
 - You need to find exact matches (function names, error codes, specific terms)
@@ -119,7 +138,7 @@ Grep for your terms:
 curl -s "https://docs.example.com/llms-full.txt" | grep -C 3 "your-search-term"
 ```
 
-### Strategy C: Load full content (for comprehensive understanding)
+### Strategy D: Load full content (for comprehensive understanding)
 
 Use when:
 - You need complete context about a library/API
@@ -136,7 +155,7 @@ If the file is too large, consider:
 - Using MCP search for specific topics
 - Loading in chunks as needed
 
-### Strategy D: View HTML page (for exploration and navigation)
+### Strategy E: View HTML page (for exploration and navigation)
 
 Use when:
 - You need to understand the documentation structure
@@ -149,6 +168,8 @@ Fetch and render the HTML page, or direct the user to open it in their browser. 
 - Interactive code examples
 - Visual diagrams and illustrations
 - Links to related topics
+
+**Watch for truncation.** Pages over ~150,000 characters may get cut off, which means you may miss critical information without knowing it. If a page seems incomplete, try the `.md` URL variant (Strategy B) or look for section-specific files in llms.txt.
 
 ## Common patterns
 
@@ -193,8 +214,9 @@ Fetch and render the HTML page, or direct the user to open it in their browser. 
 
 Fall back to:
 1. Check if there's an MCP endpoint anyway
-2. Use WebFetch to read specific documentation pages
-3. Search the web for the documentation
+2. Try `.md` URL variants of specific pages you need to read
+3. Use WebFetch to read specific documentation pages
+4. Search the web for the documentation
 
 ### Very large documentation sets
 
@@ -202,6 +224,14 @@ For docs over 15k tokens:
 1. Use MCP search instead of loading the full file
 2. Load section-specific files as needed
 3. Ask the user which areas are most relevant
+
+### Page not found (404)
+
+If a page 404s:
+1. Check the 404 page for links to relevant content
+2. Check llms.txt for the current URL — it reflects the live site structure
+3. Search the MCP with the page topic to find where the content moved
+4. Note to the user that the content may have moved and provide the updated URL
 
 ### Outdated or conflicting information
 
