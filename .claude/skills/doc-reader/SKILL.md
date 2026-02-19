@@ -1,6 +1,6 @@
 ---
 name: doc-reader
-description: Read and navigate external documentation. Invoke when the task requires checking how a specific function, endpoint, or configuration option works; when the user references an API, SDK, library, or third-party tool by name; when any docs URL or documentation site is mentioned; or when implementing something that depends on an external service or package.
+description: Read and navigate external documentation efficiently. Invoke when the task requires checking how a specific function, endpoint, or configuration option works; when the user references an API, SDK, library, or third-party tool by name; when any docs URL or documentation site is mentioned; or when implementing something that depends on an external service or package.
 license: MIT
 compatibility: Requires internet access. Works best with Mintlify-powered documentation sites which provide MCP servers and llms.txt files.
 metadata:
@@ -54,13 +54,11 @@ If it returns valid markdown (not a 404 or HTML error page), use that instead of
 
 Some documentation sites provide a skill.md file that teaches you how to work with the product that is documented. Check for it at the root like `https://docs.example.com/skill.md` or `https://example.com/docs/skill.md`.
 
-If found, ask the user if they want to install the skill.
+Read the skill to understand the product and features. Add the skill if it will be helpful with your current task:
 
 ```bash
 npx skills add docs.example.com/skill.md
 ```
-
-For example: `npx skills add mintlify.com/docs/skill.md`
 
 ### Check for MCP server
 
