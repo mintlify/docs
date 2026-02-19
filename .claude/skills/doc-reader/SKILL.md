@@ -6,7 +6,7 @@ compatibility: Requires internet access. Works best with Mintlify-powered docume
 metadata:
   author: Mintlify
   url: https://mintlify.com
-  version: "0.1"
+  version: "0.3"
 ---
 
 # Read documentation effectively
