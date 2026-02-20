@@ -6,30 +6,16 @@ on:
       branch: "main"
 ---
 
-Check the files added in the last merged PR for new words that should be added to the Vale vocabulary in `/.vale/styles/config/vocabularies/Mintlify/accept.txt`
+Find words flagged by Vale spelling errors in the files changed by the last merged PR, and add valid ones to the Vale vocabulary.
 
-Run the following script. Create a PR to add any new words to the `accept.txt` file.
+## Steps
 
-```
-#!/bin/bash
-# Extracts words flagged by Vale.Spelling and outputs them as a sorted list.
-
-set -e
-
-if [ $# -eq 0 ]; then
-  FILES="**/*.mdx"
-else
-  FILES="$@"
-fi
-
-CANDIDATES=$(vale --no-exit $FILES 2>&1 | \
-  grep "Vale.Spelling" | \
-  sed -n "s/.*Did you really mean '\([^']*\)'.*/\1/p" | \
-  sort -u)
-
-if [ -n "$CANDIDATES" ]; then
-  echo "$CANDIDATES"
-else
-  echo "No vocabulary candidates found."
-fi
-```
+1. Identify the files changed in the last merged PR using git.
+2. Run Vale with `--no-exit` on those files. Filter output for `Vale.Spelling` errors only.
+3. Extract the flagged words. Vale spelling errors follow the pattern: `Did you really mean 'word'?` — extract the word inside the single quotes.
+4. Deduplicate and sort the list alphabetically.
+5. Compare against existing entries in `.vale/styles/config/vocabularies/Mintlify/accept.txt` to find words not already present.
+6. For each new word, use judgment to determine whether it belongs in the vocabulary:
+   - Add to `accept.txt` if it's a valid technical term, product name, or proper noun used in Mintlify docs
+   - Skip if it appears to be a genuine misspelling or typo
+7. If there are words to add, open a PR with the changes to `accept.txt`. If there are no new words, do nothing.
