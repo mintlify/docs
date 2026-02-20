@@ -1,12 +1,14 @@
 ---
 name: "Vale style audit"
 on:
-  cron: "2 14 * * 3"
+  push:
+    - repo: "mintlify/docs"
+      branch: "main"
 ---
 
-Run a Vale style audit on all MDX files in the repo using the Vale configuration in `.vale/`. Flag any errors or warnings.
+Run a Vale style audit on all MDX files in the repo using the Vale configuration in `.vale/`.
 
-Open a pull request with any issues that can be fixed automatically. For issues that require human judgment, open a GitHub issue summarizing the findings grouped by file, with the specific lines and rule violations called out.
+Open a pull request to resolve any issues that can be fixed automatically. For issues that require human judgment, note them in the PR body with the specific lines, rule violations, and your ideas to solve them.
 
 ## Important
 
