@@ -1,0 +1,116 @@
+---
+title: "Workflows"
+description: "Automate documentation maintenance with scheduled or event-triggered agent tasks."
+keywords: ["automation", "automate", "cron", "auto-update"]
+---
+
+<Info>
+  Workflows are available on [Pro and Enterprise plans](https://mintlify.com/pricing?ref=agent).
+
+  Pro plans can have up to two active workflows. Enterprise plans can have up to 10 active workflows.
+</Info>
+
+Workflows run the agent automatically on a schedule or when an event you specify happens in one of your repositories. Each workflow defines a prompt for the agent and a trigger for when to run it.
+
+When a workflow runs, the agent follows the prompt, makes changes to your documentation, then either opens a pull request or pushes changes directly to your deploy branch depending on how you configure the workflow.
+
+## Create a workflow file
+
+Create `.md` files in a `.mintlify/workflows/` directory at the root of your documentation repository. Each file defines one workflow.
+
+Workflow files use YAML frontmatter to configure the workflow, followed by a Markdown prompt for the agent.
+
+```markdown .mintlify/workflows/update-changelog.md
+---
+name: Update changelog
+on:
+  cron: "0 9 * * 1"
+context:
+  - repo: your-org/your-product
+automerge: false
+---
+
+Review all changes since the last changelog update. Draft a new
+changelog post with any new features, bug fixes, or breaking changes.
+
+Include information about what a change is and how it affects users.
+
+Do not include any internal-only information or minor changes
+like bumping package versions or updating documentation.
+```
+
+### Frontmatter fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Display name shown in the dashboard. |
+| `on` | Yes | Trigger configuration. |
+| `context` | No | Repositories cloned as reference when the workflow runs. |
+| `automerge` | No | Defaults to `false`, which opens a pull request. If `true`, pushes changes directly to your deployment branch. |
+
+You must have the Mintlify GitHub App installed on every repository listed in the `context` or `on.push.repo` fields. See [GitHub](/deploy/github) for more information on how to install the app.
+
+The content below the frontmatter is the prompt the agent follows when the workflow runs.
+
+## Triggers
+
+Each workflow must define exactly one trigger using the `on` field.
+
+### On schedule (cron)
+
+Run a workflow on a recurring schedule using a cron expression. All schedules run in UTC.
+
+```yaml
+on:
+  cron: "0 9 * * 1"
+```
+
+The value is a standard 5-field cron expression in `minute hour day-of-month month day-of-week` format. Use a tool like [crontab.guru](https://crontab.guru) to build and validate schedules.
+
+| Expression | Schedule |
+|------------|----------|
+| `"0 9 * * 1"` | Every Monday at 9:00 AM UTC |
+| `"0 0 1 * *"` | First day of each month at midnight UTC |
+| `"0 8 * * 1-5"` | Weekdays at 8:00 AM UTC |
+
+### On merge
+
+Run a workflow when a pull request merges to a specific repository and branch.
+
+```yaml
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+```
+
+- `repo`: The GitHub repository in `owner/repo` format.
+- `branch`: The branch to watch for merges. Omit to trigger on merges to the repository's default branch.
+
+A workflow can watch for merges in multiple repositories or branches.
+
+```yaml
+on:
+  push:
+    - repo: your-org/your-product
+    - repo: your-org/another-repo
+      branch: release
+```
+
+## Reference repositories
+
+Use `context` to give the agent read access to additional repositories when the workflow runs. This is useful when your prompt requires reviewing code or content outside your documentation repository.
+
+```yaml
+context:
+  - repo: your-org/your-product
+  - repo: your-org/design-system
+```
+
+## Auto-merge changes
+
+By default, the agent opens a pull request for each workflow run so you can review changes before they go live. Set `automerge: true` to push changes directly to your deploy branch without a pull request.
+
+```yaml
+automerge: true
+```
