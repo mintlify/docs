@@ -70,17 +70,483 @@ If your domain uses CAA (Certification Authority Authorization) records, you mus
 
 The `/.well-known/acme-challenge` path is reserved for certificate validation and cannot be redirected or rewritten. If you have configured redirects or rewrites for this path, certificate provisioning will fail.
 
-### Provider-specific settings
+## DNS provider setup guides
+
+Follow the step-by-step guide for your DNS provider to configure your custom domain.
 
 <AccordionGroup>
-  <Accordion title="Vercel verification">
-    If Vercel is your domain provider, you must add a verification `TXT` record. This information appears on your dashboard after submitting your custom domain, and is emailed to you.
+  <Accordion title="Cloudflare" icon="cloudflare">
+    ### Step 1: Add CNAME record
+    
+    1. Log in to your [Cloudflare dashboard](https://dash.cloudflare.com).
+    2. Select your domain from the list.
+    3. Navigate to **DNS** > **Records**.
+    4. Click **Add record**.
+    5. Configure the record:
+       - **Type**: `CNAME`
+       - **Name**: Your subdomain (e.g., `docs` for `docs.example.com`)
+       - **Target**: `cname.mintlify-dns.com`
+       - **Proxy status**: Toggle to **DNS only** (gray cloud icon)
+       - **TTL**: Auto
+    6. Click **Save**.
+
+    <Warning>
+      The proxy status must be set to **DNS only** (gray cloud). If the orange cloud is enabled, DNS resolution will fail.
+    </Warning>
+
+    ### Step 2: Configure SSL/TLS settings
+    
+    1. Navigate to **SSL/TLS** > **Overview**.
+    2. Set encryption mode to **Full (strict)**.
+    3. Navigate to **SSL/TLS** > **Edge Certificates**.
+    4. Scroll to **Always Use HTTPS** and ensure it is **disabled**.
+    
+    <Warning>
+      If "Always Use HTTPS" is enabled, Let's Encrypt cannot validate your domain and certificate provisioning will fail.
+    </Warning>
+
+    ### Step 3: Verify CAA records (if applicable)
+    
+    If you have CAA records configured:
+    1. Navigate to **DNS** > **Records**.
+    2. Check for any CAA records.
+    3. If CAA records exist, add a new CAA record:
+       - **Type**: `CAA`
+       - **Name**: `@` (or your subdomain)
+       - **Tag**: `issue`
+       - **CA domain name**: `letsencrypt.org`
+    4. Click **Save**.
   </Accordion>
 
-  <Accordion title="Cloudflare encryption mode">
-    If Cloudflare is your DNS provider, you must enable the "Full (strict)" mode for the SSL/TLS encryption setting. Additionally, disable "Always Use HTTPS" in your Edge Certificates settings. Cloudflare's HTTPS redirect will block Let's Encrypt from validating your domain during certificate provisioning.
+  <Accordion title="GoDaddy" icon="globe">
+    ### Step 1: Access DNS management
+    
+    1. Log in to your [GoDaddy account](https://account.godaddy.com).
+    2. Navigate to **My Products**.
+    3. Find your domain and click **DNS**.
+
+    ### Step 2: Add CNAME record
+    
+    1. Scroll to the **Records** section.
+    2. Click **Add** (or **Add New Record**).
+    3. Configure the record:
+       - **Type**: Select `CNAME` from the dropdown
+       - **Name**: Your subdomain (e.g., `docs` for `docs.example.com`)
+       - **Value**: `cname.mintlify-dns.com`
+       - **TTL**: 1 hour (or default)
+    4. Click **Save**.
+
+    <Tip>
+      GoDaddy automatically appends your domain name to the subdomain. Enter only the subdomain portion (e.g., `docs`, not `docs.example.com`).
+    </Tip>
+
+    ### Step 3: Remove conflicting records
+    
+    Check for existing A or CNAME records for the same subdomain:
+    1. Look for records with the same **Name** value.
+    2. If found, click the pencil icon to edit or trash icon to delete.
+    3. You cannot have both A and CNAME records for the same subdomain.
+
+    ### Step 4: Verify CAA records (if applicable)
+    
+    If you have CAA records:
+    1. Scroll to the **Records** section.
+    2. Click **Add**.
+    3. Configure the record:
+       - **Type**: `CAA`
+       - **Name**: `@` (for root) or your subdomain
+       - **Tag**: `issue`
+       - **Value**: `letsencrypt.org`
+    4. Click **Save**.
+  </Accordion>
+
+  <Accordion title="Namecheap" icon="tag">
+    ### Step 1: Access DNS settings
+    
+    1. Log in to your [Namecheap account](https://www.namecheap.com/myaccount/login/).
+    2. Navigate to **Domain List**.
+    3. Click **Manage** next to your domain.
+    4. Navigate to the **Advanced DNS** tab.
+
+    ### Step 2: Add CNAME record
+    
+    1. Scroll to **Host Records**.
+    2. Click **Add New Record**.
+    3. Configure the record:
+       - **Type**: Select `CNAME Record` from the dropdown
+       - **Host**: Your subdomain (e.g., `docs` for `docs.example.com`)
+       - **Value**: `cname.mintlify-dns.com`
+       - **TTL**: Automatic
+    4. Click the green checkmark to save.
+
+    <Tip>
+      For the root domain (`example.com`), use `@` as the host. However, subdomain setup (e.g., `docs.example.com`) is recommended for documentation.
+    </Tip>
+
+    ### Step 3: Remove conflicting records
+    
+    1. Check for existing A or CNAME records with the same **Host** value.
+    2. If found, click the trash icon to delete them.
+    3. Click **Save All Changes**.
+
+    ### Step 4: Verify CAA records (if applicable)
+    
+    If you have CAA records:
+    1. Click **Add New Record**.
+    2. Configure the record:
+       - **Type**: `CAA Record`
+       - **Host**: `@` or your subdomain
+       - **Tag**: `issue`
+       - **Value**: `letsencrypt.org`
+    3. Click the green checkmark to save.
+  </Accordion>
+
+  <Accordion title="AWS Route 53" icon="aws">
+    ### Step 1: Access hosted zone
+    
+    1. Log in to the [AWS Management Console](https://console.aws.amazon.com).
+    2. Navigate to **Route 53** > **Hosted zones**.
+    3. Select your domain's hosted zone.
+
+    ### Step 2: Create CNAME record
+    
+    1. Click **Create record**.
+    2. Configure the record:
+       - **Record name**: Your subdomain (e.g., `docs` for `docs.example.com`)
+       - **Record type**: Select `CNAME` from the dropdown
+       - **Value**: `cname.mintlify-dns.com`
+       - **TTL**: 300 (or default)
+       - **Routing policy**: Simple routing
+    3. Click **Create records**.
+
+    <Warning>
+      CNAME records cannot be created for the root domain (apex). Use a subdomain like `docs.example.com` or `www.example.com`.
+    </Warning>
+
+    ### Step 3: Remove conflicting records
+    
+    1. Check for existing A or CNAME records with the same name.
+    2. If found, select the record and click **Delete record**.
+    3. Confirm the deletion.
+
+    ### Step 4: Add CAA record (if applicable)
+    
+    If you have CAA records or want to add one:
+    1. Click **Create record**.
+    2. Configure the record:
+       - **Record name**: Leave blank for root or enter subdomain
+       - **Record type**: `CAA`
+       - **Value**: `0 issue "letsencrypt.org"`
+       - **TTL**: 300
+    3. Click **Create records**.
+  </Accordion>
+
+  <Accordion title="Vercel" icon="triangle">
+    ### Step 1: Add verification TXT record
+    
+    If Vercel is your domain provider, you must add a verification TXT record before the CNAME record. This information appears on your Mintlify dashboard after submitting your custom domain and is emailed to you.
+
+    1. Log in to your [Vercel dashboard](https://vercel.com/dashboard).
+    2. Navigate to **Domains**.
+    3. Select your domain.
+    4. Click **Add** to create a new DNS record.
+    5. Configure the verification record:
+       - **Type**: `TXT`
+       - **Name**: As provided by Mintlify
+       - **Value**: As provided by Mintlify
+    6. Click **Save**.
+
+    ### Step 2: Add CNAME record
+    
+    1. Click **Add** to create another DNS record.
+    2. Configure the record:
+       - **Type**: `CNAME`
+       - **Name**: Your subdomain (e.g., `docs`)
+       - **Value**: `cname.mintlify-dns.com`
+    3. Click **Save**.
+
+    ### Step 3: Verify configuration
+    
+    Return to your Mintlify dashboard to verify the domain configuration is complete.
+  </Accordion>
+
+  <Accordion title="Other DNS providers" icon="ellipsis">
+    If your DNS provider is not listed above, follow these general steps:
+
+    ### Step 1: Locate DNS management
+    
+    1. Log in to your domain provider's control panel.
+    2. Find DNS settings (may be labeled as "DNS Management", "Name Server Management", "DNS Records", or similar).
+
+    ### Step 2: Add CNAME record
+    
+    Create a new DNS record with these values:
+    - **Type/Record Type**: `CNAME`
+    - **Host/Name/Subdomain**: Your subdomain (e.g., `docs`)
+    - **Value/Target/Points to**: `cname.mintlify-dns.com`
+    - **TTL**: Use default or 3600 seconds
+
+    ### Step 3: Remove conflicts
+    
+    Delete any existing A or CNAME records for the same subdomain.
+
+    ### Step 4: Add CAA record (if needed)
+    
+    If you have CAA records, add:
+    - **Type**: `CAA`
+    - **Tag**: `issue`
+    - **Value**: `letsencrypt.org`
+
+    <Tip>
+      Consult your DNS provider's documentation for specific instructions on adding DNS records.
+    </Tip>
   </Accordion>
 </AccordionGroup>
+
+## Subdomain vs root domain
+
+Understanding the difference between subdomain and root domain setup helps you choose the right configuration for your documentation.
+
+### Subdomain (recommended)
+
+A subdomain is a prefix added to your main domain, such as `docs.example.com` or `help.example.com`.
+
+**Advantages:**
+- Easier DNS configuration using CNAME records
+- Better organization and separation of services
+- More flexible for future changes
+- Standard practice for documentation sites
+
+**Setup:**
+Use a CNAME record pointing to `cname.mintlify-dns.com`.
+
+### Root domain (apex domain)
+
+A root domain is your main domain without any prefix, such as `example.com`.
+
+**Limitations:**
+- CNAME records cannot be used at the root level (DNS specification)
+- Requires A records pointing to specific IP addresses
+- Less flexible if infrastructure changes
+- May conflict with email services (MX records)
+
+**Alternative:**
+If you must use a root domain, contact your DNS provider about ALIAS or ANAME records, which function like CNAME records but work at the root level. Not all providers support these record types.
+
+<Tip>
+  We strongly recommend using a subdomain like `docs.example.com` for your documentation. This provides the most reliable and flexible setup.
+</Tip>
+
+## Migrating from .mintlify.app to custom domain
+
+Follow these steps to migrate your documentation from your `.mintlify.app` subdomain to a custom domain without downtime.
+
+### Step 1: Add your custom domain
+
+1. Navigate to the [Custom domain setup](https://dashboard.mintlify.com/settings/deployment/custom-domain) page.
+2. Enter your custom domain (e.g., `docs.example.com`).
+3. Click **Add domain**.
+4. Keep your `.mintlify.app` domain active during migration.
+
+### Step 2: Configure DNS
+
+Follow the [DNS provider setup guide](#dns-provider-setup-guides) for your provider to add the required CNAME record.
+
+### Step 3: Wait for DNS propagation
+
+1. DNS changes typically take 1-24 hours to propagate.
+2. Verify DNS propagation using [DNSChecker](https://dnschecker.org).
+3. Your documentation remains accessible via `.mintlify.app` during this time.
+
+### Step 4: Wait for SSL certificate
+
+1. After DNS propagates, Vercel automatically provisions an SSL/TLS certificate.
+2. This typically takes a few hours but can take up to 24 hours.
+3. Your custom domain becomes accessible via HTTPS once the certificate is issued.
+
+### Step 5: Set canonical URL
+
+Update your `docs.json` to set your custom domain as the canonical URL:
+
+```json
+"seo": {
+    "metatags": {
+        "canonical": "https://docs.example.com"
+    }
+}
+```
+
+This tells search engines that your custom domain is the primary URL.
+
+### Step 6: Update external links
+
+Update links to your documentation in:
+- Your main website
+- README files
+- Email signatures
+- Social media profiles
+- Third-party integrations
+
+### Step 7: Set up redirects (optional)
+
+Your `.mintlify.app` domain continues to work and automatically redirects to your custom domain. You can keep both active or remove the `.mintlify.app` domain from your dashboard if you prefer.
+
+<Tip>
+  There is no downtime during migration. Your documentation remains accessible via `.mintlify.app` until your custom domain is fully configured.
+</Tip>
+
+## Troubleshooting
+
+### DNS propagation issues
+
+**Problem:** DNS changes are not taking effect.
+
+**Solutions:**
+1. **Check DNS configuration:**
+   - Verify the CNAME record points to `cname.mintlify-dns.com`
+   - Ensure there are no typos in the subdomain or target
+   - Confirm there are no conflicting A or CNAME records
+
+2. **Verify DNS propagation:**
+   - Use [DNSChecker](https://dnschecker.org) to check global propagation
+   - Enter your full domain (e.g., `docs.example.com`)
+   - Look for CNAME records pointing to `cname.mintlify-dns.com`
+
+3. **Clear DNS cache:**
+   - Flush your local DNS cache:
+     - **Windows:** `ipconfig /flushdns`
+     - **macOS:** `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`
+     - **Linux:** `sudo systemd-resolve --flush-caches`
+   - Try accessing your domain in an incognito/private browser window
+
+4. **Wait longer:**
+   - DNS propagation can take up to 48 hours in rare cases
+   - Check back periodically rather than repeatedly refreshing
+
+5. **Check TTL settings:**
+   - If you recently changed DNS records, the old TTL value determines how long old records are cached
+   - Wait for the previous TTL duration to expire
+
+### SSL/TLS certificate issues
+
+**Problem:** Your custom domain shows a certificate error or is not accessible via HTTPS.
+
+**Solutions:**
+1. **Verify DNS is propagated:**
+   - SSL certificates cannot be issued until DNS is fully propagated
+   - Use [DNSChecker](https://dnschecker.org) to confirm DNS is resolving correctly worldwide
+
+2. **Check CAA records:**
+   - If you have CAA records, ensure Let's Encrypt is authorized
+   - Add a CAA record: `0 issue "letsencrypt.org"`
+   - Remove any CAA records that restrict certificate issuance
+
+3. **Verify Cloudflare settings (if applicable):**
+   - Ensure SSL/TLS encryption mode is set to **Full (strict)**
+   - Disable **Always Use HTTPS** in Edge Certificates settings
+   - Confirm proxy status is set to **DNS only** (gray cloud)
+
+4. **Check for redirects:**
+   - Ensure the `/.well-known/acme-challenge` path is not redirected or rewritten
+   - This path is required for Let's Encrypt validation
+
+5. **Wait for automatic provisioning:**
+   - Certificate provisioning can take up to 24 hours after DNS propagates
+   - Vercel automatically retries if initial attempts fail
+
+6. **Contact support:**
+   - If certificate issues persist after 24 hours, contact Mintlify support
+   - Provide your domain name and any error messages
+
+### Domain not resolving
+
+**Problem:** Your custom domain shows a "domain not found" or similar error.
+
+**Solutions:**
+1. **Verify domain is added in dashboard:**
+   - Check the [Custom domain setup](https://dashboard.mintlify.com/settings/deployment/custom-domain) page
+   - Ensure your domain is listed and shows as active
+
+2. **Check CNAME record:**
+   - Verify the CNAME record exists in your DNS settings
+   - Confirm it points to `cname.mintlify-dns.com` (note the trailing dot may be added automatically)
+   - Ensure the subdomain matches what you entered in the dashboard
+
+3. **Remove conflicting records:**
+   - Delete any A records for the same subdomain
+   - You cannot have both A and CNAME records for the same name
+
+4. **Verify nameservers:**
+   - Ensure your domain is using the correct nameservers
+   - If you recently transferred your domain, nameserver changes can take 24-48 hours
+
+5. **Check domain status:**
+   - Ensure your domain registration is active and not expired
+   - Verify your domain is not locked or suspended
+
+### Cloudflare-specific issues
+
+**Problem:** Domain not working with Cloudflare as DNS provider.
+
+**Solutions:**
+1. **Disable proxy (orange cloud):**
+   - The CNAME record must have proxy status set to **DNS only** (gray cloud)
+   - Click the orange cloud icon to toggle it to gray
+
+2. **Set correct SSL/TLS mode:**
+   - Navigate to **SSL/TLS** > **Overview**
+   - Set encryption mode to **Full (strict)**
+
+3. **Disable Always Use HTTPS:**
+   - Navigate to **SSL/TLS** > **Edge Certificates**
+   - Scroll to **Always Use HTTPS** and toggle it off
+   - This prevents interference with Let's Encrypt validation
+
+4. **Check Page Rules:**
+   - Navigate to **Rules** > **Page Rules**
+   - Ensure no rules are redirecting or modifying your documentation subdomain
+   - Disable any rules that might interfere with certificate validation
+
+5. **Verify DNSSEC:**
+   - If DNSSEC is enabled, ensure it's properly configured
+   - Misconfigured DNSSEC can prevent DNS resolution
+
+### Mixed content warnings
+
+**Problem:** Browser shows mixed content warnings or some resources fail to load.
+
+**Solutions:**
+1. **Wait for SSL certificate:**
+   - Ensure your SSL/TLS certificate is fully provisioned
+   - Access your site via `https://` explicitly
+
+2. **Check canonical URL:**
+   - Verify your canonical URL in `docs.json` uses `https://`
+   - Update any `http://` references to `https://`
+
+3. **Clear browser cache:**
+   - Clear your browser cache and cookies
+   - Try accessing in an incognito/private window
+
+### Vercel verification issues
+
+**Problem:** Vercel requires verification but the TXT record is not being recognized.
+
+**Solutions:**
+1. **Verify TXT record format:**
+   - Ensure you copied the exact verification value from Mintlify
+   - Check for extra spaces or characters
+
+2. **Wait for DNS propagation:**
+   - TXT records also require time to propagate
+   - Use [DNSChecker](https://dnschecker.org) to verify TXT record propagation
+
+3. **Check record name:**
+   - Ensure the TXT record name matches what Mintlify provided
+   - Some providers require `@` for root domain, others require the full domain
+
+4. **Contact support:**
+   - If verification fails after 24 hours, contact Mintlify support with your domain name
 
 ## Set a canonical URL
 
