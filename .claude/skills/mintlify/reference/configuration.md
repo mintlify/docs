@@ -68,7 +68,7 @@ title: "Page title"
 mode: "custom"
 ---
 
-# Frame: like custom but keeps sidebar (Aspen and Almond themes only)
+# Frame: like custom but keeps sidebar (Aspen, Almond, and Luma themes only)
 ---
 title: "Page title"
 mode: "frame"
@@ -83,7 +83,7 @@ mode: "center"
 
 ## Theme
 
-One of: `mint`, `maple`, `palm`, `willow`, `linden`, `almond`, `aspen`, `sequoia`.
+One of: `mint`, `maple`, `palm`, `willow`, `linden`, `almond`, `aspen`, `sequoia`, `luma`.
 
 | Theme | Character |
 |-------|-----------|
@@ -95,6 +95,7 @@ One of: `mint`, `maple`, `palm`, `willow`, `linden`, `almond`, `aspen`, `sequoia
 | `almond` | Card-based, minimalist |
 | `aspen` | Modern, supports complex navigation |
 | `sequoia` | Minimal, elegant, large-scale content |
+| `luma` | Clean, minimal, polished |
 
 ## Colors
 
