@@ -108,3 +108,335 @@ If your API pages aren't displaying correctly, check these common configuration 
     3. **Case sensitivity**: OpenAPI operation matching is case-sensitive. Ensure HTTP methods are uppercase in navigation entries.
   </Accordion>
 </AccordionGroup>
+
+## OpenAPI validation errors
+
+When running `mint openapi-check` or `mint dev`, you may encounter validation errors that prevent your API documentation from generating correctly. This section explains common validation errors and how to fix them.
+
+### Understanding validation error messages
+
+OpenAPI validation errors include a JSON path that shows exactly where the error occurred in your specification. The path uses forward slashes to indicate nested properties.
+
+**Error format:**
+```
+error Failed to validate OpenAPI schema: /path/to/operation/property: error message
+```
+
+**Example:**
+```
+error Failed to validate OpenAPI schema: /shot/get/responses/200: must have required property $ref
+```
+
+This error indicates:
+- **Path**: `/shot` (the endpoint path)
+- **Method**: `get` (the HTTP method)
+- **Location**: `responses/200` (the 200 response definition)
+- **Issue**: Missing required `$ref` property
+
+### Response schema validation errors
+
+Response objects in OpenAPI must follow specific rules. The most common issue is incorrectly defining response schemas.
+
+#### Missing $ref in response
+
+**Error:**
+```
+/users/get/responses/200: must have required property $ref
+```
+
+**Incorrect:**
+```json
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Correct:**
+```json
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Key differences:**
+- Response schemas must be wrapped in `content` → `application/json` → `schema`
+- Schema properties (`type`, `properties`) cannot be direct children of the response object
+- The `description` field is required for all response objects
+
+#### Using $ref for reusable schemas
+
+**Correct with $ref:**
+```json
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      }
+    }
+  }
+}
+```
+
+### Common $ref errors
+
+#### Invalid $ref path
+
+**Error:**
+```
+/users/post/requestBody/content/application~1json/schema/$ref: can't resolve reference
+```
+
+**Incorrect:**
+```json
+{
+  "schema": {
+    "$ref": "#/components/schema/User"
+  }
+}
+```
+
+**Correct:**
+```json
+{
+  "schema": {
+    "$ref": "#/components/schemas/User"
+  }
+}
+```
+
+**Common mistakes:**
+- Using `schema` instead of `schemas` (note the plural)
+- Missing the `#/` prefix
+- Referencing a component that doesn't exist
+- Typos in the component name (case-sensitive)
+
+#### External $ref not supported
+
+**Error:**
+```
+External references are not supported
+```
+
+**Incorrect:**
+```json
+{
+  "schema": {
+    "$ref": "https://example.com/schemas/user.json"
+  }
+}
+```
+
+**Correct:**
+```json
+{
+  "schema": {
+    "$ref": "#/components/schemas/User"
+  }
+}
+```
+
+Mintlify only supports internal references within a single OpenAPI document. Move external schemas into your `components.schemas` section.
+
+#### Circular $ref
+
+**Error:**
+```
+Circular reference detected
+```
+
+This occurs when schemas reference each other in a loop. While some tools support circular references, they can cause issues. Restructure your schemas to avoid circular dependencies.
+
+### Request body validation errors
+
+#### Missing content wrapper
+
+**Error:**
+```
+/users/post/requestBody: must have required property content
+```
+
+**Incorrect:**
+```json
+{
+  "requestBody": {
+    "description": "User object",
+    "schema": {
+      "$ref": "#/components/schemas/User"
+    }
+  }
+}
+```
+
+**Correct:**
+```json
+{
+  "requestBody": {
+    "description": "User object",
+    "required": true,
+    "content": {
+      "application/json": {
+        "schema": {
+          "$ref": "#/components/schemas/User"
+        }
+      }
+    }
+  }
+}
+```
+
+### Parameter validation errors
+
+#### Invalid parameter location
+
+**Error:**
+```
+/users/get/parameters/0/in: must be equal to one of the allowed values
+```
+
+**Incorrect:**
+```json
+{
+  "parameters": [
+    {
+      "name": "userId",
+      "in": "body",
+      "schema": { "type": "string" }
+    }
+  ]
+}
+```
+
+**Correct:**
+```json
+{
+  "parameters": [
+    {
+      "name": "userId",
+      "in": "path",
+      "required": true,
+      "schema": { "type": "string" }
+    }
+  ]
+}
+```
+
+Valid `in` values: `query`, `header`, `path`, `cookie`. Note that `body` is not valid for parameters in OpenAPI 3.0+. Use `requestBody` instead.
+
+### Troubleshooting workflow
+
+When `mint openapi-check` fails with validation errors, follow this workflow:
+
+<Steps>
+  <Step title="Run validation">
+    ```bash
+    mint openapi-check <path-to-openapi-file>
+    ```
+    
+    This command validates your OpenAPI specification and shows all errors.
+  </Step>
+
+  <Step title="Identify the error location">
+    Parse the JSON path in the error message to locate the exact operation and property:
+    
+    ```
+    /users/{id}/get/responses/200/content/application~1json/schema
+    ```
+    
+    - Path: `/users/{id}`
+    - Method: `get`
+    - Location: `responses` → `200` → `content` → `application/json` → `schema`
+    
+    Note: `~1` in the path represents a forward slash (`/`) that's been escaped.
+  </Step>
+
+  <Step title="Check the OpenAPI specification">
+    Review the [OpenAPI 3.0 specification](https://swagger.io/specification/) for the correct structure:
+    
+    - [Response Object](https://swagger.io/specification/#response-object)
+    - [Schema Object](https://swagger.io/specification/#schema-object)
+    - [Parameter Object](https://swagger.io/specification/#parameter-object)
+    - [Request Body Object](https://swagger.io/specification/#request-body-object)
+  </Step>
+
+  <Step title="Validate with external tools">
+    Use the [Swagger Editor](https://editor.swagger.io/) to validate and debug:
+    
+    1. Visit [editor.swagger.io](https://editor.swagger.io/)
+    2. Click "Validate text" tab
+    3. Paste your OpenAPI document
+    4. Click "Validate it!"
+    
+    A green border indicates successful validation. The Swagger Editor uses the same validation package as Mintlify.
+  </Step>
+
+  <Step title="Fix and re-validate">
+    After making corrections, run `mint openapi-check` again to verify all errors are resolved.
+  </Step>
+</Steps>
+
+### Additional resources
+
+- [OpenAPI 3.0 Specification](https://swagger.io/specification/) - Complete reference for OpenAPI syntax
+- [Response Object specification](https://swagger.io/specification/#response-object) - Detailed response object requirements
+- [Schema Object specification](https://swagger.io/specification/#schema-object) - Schema definition rules
+- [Swagger Editor](https://editor.swagger.io/) - Online validator and editor
+- [OpenAPI 3.0 Guide](https://swagger.io/docs/specification/v3_0/basic-structure/) - Comprehensive guide to OpenAPI structure
