@@ -21,6 +21,13 @@ Translate any MDX files changed by the last merged PR into all supported languag
 - Preserve all MDX structure, frontmatter, and component syntax exactly — only translate prose content.
 - Do not translate code samples, component names, prop names, or code block titles (e.g., ` ```mdx Card example ` — keep "Card example" as-is).
 
+### Formatting
+
+When writing or updating translated files:
+
+- Maintain as similar formatting as possible to the English-language version of the file without affecting meaning
+- Use real quotation marks (`"`, `'`) instead of HTML entities (`&quot;`, `&#39;`, `&amp;`)
+
 ### Headings
 
 Wrap every heading (`##`, `###`, etc.) in a `<div id="...">` element using the English heading's kebab-case slug as the ID. This preserves anchor links when users share links to translated pages. Derive the ID by lowercasing the English heading and replacing spaces with hyphens.
