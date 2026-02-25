@@ -21,3 +21,4 @@ Success criteria: All API specifications and pages are up to date with the chang
 
 - If a parameter or endpoint was removed, mark it as deprecated rather than deleting it unless the code explicitly removes it with no deprecation period.
 - If no API changes were introduced, do nothing.
+- Do not include private repository file paths, directory structures, code snippets, or any other internal implementation details in PR titles, descriptions, or commit messages. The PR body should only describe the user-facing change in terms of the API behavior.

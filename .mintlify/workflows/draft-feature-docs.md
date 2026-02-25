@@ -22,3 +22,4 @@ Success criteria: After reading any new or updated documentation, users understa
 - Only document changes that affect end users. Skip internal refactors or dependency updates.
 - Match the style and structure of existing docs pages.
 - If no user-facing changes were introduced, do nothing.
+- Do not include private repository file paths, directory structures, code snippets, or any other internal implementation details in PR titles, descriptions, or commit messages.
