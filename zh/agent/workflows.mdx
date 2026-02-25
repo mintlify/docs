@@ -1,91 +1,268 @@
 ---
-title: "工作流程"
-description: "在文档编写流程中使用 agent 的示例。"
-keywords: ["agent 工作流", "文档工作流", "自动化示例"]
+title: "工作流"
+description: "通过定时或事件触发的 agent 任务自动化文档维护。"
+keywords: ["自动化", "自动", "cron", "自动更新"]
 ---
 
-agent 可以协助完成多种文档相关任务。以下工作流程展示了几种将 agent 集成到文档工作流程中的方式。选择一种符合你团队当前工作方式的方案，并根据你的具体需求进行调整。
+<Info>
+  工作流适用于[企业版计划](https://mintlify.com/pricing?ref=agent)。
 
-<div id="iterate-on-a-prompt-in-a-slack-thread">
-  ## 在 Slack 线程中迭代优化提示
-</div>
+  你最多可以拥有 10 个活跃的工作流。
+</Info>
 
-先向 agent 发送提示，然后在同一条线程中继续使用 `@mintlify` 提及它，以便改进和迭代它创建的拉取请求（PR；亦称“合并请求”/Merge Request）。
+工作流按照设定的时间表自动运行 agent，或在你指定的仓库发生 push 时触发。每个工作流定义一个 agent 的 prompt 和运行触发器。
 
-例如：`@mintlify Our quickstart page needs a new section on inviting collaborators`。然后：`@mintlify The new section should be called "Inviting collaborators"`。接着根据需要继续进行其他迭代。
+当工作流运行时，agent 会克隆指定的仓库作为上下文，执行 prompt，然后创建拉取请求或直接将更改推送到你的部署分支。
 
-<div id="start-with-the-agent-finish-manually">
-  ## 先让 Agent 着手，再手动完成
-</div>
+## 创建工作流文件
 
-先向 Agent 下指令开始一个项目，然后检出它创建的 branch，在本地环境或网页版编辑器中完成任务。Agent 可以帮助你起步，之后你便可接手完成剩余工作。
+在文档仓库根目录的 `.mintlify/workflows/` 目录中创建 `.md` 文件。每个文件定义一个工作流。
 
-例如：`@mintlify Update the quickstart page to include information about inviting collaborators`，然后检出该 branch，并使用你偏好的方式进行额外修改。
+工作流文件使用 YAML frontmatter 配置工作流，后跟用于 agent 的 Markdown prompt。
 
-<div id="update-docs-when-merging-feature-changes">
-  ## 在合并功能改动时更新文档
-</div>
+```markdown .mintlify/workflows/update-changelog.md
+---
+name: Update changelog
+on:
+  cron: "0 9 * * 1"
+context:
+  - repo: your-org/your-product
+automerge: false
+---
 
-当你合并功能拉取请求（PR）后，将该 PR 链接分享给智能代理（agent），以便更新相关文档。
+Review all changes since the last changelog update. Draft a new changelog post with any new features, bug fixes, or breaking changes.
 
-例如：`@mintlify This PR adds a new authentication method. Update the docs to include the new auth flow: [PR link]`.
+Include information about what a change is and how it affects users.
 
-<div id="generate-release-notes-from-a-pull-request">
-  ## 从拉取请求生成发布说明
-</div>
+Do not include any internal-only information or minor changes like bumping package versions or updating documentation.
 
-向 Agent 指定某个拉取请求，根据提交历史生成发布说明或更新日志。
+Success criteria: Someone who reads the changelog knows the most up to date information about the product including what changed and whether or not it affects them.
+```
 
-例如：`@mintlify Generate release notes for this PR: [PR link]`。
+### Frontmatter 字段
 
-<div id="address-pull-request-review-feedback">
-  ## 处理拉取请求（PR）评审反馈
-</div>
+| 字段 | 必填 | 描述 |
+|-------|----------|-------------|
+| `name` | 是 | 在控制面板中显示的名称。 |
+| `on` | 是 | 触发器配置。 |
+| `context` | 否 | 工作流运行时作为参考克隆的仓库。 |
+| `automerge` | 否 | 默认为 `false`，会创建拉取请求。如果为 `true`，则直接将更改推送到你的部署分支。 |
 
-将拉取请求链接分享给智能助手，以便处理文档拉取请求中的审阅意见和代码评审反馈。
+你必须在 `context` 或 `on.push.repo` 字段中列出的每个仓库上安装 Mintlify GitHub 应用。在 Mintlify 控制面板的 [GitHub 应用](https://dashboard.mintlify.com/settings/organization/github-app)页面添加新仓库。
 
-例如：`@mintlify Address the review comments on this PR: [PR link]`。
+<Frame>
+  <img src="/images/github/app-repos-light.png" alt="GitHub 应用页面显示两个组织的已连接仓库。" className="block dark:hidden" />
+  <img src="/images/github/app-repos-dark.png" alt="GitHub 应用页面显示两个组织的已连接仓库（深色模式）。" className="hidden dark:block" />
+</Frame>
 
-<div id="generate-code-examples">
-  ## 生成代码示例
-</div>
+## 触发器
 
-通过向助手发送指令，让其在整个文档或特定页面为功能生成代码示例。
+每个工作流必须使用 `on` 字段定义一个触发器。
 
-例如：`@mintlify 生成一个代码示例，让认证方法更容易理解`。
+### 按计划（cron）
 
-<div id="add-images-or-files-to-your-docs">
-  ## 向文档添加图片或文件
-</div>
+使用 cron 表达式按定期计划运行工作流。所有计划均以 UTC 时间运行。
 
-在向智能助手发送提示时，直接在 Slack 消息中附加文件或图片。助手会处理附件并将其添加到文档中。
+工作流会在计划时间后 10 分钟内排队，可能需要最多 10 分钟才能运行。
 
-例如：`@mintlify Add this diagram to the architecture overview page`，并在消息中附上该图片。
+```yaml
+on:
+  cron: "0 9 * * 1"
+```
 
-<div id="review-existing-content">
-  ## 审核现有内容
-</div>
+该值是标准的 5 字段 cron 表达式，格式为 `分钟 小时 日 月 星期`。使用 [crontab.guru](https://crontab.guru) 等工具来创建和验证计划。
 
-让助手审核现有内容的技术准确性、风格、语法或其他方面的问题。
+| 表达式 | 计划 |
+|------------|----------|
+| `"0 9 * * 1"` | 每周一 UTC 时间 9:00 |
+| `"0 0 1 * *"` | 每月第一天 UTC 时间午夜 |
+| `"0 8 * * 1-5"` | 工作日 UTC 时间 8:00 |
 
-例如：`@mintlify Review the API rate limiting section. We changed limits last month`.
+### 合并时
 
-<div id="respond-to-user-feedback">
-  ## 响应用户反馈
-</div>
+当拉取请求合并到指定的仓库和分支时运行工作流。
 
-向智能助手提供用户的反馈，让它对文档进行有针对性的更新。
+```yaml
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+```
 
-例如：`@mintlify Users are getting confused by step 3 in the setup guide. What might be making it unclear?`.
+- `repo`：GitHub 仓库，格式为 `owner/repo`。
+- `branch`（可选）：要监视合并的分支。如果不指定分支，工作流会在合并到仓库的默认分支时触发。
 
-<div id="automate-with-the-api">
-  ## 使用 API 实现自动化
-</div>
+一个工作流可以监视多个仓库或分支的合并。
 
-将 agent 集成到你现有的自动化工具中，用于在代码发生变更时自动更新文档、触发文档审阅，或在多个仓库之间同步文档更新。
+```yaml
+on:
+  push:
+    - repo: your-org/your-product
+    - repo: your-org/another-repo
+      branch: release
+```
 
-使用 agent 的端点接口来[创建任务](/zh/api-reference/agent/create-agent-job)、[获取指定任务](/zh/api-reference/agent/get-agent-job)以及[获取所有任务](/zh/api-reference/agent/get-all-jobs)。
+## 参考仓库
 
-通过 API 创建任务时，你可以使用 `asDraft` 参数（默认为 `true`）控制拉取请求是否以草稿模式打开。将 `asDraft: false` 设置为创建非草稿拉取请求，使其在自动化工作流中可以立即进行审阅和合并。
+使用 `context` 在工作流运行时让 agent 获得对其他仓库的读取权限。当你的 prompt 需要审查文档仓库之外的代码或内容时，这很有用。
 
-在[代码合并后自动更新文档](/zh/guides/automate-agent)教程中了解如何设置 API 自动化。
+```yaml
+context:
+  - repo: your-org/your-product
+  - repo: your-org/design-system
+```
+
+## 自动合并更改
+
+默认情况下，agent 会为每次工作流运行创建拉取请求，以便你在更改上线前进行审查。设置 `automerge: true` 可直接将更改推送到部署分支，而无需创建拉取请求。
+
+```yaml
+automerge: true
+```
+
+## Prompts
+
+有效的 prompt 专注于一项任务并有明确的预期结果。由于 agent 的非确定性特性，工作流总会有一些变化，但你可以通过遵循以下最佳实践来提高工作流输出的一致性。
+
+- 描述你希望 agent 达成的结果。
+- 包含成功标准。
+- 指定你希望 agent 使用的上下文。
+- 将复杂任务拆分为多个步骤或多个工作流。
+
+## 工作流示例
+
+### 风格审核
+
+当文档拉取请求合并时运行，在风格指南违规累积之前捕获它们。此示例工作流会自动修复风格指南违规，并在 PR 正文中列出需要人工判断的违规。
+
+```markdown .mintlify/workflows/style-audit.md
+---
+name: Style audit
+on:
+  push:
+    - repo: your-org/your-docs
+      branch: main
+automerge: false
+---
+
+Review all MDX files changed in the last merged PR against the style guide at `path/to/style-guide`.
+
+Open a pull request to resolve any style violations that can be fixed automatically. For any edits that require judgment or nuance, note them in the PR body with the specific lines, rule violations, and suggested fixes.
+
+Success criteria:
+- All style violations have a proposed resolution.
+- No new style violations are introduced.
+
+## Important
+
+- Do not change content meaning. Only correct style violations.
+- Skip any files in language subdirectories (`es/`, `fr/`, `zh/`).
+```
+
+### 为新功能起草文档
+
+当拉取请求合并到你的产品仓库时运行，识别任何新功能或 API 所需的文档更新。
+
+```markdown .mintlify/workflows/draft-feature-docs.md
+---
+name: Draft docs for new features
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+context:
+  - repo: your-org/your-docs
+automerge: false
+---
+
+Review the diff from the last merged PR in `your-org/your-product`. Identify any new features, APIs, or other changes that require documentation.
+
+For each new addition, draft documentation updates that explain what it does, when to use it, and how to configure it. Include a code example where relevant.
+
+Success criteria: After reading any new or updated documentation, users understand what the feature is, if it applies to tasks they do, and how to use it.
+
+## Important
+
+- Only document changes that affect end users. Skip internal refactors or dependency updates.
+- Match the style and structure of existing docs pages.
+```
+
+### 更新 API 参考
+
+当拉取请求合并到你的产品仓库时运行，保持 API 参考页面与产品代码同步。当端点或参数发生变化时，此工作流会更新文档中的相应内容。
+
+```markdown .mintlify/workflows/update-api-reference.md
+---
+name: Update API reference
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+context:
+  - repo: your-org/your-docs
+automerge: false
+---
+
+Review the diff from the last merged PR in `your-org/your-product` for changes to API endpoints, parameters, response shapes, or error codes.
+
+Update the corresponding API specifications or pages in the docs to reflect the changes. Include updated parameter descriptions, type information, and examples where affected.
+
+Success criteria: All API specifications and pages are up to date with the changes in the product repository.
+
+## Important
+
+- If a parameter or endpoint was removed, mark it as deprecated rather than deleting it unless the code explicitly removes it with no deprecation period.
+- If no API changes were introduced, do nothing.
+```
+
+### 跟踪翻译滞后
+
+每周运行，比较英文源文件与其翻译，识别落后的页面。
+
+要使用此工作流，请将示例语言子目录（`es/`、`fr/`、`zh/`）更新为你实际的语言子目录。
+
+```markdown .mintlify/workflows/translation-lag.md
+---
+name: Track translation lag
+on:
+  cron: "0 9 * * 3"
+---
+
+Compare the English MDX files in the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to identify English files updated more recently than their translations.
+
+Open a pull request that lists pages that are out of sync, organized by language. For each page, include the date of the last English update and a brief summary of what changed so translators have context on what to update.
+
+Success criteria: Any discrepancies between the English and translated files are identified and listed in the pull request.
+
+## Important
+
+- If a translated file does not exist, flag it as missing rather than out of sync.
+- Group findings by language, then by how far out of date they are (most stale first).
+```
+
+### SEO 和元数据审核
+
+每周运行，检查元数据缺失或较弱的页面，并创建包含改进的拉取请求。此示例工作流检查缺失的 `description` frontmatter。编辑工作流以检查你为文档优先考虑的其他元数据或内容问题。
+
+```markdown .mintlify/workflows/seo-audit.md
+---
+name: SEO and metadata audit
+on:
+  cron: "0 9 * * 1"
+automerge: false
+---
+
+Audit all MDX files in the docs for SEO and metadata quality. Check for:
+
+- Missing or empty `description` frontmatter
+- Descriptions that are too short (under 50 characters) or too long (over 160 characters)
+
+Open a pull request with improvements for any issues found. Write descriptions that accurately summarize the page content in plain language.
+
+Success criteria: All pages have up to date descriptions that accurately summarize the page content in plain language.
+
+## Important
+
+- Only update frontmatter. Do not change page content.
+- If all pages have complete and reasonable metadata, do nothing.
+```
