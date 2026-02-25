@@ -1,91 +1,305 @@
 ---
 title: "Workflows"
-description: "Exemples d’utilisation de l’agent dans votre processus de documentation."
-keywords: ["workflows d’agent", "workflows de documentation", "exemples d’automatisation"]
+description: "Automatisez la maintenance de votre documentation avec des tâches d’agent planifiées ou déclenchées par des événements."
+keywords: ["automation", "automate", "cron", "auto-update"]
 ---
 
-L’agent peut vous aider dans de nombreuses tâches de documentation. Ces workflows présentent plusieurs façons d’intégrer l’agent à votre processus de documentation. Choisissez une approche qui correspond à la façon dont votre équipe travaille actuellement, puis adaptez-la à vos besoins spécifiques.
+<Info>
+  Les workflows sont disponibles avec les [formules Enterprise](https://mintlify.com/pricing?ref=agent).
 
-<div id="iterate-on-a-prompt-in-a-slack-thread">
-  ## Itérer sur un prompt dans un fil Slack
+  Vous pouvez avoir jusqu’à 10 workflows actifs.
+</Info>
+
+Les workflows exécutent l’agent automatiquement selon un calendrier défini ou lorsqu’un push est effectué sur un référentiel que vous spécifiez. Chaque workflow définit un prompt pour l’agent et un déclencheur indiquant quand l’exécuter.
+
+Lorsqu’un workflow s’exécute, l’agent clone tous les référentiels spécifiés comme contexte, suit le prompt, puis soit ouvre une pull request (demande de fusion), soit pousse directement les modifications vers votre branche de déploiement.
+
+<div id="create-a-workflow-file">
+  ## Créer un fichier de workflow
 </div>
 
-Envoyez un prompt à l&#39;agent, puis continuez à le mentionner avec `@mintlify` dans le même fil pour affiner et itérer sur la pull request (demande de fusion) qu&#39;il crée.
+Créez des fichiers `.md` dans un répertoire `.mintlify/workflows/` situé à la racine de votre référentiel de documentation. Chaque fichier correspond à un workflow.
 
-Par exemple : `@mintlify Notre page de démarrage rapide a besoin d'une nouvelle section sur l'invitation de collaborateurs`. Puis : `@mintlify La nouvelle section devrait s'appeler "Inviter des collaborateurs"`. Et ainsi de suite pour les autres itérations.
+Les fichiers de workflow utilisent le frontmatter YAML pour configurer le workflow, suivi d&#39;un prompt en Markdown pour l&#39;agent.
 
-<div id="start-with-the-agent-finish-manually">
-  ## Commencer avec l’agent, terminer manuellement
+```markdown .mintlify/workflows/update-changelog.md
+---
+name: Update changelog
+on:
+  cron: "0 9 * * 1"
+context:
+  - repo: your-org/your-product
+automerge: false
+---
+
+Review all changes since the last changelog update. Draft a new changelog post with any new features, bug fixes, or breaking changes.
+
+Include information about what a change is and how it affects users.
+
+Do not include any internal-only information or minor changes like bumping package versions or updating documentation.
+
+Success criteria: Someone who reads the changelog knows the most up to date information about the product including what changed and whether or not it affects them.
+```
+
+
+<div id="frontmatter-fields">
+  ### Champs de frontmatter
 </div>
 
-Demandez à l’agent de démarrer un projet, puis récupérez la branche qu’il crée et terminez la tâche dans votre environnement local ou dans l’éditeur web. L’agent peut vous aider à démarrer, puis vous prenez le relais pour terminer la tâche.
+| Champ | Obligatoire | Description |
+|-------|-------------|-------------|
+| `name` | Oui | Nom d’affichage visible dans le Tableau de bord Mintlify. |
+| `on` | Oui | Configuration du déclencheur. |
+| `context` | Non | Référentiels clonés à titre de référence lors de l’exécution du workflow. |
+| `automerge` | Non | La valeur par défaut est `false`, ce qui ouvre une pull request (demande de fusion). Si `true`, pousse les modifications directement vers votre branche de déploiement. |
 
-Par exemple : `@mintlify Update the quickstart page to include information about inviting collaborators` puis basculez sur la branche pour apporter toutes les modifications supplémentaires avec la méthode de votre choix.
+Vous devez avoir installé la GitHub App Mintlify sur chaque référentiel répertorié dans les champs `context` ou `on.push.repo`. Ajoutez de nouveaux référentiels sur la page [GitHub App](https://dashboard.mintlify.com/settings/organization/github-app) de votre Tableau de bord Mintlify.
 
-<div id="update-docs-when-merging-feature-changes">
-  ## Mettre à jour la documentation lors de la fusion de modifications de fonctionnalités
+<Frame>
+  <img src="/images/github/app-repos-light.png" alt="La page GitHub App montrant les référentiels connectés pour deux organisations." className="block dark:hidden" />
+  <img src="/images/github/app-repos-dark.png" alt="La page GitHub App montrant les référentiels connectés pour deux organisations en mode sombre." className="hidden dark:block" />
+</Frame>
+
+<div id="triggers">
+  ## Déclencheurs
 </div>
 
-Lorsque vous fusionnez une pull request (demande de fusion) de fonctionnalité, partagez le lien de la PR avec l&#39;agent pour mettre à jour la documentation concernée.
+Chaque flux de travail doit définir un seul déclencheur en utilisant le champ `on`.
 
-Par exemple : `@mintlify This PR adds a new authentication method. Update the docs to include the new auth flow: [PR link]`.
-
-<div id="generate-release-notes-from-a-pull-request">
-  ## Générer des notes de version à partir d&#39;une pull request
+<div id="on-schedule-cron">
+  ### Selon une planification (cron)
 </div>
 
-Fournissez à l&#39;agent une pull request (demande de fusion) spécifique pour générer des notes de version ou des mises à jour du journal des modifications à partir de l&#39;historique des commits.
+Exécutez un workflow à intervalles réguliers à l&#39;aide d&#39;une expression cron. Toutes les planifications s&#39;exécutent en UTC.
 
-Par exemple : `@mintlify Generate release notes for this PR: [PR link]`.
+Les workflows sont placés en file d&#39;attente dans les 10 minutes suivant l&#39;heure planifiée et leur exécution peut prendre jusqu&#39;à 10 minutes.
 
-<div id="address-pull-request-review-feedback">
-  ## Traiter les commentaires de revue sur une pull request
+```yaml
+on:
+  cron: "0 9 * * 1"
+```
+
+La valeur est une expression cron standard à 5 champs au format `minute hour day-of-month month day-of-week`. Utilisez un outil comme [crontab.guru](https://crontab.guru) pour définir et valider les programmations.
+
+| Expression      | Planification                            |
+| --------------- | ---------------------------------------- |
+| `"0 9 * * 1"`   | Chaque lundi à 9 h 00 UTC                |
+| `"0 0 1 * *"`   | Premier jour de chaque mois à 0 h 00 UTC |
+| `"0 8 * * 1-5"` | Du lundi au vendredi à 8 h 00 UTC        |
+
+
+<div id="on-merge">
+  ### Lors de la fusion
 </div>
 
-Partagez le lien de la pull request (demande de fusion) avec l’agent afin qu’il prenne en compte les commentaires des relecteurs et les retours de revue de code sur les pull requests de documentation.
+Exécutez un workflow lorsqu&#39;une pull request (demande de fusion) est fusionnée sur un référentiel et une branche spécifiques.
 
-Par exemple : `@mintlify Address the review comments on this PR: [PR link]`.
+```yaml
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+```
 
-<div id="generate-code-examples">
-  ## Générer des exemples de code
+* `repo`: Le référentiel GitHub au format `owner/repo`.
+* `branch` (facultatif) : la branche à surveiller pour les fusions. Si vous ne spécifiez pas de branche, le workflow se déclenche lorsqu’une fusion est effectuée vers la branche par défaut du référentiel.
+
+Un workflow peut surveiller les fusions dans plusieurs référentiels ou branches.
+
+```yaml
+on:
+  push:
+    - repo: your-org/your-product
+    - repo: your-org/another-repo
+      branch: release
+```
+
+
+<div id="reference-repositories">
+  ## Référentiels de référence
 </div>
 
-Demandez à l’agent de générer des exemples de code pour des fonctionnalités présentes dans l’ensemble de votre documentation ou sur des pages spécifiques.
+Utilisez `context` pour accorder à l’agent un accès en lecture à des référentiels supplémentaires lors de l’exécution du workflow. Cela est utile lorsque votre prompt doit examiner du code ou du contenu en dehors de votre référentiel de documentation.
 
-Par exemple : `@mintlify Generate a code example to make the authentication method easier to understand`.
+```yaml
+context:
+  - repo: your-org/your-product
+  - repo: your-org/design-system
+```
 
-<div id="add-images-or-files-to-your-docs">
-  ## Ajouter des images ou des fichiers à votre documentation
+
+<div id="auto-merge-changes">
+  ## Fusion automatique des modifications
 </div>
 
-Joignez des fichiers ou des images directement à votre message Slack lorsque vous formulez une demande à l’agent. L’agent traite la pièce jointe et l’intègre dans la documentation.
+Par défaut, l&#39;agent ouvre une pull request (demande de fusion) pour chaque exécution de workflow afin que vous puissiez examiner les modifications avant leur mise en production. Activez `automerge: true` pour pousser les modifications directement vers votre branche de déploiement sans pull request.
 
-Par exemple : `@mintlify Add this diagram to the architecture overview page` avec l’image jointe au message.
+```yaml
+automerge: true
+```
 
-<div id="review-existing-content">
-  ## Passer en revue le contenu existant
+
+<div id="prompts">
+  ## Prompts
 </div>
 
-Demandez à l&#39;agent de passer en revue le contenu existant pour vérifier l&#39;exactitude technique, le style, la grammaire ou d&#39;autres aspects.
+Des prompts efficaces se concentrent sur une seule tâche et visent un résultat précis. Les workflows présentent toujours une certaine variabilité en raison de la nature non déterministe des agents, mais vous pouvez améliorer la cohérence des résultats des workflows en suivant ces bonnes pratiques.
 
-Par exemple : `@mintlify Review the API rate limiting section. We changed limits last month`.
+- Décrivez le résultat que vous souhaitez que l’agent produise.
+- Incluez des critères de réussite.
+- Précisez le contexte que vous voulez que l’agent utilise.
+- Divisez les tâches complexes en étapes ou en plusieurs workflows.
 
-<div id="respond-to-user-feedback">
-  ## Répondre aux retours des utilisateurs
+<div id="example-workflows">
+  ## Exemples de workflows
 </div>
 
-Fournissez à l’agent les retours de vos utilisateurs pour qu’il puisse mettre à jour votre documentation de manière ciblée.
-
-Par exemple : `@mintlify Users are getting confused by step 3 in the setup guide. What might be making it unclear?`.
-
-<div id="automate-with-the-api">
-  ## Automatiser avec l&#39;API
+<div id="style-audit">
+  ### Audit de style
 </div>
 
-Intégrez l&#39;agent dans vos outils d&#39;automatisation existants pour mettre automatiquement à jour la documentation lorsque le code change, déclencher des revues de contenu ou synchroniser les mises à jour de la documentation entre plusieurs dépôts.
+S’exécute lorsqu’une pull request (demande de fusion) de documentation est fusionnée, afin de détecter les écarts par rapport au guide de style avant qu’ils ne s’accumulent. Cet exemple de flux de travail corrige automatiquement ces écarts et répertorie dans le corps de la pull request toutes les violations qui nécessitent un jugement humain.
 
-Utilisez les endpoints de l&#39;agent pour [créer des tâches](/fr/api-reference/agent/create-agent-job), [récupérer une tâche spécifique](/fr/api-reference/agent/get-agent-job) et [récupérer toutes les tâches](/fr/api-reference/agent/get-all-jobs).
+```markdown .mintlify/workflows/style-audit.md
+---
+name: Style audit
+on:
+  push:
+    - repo: your-org/your-docs
+      branch: main
+automerge: false
+---
 
-Lors de la création de tâches via l&#39;API, vous pouvez contrôler si les pull requests s&#39;ouvrent en mode brouillon à l&#39;aide du paramètre `asDraft` (dont la valeur par défaut est `true`). Définissez `asDraft: false` pour créer des pull requests non brouillon, prêtes pour une revue et une fusion immédiates dans des workflows automatisés.
+Examinez tous les fichiers MDX modifiés dans le dernier PR fusionné par rapport au guide de style à `path/to/style-guide`.
 
-Découvrez comment configurer l&#39;automatisation via l&#39;API dans le tutoriel [Mettre automatiquement à jour la documentation lorsque le code est fusionné](/fr/guides/automate-agent).
+Ouvrez une pull request pour résoudre les violations de style pouvant être corrigées automatiquement. Pour toute modification nécessitant un jugement ou de la nuance, notez-les dans le corps de la PR avec les lignes spécifiques, les violations de règles et les corrections suggérées.
+
+Critères de succès :
+- Toutes les violations de style ont une résolution proposée.
+- Aucune nouvelle violation de style n'est introduite.
+
+## Important
+
+- Ne modifiez pas le sens du contenu. Corrigez uniquement les violations de style.
+- Ignorez les fichiers dans les sous-répertoires de langue (`es/`, `fr/`, `zh/`).
+```
+
+
+<div id="draft-documentation-for-new-features">
+  ### Brouillon de documentation pour les nouvelles fonctionnalités
+</div>
+
+S’exécute lorsque des pull requests (demandes de fusion) sont fusionnées dans votre référentiel produit afin d’identifier les mises à jour de la documentation nécessaires pour toute nouvelle fonctionnalité ou API introduite.
+
+```markdown .mintlify/workflows/draft-feature-docs.md
+---
+name: Draft docs for new features
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+context:
+  - repo: your-org/your-docs
+automerge: false
+---
+
+Review the diff from the last merged PR in `your-org/your-product`. Identify any new features, APIs, or other changes that require documentation.
+
+For each new addition, draft documentation updates that explain what it does, when to use it, and how to configure it. Include a code example where relevant.
+
+Success criteria: After reading any new or updated documentation, users understand what the feature is, if it applies to tasks they do, and how to use it.
+
+## Important
+
+- Only document changes that affect end users. Skip internal refactors or dependency updates.
+- Match the style and structure of existing docs pages.
+```
+
+
+<div id="update-api-reference">
+  ### Mettre à jour la référence d&#39;API
+</div>
+
+Ce workflow s’exécute lorsque des pull requests (demandes de fusion) sont fusionnées dans le référentiel de votre produit afin de maintenir les pages de référence d’API synchronisées avec le code de votre produit. Lorsque des points de terminaison (endpoints) ou des paramètres sont modifiés, ce workflow met à jour le contenu correspondant dans votre documentation.
+
+```markdown .mintlify/workflows/update-api-reference.md
+---
+name: Update API reference
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+context:
+  - repo: your-org/your-docs
+automerge: false
+---
+
+Review the diff from the last merged PR in `your-org/your-product` for changes to API endpoints, parameters, response shapes, or error codes.
+
+Update the corresponding API specifications or pages in the docs to reflect the changes. Include updated parameter descriptions, type information, and examples where affected.
+
+Success criteria: All API specifications and pages are up to date with the changes in the product repository.
+
+## Important
+
+- If a parameter or endpoint was removed, mark it as deprecated rather than deleting it unless the code explicitly removes it with no deprecation period.
+- If no API changes were introduced, do nothing.
+```
+
+
+<div id="track-translation-lag">
+  ### Suivre le retard de traduction
+</div>
+
+Exécutez ce workflow chaque semaine pour comparer les fichiers sources anglais à leurs traductions et repérer les pages qui ont pris du retard.
+
+Pour utiliser ce workflow, mettez à jour les sous-répertoires de langue d’exemple (`es/`, `fr/`, `zh/`) avec vos sous-répertoires de langue réels.
+
+```markdown .mintlify/workflows/translation-lag.md
+---
+name: Track translation lag
+on:
+  cron: "0 9 * * 3"
+---
+
+Compare the English MDX files in the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to identify English files updated more recently than their translations.
+
+Open a pull request that lists pages that are out of sync, organized by language. For each page, include the date of the last English update and a brief summary of what changed so translators have context on what to update.
+
+Success criteria: Any discrepancies between the English and translated files are identified and listed in the pull request.
+
+## Important
+
+- If a translated file does not exist, flag it as missing rather than out of sync.
+- Group findings by language, then by how far out of date they are (most stale first).
+```
+
+
+<div id="seo-and-metadata-audit">
+  ### Audit SEO et métadonnées
+</div>
+
+S’exécute chaque semaine pour rechercher les pages dont les métadonnées sont manquantes ou peu pertinentes, puis ouvrir une pull request (demande de fusion) avec des améliorations. Cet exemple de workflow vérifie l’absence du frontmatter `description`. Modifiez le workflow pour vérifier d’autres métadonnées ou problèmes de contenu que vous jugez prioritaires pour votre documentation.
+
+```markdown .mintlify/workflows/seo-audit.md
+---
+name: SEO and metadata audit
+on:
+  cron: "0 9 * * 1"
+automerge: false
+---
+
+Audit all MDX files in the docs for SEO and metadata quality. Check for:
+
+- Missing or empty `description` frontmatter
+- Descriptions that are too short (under 50 characters) or too long (over 160 characters)
+
+Open a pull request with improvements for any issues found. Write descriptions that accurately summarize the page content in plain language.
+
+Success criteria: All pages have up to date descriptions that accurately summarize the page content in plain language.
+
+## Important
+
+- Only update frontmatter. Do not change page content.
+- If all pages have complete and reasonable metadata, do nothing.
+```
