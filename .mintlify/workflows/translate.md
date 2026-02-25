@@ -19,4 +19,32 @@ Translate any MDX files changed by the last merged PR into all supported languag
 
 - Only translate English source files. Skip any files already in a language subdirectory.
 - Preserve all MDX structure, frontmatter, and component syntax exactly — only translate prose content.
-- Do not change anything in code samples or angle brackets (don't change the names of components)
+- Do not translate code samples, component names, prop names, or code block titles (e.g., ` ```mdx Card example ` — keep "Card example" as-is).
+
+### Headings
+
+Wrap every heading (`##`, `###`, etc.) in a `<div id="...">` element using the English heading's kebab-case slug as the ID. This preserves anchor links when users share links to translated pages. Derive the ID by lowercasing the English heading and replacing spaces with hyphens.
+
+```mdx
+<div id="english-heading-slug">
+  ## Translated heading text
+</div>
+```
+
+### Internal links
+
+Prefix all internal links with the target language code so they resolve correctly within the translated site. For example, when translating to Spanish, `/components/columns` becomes `/es/components/columns`. Use `es/`, `fr/`, or `zh/` as appropriate for each language.
+
+### Snippet imports
+
+Update snippet import paths to use the target language subdirectory (`es/`, `fr/`, or `zh/`). For example, when translating to Spanish:
+
+```mdx
+import IconsOptional from "/snippets/icons-optional.mdx";
+```
+
+becomes:
+
+```mdx
+import IconsOptional from "/snippets/es/icons-optional.mdx";
+```
