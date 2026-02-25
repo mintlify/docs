@@ -18,7 +18,7 @@ Translate any MDX files changed by the last merged PR into all supported languag
 ## Important
 
 - Only translate English source files. Skip any files already in a language subdirectory.
-- Preserve all MDX structure, frontmatter, and component syntax exactly — only translate prose content.
+- Preserve all MDX structure, frontmatter, and component syntax exactly—only translate prose content.
 - Do not translate code samples, component names, prop names, or code block titles (e.g., ` ```mdx Card example ` — keep "Card example" as-is).
 
 ### Formatting
