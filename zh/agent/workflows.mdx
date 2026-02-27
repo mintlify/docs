@@ -2,21 +2,47 @@
 title: "工作流"
 description: "通过定时或事件触发的 agent 任务自动维护文档。"
 keywords: ["automation", "automate", "cron", "auto-update"]
+tag: "测试版"
 ---
 
 <Info>
-工作流目前处于测试阶段。如需启用，请直接联系我们。
+  工作流目前处于测试阶段，现已在 [Enterprise 方案](https://mintlify.com/pricing) 中提供。
+
+  如需为你的组织启用工作流，请[联系我们](mailto:gtm@mintlify.com)。
 </Info>
 
-工作流会在预设的计划下，或在你指定的存储库发生 push 时自动运行 agent。每个工作流都会为 agent 定义一个提示词，以及一个触发执行的条件。
+工作流会在预设的计划下，或在存储库发生 push 时自动运行 agent。每个工作流都会为 agent 定义一个提示词，以及一个触发执行的条件。
 
 当工作流运行时，agent 会将指定的存储库克隆为上下文，遵循提示词，并执行以下两种操作之一：要么创建一个拉取请求（PR；亦称“合并请求”/Merge Request），要么将更改直接推送到你的部署用分支。
 
-<div id="create-a-workflow-file">
-  ## 创建工作流文件
+你同时最多可以启用 10 个工作流。每个工作流每天最多可运行 20 次。运行失败不会计入此限制。
+
+<Tip>
+使用按计划运行的工作流来自动化执行周期性任务，例如发布更新日志或检查语法和写作风格问题。
+
+使用在 push 事件上运行的工作流来自动化执行响应型维护任务，例如更新 API 参考文档，或识别新功能所需的文档更新。
+</Tip>
+
+<div id="create-a-workflow">
+  ## 创建工作流
 </div>
 
-在文档存储库根目录的 `.mintlify/workflows/` 目录中创建 `.md` 文件。每个文件定义一个工作流。
+<div id="create-a-workflow-in-the-dashboard">
+  ### 在控制台中创建工作流
+</div>
+
+在控制台的 [Workflows](https://dashboard.mintlify.com/products/workflows) 页面，点击 **New workflow** 按钮。
+
+<Frame>
+<img src="/images/agent/new-workflow-light.png" alt="新建工作流的设置页面。" className="block dark:hidden" />
+<img src="/images/agent/new-workflow-dark.png" alt="新建工作流的设置页面。" className="hidden dark:block" />
+</Frame>
+
+<div id="add-a-workflow-file-to-your-repository">
+  ### 向存储库添加工作流文件
+</div>
+
+在文档存储库根目录的 `.mintlify/workflows/` 目录中为每个工作流创建一个 `.md` 文件。每个文件定义一个工作流。
 
 工作流文件使用 YAML frontmatter 来配置工作流，后面跟一段提供给智能助手的 Markdown 提示词。
 
@@ -41,7 +67,7 @@ Success criteria: Someone who reads the changelog knows the most up to date info
 
 
 <div id="frontmatter-fields">
-  ### frontmatter 字段
+  ## frontmatter 字段
 </div>
 
 | 字段 | 必填 | 说明 |
@@ -59,13 +85,13 @@ Success criteria: Someone who reads the changelog knows the most up to date info
 </Frame>
 
 <div id="triggers">
-  ## 触发器
+  ### 触发器
 </div>
 
 每个工作流必须在 `on` 字段中只定义一个触发器。
 
 <div id="on-schedule-cron">
-  ### 按计划（cron）
+  #### 按计划（cron）
 </div>
 
 使用 cron 表达式按固定计划运行工作流。所有计划均使用 UTC 时间运行。
@@ -86,8 +112,8 @@ on:
 | `"0 8 * * 1-5"` | 每个工作日 8:00（UTC）       |
 
 
-<div id="on-merge">
-  ### 在合并时
+<div id="on-push-events">
+  #### 在 push 事件时
 </div>
 
 当拉取请求（PR；亦称“合并请求”/Merge Request）被合并到指定存储库的特定 branch 时运行工作流。
@@ -113,8 +139,8 @@ on:
 ```
 
 
-<div id="reference-repositories">
-  ## 参考存储库
+<div id="context-repositories">
+  ### Context 存储库
 </div>
 
 使用 `context` 在工作流运行时为代理程序提供对其他存储库的只读访问权限。当你的提示词需要查看文档存储库之外的代码或内容时，这会很有用。
@@ -127,7 +153,7 @@ context:
 
 
 <div id="auto-merge-changes">
-  ## 自动合并更改
+  ### 自动合并更改
 </div>
 
 默认情况下，智能代理会在每次工作流运行时创建一个拉取请求（PR），以便你在更改上线之前进行审查。将 `automerge` 设置为 `true`，即可在不创建拉取请求的情况下，直接将更改推送到你的部署用分支。
@@ -151,6 +177,43 @@ automerge: true
 <div id="example-workflows">
   ## 工作流程示例
 </div>
+
+<div id="draft-documentation-for-new-features">
+  ### 新功能文档草稿
+</div>
+
+<Tip>
+  如果你在控制台中使用智能代理建议（agent suggestions），此工作流会复现相同的行为。
+
+  按项目需要对该工作流进行必要修改后添加，即可在为产品添加新功能时自动起草文档。
+</Tip>
+
+当拉取请求（PR；亦称“合并请求”/Merge Request）合并到你的产品存储库时运行，用于识别因引入任何新功能或 API 而需要进行的文档更新。
+
+```markdown .mintlify/workflows/draft-feature-docs.md
+---
+name: Draft docs for new features
+on:
+  push:
+    - repo: your-org/your-product
+      branch: main
+context:
+  - repo: your-org/your-docs
+automerge: false
+---
+
+Review the diff from the last merged PR in `your-org/your-product`. Identify any new features, APIs, or other changes that require documentation.
+
+For each new addition, draft documentation updates that explain what it does, when to use it, and how to configure it. Include a code example where relevant.
+
+Success criteria: After reading any new or updated documentation, users understand what the feature is, if it applies to tasks they do, and how to use it.
+
+## Important
+
+- Only document changes that affect end users. Skip internal refactors or dependency updates.
+- Match the style and structure of existing docs pages.
+```
+
 
 <div id="style-audit">
   ### 样式审查
@@ -180,37 +243,6 @@ Success criteria:
 
 - Do not change content meaning. Only correct style violations.
 - Skip any files in language subdirectories (`es/`, `fr/`, `zh/`).
-```
-
-
-<div id="draft-documentation-for-new-features">
-  ### 新功能文档草稿
-</div>
-
-当拉取请求（PR；亦称“合并请求”/Merge Request）合并到你的产品存储库时运行，用于识别因引入任何新功能或 API 而需要进行的文档更新。
-
-```markdown .mintlify/workflows/draft-feature-docs.md
----
-name: Draft docs for new features
-on:
-  push:
-    - repo: your-org/your-product
-      branch: main
-context:
-  - repo: your-org/your-docs
-automerge: false
----
-
-Review the diff from the last merged PR in `your-org/your-product`. Identify any new features, APIs, or other changes that require documentation.
-
-For each new addition, draft documentation updates that explain what it does, when to use it, and how to configure it. Include a code example where relevant.
-
-Success criteria: After reading any new or updated documentation, users understand what the feature is, if it applies to tasks they do, and how to use it.
-
-## Important
-
-- Only document changes that affect end users. Skip internal refactors or dependency updates.
-- Match the style and structure of existing docs pages.
 ```
 
 
