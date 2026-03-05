@@ -14,6 +14,327 @@ Authentication requires users to log in before accessing your documentation.
 
 When you enable authentication, users must log in to access any content. You can configure specific pages or groups as public while keeping other pages protected.
 
+## Understanding token types
+
+Different authentication methods use different token types. Understanding these tokens helps you configure authentication correctly and troubleshoot issues.
+
+### Access tokens (OAuth)
+
+Access tokens are short-lived credentials issued by your OAuth server after successful authentication. Mintlify uses these tokens to verify user identity and retrieve user information.
+
+**Where to configure:**
+- Your OAuth server issues access tokens automatically during the OAuth flow.
+- Configure the **Token URL** in your [authentication settings](https://dashboard.mintlify.com/settings/deployment/authentication) to specify where Mintlify exchanges authorization codes for access tokens.
+- Configure the **Info API URL** to specify where Mintlify sends access tokens to retrieve user data.
+
+**Configuration options:**
+- **Token expiration**: Set on your OAuth server. Typical values range from 1 hour to 24 hours.
+- **Token refresh**: Configure refresh tokens on your OAuth server to allow seamless re-authentication.
+- **Scopes**: Define in the **Scopes** field to control what permissions the access token grants. Use space-separated values like `openid profile email` or provider-specific scopes like `provider.users.docs`.
+- **Token format**: Most OAuth providers use opaque tokens or JWTs. Your Info API endpoint must accept whichever format your OAuth server issues.
+
+**Example configuration:**
+```json
+{
+  "Authorization URL": "https://auth.foo.com/authorize",
+  "Token URL": "https://auth.foo.com/token",
+  "Client ID": "your-client-id",
+  "Client Secret": "your-client-secret",
+  "Scopes": "openid profile email docs.read",
+  "Info API URL": "https://api.foo.com/user-info"
+}
+```
+
+Your Info API endpoint receives the access token in the Authorization header:
+```http
+GET /user-info HTTP/1.1
+Host: api.foo.com
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### API keys
+
+API keys are long-lived credentials used to authenticate requests to your Info API endpoint. While Mintlify doesn't directly use API keys for authentication, your backend may require them.
+
+**Where to configure:**
+- API keys are managed on your backend, not in Mintlify's dashboard.
+- Your Info API endpoint can require API keys in addition to OAuth access tokens for added security.
+
+**Example implementation:**
+```javascript
+// Your Info API endpoint
+app.get('/user-info', (req, res) => {
+  const apiKey = req.headers['x-api-key'];
+  const accessToken = req.headers['authorization']?.split(' ')[1];
+  
+  // Verify both API key and access token
+  if (!isValidApiKey(apiKey)) {
+    return res.status(401).json({ error: 'Invalid API key' });
+  }
+  
+  if (!isValidAccessToken(accessToken)) {
+    return res.status(401).json({ error: 'Invalid access token' });
+  }
+  
+  // Return user info
+  res.json({
+    content: { firstName: 'Jane', lastName: 'Doe' },
+    groups: ['engineering']
+  });
+});
+```
+
+### Bearer tokens
+
+Bearer tokens are a type of access token transmitted in the Authorization header with the "Bearer" scheme. OAuth access tokens are typically sent as bearer tokens.
+
+**Where to configure:**
+- Bearer tokens are automatically used when you configure OAuth authentication.
+- Your Info API endpoint receives bearer tokens in the format: `Authorization: Bearer {token}`.
+
+**Example:**
+```http
+GET /user-info HTTP/1.1
+Host: api.foo.com
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0...
+```
+
+Your backend extracts and validates the bearer token:
+```javascript
+const authHeader = req.headers['authorization'];
+const token = authHeader?.split(' ')[1]; // Extract token after "Bearer "
+
+// Validate token with your OAuth server or JWT library
+const isValid = await validateToken(token);
+```
+
+### JWT tokens
+
+JWT (JSON Web Token) tokens are self-contained tokens that encode user information and are cryptographically signed. Mintlify supports JWT authentication where you generate and sign tokens on your backend.
+
+**Where to configure:**
+- Generate a private key in your [authentication settings](https://dashboard.mintlify.com/settings/deployment/authentication).
+- Store the private key securely in your backend environment.
+- Sign JWTs with the EdDSA algorithm using your private key.
+- Redirect users to `/login/jwt-callback#{SIGNED_JWT}` after authentication.
+
+**JWT structure:**
+```json
+{
+  "expiresAt": 1735689600,
+  "groups": ["admin", "engineering"],
+  "content": {
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "email": "jane@foo.com"
+  }
+}
+```
+
+**Configuration options:**
+- **JWT expiration**: Set with `setExpirationTime()`. Keep this short (10-60 seconds) since the JWT is only used for the initial handshake.
+- **Session expiration**: Set with `expiresAt` in the payload. This controls how long the user stays logged in (typically 1-2 weeks).
+- **Algorithm**: Must use EdDSA. Other algorithms are not supported.
+- **User data**: Include any data you want available for personalization in the `content` field.
+
+**Example implementation:**
+```typescript
+import * as jose from 'jose';
+
+const signingKey = await jose.importPKCS8(
+  process.env.MINTLIFY_PRIVATE_KEY,
+  'EdDSA'
+);
+
+const jwt = await new jose.SignJWT({
+  expiresAt: Math.floor((Date.now() + 14 * 24 * 60 * 60 * 1000) / 1000), // 2 weeks
+  groups: ['admin'],
+  content: {
+    firstName: 'Jane',
+    lastName: 'Doe'
+  }
+})
+  .setProtectedHeader({ alg: 'EdDSA' })
+  .setExpirationTime('30s') // JWT valid for 30 seconds
+  .sign(signingKey);
+
+// Redirect to docs with JWT
+res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+```
+
+## Token security best practices
+
+Follow these practices to keep your authentication secure.
+
+### Protect your secrets
+
+- **Never commit secrets to version control**. Use environment variables or secret management services.
+- **Rotate secrets regularly**. Update OAuth client secrets and JWT private keys periodically.
+- **Use different secrets for different environments**. Don't share secrets between development, staging, and production.
+
+### Configure appropriate token lifetimes
+
+- **OAuth access tokens**: 1-24 hours. Shorter lifetimes are more secure but may require more frequent re-authentication.
+- **JWT tokens**: 10-60 seconds for the initial handshake. The JWT is only used once to establish a session.
+- **Session expiration**: 1-2 weeks. Balance security with user convenience.
+
+### Validate tokens properly
+
+- **Verify token signatures**. Always validate JWT signatures using your private key.
+- **Check token expiration**. Reject expired tokens immediately.
+- **Validate token audience**. Ensure tokens are intended for your application.
+
+```javascript
+// Example: Validate JWT token
+import * as jose from 'jose';
+
+async function validateJWT(token, publicKey) {
+  try {
+    const { payload } = await jose.jwtVerify(token, publicKey, {
+      algorithms: ['EdDSA']
+    });
+    
+    // Check session expiration
+    if (payload.expiresAt < Date.now() / 1000) {
+      throw new Error('Session expired');
+    }
+    
+    return payload;
+  } catch (error) {
+    console.error('Token validation failed:', error);
+    return null;
+  }
+}
+```
+
+### Secure your endpoints
+
+- **Use HTTPS only**. Never transmit tokens over unencrypted connections.
+- **Implement rate limiting**. Prevent brute force attacks on your authentication endpoints.
+- **Log authentication attempts**. Monitor for suspicious activity.
+
+### Handle tokens securely in your application
+
+- **Don't expose tokens in URLs**. Use headers or POST bodies instead (except for the JWT callback redirect, which is designed for this purpose).
+- **Clear tokens on logout**. Ensure tokens are removed from client storage.
+- **Implement token refresh**. Use refresh tokens to obtain new access tokens without requiring re-authentication.
+
+## Common token-related issues
+
+### "Invalid token" errors
+
+**Symptoms**: Users see authentication errors or are repeatedly prompted to log in.
+
+**Causes and solutions**:
+- **Expired tokens**: Check token expiration times. Increase token lifetime or implement token refresh.
+- **Clock skew**: Ensure your server's clock is synchronized. Use NTP to keep time accurate.
+- **Wrong algorithm**: Verify you're using EdDSA for JWT tokens. Other algorithms are not supported.
+- **Incorrect secret**: Verify you're using the correct private key or client secret.
+
+```javascript
+// Debug token expiration
+const payload = jose.decodeJwt(token);
+console.log('Token expires at:', new Date(payload.exp * 1000));
+console.log('Current time:', new Date());
+console.log('Time until expiration:', payload.exp - Date.now() / 1000, 'seconds');
+```
+
+### OAuth callback failures
+
+**Symptoms**: Users are redirected to your OAuth server but never return to the docs.
+
+**Causes and solutions**:
+- **Incorrect redirect URL**: Verify the redirect URL in your OAuth server matches the one in your [authentication settings](https://dashboard.mintlify.com/settings/deployment/authentication).
+- **Missing scopes**: Ensure all required scopes are configured in both Mintlify and your OAuth server.
+- **Token exchange failure**: Check your Token URL is correct and accessible.
+
+```bash
+# Test token exchange manually
+curl -X POST https://auth.foo.com/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code" \
+  -d "code=AUTHORIZATION_CODE" \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "redirect_uri=YOUR_REDIRECT_URI"
+```
+
+### Info API endpoint errors
+
+**Symptoms**: Authentication succeeds but user data is not available or personalization doesn't work.
+
+**Causes and solutions**:
+- **Endpoint not accessible**: Verify your Info API URL is publicly accessible and returns a 200 status.
+- **Invalid token format**: Ensure your endpoint accepts bearer tokens in the Authorization header.
+- **Wrong response format**: Verify your endpoint returns data in the correct [User data format](/deploy/personalization-setup#user-data-format).
+
+```javascript
+// Test your Info API endpoint
+const response = await fetch('https://api.foo.com/user-info', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+
+const data = await response.json();
+console.log('Response status:', response.status);
+console.log('Response data:', data);
+
+// Verify response format
+if (!data.content || !data.groups) {
+  console.error('Invalid response format. Expected { content: {...}, groups: [...] }');
+}
+```
+
+### JWT signature verification failures
+
+**Symptoms**: JWT authentication fails with signature errors.
+
+**Causes and solutions**:
+- **Wrong key format**: Ensure you're importing the private key correctly using `jose.importPKCS8()`.
+- **Key mismatch**: Verify you're using the same key that was generated in your dashboard.
+- **Algorithm mismatch**: Confirm you're using EdDSA, not RS256 or other algorithms.
+
+```typescript
+// Correct key import
+import * as jose from 'jose';
+
+// Import private key for signing
+const signingKey = await jose.importPKCS8(
+  process.env.MINTLIFY_PRIVATE_KEY,
+  'EdDSA'
+);
+
+// Sign JWT
+const jwt = await new jose.SignJWT(payload)
+  .setProtectedHeader({ alg: 'EdDSA' }) // Must be EdDSA
+  .setExpirationTime('30s')
+  .sign(signingKey);
+```
+
+### Session expiration issues
+
+**Symptoms**: Users are logged out unexpectedly or sessions last too long.
+
+**Causes and solutions**:
+- **Incorrect `expiresAt` value**: Ensure `expiresAt` is in seconds (Unix timestamp), not milliseconds.
+- **JWT expiration vs session expiration**: Remember that JWT `exp` is for the token itself (short), while `expiresAt` is for the session (long).
+
+```javascript
+// Correct expiration configuration
+const now = Date.now();
+const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
+
+const jwt = await new jose.SignJWT({
+  expiresAt: Math.floor((now + twoWeeksInMs) / 1000), // Session: 2 weeks (in seconds)
+  groups: ['admin'],
+  content: { firstName: 'Jane' }
+})
+  .setProtectedHeader({ alg: 'EdDSA' })
+  .setExpirationTime('30s') // JWT: 30 seconds
+  .sign(signingKey);
+```
+
 ## Configure authentication
 
 Select the handshake method that you want to configure.
