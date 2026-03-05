@@ -23,3 +23,4 @@ Success criteria: After reading any new or updated documentation, users understa
 - Match the style and structure of existing docs pages.
 - If no user-facing changes were introduced, do nothing.
 - Do not include private repository file paths, directory structures, code snippets, or any other internal implementation details in PR titles, descriptions, or commit messages.
+- Write a quick summary of the feature that shipped in the PR description.

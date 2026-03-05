@@ -1,18 +1,18 @@
 ---
 name: "Vale style audit"
 on:
-  push:
-    - repo: "mintlify/docs"
-      branch: "main"
+  cron: "0 15 * * 4"
 ---
 
-Get the Git diff of the last PR merged to the mintlify/docs repository.
+# Steps
 
-Run a Vale style audit on all English language MDX files modified in the last merged pull request using the Vale configuration in `.vale/`. Skip any files in language subdirectories (`es/`, `fr/`, `zh/`)
+1. Find all PRs merged to the mintlify/docs repository in the last week.
+2. Identify all Vale warnings left by the CI check.
+3. Deduplicate any warnings.
+4. Open a pull request to fix all Vale warnings for each file that has any warnings.
+5. If you are unsure of how to fix a warning, do not guess. Note it in the PR body.
 
-Open a pull request to resolve any issues that can be fixed automatically. For issues that require human judgment, note them in the PR body with the specific lines, rule violations, and your ideas to solve them.
-
-Success criteria: Thoroughly identify Vale errors and warnings. Propose accurate fixes or escalate for human review. 
+Success criteria: Thoroughly identify Vale warnings. Propose accurate fixes or escalate for human review. 
 
 ## Important
 

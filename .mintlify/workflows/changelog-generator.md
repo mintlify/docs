@@ -1,7 +1,7 @@
 ---
 name: "Changelog generator"
 on:
-  cron: "2 9 * * 5"
+  cron: "30 8 * * 5"
 context:
   - repo: "mintlify/server"
   - repo: "mintlify/mint"
