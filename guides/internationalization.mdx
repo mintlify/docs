@@ -377,7 +377,7 @@ jobs:
           files=$(git diff --name-only origin/main..HEAD -- 'es/**/*.mdx' 'fr/**/*.mdx' 'zh/**/*.mdx' | sort)
           
           if [ -z "$files" ]; then
-            echo "No translation files detected in this PR"
+            echo "No translation MDX files detected in this PR"
             echo "files=" >> $GITHUB_OUTPUT
             echo "count=0" >> $GITHUB_OUTPUT
           else
@@ -498,39 +498,58 @@ jobs:
           echo "**Files Changed:** ${{ steps.changed-files.outputs.count }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          echo "### Validation Results" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontmatter: ${{ steps.frontmatter.outputs.frontmatter_valid }}" >> $GITHUB_STEP_SUMMARY
-          echo "- File Structure: ${{ steps.structure.outputs.structure_valid }}" >> $GITHUB_STEP_SUMMARY
-          echo "- File Integrity: ${{ steps.integrity.outputs.integrity_valid }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
           if [ "${{ steps.changed-files.outputs.count }}" = "0" ]; then
-            echo "No translation files found in this PR" >> $GITHUB_STEP_SUMMARY
+            echo "No translation MDX files found in this PR" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> This could mean:" >> $GITHUB_STEP_SUMMARY
+            echo "- Only non-MDX files in es/, fr/, or zh/ directories were changed" >> $GITHUB_STEP_SUMMARY
+            echo "- Workflow was triggered but no translation content to validate" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### Validation Results" >> $GITHUB_STEP_SUMMARY
+            echo "- Frontmatter: ${{ steps.frontmatter.outputs.frontmatter_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "- File Structure: ${{ steps.structure.outputs.structure_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "- File Integrity: ${{ steps.integrity.outputs.integrity_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
+        shell: bash
 
       - name: Final validation check
         id: final-check
+        # Only run this check if we actually had MDX files to validate
+        if: steps.changed-files.outputs.count > 0
         run: |
+          validation_failed=false
+          
           if [ "${{ steps.frontmatter.outputs.frontmatter_valid }}" != "true" ]; then
-            echo "status=failed" >> $GITHUB_OUTPUT
-            echo "Frontmatter validation failed" >&2
-            exit 1
+            echo "Frontmatter validation failed"
+            validation_failed=true
           fi
           
           if [ "${{ steps.structure.outputs.structure_valid }}" != "true" ]; then
-            echo "status=failed" >> $GITHUB_OUTPUT
-            echo "File structure validation failed" >&2
-            exit 1
+            echo "File structure validation failed"
+            validation_failed=true
           fi
           
           if [ "${{ steps.integrity.outputs.integrity_valid }}" != "true" ]; then
-            echo "status=failed" >> $GITHUB_OUTPUT
-            echo "File integrity validation failed" >&2
-            exit 1
+            echo "File integrity validation failed"
+            validation_failed=true
           fi
           
-          echo "status=passed" >> $GITHUB_OUTPUT
-          echo "All validations passed"
+          if [ "$validation_failed" = true ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "All validations passed"
+          fi
+        shell: bash
+
+      - name: Handle no-files-to-validate case
+        # Run only when there are no MDX files to validate
+        if: steps.changed-files.outputs.count == 0
+        run: |
+          echo "No translation MDX files to validate - PR is valid"
+          echo "status=no-changes" >> ${{ steps.final-check.outputs }}
         shell: bash
 ```
 
