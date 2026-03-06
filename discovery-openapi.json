@@ -828,9 +828,295 @@
           }
         }
       }
+    },
+    "/v1/search/{domain}/groups": {
+      "post": {
+        "summary": "Search over groups",
+        "description": "Search documentation chunks grouped by page. Returns results organized by page with multiple matching chunks per page.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The domain identifier from your `domain.mintlify.app` URL. Can be found at the end of your dashboard URL. For example, `dashboard.mintlify.com/organization/domain` has a domain identifier of `domain`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupSearchBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Group search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search/{domain}/groups/autocomplete": {
+      "post": {
+        "summary": "Autocomplete over groups",
+        "description": "Autocomplete search over documentation chunks grouped by page. Returns results as users type, with optional extended full search results.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The domain identifier from your `domain.mintlify.app` URL. Can be found at the end of your dashboard URL. For example, `dashboard.mintlify.com/organization/domain` has a domain identifier of `domain`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupAutocompleteBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Group autocomplete results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "schemas": {
+      "ChunkFilter": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter by group IDs."
+          },
+          "version": {
+            "type": "string",
+            "description": "Filter by documentation version."
+          },
+          "language": {
+            "type": "string",
+            "description": "Filter by content language."
+          },
+          "ensurePublicOnly": {
+            "type": "boolean",
+            "description": "Only return publicly accessible chunks."
+          },
+          "apiReferenceOnly": {
+            "type": "boolean",
+            "description": "Only return API reference chunks."
+          }
+        },
+        "description": "Filters to apply to the search."
+      },
+      "HighlightOptions": {
+        "type": "object",
+        "properties": {
+          "pre_tag": {
+            "type": "string",
+            "description": "HTML tag inserted before highlighted text."
+          },
+          "post_tag": {
+            "type": "string",
+            "description": "HTML tag inserted after highlighted text."
+          },
+          "max_length": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Maximum character length of highlighted snippet."
+          },
+          "max_num": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Maximum number of highlight snippets."
+          },
+          "window": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Number of surrounding characters to include."
+          }
+        },
+        "description": "Options for highlighting matched text."
+      },
+      "GroupSearchBody": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The search query string."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based page number for pagination."
+          },
+          "page_size": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Number of results per page."
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ChunkFilter"
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "Minimum relevance score threshold for results."
+          },
+          "group_size": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Number of chunks to return per group."
+          },
+          "slim_chunks": {
+            "type": "boolean",
+            "description": "Return slim chunk representations with reduced metadata."
+          },
+          "use_quote_negated_terms": {
+            "type": "boolean",
+            "description": "Use quoted negated terms in search."
+          },
+          "remove_stop_words": {
+            "type": "boolean",
+            "description": "Remove common stop words from the query."
+          },
+          "highlight_options": {
+            "$ref": "#/components/schemas/HighlightOptions"
+          }
+        }
+      },
+      "GroupAutocompleteBody": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GroupSearchBody"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extend_results": {
+                "type": "boolean",
+                "description": "Extend autocomplete results with full search results."
+              }
+            }
+          }
+        ]
+      },
+      "GroupSearchResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for this search request."
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group_id": {
+                  "type": "string",
+                  "description": "Unique identifier for the group (page)."
+                },
+                "chunks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "content": {
+                        "type": "string",
+                        "description": "The matching content."
+                      },
+                      "path": {
+                        "type": "string",
+                        "description": "Path to the source document."
+                      },
+                      "score": {
+                        "type": "number",
+                        "description": "Relevance score for this chunk."
+                      },
+                      "highlights": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Highlighted snippets matching the query."
+                      }
+                    }
+                  },
+                  "description": "Array of matching chunks within this group."
+                }
+              }
+            },
+            "description": "Array of group search results."
+          },
+          "total_pages": {
+            "type": "integer",
+            "description": "Total number of pages available."
+          }
+        },
+        "required": ["id", "results", "total_pages"]
+      },
+      "GroupSearchErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message describing what went wrong."
+          }
+        },
+        "required": ["error"]
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",

@@ -814,7 +814,7 @@
                       },
                       "path": {
                         "type": "string",
-                        "description": "Le chemin d’accès ou l’URL du document source."
+                        "description": "Le chemin d'accès ou l'URL du document source."
                       },
                       "metadata": {
                         "type": "object",
@@ -828,14 +828,300 @@
           }
         }
       }
+    },
+    "/v1/search/{domain}/groups": {
+      "post": {
+        "summary": "Recherche par groupes",
+        "description": "Recherche de fragments de documentation regroupés par page. Renvoie les résultats organisés par page avec plusieurs fragments correspondants par page.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "L'identifiant de domaine de votre URL `domain.mintlify.app`. Il se trouve à la fin de l'URL de votre Dashboard. Par exemple, `dashboard.mintlify.com/organization/domain` a pour identifiant de domaine `domain`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupSearchBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Résultats de recherche par groupes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps de requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search/{domain}/groups/autocomplete": {
+      "post": {
+        "summary": "Autocomplétion par groupes",
+        "description": "Autocomplétion de recherche sur les fragments de documentation regroupés par page. Renvoie les résultats en temps réel, avec des résultats de recherche complets optionnels.",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "L'identifiant de domaine de votre URL `domain.mintlify.app`. Il se trouve à la fin de l'URL de votre Dashboard. Par exemple, `dashboard.mintlify.com/organization/domain` a pour identifiant de domaine `domain`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupAutocompleteBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Résultats d'autocomplétion par groupes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps de requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "schemas": {
+      "ChunkFilter": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filtrer par identifiants de groupe."
+          },
+          "version": {
+            "type": "string",
+            "description": "Filtrer par version de la documentation."
+          },
+          "language": {
+            "type": "string",
+            "description": "Filtrer par langue du contenu."
+          },
+          "ensurePublicOnly": {
+            "type": "boolean",
+            "description": "Renvoyer uniquement les fragments accessibles publiquement."
+          },
+          "apiReferenceOnly": {
+            "type": "boolean",
+            "description": "Renvoyer uniquement les fragments de référence API."
+          }
+        },
+        "description": "Filtres à appliquer à la recherche."
+      },
+      "HighlightOptions": {
+        "type": "object",
+        "properties": {
+          "pre_tag": {
+            "type": "string",
+            "description": "Balise HTML insérée avant le texte surligné."
+          },
+          "post_tag": {
+            "type": "string",
+            "description": "Balise HTML insérée après le texte surligné."
+          },
+          "max_length": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Longueur maximale en caractères de l'extrait surligné."
+          },
+          "max_num": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Nombre maximum d'extraits surlignés."
+          },
+          "window": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Nombre de caractères environnants à inclure."
+          }
+        },
+        "description": "Options de surlignage du texte correspondant."
+      },
+      "GroupSearchBody": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "La requête de recherche."
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Numéro de page basé sur zéro pour la pagination."
+          },
+          "page_size": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Nombre de résultats par page."
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ChunkFilter"
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "Seuil de score de pertinence minimum pour les résultats."
+          },
+          "group_size": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Nombre de fragments à renvoyer par groupe."
+          },
+          "slim_chunks": {
+            "type": "boolean",
+            "description": "Renvoyer des représentations légères des fragments avec moins de métadonnées."
+          },
+          "use_quote_negated_terms": {
+            "type": "boolean",
+            "description": "Utiliser des termes entre guillemets négativés dans la recherche."
+          },
+          "remove_stop_words": {
+            "type": "boolean",
+            "description": "Supprimer les mots vides courants de la requête."
+          },
+          "highlight_options": {
+            "$ref": "#/components/schemas/HighlightOptions"
+          }
+        }
+      },
+      "GroupAutocompleteBody": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GroupSearchBody"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extend_results": {
+                "type": "boolean",
+                "description": "Étendre les résultats d'autocomplétion avec des résultats de recherche complets."
+              }
+            }
+          }
+        ]
+      },
+      "GroupSearchResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifiant unique pour cette requête de recherche."
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group_id": {
+                  "type": "string",
+                  "description": "Identifiant unique du groupe (page)."
+                },
+                "chunks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "content": {
+                        "type": "string",
+                        "description": "Le contenu correspondant."
+                      },
+                      "path": {
+                        "type": "string",
+                        "description": "Chemin vers le document source."
+                      },
+                      "score": {
+                        "type": "number",
+                        "description": "Score de pertinence pour ce fragment."
+                      },
+                      "highlights": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Extraits surlignés correspondant à la requête."
+                      }
+                    }
+                  },
+                  "description": "Tableau de fragments correspondants dans ce groupe."
+                }
+              }
+            },
+            "description": "Tableau de résultats de recherche par groupes."
+          },
+          "total_pages": {
+            "type": "integer",
+            "description": "Nombre total de pages disponibles."
+          }
+        },
+        "required": ["id", "results", "total_pages"]
+      },
+      "GroupSearchErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Message d'erreur décrivant le problème."
+          }
+        },
+        "required": ["error"]
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "L’en-tête Authorization attend un jeton Bearer. Utilisez une clé d’API Assistant (préfixée par `mint_dsc_`). Il s’agit d’une clé publique, que vous pouvez utiliser en toute sécurité dans du code côté client. Générez-en une sur la page [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard."
+        "description": "L'en-tête Authorization attend un jeton Bearer. Utilisez une clé d'API Assistant (préfixée par `mint_dsc_`). Il s'agit d'une clé publique, que vous pouvez utiliser en toute sécurité dans du code côté client. Générez-en une sur la page [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard."
       }
     }
   }

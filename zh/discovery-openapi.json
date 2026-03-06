@@ -828,9 +828,295 @@
           }
         }
       }
+    },
+    "/v1/search/{domain}/groups": {
+      "post": {
+        "summary": "分组搜索",
+        "description": "搜索按页面分组的文档块。返回按页面组织的结果，每个页面包含多个匹配的块。",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "来自 `domain.mintlify.app` URL 的域标识符。可以在控制台 URL 的末尾找到。例如，`dashboard.mintlify.com/organization/domain` 的域标识符是 `domain`。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupSearchBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组搜索结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "无效的请求体",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/search/{domain}/groups/autocomplete": {
+      "post": {
+        "summary": "分组自动补全",
+        "description": "在按页面分组的文档块上进行自动补全搜索。实时返回结果，可选择扩展完整搜索结果。",
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "来自 `domain.mintlify.app` URL 的域标识符。可以在控制台 URL 的末尾找到。例如，`dashboard.mintlify.com/organization/domain` 的域标识符是 `domain`。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupAutocompleteBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "分组自动补全结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "无效的请求体",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupSearchErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "schemas": {
+      "ChunkFilter": {
+        "type": "object",
+        "properties": {
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "按组 ID 筛选。"
+          },
+          "version": {
+            "type": "string",
+            "description": "按文档版本筛选。"
+          },
+          "language": {
+            "type": "string",
+            "description": "按内容语言筛选。"
+          },
+          "ensurePublicOnly": {
+            "type": "boolean",
+            "description": "仅返回公开可访问的块。"
+          },
+          "apiReferenceOnly": {
+            "type": "boolean",
+            "description": "仅返回 API 参考块。"
+          }
+        },
+        "description": "应用于搜索的筛选条件。"
+      },
+      "HighlightOptions": {
+        "type": "object",
+        "properties": {
+          "pre_tag": {
+            "type": "string",
+            "description": "在高亮文本前插入的 HTML 标签。"
+          },
+          "post_tag": {
+            "type": "string",
+            "description": "在高亮文本后插入的 HTML 标签。"
+          },
+          "max_length": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "高亮片段的最大字符长度。"
+          },
+          "max_num": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "高亮片段的最大数量。"
+          },
+          "window": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "包含的周围字符数。"
+          }
+        },
+        "description": "匹配文本高亮选项。"
+      },
+      "GroupSearchBody": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索查询字符串。"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "从零开始的分页页码。"
+          },
+          "page_size": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "每页返回的结果数。"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ChunkFilter"
+          },
+          "score_threshold": {
+            "type": "number",
+            "description": "结果的最低相关性分数阈值。"
+          },
+          "group_size": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "每组返回的块数。"
+          },
+          "slim_chunks": {
+            "type": "boolean",
+            "description": "返回精简的块表示，减少元数据。"
+          },
+          "use_quote_negated_terms": {
+            "type": "boolean",
+            "description": "在搜索中使用引号否定词。"
+          },
+          "remove_stop_words": {
+            "type": "boolean",
+            "description": "从查询中移除常见停用词。"
+          },
+          "highlight_options": {
+            "$ref": "#/components/schemas/HighlightOptions"
+          }
+        }
+      },
+      "GroupAutocompleteBody": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/GroupSearchBody"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extend_results": {
+                "type": "boolean",
+                "description": "使用完整搜索结果扩展自动补全结果。"
+              }
+            }
+          }
+        ]
+      },
+      "GroupSearchResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "此搜索请求的唯一标识符。"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "group_id": {
+                  "type": "string",
+                  "description": "组（页面）的唯一标识符。"
+                },
+                "chunks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "content": {
+                        "type": "string",
+                        "description": "匹配的内容。"
+                      },
+                      "path": {
+                        "type": "string",
+                        "description": "源文档的路径。"
+                      },
+                      "score": {
+                        "type": "number",
+                        "description": "此块的相关性分数。"
+                      },
+                      "highlights": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "与查询匹配的高亮片段。"
+                      }
+                    }
+                  },
+                  "description": "此组内匹配块的数组。"
+                }
+              }
+            },
+            "description": "分组搜索结果数组。"
+          },
+          "total_pages": {
+            "type": "integer",
+            "description": "可用的总页数。"
+          }
+        },
+        "required": ["id", "results", "total_pages"]
+      },
+      "GroupSearchErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "描述问题的错误消息。"
+          }
+        },
+        "required": ["error"]
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
