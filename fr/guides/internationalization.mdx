@@ -17,7 +17,7 @@ Créez un répertoire séparé pour chaque langue en utilisant les [codes de lan
 <Expandable title="codes de langue pris en charge">
   * `ar` - arabe
   * `cs` - tchèque
-  * `cn` ou `zh-Hans` - chinois (simplifié)
+  * `zh` ou `zh-Hans` - chinois (simplifié)
   * `zh-Hant` - chinois (traditionnel)
   * `de` - allemand
   * `en` - anglais
@@ -231,6 +231,111 @@ Veillez à ce que vos traductions restent exactes et synchronisées avec votre c
 </div>
 
 Pour des solutions de traduction automatique, [contactez l'équipe commerciale de Mintlify](mailto:gtm@mintlify.com).
+
+<div id="external-translation-providers">
+  ### Prestataires de traduction externes
+</div>
+
+Si vous travaillez avec vos propres prestataires de traduction ou traducteurs locaux, vous pouvez intégrer leur workflow à votre documentation Mintlify à l’aide de GitHub Actions ou d’outils CI/CD similaires.
+
+1. **Exporter le contenu source** : extrayez les fichiers MDX à traduire.
+2. **Envoyer aux traducteurs** : transmettez les fichiers à votre prestataire de traduction.
+3. **Recevoir les traductions** : récupérez les fichiers MDX traduits.
+4. **Importer et déployer** : ajoutez les fichiers traduits aux répertoires de langue et mettez à jour la navigation.
+
+Ce workflow GitHub Actions exporte automatiquement le contenu anglais modifié pour traduction lorsque des PR sont fusionnées dans `main`.
+
+```yaml .github/workflows/export-for-translation.yml
+name: Export content for translation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.mdx'
+      - '!es/**'
+      - '!fr/**'
+      - '!zh/**'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed files
+        id: changed
+        run: |
+          echo "files=$(git diff --name-only HEAD~1 HEAD -- '*.mdx' ':!es/' ':!fr/' ':!zh/' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Create translation package
+        if: steps.changed.outputs.files != ''
+        run: |
+          for file in ${{ steps.changed.outputs.files }}; do
+            mkdir -p "translation-export/$(dirname "$file")"
+            cp "$file" "translation-export/$file"
+          done
+
+      - name: Upload translation package
+        if: steps.changed.outputs.files != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-export-${{ github.sha }}
+          path: translation-export/
+```
+
+Ce workflow GitHub Actions valide et importe le contenu traduit lorsqu’il est ajouté via une PR.
+
+```yaml .github/workflows/import-translations.yml
+name: Import translations
+
+on:
+  pull_request:
+    paths:
+      - 'es/**'
+      - 'fr/**'
+      - 'zh/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate frontmatter
+        run: |
+          for file in $(git diff --name-only origin/main...HEAD -- '*.mdx'); do
+            if ! head -1 "$file" | grep -q '^---$'; then
+              echo "Erreur : $file ne contient pas de frontmatter"
+              exit 1
+            fi
+          done
+
+      - name: Check file structure
+        run: |
+          # Vérifier que les fichiers traduits correspondent à la structure source
+          for lang in es fr zh; do
+            if [ -d "$lang" ]; then
+              for file in $(find "$lang" -name '*.mdx'); do
+                source_file="${file#*/}"
+                if [ ! -f "$source_file" ]; then
+                  echo "Avertissement : $file n'a pas de source anglaise à $source_file"
+                fi
+              done
+            fi
+          done
+```
+
+**Bonnes pratiques pour les flux de traduction externes**
+
+* **Préserver le frontmatter** : assurez-vous que les traducteurs conservent le frontmatter YAML intact et ne traduisent que les valeurs de `title` et `description`.
+* **Protéger les code blocks** : indiquez à vos prestataires que les code blocks ne doivent pas être traduits.
+* **Utiliser la mémoire de traduction** : fournissez des glossaires contenant les termes techniques qui doivent rester en anglais ou avoir une traduction spécifique.
+* **Automatiser la validation** : utilisez des vérifications CI pour valider la syntaxe MDX et le frontmatter avant d’intégrer les traductions.
+* **Contrôle de version** : suivez la version source de chaque traduction afin d’identifier le contenu obsolète.
+
 
 <div id="images-and-media">
   ### Images et médias
