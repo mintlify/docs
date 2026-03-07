@@ -257,33 +257,105 @@ on:
       - '!fr/**'
       - '!zh/**'
 
+# 防止并发工作流运行以避免竞态条件
+concurrency:
+  group: translation-export-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   export:
     runs-on: ubuntu-latest
+    
+    # 如果未检测到更改则提前退出（可选 - 作为额外的安全措施）
+    outputs:
+      files-changed: ${{ steps.changed.outputs.has-files }}
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: Get changed files
+      - name: Get changed MDX files
         id: changed
         run: |
-          echo "files=$(git diff --name-only HEAD~1 HEAD -- '*.mdx' ':!es/' ':!fr/' ':!zh/' | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          # 检查父提交是否存在（处理初始推送情况）
+          if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+            echo "has-files=false" >> $GITHUB_OUTPUT
+            echo "files=" >> $GITHUB_OUTPUT
+            echo "No parent commit found - skipping export"
+            exit 0
+          fi
+          
+          # 获取已更改的 MDX 文件列表（排除翻译目录）
+          files=$(git diff --name-only HEAD~1 HEAD -- '*.mdx' ':!es/' ':!fr/' ':!zh/' | tr '\n' ' ')
+          
+          if [ -z "$files" ]; then
+            echo "has-files=false" >> $GITHUB_OUTPUT
+            echo "files=" >> $GITHUB_OUTPUT
+            echo "No MDX files changed - skipping export"
+          else
+            echo "has-files=true" >> $GITHUB_OUTPUT
+            echo "files=$files" >> $GITHUB_OUTPUT
+            echo "Found changed files: $files"
+          fi
+        shell: bash
 
-      - name: Create translation package
-        if: steps.changed.outputs.files != ''
+      - name: Create translation package directory
+        if: steps.changed.outputs.has-files == 'true'
         run: |
+          mkdir -p translation-export
+          echo "Created translation-export directory"
+
+      - name: Copy changed files to export directory
+        if: steps.changed.outputs.has-files == 'true'
+        run: |
+          failed_count=0
           for file in ${{ steps.changed.outputs.files }}; do
-            mkdir -p "translation-export/$(dirname "$file")"
-            cp "$file" "translation-export/$file"
+            if [ -f "$file" ]; then
+              target_dir="translation-export/$(dirname "$file")"
+              mkdir -p "$target_dir"
+              cp "$file" "$target_dir/"
+              echo "✓ Copied: $file"
+            else
+              echo "✗ File not found: $file"
+              ((failed_count++))
+            fi
           done
+          
+          if [ $failed_count -gt 0 ]; then
+            echo "Warning: $failed_count file(s) could not be copied"
+          fi
+        shell: bash
+
+      - name: Validate translation package
+        if: steps.changed.outputs.has-files == 'true'
+        run: |
+          echo "Translation package contents:"
+          find translation-export -type f -name "*.mdx" | sort
+          echo ""
+          file_count=$(find translation-export -type f -name "*.mdx" | wc -l)
+          echo "Total MDX files: $file_count"
 
       - name: Upload translation package
-        if: steps.changed.outputs.files != ''
+        if: steps.changed.outputs.has-files == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: translation-export-${{ github.sha }}
           path: translation-export/
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 9
+
+      - name: Print job summary
+        if: steps.changed.outputs.has-files == 'true'
+        run: |
+          echo "## Translation Export Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact:** \`translation-export-${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Changed Files:**" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.changed.outputs.files }}" | tr ' ' '\n' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
 ```
 
 该 GitHub Actions 工作流会在通过 PR 添加翻译内容时进行验证并导入。
@@ -298,34 +370,210 @@ on:
       - 'fr/**'
       - 'zh/**'
 
+# 定义显式权限
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    
+    outputs:
+      validation-status: ${{ steps.final-check.outputs.status }}
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以确保 origin/main 可用
+
+      - name: Fetch origin/main reference
+        run: |
+          git fetch origin main:origin/main 2>/dev/null || echo "origin/main not available, using latest"
+        continue-on-error: true
+
+      - name: Get changed translation files
+        id: changed-files
+        run: |
+          # 获取翻译目录中所有已更改的 MDX 文件
+          files=$(git diff --name-only origin/main..HEAD -- 'es/**/*.mdx' 'fr/**/*.mdx' 'zh/**/*.mdx' | sort)
+          
+          if [ -z "$files" ]; then
+            echo "No translation MDX files detected in this PR"
+            echo "files=" >> $GITHUB_OUTPUT
+            echo "count=0" >> $GITHUB_OUTPUT
+          else
+            echo "Found $(echo "$files" | wc -l) translation files"
+            echo "$files"
+            echo "files=$files" >> $GITHUB_OUTPUT
+            echo "count=$(echo "$files" | wc -l)" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
 
       - name: Validate frontmatter
+        id: frontmatter
+        if: steps.changed-files.outputs.count > 0
         run: |
-          for file in $(git diff --name-only origin/main...HEAD -- '*.mdx'); do
-            if ! head -1 "$file" | grep -q '^---$'; then
-              echo "错误：$file 缺少 frontmatter"
-              exit 1
+          failed_files=()
+          success_count=0
+          total=${{ steps.changed-files.outputs.count }}
+          
+          while IFS= read -r file; do
+            if [ ! -f "$file" ]; then
+              echo "✗ File not found: $file"
+              failed_files+=("$file")
+              continue
             fi
-          done
+            
+            # 检查 frontmatter 是否有效（第 1-2 行必须是 ---）
+            first_line=$(sed -n '1p' "$file")
+            second_line=$(sed -n '2p' "$file")
+            last_line=$(awk 'NF' "$file" | tail -1)
+            
+            if [ "$first_line" = "---" ] && grep -q "^---$" "$file"; then
+              echo "✓ Valid frontmatter: $file"
+              ((success_count++))
+            else
+              echo "✗ Invalid frontmatter in $file"
+              echo "  Line 1: '$first_line'"
+              failed_files+=("$file")
+            fi
+          done <<< "${{ steps.changed-files.outputs.files }}"
+          
+          echo ""
+          echo "Frontmatter check: $success_count/$total passed"
+          
+          if [ ${#failed_files[@]} -gt 0 ]; then
+            echo "frontmatter_valid=false" >> $GITHUB_OUTPUT
+            printf 'failed_files=%s\n' "${failed_files[@]}" >> $GITHUB_OUTPUT
+          else
+            echo "frontmatter_valid=true" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
 
       - name: Check file structure
+        id: structure
+        if: steps.changed-files.outputs.count > 0
         run: |
-          # 验证已翻译文件与源文件结构匹配
-          for lang in es fr zh; do
-            if [ -d "$lang" ]; then
-              for file in $(find "$lang" -name '*.mdx'); do
-                source_file="${file#*/}"
-                if [ ! -f "$source_file" ]; then
-                  echo "Warning：$file 在 $source_file 处没有对应的英文源文件"
-                fi
-              done
+          missing_sources=()
+          orphaned_count=0
+          
+          while IFS= read -r translated_file; do
+            # 提取语言和相对路径
+            # 例如 "es/docs/guide.mdx" -> lang="es", relative_path="docs/guide.mdx"
+            lang=$(echo "$translated_file" | cut -d'/' -f1)
+            relative_path=$(echo "$translated_file" | cut -d'/' -f2-)
+            source_file="$relative_path"
+            
+            if [ ! -f "$source_file" ]; then
+              echo "Missing source: $translated_file -> $source_file"
+              missing_sources+=("$translated_file")
+              ((orphaned_count++))
+            else
+              echo "✓ Found source: $translated_file -> $source_file"
             fi
-          done
+          done <<< "${{ steps.changed-files.outputs.files }}"
+          
+          echo ""
+          echo "Structure check: $orphaned_count orphaned file(s)"
+          
+          if [ $orphaned_count -gt 0 ]; then
+            echo "structure_valid=false" >> $GITHUB_OUTPUT
+            printf 'missing_sources=%s\n' "${missing_sources[@]}" >> $GITHUB_OUTPUT
+          else
+            echo "structure_valid=true" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Validate file integrity
+        id: integrity
+        if: steps.changed-files.outputs.count > 0
+        run: |
+          integrity_passed=true
+          
+          while IFS= read -r file; do
+            # 检查文件是否可读且非空
+            if [ ! -r "$file" ] || [ ! -s "$file" ]; then
+              echo "✗ File integrity issue: $file (not readable or empty)"
+              integrity_passed=false
+            fi
+            
+            # 基本检查：文件在 frontmatter 之后应有内容
+            line_count=$(wc -l < "$file")
+            if [ "$line_count" -lt 5 ]; then
+              echo "File is suspiciously short: $file ($line_count lines)"
+            fi
+          done <<< "${{ steps.changed-files.outputs.files }}"
+          
+          if [ "$integrity_passed" = true ]; then
+            echo "integrity_valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "integrity_valid=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Generate validation report
+        if: always()
+        run: |
+          echo "## Translation Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Files Changed:** ${{ steps.changed-files.outputs.count }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.changed-files.outputs.count }}" = "0" ]; then
+            echo "No translation MDX files found in this PR" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> This could mean:" >> $GITHUB_STEP_SUMMARY
+            echo "- Only non-MDX files in es/, fr/, or zh/ directories were changed" >> $GITHUB_STEP_SUMMARY
+            echo "- Workflow was triggered but no translation content to validate" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### Validation Results" >> $GITHUB_STEP_SUMMARY
+            echo "- Frontmatter: ${{ steps.frontmatter.outputs.frontmatter_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "- File Structure: ${{ steps.structure.outputs.structure_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "- File Integrity: ${{ steps.integrity.outputs.integrity_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        shell: bash
+
+      - name: Final validation check
+        id: final-check
+        # 仅当确实有 MDX 文件需要验证时才运行此检查
+        if: steps.changed-files.outputs.count > 0
+        run: |
+          validation_failed=false
+          
+          if [ "${{ steps.frontmatter.outputs.frontmatter_valid }}" != "true" ]; then
+            echo "Frontmatter validation failed"
+            validation_failed=true
+          fi
+          
+          if [ "${{ steps.structure.outputs.structure_valid }}" != "true" ]; then
+            echo "File structure validation failed"
+            validation_failed=true
+          fi
+          
+          if [ "${{ steps.integrity.outputs.integrity_valid }}" != "true" ]; then
+            echo "File integrity validation failed"
+            validation_failed=true
+          fi
+          
+          if [ "$validation_failed" = true ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "All validations passed"
+          fi
+        shell: bash
+
+      - name: Handle no-files-to-validate case
+        # 仅当没有 MDX 文件需要验证时运行
+        if: steps.changed-files.outputs.count == 0
+        run: |
+          echo "No translation MDX files to validate - PR is valid"
+          echo "status=no-changes" >> ${{ steps.final-check.outputs }}
+        shell: bash
 ```
 
 **外部翻译工作流最佳实践**
