@@ -236,12 +236,12 @@ docs/
   ### 外部翻译服务商
 </div>
 
-如果你与自己的翻译供应商或区域译员合作，可以使用 GitHub Actions 或类似的 CI/CD 工具，将他们的工作流程集成到 Mintlify 文档中。
+如果你与自己的翻译服务商或区域译员合作，可以使用 GitHub Actions 或类似的 CI/CD 工具，将他们的工作流程集成到 Mintlify 文档中。
 
 1. **导出源内容**：提取需要翻译的 MDX 文件。
 2. **发送给译员**：将文件提供给翻译服务商。
 3. **接收译文**：取回翻译后的 MDX 文件。
-4. **导入并部署**：将翻译后的文件添加到语言目录中，并更新导航。
+4. **导入并部署**：将翻译文件添加到语言目录中，并更新导航。
 
 当 PR 合并到 main 时，此 GitHub Actions 工作流程会自动导出已更改的英文内容以供翻译。
 
@@ -257,7 +257,7 @@ on:
       - '!fr/**'
       - '!zh/**'
 
-# 防止并发工作流运行以避免竞态条件
+# Prevent concurrent workflow runs to avoid race conditions
 concurrency:
   group: translation-export-${{ github.ref }}
   cancel-in-progress: false
@@ -266,7 +266,7 @@ jobs:
   export:
     runs-on: ubuntu-latest
     
-    # 如果未检测到更改则提前退出（可选 - 作为额外的安全措施）
+    # Early exit if no changes detected (optional - acts as additional safety)
     outputs:
       files-changed: ${{ steps.changed.outputs.has-files }}
     
@@ -279,7 +279,7 @@ jobs:
       - name: Get changed MDX files
         id: changed
         run: |
-          # 检查父提交是否存在（处理初始推送情况）
+          # Check if parent commit exists (handles initial push)
           if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
             echo "has-files=false" >> $GITHUB_OUTPUT
             echo "files=" >> $GITHUB_OUTPUT
@@ -287,7 +287,7 @@ jobs:
             exit 0
           fi
           
-          # 获取已更改的 MDX 文件列表（排除翻译目录）
+          # Get list of changed MDX files (excluding translation dirs)
           files=$(git diff --name-only HEAD~1 HEAD -- '*.mdx' ':!es/' ':!fr/' ':!zh/' | tr '\n' ' ')
           
           if [ -z "$files" ]; then
@@ -358,7 +358,7 @@ jobs:
           echo "${{ steps.changed.outputs.files }}" | tr ' ' '\n' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
 ```
 
-该 GitHub Actions 工作流会在通过 PR 添加翻译内容时进行验证并导入。
+该 GitHub Actions 工作流程会在通过 PR 添加翻译内容时进行验证并导入。
 
 ```yaml .github/workflows/import-translations.yml
 name: Import translations
@@ -370,7 +370,7 @@ on:
       - 'fr/**'
       - 'zh/**'
 
-# 定义显式权限
+# Define explicit permissions
 permissions:
   contents: read
   pull-requests: write
@@ -386,7 +386,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史以确保 origin/main 可用
+          fetch-depth: 0  # Full history to ensure origin/main is available
 
       - name: Fetch origin/main reference
         run: |
@@ -396,7 +396,7 @@ jobs:
       - name: Get changed translation files
         id: changed-files
         run: |
-          # 获取翻译目录中所有已更改的 MDX 文件
+          # Get all changed MDX files in translation directories
           files=$(git diff --name-only origin/main..HEAD -- 'es/**/*.mdx' 'fr/**/*.mdx' 'zh/**/*.mdx' | sort)
           
           if [ -z "$files" ]; then
@@ -426,7 +426,7 @@ jobs:
               continue
             fi
             
-            # 检查 frontmatter 是否有效（第 1-2 行必须是 ---）
+            # Check for valid frontmatter (lines 1-2 must be ---)
             first_line=$(sed -n '1p' "$file")
             second_line=$(sed -n '2p' "$file")
             last_line=$(awk 'NF' "$file" | tail -1)
@@ -460,8 +460,8 @@ jobs:
           orphaned_count=0
           
           while IFS= read -r translated_file; do
-            # 提取语言和相对路径
-            # 例如 "es/docs/guide.mdx" -> lang="es", relative_path="docs/guide.mdx"
+            # Extract language and relative path
+            # e.g., "es/docs/guide.mdx" -> lang="es", relative_path="docs/guide.mdx"
             lang=$(echo "$translated_file" | cut -d'/' -f1)
             relative_path=$(echo "$translated_file" | cut -d'/' -f2-)
             source_file="$relative_path"
@@ -493,13 +493,13 @@ jobs:
           integrity_passed=true
           
           while IFS= read -r file; do
-            # 检查文件是否可读且非空
+            # Check file is readable and not empty
             if [ ! -r "$file" ] || [ ! -s "$file" ]; then
               echo "✗ File integrity issue: $file (not readable or empty)"
               integrity_passed=false
             fi
             
-            # 基本检查：文件在 frontmatter 之后应有内容
+            # Basic check: file should have content after frontmatter
             line_count=$(wc -l < "$file")
             if [ "$line_count" -lt 5 ]; then
               echo "File is suspiciously short: $file ($line_count lines)"
@@ -538,7 +538,7 @@ jobs:
 
       - name: Final validation check
         id: final-check
-        # 仅当确实有 MDX 文件需要验证时才运行此检查
+        # Only run this check if we actually had MDX files to validate
         if: steps.changed-files.outputs.count > 0
         run: |
           validation_failed=false
@@ -568,7 +568,7 @@ jobs:
         shell: bash
 
       - name: Handle no-files-to-validate case
-        # 仅当没有 MDX 文件需要验证时运行
+        # Run only when there are no MDX files to validate
         if: steps.changed-files.outputs.count == 0
         run: |
           echo "No translation MDX files to validate - PR is valid"
@@ -576,14 +576,13 @@ jobs:
         shell: bash
 ```
 
-**外部翻译工作流最佳实践**
+**外部翻译工作流程最佳实践**
 
-* **保留 frontmatter**：确保译员保持 YAML frontmatter 完整，仅翻译 `title` 和 `description` 的值。
-* **保护代码块**：将代码块标记为“请勿翻译”，并告知翻译供应商。
-* **使用翻译记忆库**：提供术语表，列出应保留英文或需采用特定译法的技术术语。
-* **自动化验证**：在合并翻译内容前，使用 CI 检查验证 MDX 语法和 frontmatter。
-* **版本控制**：跟踪每份译文对应的源版本，以识别过时内容。
-
+- **保留 frontmatter**：确保译员保持 YAML frontmatter 完整，仅翻译 `title` 和 `description` 的值。
+- **保护代码块**：将代码块标记为“请勿翻译”，并告知翻译供应商。
+- **使用翻译记忆库**：提供术语表，列出应保留英文或需采用特定译法的技术术语。
+- **自动化验证**：在合并翻译内容前，使用 CI 检查验证 MDX 语法和 frontmatter。
+- **版本控制**：跟踪每份译文对应的源版本，以识别过时内容。
 
 <div id="images-and-media">
   ### 图片与媒体

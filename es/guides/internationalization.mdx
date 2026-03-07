@@ -238,10 +238,10 @@ Para soluciones de traducción automática, [ponte en contacto con el equipo de 
 
 Si trabajas con tus propios proveedores de traducción o traductores regionales, puedes integrar su flujo de trabajo con tu documentación de Mintlify mediante GitHub Actions o herramientas de CI/CD similares.
 
-1. **Exportar el contenido original**: Extrae los archivos MDX que necesiten traducción.
+1. **Exportar el contenido fuente**: Extrae los archivos MDX que necesiten traducción.
 2. **Enviar a los traductores**: Proporciona los archivos a tu proveedor de traducción.
 3. **Recibir las traducciones**: Recibe de vuelta los archivos MDX traducidos.
-4. **Importar y desplegar**: Añade los archivos traducidos a los directorios de idioma y actualiza la navigation.
+4. **Importar y desplegar**: Añade los archivos traducidos a los directorios de idioma y actualiza la navegación.
 
 Este flujo de trabajo de GitHub Actions exporta automáticamente el contenido en inglés modificado para su traducción cuando los PR se fusionan en main.
 
@@ -257,7 +257,7 @@ on:
       - '!fr/**'
       - '!zh/**'
 
-# Evitar ejecuciones de flujo de trabajo simultáneas para evitar condiciones de carrera
+# Evitar ejecuciones simultáneas del flujo de trabajo para prevenir condiciones de carrera
 concurrency:
   group: translation-export-${{ github.ref }}
   cancel-in-progress: false
@@ -266,7 +266,7 @@ jobs:
   export:
     runs-on: ubuntu-latest
     
-    # Salida anticipada si no se detectan cambios (opcional - actúa como seguridad adicional)
+    # Salida anticipada si no se detectan cambios (opcional: actúa como seguridad adicional)
     outputs:
       files-changed: ${{ steps.changed.outputs.has-files }}
     
@@ -279,7 +279,7 @@ jobs:
       - name: Get changed MDX files
         id: changed
         run: |
-          # Comprobar si existe el commit padre (maneja el push inicial)
+          # Verificar si existe el commit padre (gestiona el push inicial)
           if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
             echo "has-files=false" >> $GITHUB_OUTPUT
             echo "files=" >> $GITHUB_OUTPUT
@@ -287,7 +287,7 @@ jobs:
             exit 0
           fi
           
-          # Obtener lista de archivos MDX modificados (excluyendo directorios de traducción)
+          # Obtener la lista de archivos MDX modificados (excluyendo los directorios de traducción)
           files=$(git diff --name-only HEAD~1 HEAD -- '*.mdx' ':!es/' ':!fr/' ':!zh/' | tr '\n' ' ')
           
           if [ -z "$files" ]; then
@@ -361,7 +361,7 @@ jobs:
 Este flujo de trabajo de GitHub Actions valida e importa el contenido traducido cuando se añade en una PR.
 
 ```yaml .github/workflows/import-translations.yml
-name: Import translations
+name: Importar traducciones
 
 on:
   pull_request:
@@ -383,35 +383,35 @@ jobs:
       validation-status: ${{ steps.final-check.outputs.status }}
     
     steps:
-      - name: Checkout repository
+      - name: Obtener repositorio
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Historial completo para asegurar que origin/main esté disponible
+          fetch-depth: 0  # Historial completo para garantizar que origin/main esté disponible
 
-      - name: Fetch origin/main reference
+      - name: Obtener referencia de origin/main
         run: |
-          git fetch origin main:origin/main 2>/dev/null || echo "origin/main not available, using latest"
+          git fetch origin main:origin/main 2>/dev/null || echo "origin/main no disponible, usando el más reciente"
         continue-on-error: true
 
-      - name: Get changed translation files
+      - name: Obtener archivos de traducción modificados
         id: changed-files
         run: |
-          # Obtener todos los archivos MDX modificados en directorios de traducción
+          # Obtener todos los archivos MDX modificados en los directorios de traducción
           files=$(git diff --name-only origin/main..HEAD -- 'es/**/*.mdx' 'fr/**/*.mdx' 'zh/**/*.mdx' | sort)
           
           if [ -z "$files" ]; then
-            echo "No translation MDX files detected in this PR"
+            echo "No se detectaron archivos MDX de traducción en este PR"
             echo "files=" >> $GITHUB_OUTPUT
             echo "count=0" >> $GITHUB_OUTPUT
           else
-            echo "Found $(echo "$files" | wc -l) translation files"
+            echo "Se encontraron $(echo "$files" | wc -l) archivos de traducción"
             echo "$files"
             echo "files=$files" >> $GITHUB_OUTPUT
             echo "count=$(echo "$files" | wc -l)" >> $GITHUB_OUTPUT
           fi
         shell: bash
 
-      - name: Validate frontmatter
+      - name: Validar frontmatter
         id: frontmatter
         if: steps.changed-files.outputs.count > 0
         run: |
@@ -421,28 +421,28 @@ jobs:
           
           while IFS= read -r file; do
             if [ ! -f "$file" ]; then
-              echo "✗ File not found: $file"
+              echo "✗ Archivo no encontrado: $file"
               failed_files+=("$file")
               continue
             fi
             
-            # Comprobar que el frontmatter sea válido (líneas 1-2 deben ser ---)
+            # Verificar frontmatter válido (las líneas 1-2 deben ser ---)
             first_line=$(sed -n '1p' "$file")
             second_line=$(sed -n '2p' "$file")
             last_line=$(awk 'NF' "$file" | tail -1)
             
             if [ "$first_line" = "---" ] && grep -q "^---$" "$file"; then
-              echo "✓ Valid frontmatter: $file"
+              echo "✓ Frontmatter válido: $file"
               ((success_count++))
             else
-              echo "✗ Invalid frontmatter in $file"
-              echo "  Line 1: '$first_line'"
+              echo "✗ Frontmatter inválido en $file"
+              echo "  Línea 1: '$first_line'"
               failed_files+=("$file")
             fi
           done <<< "${{ steps.changed-files.outputs.files }}"
           
           echo ""
-          echo "Frontmatter check: $success_count/$total passed"
+          echo "Verificación de frontmatter: $success_count/$total aprobados"
           
           if [ ${#failed_files[@]} -gt 0 ]; then
             echo "frontmatter_valid=false" >> $GITHUB_OUTPUT
@@ -452,7 +452,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Check file structure
+      - name: Verificar estructura de archivos
         id: structure
         if: steps.changed-files.outputs.count > 0
         run: |
@@ -461,22 +461,22 @@ jobs:
           
           while IFS= read -r translated_file; do
             # Extraer idioma y ruta relativa
-            # p.ej. "es/docs/guide.mdx" -> lang="es", relative_path="docs/guide.mdx"
+            # p. ej., "es/docs/guide.mdx" -> lang="es", relative_path="docs/guide.mdx"
             lang=$(echo "$translated_file" | cut -d'/' -f1)
             relative_path=$(echo "$translated_file" | cut -d'/' -f2-)
             source_file="$relative_path"
             
             if [ ! -f "$source_file" ]; then
-              echo "Missing source: $translated_file -> $source_file"
+              echo "Fuente faltante: $translated_file -> $source_file"
               missing_sources+=("$translated_file")
               ((orphaned_count++))
             else
-              echo "✓ Found source: $translated_file -> $source_file"
+              echo "✓ Fuente encontrada: $translated_file -> $source_file"
             fi
           done <<< "${{ steps.changed-files.outputs.files }}"
           
           echo ""
-          echo "Structure check: $orphaned_count orphaned file(s)"
+          echo "Verificación de estructura: $orphaned_count archivo(s) huérfano(s)"
           
           if [ $orphaned_count -gt 0 ]; then
             echo "structure_valid=false" >> $GITHUB_OUTPUT
@@ -486,23 +486,23 @@ jobs:
           fi
         shell: bash
 
-      - name: Validate file integrity
+      - name: Validar integridad de archivos
         id: integrity
         if: steps.changed-files.outputs.count > 0
         run: |
           integrity_passed=true
           
           while IFS= read -r file; do
-            # Comprobar que el archivo sea legible y no esté vacío
+            # Verificar que el archivo sea legible y no esté vacío
             if [ ! -r "$file" ] || [ ! -s "$file" ]; then
-              echo "✗ File integrity issue: $file (not readable or empty)"
+              echo "✗ Problema de integridad del archivo: $file (no legible o vacío)"
               integrity_passed=false
             fi
             
-            # Comprobación básica: el archivo debe tener contenido después del frontmatter
+            # Verificación básica: el archivo debe tener contenido después del frontmatter
             line_count=$(wc -l < "$file")
             if [ "$line_count" -lt 5 ]; then
-              echo "File is suspiciously short: $file ($line_count lines)"
+              echo "El archivo es sospechosamente corto: $file ($line_count líneas)"
             fi
           done <<< "${{ steps.changed-files.outputs.files }}"
           
@@ -513,48 +513,48 @@ jobs:
           fi
         shell: bash
 
-      - name: Generate validation report
+      - name: Generar informe de validación
         if: always()
         run: |
-          echo "## Translation Validation Report" >> $GITHUB_STEP_SUMMARY
+          echo "## Informe de validación de traducciones" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Files Changed:** ${{ steps.changed-files.outputs.count }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Archivos modificados:** ${{ steps.changed-files.outputs.count }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ steps.changed-files.outputs.count }}" = "0" ]; then
-            echo "No translation MDX files found in this PR" >> $GITHUB_STEP_SUMMARY
+            echo "No se encontraron archivos MDX de traducción en este PR" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> This could mean:" >> $GITHUB_STEP_SUMMARY
-            echo "- Only non-MDX files in es/, fr/, or zh/ directories were changed" >> $GITHUB_STEP_SUMMARY
-            echo "- Workflow was triggered but no translation content to validate" >> $GITHUB_STEP_SUMMARY
+            echo "> Esto podría significar:" >> $GITHUB_STEP_SUMMARY
+            echo "- Solo se modificaron archivos que no son MDX en los directorios es/, fr/ o zh/" >> $GITHUB_STEP_SUMMARY
+            echo "- El flujo de trabajo se activó pero no hay contenido de traducción para validar" >> $GITHUB_STEP_SUMMARY
           else
-            echo "### Validation Results" >> $GITHUB_STEP_SUMMARY
+            echo "### Resultados de validación" >> $GITHUB_STEP_SUMMARY
             echo "- Frontmatter: ${{ steps.frontmatter.outputs.frontmatter_valid }}" >> $GITHUB_STEP_SUMMARY
-            echo "- File Structure: ${{ steps.structure.outputs.structure_valid }}" >> $GITHUB_STEP_SUMMARY
-            echo "- File Integrity: ${{ steps.integrity.outputs.integrity_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Estructura de archivos: ${{ steps.structure.outputs.structure_valid }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Integridad de archivos: ${{ steps.integrity.outputs.integrity_valid }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
         shell: bash
 
-      - name: Final validation check
+      - name: Verificación final de validación
         id: final-check
-        # Solo ejecutar esta comprobación si realmente teníamos archivos MDX para validar
+        # Solo ejecutar esta verificación si realmente había archivos MDX para validar
         if: steps.changed-files.outputs.count > 0
         run: |
           validation_failed=false
           
           if [ "${{ steps.frontmatter.outputs.frontmatter_valid }}" != "true" ]; then
-            echo "Frontmatter validation failed"
+            echo "La validación del frontmatter falló"
             validation_failed=true
           fi
           
           if [ "${{ steps.structure.outputs.structure_valid }}" != "true" ]; then
-            echo "File structure validation failed"
+            echo "La validación de la estructura de archivos falló"
             validation_failed=true
           fi
           
           if [ "${{ steps.integrity.outputs.integrity_valid }}" != "true" ]; then
-            echo "File integrity validation failed"
+            echo "La validación de integridad de archivos falló"
             validation_failed=true
           fi
           
@@ -563,15 +563,15 @@ jobs:
             exit 1
           else
             echo "status=passed" >> $GITHUB_OUTPUT
-            echo "All validations passed"
+            echo "Todas las validaciones aprobadas"
           fi
         shell: bash
 
-      - name: Handle no-files-to-validate case
+      - name: Gestionar el caso sin archivos para validar
         # Ejecutar solo cuando no hay archivos MDX para validar
         if: steps.changed-files.outputs.count == 0
         run: |
-          echo "No translation MDX files to validate - PR is valid"
+          echo "No hay archivos MDX de traducción para validar - el PR es válido"
           echo "status=no-changes" >> ${{ steps.final-check.outputs }}
         shell: bash
 ```
@@ -583,7 +583,6 @@ jobs:
 * **Usa memoria de traducción**: Proporciona glosarios con términos técnicos que deban mantenerse en inglés o tener traducciones específicas.
 * **Automatiza la validación**: Usa comprobaciones de CI para verificar la sintaxis de MDX y el frontmatter antes de integrar las traducciones.
 * **Control de versiones**: Lleva un seguimiento de la versión de origen de cada traducción para identificar contenido desactualizado.
-
 
 <div id="images-and-media">
   ### Imágenes y recursos multimedia
