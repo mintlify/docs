@@ -1,26 +1,43 @@
 ---
-title: "Créer une tâche d’agent"
-description: "Créer une tâche d’agent pour automatiser les mises à jour de la
-  documentation, avec création automatique de branches et génération de pull
-  requests (demandes de fusion)."
+title: "Créer une tâche d'agent"
+description: "Créer une tâche d'agent pour automatiser les mises à jour de la documentation, avec création automatique de branches et génération de pull requests."
 openapi: /fr/admin-openapi.json POST /agent/{projectId}/job
 keywords: [ "tâche d'agent", "création", "automatisation", "automatiser" ]
 ---
 
-Cet endpoint crée une tâche d’agent à partir des messages fournis et des informations de branche. La tâche s’exécute de manière asynchrone et renvoie une réponse en streaming contenant les détails d’exécution et les résultats.
+Cet endpoint crée une tâche d'agent à partir d'un prompt fourni. La tâche s'exécute de manière asynchrone en arrière-plan et renvoie immédiatement les détails de la tâche. Interrogez l'[endpoint de récupération](/fr/api/agent/get-agent-job) pour vérifier le statut et récupérer le lien de la pull request une fois la tâche terminée.
 
-Si la branche n’existe pas, l’agent en crée une. Si des fichiers sont modifiés avec succès, une pull request (demande de fusion) est automatiquement créée à la fin de la tâche.
+Si des fichiers sont modifiés avec succès, une pull request est automatiquement créée à la fin de la tâche.
 
-<div id="rate-limits">
-  ## Limites de débit
-</div>
+## Limites de débit
 
-L’API de l’agent est soumise aux limites suivantes :
+L'API de l'agent est soumise aux limites suivantes :
 
 - 100 utilisations par projet Mintlify et par heure
 
-<div id="suggested-usage">
-  ## Utilisation recommandée
-</div>
+## Interrogation pour la complétion
 
-Pour de meilleurs résultats, utilisez le [hook useChat d’ai-sdk](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat#usechat) pour envoyer des requêtes et gérer les réponses.
+Après avoir créé une tâche, interrogez l'endpoint [obtenir la tâche d'agent](/fr/api/agent/get-agent-job) pour vérifier quand la tâche est terminée :
+
+```javascript
+const jobId = response.id;
+
+// Interroger jusqu'à ce que la tâche soit terminée
+let job;
+do {
+  await new Promise(resolve => setTimeout(resolve, 5000)); // Attendre 5 secondes
+  const statusResponse = await fetch(
+    `https://api.mintlify.com/v2/agent/${projectId}/job/${jobId}`,
+    { headers: { 'Authorization': `Bearer ${apiKey}` } }
+  );
+  job = await statusResponse.json();
+} while (job.status === 'pending' || job.status === 'running');
+
+if (job.prLink) {
+  console.log('Pull request créée :', job.prLink);
+}
+```
+
+## Continuer une conversation
+
+Utilisez l'endpoint [envoyer un message](/fr/api/agent/send-message) pour envoyer des instructions supplémentaires à une tâche existante.

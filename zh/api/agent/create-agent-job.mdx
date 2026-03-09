@@ -5,20 +5,39 @@ openapi: /zh/admin-openapi.json POST /agent/{projectId}/job
 keywords: [ "agent job", "create", "automation", "automate" ]
 ---
 
-此端点会根据提供的消息和 branch 信息创建一个代理任务。该任务异步执行，并以流式方式返回包含执行详情与结果的响应。
+此端点会根据提供的 prompt 创建一个代理任务。该任务在后台异步执行，并立即返回任务详情。请轮询[获取端点](/zh/api/agent/get-agent-job)以检查状态，并在任务完成后获取拉取请求链接。
 
-如果 branch 不存在，代理会自动创建该 branch。若文件编辑成功，任务结束时会自动创建一个拉取请求 (PR；亦称“合并请求”/Merge Request) 。
+若文件编辑成功，任务结束时会自动创建一个拉取请求。
 
-<div id="rate-limits">
-  ## 速率限制
-</div>
+## 速率限制
 
 代理 API 的限制如下：
 
 - 每个 Mintlify 项目每小时最多可调用 100 次
 
-<div id="suggested-usage">
-  ## 建议用法
-</div>
+## 轮询完成状态
 
-为获得最佳效果，请使用 [ai-sdk 的 useChat 钩子](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat#usechat) 来发送请求并处理响应。
+创建任务后，轮询[获取代理任务](/zh/api/agent/get-agent-job)端点以检查任务何时完成：
+
+```javascript
+const jobId = response.id;
+
+// 轮询直到任务完成
+let job;
+do {
+  await new Promise(resolve => setTimeout(resolve, 5000)); // 等待 5 秒
+  const statusResponse = await fetch(
+    `https://api.mintlify.com/v2/agent/${projectId}/job/${jobId}`,
+    { headers: { 'Authorization': `Bearer ${apiKey}` } }
+  );
+  job = await statusResponse.json();
+} while (job.status === 'pending' || job.status === 'running');
+
+if (job.prLink) {
+  console.log('已创建拉取请求:', job.prLink);
+}
+```
+
+## 继续对话
+
+使用[发送消息](/zh/api/agent/send-message)端点向现有任务发送后续指令。

@@ -5,9 +5,9 @@ openapi: /admin-openapi.json POST /agent/{projectId}/job
 keywords: [ "agent job", "create", "automation", "automate" ]
 ---
 
-This endpoint creates an agent job based on provided messages and branch information. The job executes asynchronously and returns a streaming response with the execution details and results.
+This endpoint creates an agent job based on a provided prompt. The job runs asynchronously in the background and returns immediately with job details. Poll the [get endpoint](/api/agent/get-agent-job) to check status and retrieve the pull request link once the job completes.
 
-If a branch doesn't exist, the agent creates one. If files are edited successfully, a pull request is automatically created at the end of the job.
+If files are edited successfully, a pull request is automatically created at the end of the job.
 
 ## Rate limits
 
@@ -15,6 +15,29 @@ The agent API has the following limits:
 
 - 100 uses per Mintlify project per hour
 
-## Suggested usage
+## Polling for completion
 
-For best results, use the [useChat hook from ai-sdk](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat#usechat) to send requests and handle responses.
+After creating a job, poll the [get agent job](/api/agent/get-agent-job) endpoint to check when the job completes:
+
+```javascript
+const jobId = response.id;
+
+// Poll until job completes
+let job;
+do {
+  await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+  const statusResponse = await fetch(
+    `https://api.mintlify.com/v2/agent/${projectId}/job/${jobId}`,
+    { headers: { 'Authorization': `Bearer ${apiKey}` } }
+  );
+  job = await statusResponse.json();
+} while (job.status === 'pending' || job.status === 'running');
+
+if (job.prLink) {
+  console.log('Pull request created:', job.prLink);
+}
+```
+
+## Continuing a conversation
+
+Use the [send message](/api/agent/send-message) endpoint to send follow-up instructions to an existing job.

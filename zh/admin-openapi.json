@@ -2,12 +2,12 @@
   "openapi": "3.0.1",
   "info": {
     "title": "Mintlify Admin API",
-    "description": "用于管理操作的 API，包括文档更新和代理管理。",
-    "version": "1.0.0"
+    "description": "An API for administrative operations including documentation updates and agent management.",
+    "version": "2.0.0"
   },
   "servers": [
     {
-      "url": "https://api.mintlify.com/v1"
+      "url": "https://api.mintlify.com/v2"
     }
   ],
   "security": [
@@ -18,8 +18,8 @@
   "paths": {
     "/agent/{projectId}/job": {
       "post": {
-        "summary": "创建代理作业",
-        "description": "创建一个新的 agent 作业，可根据提供的消息和 branch 信息生成并编辑文档。",
+        "summary": "Create agent job",
+        "description": "Creates a new agent job that can generate and edit documentation based on a provided prompt. The job runs asynchronously in the background and returns immediately with job details. Poll the get endpoint to check status and retrieve the pull request link once the job completes.",
         "parameters": [
           {
             "name": "projectId",
@@ -28,7 +28,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "你的项目 ID。可在控制台的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面中复制。"
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
           }
         ],
         "requestBody": {
@@ -38,52 +38,12 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "messages"
+                  "prompt"
                 ],
                 "properties": {
-                  "branch": {
+                  "prompt": {
                     "type": "string",
-                    "description": "代理应使用的 Git branch 名称。如果省略，代理会根据消息内容生成一个 branch 名称。"
-                  },
-                  "messages": {
-                    "type": "array",
-                    "description": "要提供给代理的消息列表。系统会始终在最前面自动添加一个默认的系统提示词，因此通常只需要包含用户消息即可。",
-                    "items": {
-                      "type": "object",
-                      "required": [
-                        "role",
-                        "content"
-                      ],
-                      "properties": {
-                        "role": {
-                          "type": "string",
-                          "enum": [
-                            "system",
-                            "user",
-                            "assistant"
-                          ],
-                          "description": "消息发送者的角色。任务说明请使用 `user`。如需添加补充说明，请使用 `system`；这些说明会附加在默认系统提示之后（不会替换默认系统提示）。如需为少样本提示提供 `assistant` 响应示例，请使用 `assistant`。"
-                        },
-                        "content": {
-                          "type": "string",
-                          "description": "消息内容。"
-                        }
-                      }
-                    }
-                  },
-                  "asDraft": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "控制创建拉取请求（PR；亦称“合并请求”/Merge Request）时是否使用草稿模式。为 true 时创建草稿拉取请求；为 false（默认）时创建可供审核的正式拉取请求。"
-                  },
-                  "model": {
-                    "type": "string",
-                    "enum": [
-                      "sonnet",
-                      "opus"
-                    ],
-                    "default": "sonnet",
-                    "description": "用于该智能体任务的 AI 模型。使用 `sonnet` 可获得更快捷、成本更低的处理。使用 `opus` 可获得更强大但速度更慢的处理。"
+                    "description": "The task instruction for the agent. Describe what documentation changes you want the agent to make."
                   }
                 }
               }
@@ -91,21 +51,32 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "代理任务已成功创建（流式响应）。X-Session-Id 头会随响应一同返回",
-            "headers": {
-              "X-Message-Id": {
-                "schema": {
-                  "type": "string"
-                },
-                "description": "已创建任务的消息标识符"
-              }
-            },
+          "201": {
+            "description": "Agent job created successfully",
             "content": {
-              "text/plain": {
+              "application/json": {
                 "schema": {
-                  "type": "string",
-                  "description": "包含代理任务执行详情和结果的流式响应。"
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request - missing prompt, non-GitHub deployment, or configuration error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -115,8 +86,8 @@
     },
     "/agent/{projectId}/job/{id}": {
       "get": {
-        "summary": "通过 ID 获取代理任务",
-        "description": "根据其 ID 获取指定代理任务的详细信息和状态。",
+        "summary": "Get agent job by ID",
+        "description": "Retrieves the details and status of a specific agent job by its ID. Use this endpoint to poll for job completion and retrieve the pull request link.",
         "parameters": [
           {
             "name": "projectId",
@@ -125,7 +96,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "项目 ID。可在控制台的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面中复制。"
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
           },
           {
             "name": "id",
@@ -134,101 +105,113 @@
             "schema": {
               "type": "string"
             },
-            "description": "要检索的代理作业的唯一标识符。"
+            "description": "The unique identifier of the agent job to retrieve."
           }
         ],
         "responses": {
           "200": {
-            "description": "成功获取代理任务详情",
+            "description": "Agent job details retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "sessionId": {
-                      "type": "string",
-                      "description": "本次会话所属的子域。"
-                    },
-                    "subdomain": {
-                      "type": "string",
-                      "description": "该会话所属的子域。"
-                    },
-                    "branch": {
-                      "type": "string",
-                      "description": "包含这些更改的 Git branch 名称。",
-                      "nullable": true
-                    },
-                    "haulted": {
-                      "type": "boolean",
-                      "description": "会话执行是否已被中止。"
-                    },
-                    "haultReason": {
-                      "type": "string",
-                      "enum": [
-                        "completed",
-                        "github_missconfigured",
-                        "error"
-                      ],
-                      "description": "会话终止原因。"
-                    },
-                    "pullRequestLink": {
-                      "type": "string",
-                      "description": "指向已创建拉取请求（PR，亦称“合并请求”/Merge Request）的链接。"
-                    },
-                    "messageToUser": {
-                      "type": "string",
-                      "description": "用于告知用户会话结果的消息。"
-                    },
-                    "todos": {
-                      "type": "array",
-                      "description": "本次会话的待办事项清单。",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "content": {
-                            "type": "string",
-                            "description": "任务的简要说明。"
-                          },
-                          "status": {
-                            "type": "string",
-                            "enum": [
-                              "pending",
-                              "in_progress",
-                              "completed",
-                              "cancelled"
-                            ],
-                            "description": "当前任务状态。"
-                          },
-                          "priority": {
-                            "type": "string",
-                            "enum": [
-                              "high",
-                              "medium",
-                              "low"
-                            ],
-                            "description": "任务的优先级。"
-                          },
-                          "id": {
-                            "type": "string",
-                            "description": "待办事项的唯一标识。"
-                          }
-                        }
-                      }
-                    },
-                    "userId": {
-                      "type": "string",
-                      "description": "创建此会话的用户 ID（如果可用）。"
-                    },
-                    "title": {
-                      "type": "string",
-                      "description": "自动生成的 title，用于概括代理任务。"
-                    },
-                    "createdAt": {
-                      "type": "string",
-                      "format": "date-time",
-                      "description": "会话创建时间的时间戳。"
-                    }
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/{projectId}/job/{id}/message": {
+      "post": {
+        "summary": "Send message to agent job",
+        "description": "Sends a follow-up message to an existing agent job session. Use this to continue a conversation with the agent after the initial job creation.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the agent job to send a message to."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "The follow-up message or additional instructions for the agent."
                   }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request - missing prompt or configuration error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -238,8 +221,9 @@
     },
     "/agent/{projectId}/jobs": {
       "get": {
-        "summary": "获取所有代理任务",
-        "description": "获取指定 domain 下的所有 agent 任务，包括其状态和详细信息。",
+        "summary": "Get all agent jobs",
+        "deprecated": true,
+        "description": "**Deprecated:** This endpoint is only available in API v1 (`https://api.mintlify.com/v1`). Retrieves all agent jobs for the specified domain, including their status and details.",
         "parameters": [
           {
             "name": "projectId",
@@ -248,12 +232,12 @@
             "schema": {
               "type": "string"
             },
-            "description": "项目 ID。可在控制台的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面中复制获取。"
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
           }
         ],
         "responses": {
           "200": {
-            "description": "已成功检索到所有代理作业",
+            "description": "All agent jobs retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -261,92 +245,79 @@
                   "properties": {
                     "allSessions": {
                       "type": "array",
-                      "description": "该 domain 的所有代理会话数组。",
+                      "description": "Array of all agent sessions for the domain.",
                       "items": {
                         "type": "object",
                         "properties": {
                           "sessionId": {
                             "type": "string",
-                            "description": "本会话所属的子域。"
+                            "description": "The subdomain this session belongs to."
                           },
                           "subdomain": {
                             "type": "string",
-                            "description": "此会话对应的子域。"
+                            "description": "The subdomain this session belongs to."
                           },
                           "branch": {
                             "type": "string",
-                            "description": "进行更改所在的 Git branch 名称。",
+                            "description": "Git branch name where changes were made.",
                             "nullable": true
                           },
                           "haulted": {
                             "type": "boolean",
-                            "description": "会话执行是否被中止。"
+                            "description": "Whether the session execution was halted."
                           },
                           "haultReason": {
                             "type": "string",
-                            "enum": [
-                              "completed",
-                              "github_missconfigured",
-                              "error"
-                            ],
-                            "description": "会话中止原因"
+                            "enum": ["completed", "github_missconfigured", "error"],
+                            "description": "Reason for session halt."
                           },
                           "pullRequestLink": {
                             "type": "string",
-                            "description": "指向已创建拉取请求（PR；亦称“合并请求”/Merge Request）的链接。"
+                            "description": "Link to the created pull request."
                           },
                           "messageToUser": {
                             "type": "string",
-                            "description": "用于告知用户会话结果的消息。"
+                            "description": "Message for the user about the session outcome."
                           },
                           "todos": {
                             "type": "array",
-                            "description": "本次会话的待办事项列表。",
+                            "description": "List of todo items from the session.",
                             "items": {
                               "type": "object",
                               "properties": {
                                 "content": {
                                   "type": "string",
-                                  "description": "任务简要说明。"
+                                  "description": "Brief description of the task."
                                 },
                                 "status": {
                                   "type": "string",
-                                  "enum": [
-                                    "pending",
-                                    "in_progress",
-                                    "completed",
-                                    "cancelled"
-                                  ],
-                                  "description": "任务当前状态。"
+                                  "enum": ["pending", "in_progress", "completed", "cancelled"],
+                                  "description": "Current status of the task."
                                 },
                                 "priority": {
                                   "type": "string",
-                                  "enum": [
-                                    "high",
-                                    "medium",
-                                    "low"
-                                  ],
-                                  "description": "任务优先级。"
+                                  "enum": ["high", "medium", "low"],
+                                  "description": "Priority level of the task."
                                 },
                                 "id": {
                                   "type": "string",
-                                  "description": "待办事项的唯一标识符。"
+                                  "description": "Unique identifier for the todo item."
                                 }
                               }
                             }
                           },
                           "userId": {
                             "type": "string",
-                            "description": "创建此会话的用户 ID（如果可用）。"
+                            "description": "The ID of the user who created this session, if available."
                           },
                           "title": {
                             "type": "string",
-                            "description": "自动生成的 title，用于概括代理任务。"
+                            "description": "A generated title summarizing the agent job."
                           },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
-                            "description": "会话创建时的时间戳。"
+                            "description": "Timestamp when the session was created."
                           }
                         }
                       }
@@ -361,11 +332,71 @@
     }
   },
   "components": {
+    "schemas": {
+      "AgentJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the agent job."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "running", "completed", "failed"],
+            "description": "Current status of the agent job."
+          },
+          "source": {
+            "type": "object",
+            "description": "Source repository information.",
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "URL of the GitHub repository."
+              },
+              "ref": {
+                "type": "string",
+                "description": "Git branch name where changes are being made.",
+                "nullable": true
+              }
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "The AI model used for the agent job."
+          },
+          "prLink": {
+            "type": "string",
+            "description": "URL of the created pull request. Only available after the job completes successfully and creates a PR.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the job was created."
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the job was archived (completed or failed).",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message describing what went wrong."
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Authorization 头部需要 Bearer 令牌。请使用以 `mint_` 为前缀的管理员 API 密钥。这是服务端使用的机密凭证。你可以在控制台的 [API keys 页面](https://dashboard.mintlify.com/settings/organization/api-keys) 中生成一个。"
+        "description": "The Authorization header expects a Bearer token. Use an admin API key (prefixed with `mint_`). This is a server-side secret key. Generate one on the [API keys page](https://dashboard.mintlify.com/settings/organization/api-keys) in your dashboard."
       }
     }
   }

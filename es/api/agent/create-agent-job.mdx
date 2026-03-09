@@ -1,26 +1,43 @@
 ---
 title: "Crear trabajo del agente"
-description: "Crea un trabajo del agente para automatizar las actualizaciones de
-  la documentación, con creación automática de branch y generación de solicitud
-  de extracción."
+description: "Crea un trabajo del agente para automatizar las actualizaciones de la documentación, con creación automática de branch y generación de pull request."
 openapi: /es/admin-openapi.json POST /agent/{projectId}/job
 keywords: [ "trabajo del agente", "crear", "automatización", "automatizar" ]
 ---
 
-Este endpoint crea un trabajo del agente a partir de los mensajes proporcionados y la información de la branch. El trabajo se ejecuta de forma asíncrona y devuelve una respuesta en streaming con los detalles de la ejecución y los resultados.
+Este endpoint crea un trabajo del agente a partir de un prompt proporcionado. El trabajo se ejecuta de forma asíncrona en segundo plano y devuelve inmediatamente los detalles del trabajo. Consulta el [endpoint de obtención](/es/api/agent/get-agent-job) para verificar el estado y obtener el enlace del pull request una vez que el trabajo se complete.
 
-Si no existe una branch, el agente crea una. Si los archivos se editan correctamente, al finalizar el trabajo se crea automáticamente una solicitud de extracción.
+Si los archivos se editan correctamente, al finalizar el trabajo se crea automáticamente un pull request.
 
-<div id="rate-limits">
-  ## Límites de tasa
-</div>
+## Límites de tasa
 
 La API del agente tiene los siguientes límites:
 
 - 100 usos por proyecto de Mintlify por hora
 
-<div id="suggested-usage">
-  ## Uso recomendado
-</div>
+## Sondeo para completar
 
-Para obtener mejores resultados, utiliza el [hook useChat de ai-sdk](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat#usechat) para enviar solicitudes y gestionar las respuestas.
+Después de crear un trabajo, consulta el endpoint [obtener trabajo del agente](/es/api/agent/get-agent-job) para verificar cuándo se completa el trabajo:
+
+```javascript
+const jobId = response.id;
+
+// Sondear hasta que el trabajo se complete
+let job;
+do {
+  await new Promise(resolve => setTimeout(resolve, 5000)); // Esperar 5 segundos
+  const statusResponse = await fetch(
+    `https://api.mintlify.com/v2/agent/${projectId}/job/${jobId}`,
+    { headers: { 'Authorization': `Bearer ${apiKey}` } }
+  );
+  job = await statusResponse.json();
+} while (job.status === 'pending' || job.status === 'running');
+
+if (job.prLink) {
+  console.log('Pull request creado:', job.prLink);
+}
+```
+
+## Continuar una conversación
+
+Usa el endpoint [enviar mensaje](/es/api/agent/send-message) para enviar instrucciones adicionales a un trabajo existente.
