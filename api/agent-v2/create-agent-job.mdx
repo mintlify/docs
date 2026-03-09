@@ -1,0 +1,69 @@
+---
+title: "Create agent job (v2)"
+description: "Create an agent job that runs in the background and returns immediately with status for polling."
+openapi: /admin-openapi-v2.json POST /agent/{projectId}/job
+keywords: ["agent job", "create", "automation", "v2", "async"]
+---
+
+This endpoint creates an agent job that runs in the background. Unlike the v1 API which streams responses, the v2 API returns immediately with a job ID that you can use to poll for status.
+
+## Key differences from v1
+
+- **Fire-and-forget**: The request returns immediately with the job ID
+- **Polling-based**: Use [Get agent job](/api/agent-v2/get-agent-job) to check status and retrieve the PR link
+- **Simplified request**: Uses a single `prompt` string instead of a messages array
+- **Conversational**: Send follow-up messages with [Send message](/api/agent-v2/send-message)
+
+## Workflow
+
+1. Create a job with this endpoint
+2. Store the returned `id`
+3. Poll the [Get agent job](/api/agent-v2/get-agent-job) endpoint until `status` is `completed` or `failed`
+4. Retrieve the `prLink` from the response once the PR is created
+
+## Rate limits
+
+The agent API has the following limits:
+
+- 100 uses per Mintlify project per hour
+
+## Example polling workflow
+
+```javascript
+async function runAgentJob(projectId, prompt, apiKey) {
+  // Create the job
+  const createResponse = await fetch(
+    `https://api.mintlify.com/v2/agent/${projectId}/job`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ prompt })
+    }
+  );
+  
+  const job = await createResponse.json();
+  const jobId = job.id;
+  
+  // Poll for completion
+  while (true) {
+    const statusResponse = await fetch(
+      `https://api.mintlify.com/v2/agent/${projectId}/job/${jobId}`,
+      {
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      }
+    );
+    
+    const status = await statusResponse.json();
+    
+    if (status.status === 'completed' || status.status === 'failed') {
+      return status;
+    }
+    
+    // Wait before polling again
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+}
+```
