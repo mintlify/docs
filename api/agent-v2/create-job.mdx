@@ -1,0 +1,55 @@
+---
+title: "Create agent job (v2)"
+description: "Create an asynchronous agent job with a simple prompt interface. The job runs in the background and can be polled for status."
+openapi: /admin-v2-openapi.json POST /agent/{projectId}/job
+keywords: ["agent job", "create", "automation", "async", "v2"]
+---
+
+This endpoint creates an agent job that runs asynchronously. Unlike the v1 API, it returns immediately with job information instead of streaming the response, making it easier to integrate into workflows and CI/CD pipelines.
+
+## When to use v2 vs v1
+
+Use the v2 API when you:
+- Want a simpler prompt-based interface
+- Need to integrate with systems that don't support streaming
+- Prefer polling for completion status
+- Want to send follow-up messages to refine the agent's work
+
+Use the [v1 API](/api/agent/create-agent-job) when you:
+- Need real-time streaming of the agent's progress
+- Want fine-grained control with multi-message conversations
+- Need to process responses as they arrive
+
+## Workflow
+
+1. Create a job with a prompt describing what changes you want
+2. Poll the [Get agent job status](/api/agent-v2/get-job) endpoint until `status` is `completed` or `failed`
+3. Once complete, the `prLink` field contains the URL of the created pull request
+4. Optionally, [send additional messages](/api/agent-v2/send-message) to refine the changes
+
+## Rate limits
+
+- 100 requests per project per hour
+
+## Example workflow
+
+```bash
+# Create a job
+JOB=$(curl -X POST "https://api.mintlify.com/v2/agent/{projectId}/job" \
+  -H "Authorization: Bearer $MINT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Add a troubleshooting section to the quickstart guide"}')
+
+JOB_ID=$(echo $JOB | jq -r '.id')
+
+# Poll for completion
+while true; do
+  STATUS=$(curl -s "https://api.mintlify.com/v2/agent/{projectId}/job/$JOB_ID" \
+    -H "Authorization: Bearer $MINT_API_KEY" | jq -r '.status')
+  
+  if [ "$STATUS" = "completed" ] || [ "$STATUS" = "failed" ]; then
+    break
+  fi
+  sleep 10
+done
+```

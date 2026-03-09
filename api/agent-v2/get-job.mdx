@@ -1,0 +1,53 @@
+---
+title: "Get agent job status (v2)"
+description: "Poll for the status of an asynchronous agent job and retrieve the pull request link once complete."
+openapi: /admin-v2-openapi.json GET /agent/{projectId}/job/{id}
+keywords: ["agent job", "status", "poll", "v2"]
+---
+
+## Usage
+
+Poll this endpoint to check when an agent job completes. The response includes:
+
+- **status**: Current state of the job (`pending`, `running`, `completed`, `failed`, or `archived`)
+- **prLink**: URL of the created pull request (only present after completion)
+- **source.ref**: Branch name where the agent is making changes
+
+## Polling strategy
+
+We recommend polling every 10-30 seconds. Most agent jobs complete within 1-5 minutes depending on complexity.
+
+```javascript
+async function waitForCompletion(projectId, jobId) {
+  const maxAttempts = 60;
+  const pollInterval = 10000; // 10 seconds
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    const response = await fetch(
+      `https://api.mintlify.com/v2/agent/${projectId}/job/${jobId}`,
+      { headers: { Authorization: `Bearer ${API_KEY}` } }
+    );
+    const job = await response.json();
+    
+    if (job.status === 'completed') {
+      return job.prLink;
+    }
+    if (job.status === 'failed') {
+      throw new Error('Agent job failed');
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+  throw new Error('Timeout waiting for job completion');
+}
+```
+
+## Job statuses
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Job created but not yet started |
+| `running` | Agent is actively working on the task |
+| `completed` | Job finished successfully, PR created |
+| `failed` | Job encountered an error |
+| `archived` | Job was archived |
