@@ -1,0 +1,286 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Mintlify Admin API v2",
+    "description": "Version 2 of the Admin API with asynchronous job execution and follow-up messaging support.",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/v2"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/agent/{projectId}/job": {
+      "post": {
+        "summary": "Create agent job",
+        "description": "Creates a new agent job that runs asynchronously in the background. Returns immediately with job status that you can poll using the get endpoint.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "The task instructions for the agent to execute."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Agent job created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJobV2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request (e.g., non-GitHub deployment or missing organization)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/{projectId}/job/{id}": {
+      "get": {
+        "summary": "Get agent job",
+        "description": "Retrieves the current status and details of a specific agent job. Use this endpoint to poll for job completion and retrieve the pull request link once the agent finishes.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the agent job to retrieve."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent job details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJobV2"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agent/{projectId}/job/{id}/message": {
+      "post": {
+        "summary": "Send follow-up message",
+        "description": "Sends a follow-up message to an existing agent job session. Use this to provide additional instructions or feedback after the initial job has started.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the agent job to send a message to."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "description": "The follow-up message or additional instructions for the agent."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJobV2"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentJobV2": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the agent job session."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["running", "completed", "failed"],
+            "description": "Current status of the agent job."
+          },
+          "source": {
+            "type": "object",
+            "description": "Information about the source repository.",
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "The GitHub repository URL."
+              },
+              "ref": {
+                "type": "string",
+                "description": "The branch name where changes are being made.",
+                "nullable": true
+              }
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "The AI model used for this job."
+          },
+          "prLink": {
+            "type": "string",
+            "description": "Link to the created pull request, if one was created.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the job was created."
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the job was archived/completed.",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message describing what went wrong."
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error details, if available."
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The Authorization header expects a Bearer token. Use an admin API key (prefixed with `mint_`). This is a server-side secret key. Generate one on the [API keys page](https://dashboard.mintlify.com/settings/organization/api-keys) in your dashboard."
+      }
+    }
+  }
+}
