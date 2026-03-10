@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://api.mintlify.com/v1"
+      "url": "https://api.mintlify.com"
     }
   ],
   "security": [
@@ -16,8 +16,9 @@
     }
   ],
   "paths": {
-    "/agent/{projectId}/job": {
+    "/v1/agent/{projectId}/job": {
       "post": {
+        "deprecated": true,
         "summary": "创建代理作业",
         "description": "创建一个新的 agent 作业，可根据提供的消息和 branch 信息生成并编辑文档。",
         "parameters": [
@@ -113,8 +114,9 @@
         }
       }
     },
-    "/agent/{projectId}/job/{id}": {
+    "/v1/agent/{projectId}/job/{id}": {
       "get": {
+        "deprecated": true,
         "summary": "通过 ID 获取代理任务",
         "description": "根据其 ID 获取指定代理任务的详细信息和状态。",
         "parameters": [
@@ -236,8 +238,9 @@
         }
       }
     },
-    "/agent/{projectId}/jobs": {
+    "/v1/agent/{projectId}/jobs": {
       "get": {
+        "deprecated": true,
         "summary": "获取所有代理任务",
         "description": "获取指定 domain 下的所有 agent 任务，包括其状态和详细信息。",
         "parameters": [
@@ -358,9 +361,272 @@
           }
         }
       }
+    },
+    "/v2/agent/{projectId}/job": {
+      "post": {
+        "summary": "创建 agent 任务",
+        "description": "创建一个在后台运行的新 agent 任务。任务异步处理 prompt — 轮询 get job 端点以跟踪进度。如果 agent 成功编辑文件，将自动创建拉取请求。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "您的项目 ID。可从您的 Dashboard 中的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面复制。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "agent 要执行的指令。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "agent 任务创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}": {
+      "get": {
+        "summary": "获取 agent 任务",
+        "description": "获取 agent 任务的当前状态和详细信息。轮询此端点以跟踪任务进度。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "您的项目 ID。可从您的 Dashboard 中的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面复制。"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "agent 任务的唯一标识符。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "agent 任务详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "未找到任务",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}/message": {
+      "post": {
+        "summary": "发送后续消息",
+        "description": "向现有 agent 任务发送后续消息。消息异步处理 — 轮询 get job 端点以跟踪进度。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "您的项目 ID。可从您的 Dashboard 中的 [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) 页面复制。"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "要发送消息的 agent 任务的唯一标识符。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "agent 的后续指令。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "消息发送成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "未找到任务",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "schemas": {
+      "AgentJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "agent 任务的唯一标识符。"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "completed", "failed"],
+            "description": "任务的当前状态。`active` — agent 正在处理 prompt。`completed` — agent 已成功完成，可能已创建 PR（检查 `prLink`）。`failed` — agent 遇到无法恢复的错误。轮询直到状态为 `completed` 或 `failed`。"
+          },
+          "source": {
+            "type": "object",
+            "description": "源代码仓库信息。",
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "GitHub 仓库的完整 URL。"
+              },
+              "ref": {
+                "type": "string",
+                "description": "agent 正在工作的 Git branch。",
+                "nullable": true
+              }
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "此任务使用的 AI 模型。"
+          },
+          "prLink": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://github.com/org/repo/pull/123",
+            "description": "agent 创建的 GitHub 拉取请求（PR；亦称"合并请求"/Merge Request）URL。任务仍为 `active` 状态或未修改任何文件时为 `null`。agent 成功创建 PR 后填充。",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "任务创建时的时间戳。"
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "任务归档时的时间戳。",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "错误消息。"
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
