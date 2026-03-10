@@ -200,11 +200,13 @@ import * as jose from 'jose';
 import { Request, Response } from 'express';
 
 const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+const DOCS_HOST = 'docs.foo.com';
 
 const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
 
 export async function handleRequest(req: Request, res: Response) {
   const user = {
+    host: DOCS_HOST, // Must match your docs URL
     expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
     groups: res.locals.user.groups,
     apiPlaygroundInputs: {
@@ -219,7 +221,7 @@ export async function handleRequest(req: Request, res: Response) {
     .setExpirationTime('10 s') // 10 second JWT expiration
     .sign(signingKey);
 
-  return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+  return res.redirect(`https://${DOCS_HOST}/login/jwt-callback#${jwt}`);
 }
 ```
 
@@ -231,11 +233,13 @@ from datetime import datetime, timedelta
 from fastapi.responses import RedirectResponse
 
 private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+DOCS_HOST = 'docs.foo.com'
 
 @router.get('/auth')
 async def return_mintlify_auth_status(current_user):
   jwt_token = jwt.encode(
     payload={
+      'host': DOCS_HOST, # Must match your docs URL
       'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
       'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 week session expiration
       'groups': ['admin'] if current_user.is_admin else [],
@@ -249,7 +253,7 @@ async def return_mintlify_auth_status(current_user):
     algorithm='EdDSA'
   )
 
-  return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+  return RedirectResponse(url=f'https://{DOCS_HOST}/login/jwt-callback#{jwt_token}', status_code=302)
 ```
 </CodeGroup>
 
@@ -371,6 +375,7 @@ When using OAuth or JWT authentication, your system returns user data that contr
 <CodeGroup>
 ```tsx Format
 type User = {
+  host?: string;
   expiresAt?: number;
   groups?: string[];
   content?: Record<string, any>;
@@ -386,6 +391,7 @@ type User = {
 
 ```json Example
 {
+  "host": "docs.foo.com",
   "expiresAt": 1735689600,
   "groups": ["admin", "beta-users"],
   "content": {
@@ -403,6 +409,10 @@ type User = {
 }
 ```
 </CodeGroup>
+
+<ParamField path="host" type="string">
+  **Required for JWT authentication.** The hostname of your documentation site (for example, `docs.foo.com`). This must exactly match the host where your documentation is deployed. Mintlify validates that the JWT's host matches the requesting host to prevent token reuse across different sites.
+</ParamField>
 
 <ParamField path="expiresAt" type="number">
   Session expiration time in seconds since epoch. When the current time passes this value, the user must re-authenticate.
