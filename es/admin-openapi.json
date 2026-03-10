@@ -358,9 +358,272 @@
           }
         }
       }
+    },
+    "/v2/agent/{projectId}/job": {
+      "post": {
+        "summary": "Crear trabajo del agente",
+        "description": "Crea un nuevo trabajo del agente que se ejecuta en segundo plano. El trabajo procesa el prompt de forma asíncrona — consulta el endpoint get job para seguir el progreso. Si el agente edita archivos correctamente, se crea automáticamente una solicitud de extracción.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Tu ID de proyecto. Puede copiarse desde la página [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de tu dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "La instrucción que el agente debe ejecutar."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Trabajo del agente creado correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud no válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de tasa superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}": {
+      "get": {
+        "summary": "Obtener trabajo del agente",
+        "description": "Obtiene el estado actual y los detalles de un trabajo del agente. Consulta este endpoint para seguir el progreso del trabajo.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Tu ID de proyecto. Puede copiarse desde la página [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de tu dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "El identificador único del trabajo del agente."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalles del trabajo del agente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trabajo no encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}/message": {
+      "post": {
+        "summary": "Enviar mensaje de seguimiento",
+        "description": "Envía un mensaje de seguimiento a un trabajo del agente existente. El mensaje se procesa de forma asíncrona — consulta el endpoint get job para seguir el progreso.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Tu ID de proyecto. Puede copiarse desde la página [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de tu dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "El identificador único del trabajo del agente al que enviar el mensaje."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "La instrucción de seguimiento para el agente."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mensaje enviado correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Solicitud no válida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Trabajo no encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Límite de tasa superado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "schemas": {
+      "AgentJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identificador único del trabajo del agente."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "completed", "failed"],
+            "description": "Estado actual del trabajo. `active` — el agente está procesando el prompt actualmente. `completed` — el agente terminó correctamente y puede haberse creado una PR (comprueba `prLink`). `failed` — el agente encontró un error irrecuperable. Consulta hasta que el estado sea `completed` o `failed`."
+          },
+          "source": {
+            "type": "object",
+            "description": "Información del repositorio de origen.",
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "URL completa del repositorio de GitHub."
+              },
+              "ref": {
+                "type": "string",
+                "description": "Branch de Git en la que trabaja el agente.",
+                "nullable": true
+              }
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "El modelo de IA utilizado para este trabajo."
+          },
+          "prLink": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://github.com/org/repo/pull/123",
+            "description": "URL de la solicitud de extracción de GitHub creada por el agente. `null` mientras el trabajo está `active` o si no se modificaron archivos. Se rellena cuando el agente crea correctamente una PR.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Marca de tiempo de creación del trabajo."
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Marca de tiempo de archivado del trabajo.",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Mensaje de error."
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",

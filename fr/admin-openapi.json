@@ -358,9 +358,272 @@
           }
         }
       }
+    },
+    "/v2/agent/{projectId}/job": {
+      "post": {
+        "summary": "Créer une tâche d’agent",
+        "description": "Crée une nouvelle tâche d’agent qui s’exécute en arrière-plan. La tâche traite le prompt de manière asynchrone — interrogez l’endpoint get job pour suivre la progression. Si l’agent modifie des fichiers avec succès, une pull request est automatiquement créée.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Votre ID de projet. Peut être copié depuis la page [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "L’instruction que l’agent doit exécuter."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tâche d’agent créée avec succès",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de débit dépassée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}": {
+      "get": {
+        "summary": "Obtenir une tâche d’agent",
+        "description": "Récupère le statut actuel et les détails d’une tâche d’agent. Interrogez cet endpoint pour suivre la progression du job.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Votre ID de projet. Peut être copié depuis la page [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "L’identifiant unique de la tâche d’agent."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Détails de la tâche d’agent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tâche introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}/message": {
+      "post": {
+        "summary": "Envoyer un message de suivi",
+        "description": "Envoie un message de suivi à une tâche d’agent existante. Le message est traité de manière asynchrone — interrogez l’endpoint get job pour suivre la progression.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Votre ID de projet. Peut être copié depuis la page [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "L’identifiant unique de la tâche d’agent à laquelle envoyer le message."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "L’instruction de suivi pour l’agent."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message envoyé avec succès",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Requête invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tâche introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de débit dépassée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
+    "schemas": {
+      "AgentJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifiant unique de la tâche d’agent."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "completed", "failed"],
+            "description": "Statut actuel du job. `active` — l’agent traite actuellement le prompt. `completed` — l’agent a terminé avec succès et une PR peut avoir été créée (vérifiez `prLink`). `failed` — l’agent a rencontré une erreur irrécupérable. Interrogez jusqu’à ce que le statut soit `completed` ou `failed`."
+          },
+          "source": {
+            "type": "object",
+            "description": "Informations sur le dépôt source.",
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "URL complète du dépôt GitHub."
+              },
+              "ref": {
+                "type": "string",
+                "description": "Branche Git sur laquelle l’agent travaille.",
+                "nullable": true
+              }
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "Le modèle d’IA utilisé pour ce job."
+          },
+          "prLink": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://github.com/org/repo/pull/123",
+            "description": "URL de la pull request (demande de fusion) GitHub créée par l’agent. `null` tant que le job est `active` ou si aucun fichier n’a été modifié. Renseigné une fois que l’agent a créé une PR avec succès.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Horodatage de création du job."
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Horodatage d’archivage du job.",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Message d’erreur."
+          }
+        }
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
