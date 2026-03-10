@@ -215,11 +215,13 @@ Selecciona el método de handshake que quieres configurar.
       import { Request, Response } from 'express';
 
       const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+      const DOCS_HOST = 'docs.example.com';
 
       const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
 
       export async function handleRequest(req: Request, res: Response) {
         const user = {
+          host: DOCS_HOST, // Debe coincidir con la URL de tu documentación
           expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // vencimiento de la sesión de 2 semanas
           groups: res.locals.user.groups,
           apiPlaygroundInputs: {
@@ -234,7 +236,7 @@ Selecciona el método de handshake que quieres configurar.
           .setExpirationTime('10 s') // vencimiento del JWT de 10 segundos
           .sign(signingKey);
 
-        return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+        return res.redirect(`https://${DOCS_HOST}/login/jwt-callback#${jwt}`);
       }
       ```
 
@@ -246,11 +248,13 @@ Selecciona el método de handshake que quieres configurar.
       from fastapi.responses import RedirectResponse
 
       private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+      DOCS_HOST = 'docs.example.com'
 
       @router.get('/auth')
       async def return_mintlify_auth_status(current_user):
         jwt_token = jwt.encode(
           payload={
+            'host': DOCS_HOST, # Debe coincidir con la URL de tu documentación
             'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # vencimiento del JWT de 10 segundos
             'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # vencimiento de la sesión de 2 semanas
             'groups': ['admin'] if current_user.is_admin else [],
@@ -264,7 +268,7 @@ Selecciona el método de handshake que quieres configurar.
           algorithm='EdDSA'
         )
 
-        return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+        return RedirectResponse(url=f'https://{DOCS_HOST}/login/jwt-callback#{jwt_token}', status_code=302)
       ```
     </CodeGroup>
 
@@ -397,6 +401,7 @@ Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuar
 <CodeGroup>
   ```tsx Format
   type User = {
+    host?: string;
     expiresAt?: number;
     groups?: string[];
     content?: Record<string, any>;
@@ -412,6 +417,7 @@ Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuar
 
   ```json Ejemplo
   {
+    "host": "docs.example.com",
     "expiresAt": 1735689600,
     "groups": ["admin", "beta-users"],
     "content": {
@@ -429,6 +435,10 @@ Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuar
   }
   ```
 </CodeGroup>
+
+<ParamField path="host" type="string">
+  **Obligatorio para la autenticación JWT.** El nombre de host de tu sitio de documentación. La cadena debe coincidir exactamente con el dominio donde implementas tu documentación. Mintlify valida que el host del JWT coincida con el host de la solicitud para evitar la reutilización de tokens entre diferentes sitios.
+</ParamField>
 
 <ParamField path="expiresAt" type="number">
   Momento de expiración de la sesión en segundos desde el epoch. Cuando la hora actual supera este valor, el usuario debe volver a autenticarse.
@@ -480,14 +490,14 @@ Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuar
 
 Algunas funciones se comportan de manera diferente o no están disponibles cuando habilitas la autenticación.
 
-| Función | Público | Totalmente autenticado (todas las páginas protegidas) | Parcialmente autenticado (algunas páginas públicas) |
-| :------ | :---------- | :---------------------------------- | :-------------------------------- |
-| [llms.txt and llms-full.txt](/es/ai/llmstxt) | Compatibilidad completa | Disponible tras autenticación, por lo que es posible que las herramientas de IA no puedan acceder a los archivos | Disponible tras autenticación, por lo que es posible que las herramientas de IA no puedan acceder a los archivos |
-| [Servidor MCP](/es/ai/model-context-protocol) | Compatibilidad completa | No disponible | Disponible solo para páginas públicas |
-| [Exportación a Markdown](/es/ai/markdown-export) | Compatibilidad completa | Compatibilidad completa, respeta los grupos de usuarios | Compatibilidad completa, respeta los grupos de usuarios |
-| [Exportación a PDF](/es/optimize/pdf-exports) | Compatibilidad completa | No compatible | No compatible |
-| [Búsqueda](/es/ai/assistant) | Compatibilidad completa | Compatibilidad completa, respeta los grupos de usuarios | Compatibilidad completa, respeta los grupos de usuarios |
-| [Assistant](/es/ai/assistant) | Compatibilidad completa | Compatibilidad completa, respeta los grupos de usuarios | Compatibilidad completa, respeta los grupos de usuarios |
-| [skill.md](/es/ai/skillmd) | Compatibilidad completa | No compatible | No compatible |
-| [Mapa del sitio](/es/optimize/seo#sitemaps-and-robotstxt-files) | Compatibilidad completa | Disponible tras autenticación, pero excluye las páginas en groups | Disponible tras autenticación, pero excluye las páginas en groups |
-| [robots.txt](/es/optimize/seo#sitemaps-and-robotstxt-files) | Compatibilidad completa | Disponible tras autenticación | Disponible tras autenticación |
+| Función                                                      | Público                 | Totalmente autenticado (todas las páginas protegidas)                                                            | Parcialmente autenticado (algunas páginas públicas)                                                              |
+| :----------------------------------------------------------- | :---------------------- | :--------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
+| [llms.txt and llms-full.txt](/es/ai/llmstxt)                    | Compatibilidad completa | Disponible tras autenticación, por lo que es posible que las herramientas de IA no puedan acceder a los archivos | Disponible tras autenticación, por lo que es posible que las herramientas de IA no puedan acceder a los archivos |
+| [Servidor MCP](/es/ai/model-context-protocol)                   | Compatibilidad completa | Requiere autenticación para conectarse                                                                           | Disponible sin autenticación para páginas públicas y con autenticación para páginas protegidas                   |
+| [Exportación a Markdown](/es/ai/markdown-export)                | Compatibilidad completa | Compatibilidad completa, respeta los grupos de usuarios                                                          | Compatibilidad completa, respeta los grupos de usuarios                                                          |
+| [Exportación a PDF](/es/optimize/pdf-exports)                   | Compatibilidad completa | No compatible                                                                                                    | No compatible                                                                                                    |
+| [Búsqueda](/es/ai/assistant)                                    | Compatibilidad completa | Compatibilidad completa, respeta los grupos de usuarios                                                          | Compatibilidad completa, respeta los grupos de usuarios                                                          |
+| [Assistant](/es/ai/assistant)                                   | Compatibilidad completa | Compatibilidad completa, respeta los grupos de usuarios                                                          | Compatibilidad completa, respeta los grupos de usuarios                                                          |
+| [skill.md](/es/ai/skillmd)                                      | Compatibilidad completa | No compatible                                                                                                    | No compatible                                                                                                    |
+| [Mapa del sitio](/es/optimize/seo#sitemaps-and-robotstxt-files) | Compatibilidad completa | Disponible tras autenticación, pero excluye las páginas en groups                                                | Disponible tras autenticación, pero excluye las páginas en groups                                                |
+| [robots.txt](/es/optimize/seo#sitemaps-and-robotstxt-files)     | Compatibilidad completa | Disponible tras autenticación                                                                                    | Disponible tras autenticación                                                                                    |
