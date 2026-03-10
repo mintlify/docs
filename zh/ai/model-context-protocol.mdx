@@ -18,11 +18,11 @@ Model Context Protocol (MCP，模型上下文协议) 是一个开放协议，用
   ### MCP 服务器的工作方式
 </div>
 
-当某个 AI 应用接入你的文档 MCP 服务器后，它可以直接搜索你的文档，而不是在响应用户提示时执行通用的网页搜索。你的 MCP 服务器会提供对文档站点上所有已建立索引内容的访问权限。
+当某个 AI 应用接入你的文档 MCP 服务器后，它可以在响应用户提示时直接搜索你的文档，而不是依赖其训练数据中的信息或执行通用的网页搜索。你的 MCP 服务器会提供对文档站点上所有已建立索引内容的访问权限。
 
-* AI 应用可以在生成回复时主动搜索你的文档，而不仅仅是在被显式请求时才进行搜索。
+* AI 应用可以在生成回复时主动搜索你的文档，即使用户没有明确要求在你的文档中搜索答案。
 * AI 应用会根据对话的 context 以及你的文档与当前话题的相关性来决定何时使用搜索工具。
-* 每次搜索 (工具调用) 都发生在生成过程中，因此 AI 应用会从你的文档中检索最新信息来生成回复。
+* 每次搜索（也称为工具调用）都发生在生成过程中，因此 AI 应用会从你的文档中检索最新信息来生成回复。
 
 <Tip>
   某些 AI 工具 (例如 Claude) 同时支持 MCP 和 Skills。MCP 让 AI 能够访问你的文档内容，而 Skills 则指导 AI 如何高效使用这些内容。两者是互补的：MCP 提供数据，Skills 提供指令。
@@ -32,7 +32,7 @@ Model Context Protocol (MCP，模型上下文协议) 是一个开放协议，用
   ### 搜索筛选参数
 </div>
 
-MCP 搜索工具支持可选的筛选参数，AI 应用可以使用它们来缩小搜索结果范围。
+MCP 搜索工具支持可选的筛选参数，AI 应用使用这些参数来缩小搜索结果范围。
 
 * **`version`**：将结果筛选为特定的文档版本。例如，`'v0.7'`。只返回带有指定版本标签的内容，或在所有版本中通用的内容。
 * **`language`**：将结果筛选为特定的语言代码。例如，`'en'`、`'zh'` 或 `'es'`。只返回指定语言的内容，或在所有语言中通用的内容。
@@ -53,11 +53,11 @@ AI 工具可以进行网页搜索，但 MCP 在文档方面具有明显优势。
   ## 访问你的 MCP 服务器
 </div>
 
-<Note>
-  MCP 服务器可用于公开文档以及使用[部分认证](/zh/deploy/authentication-setup#make-pages-public)的文档。你的 MCP 服务器只会搜索公开页面。对所有页面都要求认证的文档无法生成 MCP 服务器。
-</Note>
-
 Mintlify 会为你的文档自动生成一个 MCP 服务器，并将其托管在你的文档 URL 的 `/mcp` 路径下。例如，Mintlify 的 MCP 服务器位于 `https://mintlify.com/docs/mcp`。
+
+对于公开文档，你的 MCP 服务器对任何人开放，可搜索所有已索引的公开页面。
+
+对于需要认证的文档，你必须先启用 MCP 服务器，用户才能使用。用户在连接到你的 MCP 服务器之前必须先完成认证。你的 MCP 服务器只搜索每位用户根据其[用户组](/zh/deploy/authentication-setup)有权访问的内容。
 
 你可以在控制台中的 [MCP 服务器页面](https://dashboard.mintlify.com/products/mcp) 查看并复制你的 MCP 服务器 URL。
 
@@ -70,6 +70,26 @@ Mintlify 会为你的文档自动生成一个 MCP 服务器，并将其托管在
 <Note>
   托管的 MCP 服务器会在其 URL 中使用 `/mcp` 路径。其他导航元素不能使用 `/mcp` 路径。
 </Note>
+
+<div id="enable-authenticated-mcp">
+  ### 启用认证 MCP
+</div>
+
+如果你的文档需要认证，你的 MCP 服务器会要求用户在连接之前完成认证。当用户将你的 MCP 服务器 URL 添加到其 AI 工具时，他们必须使用现有凭据登录。认证完成后，重定向会将他们送回其工具。MCP 服务器仅返回每位用户根据其[用户组](/zh/deploy/authentication-setup)有权访问的内容。
+
+默认情况下，你的 MCP 服务器仅对本地主机工具可用。要允许基于 Web 的工具连接，请添加 AI 工具的重定向域。重定向域是 AI 工具在用户完成认证后使用的主机名，例如 `claude.ai` 或 `app.cursor.ai`。除非用户 AI 工具的重定向域在此列表中，否则它们无法完成认证。
+
+<Steps>
+  <Step title="在控制台中启用认证 MCP">
+    1. 导航到控制台中的 [MCP 服务器页面](https://dashboard.mintlify.com/products/mcp)。
+    2. 点击 **Enable MCP Server** 开关。
+  </Step>
+  <Step title="添加重定向域">
+    添加你希望授予用户访问权限的 AI 工具的重定向域。除非用户 AI 工具的重定向域在此列表中，否则它们无法完成认证。常见的重定向域包括 `claude.ai` 和 `vscode.dev/redirect`。
+
+    回环地址（`localhost`、`127.0.0.1`）始终受信任，无需添加。
+  </Step>
+</Steps>
 
 <div id="rate-limits">
   ### 速率限制
@@ -87,6 +107,8 @@ Mintlify 会为你的文档自动生成一个 MCP 服务器，并将其托管在
 </div>
 
 你的 MCP 服务器会搜索 Mintlify 从你的文档存储库中索引编入的内容。文件处理和搜索索引编入决定了可通过 MCP 服务器访问的内容。
+
+对于需要认证的文档，你的 MCP 服务器只索引[公开用户组](/zh/deploy/authentication-setup#make-pages-public)中的页面。
 
 <div id="file-processing-with-mintignore">
   ### 使用 `.mintignore` 进行文件处理

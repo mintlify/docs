@@ -215,11 +215,13 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
       import { Request, Response } from 'express';
 
       const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+      const DOCS_HOST = 'docs.example.com';
 
       const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
 
       export async function handleRequest(req: Request, res: Response) {
         const user = {
+          host: DOCS_HOST, // Doit correspondre à l'URL de votre documentation
           expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // expiration de session de 2 semaines
           groups: res.locals.user.groups,
           apiPlaygroundInputs: {
@@ -234,7 +236,7 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
           .setExpirationTime('10 s') // expiration du JWT de 10 secondes
           .sign(signingKey);
 
-        return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+        return res.redirect(`https://${DOCS_HOST}/login/jwt-callback#${jwt}`);
       }
       ```
 
@@ -246,11 +248,13 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
       from fastapi.responses import RedirectResponse
 
       private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+      DOCS_HOST = 'docs.example.com'
 
       @router.get('/auth')
       async def return_mintlify_auth_status(current_user):
         jwt_token = jwt.encode(
           payload={
+            'host': DOCS_HOST, # Doit correspondre à l'URL de votre documentation
             'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # expiration du JWT de 10 secondes
             'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # expiration de session de 2 semaines
             'groups': ['admin'] if current_user.is_admin else [],
@@ -264,7 +268,7 @@ Sélectionnez la méthode de poignée de main que vous souhaitez configurer.
           algorithm='EdDSA'
         )
 
-        return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+        return RedirectResponse(url=f'https://{DOCS_HOST}/login/jwt-callback#{jwt_token}', status_code=302)
       ```
     </CodeGroup>
 
@@ -397,6 +401,7 @@ Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie 
 <CodeGroup>
   ```tsx Format
   type User = {
+    host?: string;
     expiresAt?: number;
     groups?: string[];
     content?: Record<string, any>;
@@ -412,6 +417,7 @@ Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie 
 
   ```json Example
   {
+    "host": "docs.example.com",
     "expiresAt": 1735689600,
     "groups": ["admin", "beta-users"],
     "content": {
@@ -430,10 +436,14 @@ Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie 
   ```
 </CodeGroup>
 
-<ParamField path="expiresAt" type="number">
-  Heure d’expiration de la session, en secondes depuis l’époque Unix. Lorsque l’heure actuelle dépasse cette valeur, l’utilisateur doit s’authentifier de nouveau.
+<ParamField path="host" type="string">
+  **Requis pour l'authentification JWT.** Le nom d'hôte de votre site de documentation. La chaîne doit correspondre exactement au domaine où vous déployez votre documentation. Mintlify vérifie que l'hôte du JWT correspond à l'hôte de la requête pour empêcher la réutilisation de jetons sur différents sites.
+</ParamField>
 
-  <Warning>**Pour les JWT :** cela diffère de la revendication `exp` d’un JWT, qui détermine le moment où un JWT est considéré comme invalide. Par mesure de sécurité, définissez la revendication `exp` du JWT sur une durée courte (10 secondes ou moins). Utilisez `expiresAt` pour la durée réelle de la session (de quelques heures à plusieurs semaines).</Warning>
+<ParamField path="expiresAt" type="number">
+  Heure d'expiration de la session, en secondes depuis l'époque Unix. Lorsque l'heure actuelle dépasse cette valeur, l'utilisateur doit s'authentifier de nouveau.
+
+  <Warning>**Pour les JWT :** cela diffère de la revendication `exp` d'un JWT, qui détermine le moment où un JWT est considéré comme invalide. Par mesure de sécurité, définissez la revendication `exp` du JWT sur une durée courte (10 secondes ou moins). Utilisez `expiresAt` pour la durée réelle de la session (de quelques heures à plusieurs semaines).</Warning>
 </ParamField>
 
 <ParamField path="groups" type="string[]">
@@ -483,7 +493,7 @@ Certaines fonctionnalités se comportent différemment ou ne sont pas disponible
 | Fonctionnalité | Public | Entièrement authentifié (toutes les pages protégées) | Partiellement authentifié (certaines pages publiques) |
 | :------ | :---------- | :---------------------------------- | :-------------------------------- |
 | [llms.txt and llms-full.txt](/fr/ai/llmstxt) | Prise en charge complète | Disponible derrière l’authentification, les outils d’IA peuvent donc ne pas avoir accès aux fichiers | Disponible derrière l’authentification, les outils d’IA peuvent donc ne pas avoir accès aux fichiers |
-| [MCP server](/fr/ai/model-context-protocol) | Prise en charge complète | Non disponible | Disponible uniquement pour les pages publiques |
+| [MCP server](/fr/ai/model-context-protocol) | Prise en charge complète | Nécessite une authentification pour se connecter | Disponible sans authentification pour les pages publiques et avec authentification pour les pages protégées |
 | [Markdown export](/fr/ai/markdown-export) | Prise en charge complète | Prise en charge complète, respecte les groupes d’utilisateurs | Prise en charge complète, respecte les groupes d’utilisateurs |
 | [Export PDF](/fr/optimize/pdf-exports) | Prise en charge complète | Non pris en charge | Non pris en charge |
 | [Search](/fr/ai/assistant) | Prise en charge complète | Prise en charge complète, respecte les groupes d’utilisateurs | Prise en charge complète, respecte les groupes d’utilisateurs |
