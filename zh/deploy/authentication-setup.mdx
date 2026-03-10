@@ -215,11 +215,13 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
       import { Request, Response } from 'express';
 
       const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+      const DOCS_HOST = 'docs.example.com';
 
       const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
 
       export async function handleRequest(req: Request, res: Response) {
         const user = {
+          host: DOCS_HOST, // 必须与你的文档 URL 匹配
           expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 周会话过期时间
           groups: res.locals.user.groups,
           apiPlaygroundInputs: {
@@ -234,7 +236,7 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
           .setExpirationTime('10 s') // JWT 10 秒后过期
           .sign(signingKey);
 
-        return res.redirect(`https://docs.foo.com/login/jwt-callback#${jwt}`);
+        return res.redirect(`https://${DOCS_HOST}/login/jwt-callback#${jwt}`);
       }
       ```
 
@@ -246,11 +248,13 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
       from fastapi.responses import RedirectResponse
 
       private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+      DOCS_HOST = 'docs.example.com'
 
       @router.get('/auth')
       async def return_mintlify_auth_status(current_user):
         jwt_token = jwt.encode(
           payload={
+            'host': DOCS_HOST, # 必须与你的文档 URL 匹配
             'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # JWT 10 秒后过期
             'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 周会话过期时间
             'groups': ['admin'] if current_user.is_admin else [],
@@ -264,7 +268,7 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password']
           algorithm='EdDSA'
         )
 
-        return RedirectResponse(url=f'https://docs.foo.com/login/jwt-callback#{jwt_token}', status_code=302)
+        return RedirectResponse(url=f'https://{DOCS_HOST}/login/jwt-callback#{jwt_token}', status_code=302)
       ```
     </CodeGroup>
 
@@ -397,6 +401,7 @@ groups: ["admin"]
 <CodeGroup>
   ```tsx Format
   type User = {
+    host?: string;
     expiresAt?: number;
     groups?: string[];
     content?: Record<string, any>;
@@ -412,6 +417,7 @@ groups: ["admin"]
 
   ```json Example
   {
+    "host": "docs.example.com",
     "expiresAt": 1735689600,
     "groups": ["admin", "beta-users"],
     "content": {
@@ -429,6 +435,10 @@ groups: ["admin"]
   }
   ```
 </CodeGroup>
+
+<ParamField path="host" type="string">
+  **JWT 认证必填。** 文档站点的主机名。该字符串必须与你部署文档的域名完全匹配。Mintlify 会验证 JWT 中的 host 与请求的 host 是否一致，以防止 token 在不同站点间被重复使用。
+</ParamField>
 
 <ParamField path="expiresAt" type="number">
   会话过期时间，以自 epoch 起算的秒数表示。当当前时间超过该值时，用户必须重新完成认证。
