@@ -2,6 +2,10 @@
 name: "Translation lag tracker"
 on:
   cron: "3 15 * * 3"
+notify:
+  slack:
+    channel_ids:
+      - C0AKYE83VV4
 ---
 
 Compare the English MDX files in the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to find English files updated more recently than their translations.
