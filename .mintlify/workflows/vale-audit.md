@@ -2,6 +2,10 @@
 name: "Vale style audit"
 on:
   cron: "0 15 * * 4"
+notify:
+  slack:
+    channel_ids:
+      - C0AKYE83VV4
 ---
 
 # Steps

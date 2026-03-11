@@ -2,6 +2,10 @@
 name: "SEO and metadata audit"
 on:
   cron: "0 9 * * 1"
+notify:
+  slack:
+    channel_ids:
+      - C0AKYE83VV4
 automerge: false
 ---
 

@@ -8,6 +8,10 @@ on:
       branch: main
 context:
   - repo: "mintlify/docs"
+notify:
+  slack:
+    channel_ids:
+      - C0AKYE83VV4
 automerge: false
 ---
 

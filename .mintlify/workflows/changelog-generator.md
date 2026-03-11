@@ -5,6 +5,10 @@ on:
 context:
   - repo: "mintlify/server"
   - repo: "mintlify/mint"
+notify:
+  slack:
+    channel_ids:
+      - C0AKYE83VV4
 automerge: false
 ---
 
