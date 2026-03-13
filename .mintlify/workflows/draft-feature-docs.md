@@ -3,16 +3,20 @@ name: "Draft docs for new features"
 on:
   push:
     - repo: "mintlify/server"
+context:
+  - repo: "mintlify/docs"
+slack_channels:
+  - id: "C09F421M918"
+    name: "404-roast"
+  - id: "C0ADGKY425T"
+    name: "ae-dinner-approve"
       branch: main
     - repo: "mintlify/mint"
       branch: main
-context:
-  - repo: "mintlify/docs"
 notify:
   slack:
     channel_ids:
       - C0AKYE83VV4
-automerge: false
 ---
 
 Review the diff from the last merged PR in the triggering repository. Identify any new features, APIs, or other changes that require documentation.
