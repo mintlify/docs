@@ -3,11 +3,12 @@ name: "Translate changed files"
 on:
   push:
     - repo: "mintlify/docs"
-      branch: "main"
+automerge: true
 notify:
   slack:
-    channel_ids:
-      - C0AKYE83VV4
+    channels:
+      - "workflow-notos"
+      branch: "main"
 ---
 
 Translate any MDX files and API spec files changed by the last merged PR into all supported languages, and mirror any structural changes to `docs.json`.
