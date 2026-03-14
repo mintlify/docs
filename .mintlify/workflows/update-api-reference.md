@@ -3,16 +3,12 @@ name: "Update API reference"
 on:
   push:
     - repo: "mintlify/server"
-      branch: main
+      branch: "main"
     - repo: "mintlify/mint"
-      branch: main
+      branch: "main"
 context:
   - repo: "mintlify/docs"
-notify:
-  slack:
-    channel_ids:
-      - C0AKYE83VV4
-automerge: false
+automerge: true
 ---
 
 Review the diff from the last merged PR in the triggering repository for changes to API endpoints, parameters, response shapes, or error codes.
