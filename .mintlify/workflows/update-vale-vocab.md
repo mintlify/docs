@@ -4,10 +4,7 @@ on:
   push:
     - repo: "mintlify/docs"
       branch: "main"
-notify:
-  slack:
-    channel_ids:
-      - C0AKYE83VV4
+automerge: true
 ---
 
 Find words flagged by Vale spelling errors in the files changed by the last merged PR, and add valid ones to the Vale vocabulary.
