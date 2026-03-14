@@ -4,10 +4,6 @@ on:
   push:
     - repo: "mintlify/docs"
       branch: "main"
-notify:
-  slack:
-    channel_ids:
-      - C0AKYE83VV4
 ---
 
 Find words flagged by Vale spelling errors in the files changed by the last merged PR, and add valid ones to the Vale vocabulary.
@@ -20,7 +16,7 @@ Find words flagged by Vale spelling errors in the files changed by the last merg
 4. Deduplicate and sort the list alphabetically.
 5. Compare against existing entries in `.vale/styles/config/vocabularies/Mintlify/accept.txt` to find words not already present.
 6. For each new word, use judgment to determine whether it belongs in the vocabulary:
-   - Add to `accept.txt` if it's a valid technical term, product name, or proper noun used in Mintlify docs
+cal term, product name, or proper noun used in Mintlify docs
    - Skip if it appears to be a genuine misspelling or typo
 7. Alphabetize the list.
 8. If there are words to add, open a PR with the changes to `accept.txt`. If there are no new words, do nothing.
