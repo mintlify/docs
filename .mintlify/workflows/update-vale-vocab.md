@@ -1,13 +1,15 @@
 ---
 name: "Update Vale vocabulary"
 on:
-  push:
-    - repo: "mintlify/docs"
-      branch: "main"
+  cron: "0 */6 * * *"
+automerge: true
 notify:
   slack:
-    channel_ids:
-      - C0AKYE83VV4
+    channels:
+      - "ae-dinner-approve"
+      - "404-roast"
+      - "admin"
+      - "add-a-doc"
 ---
 
 Find words flagged by Vale spelling errors in the files changed by the last merged PR, and add valid ones to the Vale vocabulary.
