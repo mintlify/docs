@@ -10,16 +10,20 @@ notify:
       - C0AKYE83VV4
 ---
 
-Translate any MDX files and API spec files changed by the last merged PR into all supported languages, and mirror any structural changes to `docs.json`.
+Translate any MDX files and API spec files changed since the last translation PR into all supported languages, and mirror any structural changes to `docs.json`. There should always be at most one open translation PR. Each run closes any existing translation PR, deletes its branch, and opens a fresh one covering all changes since the previous translation PR was created.
 
 ## Steps
 
-1. Identify all files changed in the last merged PR using git, including added, modified, and deleted files.
-2. For each **deleted** English MDX file, delete the corresponding translated files in all language subdirectories (`es/`, `fr/`, `zh/`).
-3. For each **added or modified** English MDX file, translate the changed content into each supported language. Only change content changed in the git diff and any surrounding content required to maintain coherency. Write translated files to the appropriate language subdirectories, mirroring the source file path.
-4. If any root-level API spec file was changed (`openapi.json`, `discovery-openapi.json`, `analytics.openapi.json`, `admin-openapi.json`, `asyncapi.yaml`), translate the human-readable string values (such as `description`, `summary`, and `title` fields) into each supported language. Write translated files to the corresponding path in each language subdirectory (for example, `openapi.json` → `es/openapi.json`, `fr/openapi.json`, `zh/openapi.json`). Only translate prose strings—do not translate keys, enum values, types, format strings, or any other non-prose fields.
-5. If `docs.json` was changed, apply the equivalent structural changes to `docs.json` for all translated language sections. See [Updating docs.json](#updating-docsjson) for details.
-6. Open a pull request with the translated files and any `docs.json` changes.
+1. Find any open pull request in `mintlify/docs` with the label `translation`. If one exists, note its branch name, close it, and delete its branch.
+2. Determine the base commit for this translation run:
+   - If a previous translation PR was found in step 1, use the commit that was the merge base of that PR's branch and `main` at the time the PR was created (i.e., the point on `main` from which that branch diverged). This ensures no changes are missed between runs.
+   - If no previous translation PR existed, use the base commit of the last merged PR.
+3. Diff `main` from that base commit to `HEAD` to identify all added, modified, and deleted English-language files.
+4. For each **deleted** English MDX file, delete the corresponding translated files in all language subdirectories (`es/`, `fr/`, `zh/`).
+5. For each **added or modified** English MDX file, translate the content into each supported language. Write translated files to the appropriate language subdirectories, mirroring the source file path.
+6. If any root-level API spec file was changed (`openapi.json`, `discovery-openapi.json`, `analytics.openapi.json`, `admin-openapi.json`, `asyncapi.yaml`), translate the human-readable string values (such as `description`, `summary`, and `title` fields) into each supported language. Write translated files to the corresponding path in each language subdirectory (for example, `openapi.json` → `es/openapi.json`, `fr/openapi.json`, `zh/openapi.json`). Only translate prose strings—do not translate keys, enum values, types, format strings, or any other non-prose fields.
+7. If `docs.json` was changed, apply the equivalent structural changes to `docs.json` for all translated language sections. See [Updating docs.json](#updating-docsjson) for details.
+8. Open a pull request with the translated files and any `docs.json` changes. Apply the `translation` label to the PR so future runs can identify and replace it.
 
 ## Important
 
