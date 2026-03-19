@@ -50,8 +50,10 @@ Redirigez ces chemins via un proxy vers votre sous-domaine Mintlify :
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.dev`      | No cache |
 | `/.well-known/skills/*` (optional)| `<your-subdomain>.mintlify.dev/docs` | No cache |
 | `/skill.md` (optional)            | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/llms.txt` (optional)            | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/llms-full.txt` (optional)       | `<your-subdomain>.mintlify.dev/docs` | No cache |
 
-Les routes `/.well-known/skills/*` et `/skill.md` sont facultatives. Ne les incluez que si vous souhaitez servir des fichiers de compétences IA sur des chemins à la racine comme `your-domain.com/skills.md` plutôt que sous votre sous-chemin de documentation, par exemple `your-domain.com/docs/skills.md`.
+Les routes `/.well-known/skills/*`, `/skill.md`, `/llms.txt` et `/llms-full.txt` sont facultatives. Ne les incluez que si vous souhaitez servir des fichiers d'IA sur des chemins à la racine comme `your-domain.com/llms.txt` plutôt que sous votre sous-chemin de documentation, par exemple `your-domain.com/docs/llms.txt`.
 
 <div id="required-header-configuration">
   ### Configuration d’en-têtes requise
@@ -114,6 +116,29 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
+    # Fichiers d'index LLM (facultatif)
+    location = /llms.txt {
+        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location = /llms-full.txt {
+        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
     # Documentation root
     location = /docs {
         proxy_pass https://<your-subdomain>.mintlify.dev/docs;
@@ -154,13 +179,19 @@ Redirigez ces chemins vers votre sous-domaine Mintlify avec les politiques de mi
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.app` | Pas de cache      |
 | `/.well-known/skills/*`           | `<your-subdomain>.mintlify.app` | Pas de cache      |
 | `/skill.md`                       | `<your-subdomain>.mintlify.app` | Pas de cache      |
+| `/llms.txt`                       | `<your-subdomain>.mintlify.app` | Pas de cache      |
+| `/llms-full.txt`                  | `<your-subdomain>.mintlify.app` | Pas de cache      |
 | `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | Cache activé |
 | `/_mintlify/*`                    | `<your-subdomain>.mintlify.app` | Pas de cache      |
 | `/*`                              | `<your-subdomain>.mintlify.app` | Pas de cache      |
 | `/`                               | `<your-subdomain>.mintlify.app` | Pas de cache      |
 
+<Note>
+  Mintlify sert `llms.txt`, `llms-full.txt` et `skill.md` à la racine. Si votre documentation se trouve sous un sous-chemin (comme `/help`), vous pouvez également servir ces fichiers depuis ce sous-chemin (par exemple, `/help/llms.txt`). Pour cela, ajoutez des blocs location qui réécrivent le sous-chemin vers le chemin racine. Consultez l'exemple nginx ci-dessous pour les deux approches.
+</Note>
+
 <div id="required-header-configuration">
-  ### Configuration d’en-têtes requise
+  ### Configuration d'en-têtes requise
 </div>
 
 Configurez votre reverse proxy avec les en-têtes suivants :
@@ -222,6 +253,63 @@ server {
         # Disable caching for skill manifest
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
+
+    # Fichiers d'index LLM
+    location = /llms.txt {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location = /llms-full.txt {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # Facultatif : Servir les fichiers d'IA sous votre sous-chemin avec réécriture de chemin.
+    # Remplacez "/help" par votre sous-chemin. Ces blocs réécrivent le
+    # sous-chemin afin que Mintlify reçoive le chemin racine attendu.
+    #
+    # location = /help/llms.txt {
+    #     proxy_pass https://<your-subdomain>.mintlify.app/llms.txt;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_set_header User-Agent $http_user_agent;
+    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
+    # }
+    #
+    # location = /help/llms-full.txt {
+    #     proxy_pass https://<your-subdomain>.mintlify.app/llms-full.txt;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_set_header User-Agent $http_user_agent;
+    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
+    # }
+    #
+    # location = /help/skill.md {
+    #     proxy_pass https://<your-subdomain>.mintlify.app/skill.md;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_set_header User-Agent $http_user_agent;
+    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
+    # }
 
     # Static assets with caching
     location ~ ^/mintlify-assets/_next/static/ {
