@@ -50,8 +50,10 @@ Mintlify 根据你的子路径需求支持两种反向代理配置。
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.dev`      | No cache |
 | `/.well-known/skills/*` (optional)| `<your-subdomain>.mintlify.dev/docs` | No cache |
 | `/skill.md` (optional)            | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/llms.txt` (optional)            | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/llms-full.txt` (optional)       | `<your-subdomain>.mintlify.dev/docs` | No cache |
 
-`/.well-known/skills/*` 和 `/skill.md` 这两个路由是可选的。只有当你希望在站点根路径（例如 `your-domain.com/skills.md`）而不是在文档子路径下（例如 `your-domain.com/docs/skills.md`）提供 AI 技能文件时，才需要包含它们。
+`/.well-known/skills/*`、`/skill.md`、`/llms.txt` 和 `/llms-full.txt` 这些路由是可选的。只有当你希望在站点根路径（例如 `your-domain.com/llms.txt`）而不是在文档子路径下（例如 `your-domain.com/docs/llms.txt`）提供 AI 文件时，才需要包含它们。
 
 <div id="required-header-configuration">
   ### 必需的请求头配置
@@ -114,6 +116,29 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
+    # LLM 索引文件(可选)
+    location = /llms.txt {
+        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location = /llms-full.txt {
+        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
     # 文档根路径
     location = /docs {
         proxy_pass https://<your-subdomain>.mintlify.dev/docs;
@@ -154,10 +179,16 @@ server {
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.app` | 不缓存        |
 | `/.well-known/skills/*`           | `<your-subdomain>.mintlify.app` | 不缓存        |
 | `/skill.md`                       | `<your-subdomain>.mintlify.app` | 不缓存        |
+| `/llms.txt`                       | `<your-subdomain>.mintlify.app` | 不缓存        |
+| `/llms-full.txt`                  | `<your-subdomain>.mintlify.app` | 不缓存        |
 | `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | 启用缓存      |
 | `/_mintlify/*`                    | `<your-subdomain>.mintlify.app` | 不缓存        |
 | `/*`                              | `<your-subdomain>.mintlify.app` | 不缓存        |
 | `/`                               | `<your-subdomain>.mintlify.app` | 不缓存        |
+
+<Note>
+  Mintlify 在根路径提供 `llms.txt`、`llms-full.txt` 和 `skill.md`。如果你的文档位于子路径下（例如 `/help`），你也可以在该子路径下提供这些文件（例如 `/help/llms.txt`）。为此，请添加 location 块将子路径重写到根路径。请参阅下方的 nginx 示例了解这两种模式。
+</Note>
 
 <div id="required-header-configuration">
   ### 必需的请求头配置
@@ -220,6 +251,63 @@ server {
         # Disable caching for skill manifest
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
+
+    # LLM 索引文件
+    location = /llms.txt {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    location = /llms-full.txt {
+        proxy_pass https://<your-subdomain>.mintlify.app;
+        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+    }
+
+    # 可选：在你的子路径下提供 AI 文件并进行路径重写。
+    # 将 "/help" 替换为你的子路径。这些块会重写子路径，
+    # 使 Mintlify 接收到它期望的根路径。
+    #
+    # location = /help/llms.txt {
+    #     proxy_pass https://<your-subdomain>.mintlify.app/llms.txt;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_set_header User-Agent $http_user_agent;
+    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
+    # }
+    #
+    # location = /help/llms-full.txt {
+    #     proxy_pass https://<your-subdomain>.mintlify.app/llms-full.txt;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_set_header User-Agent $http_user_agent;
+    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
+    # }
+    #
+    # location = /help/skill.md {
+    #     proxy_pass https://<your-subdomain>.mintlify.app/skill.md;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_set_header User-Agent $http_user_agent;
+    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
+    # }
 
     # Static assets with caching
     location ~ ^/mintlify-assets/_next/static/ {
