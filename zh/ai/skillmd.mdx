@@ -26,7 +26,7 @@ Mintlify 会通过一个 agentic loop 分析你的文档，自动为你的项目
 </div>
 
 <Note>
-  如果你使用 [反向代理](/zh/deploy/reverse-proxy)，请将其配置为将对 `/skill.md` 和 `/.well-known/skills/*` 路径的请求转发到你的 Mintlify 子域。
+  如果你使用 [反向代理](/zh/deploy/reverse-proxy)，请将其配置为将对 `/skill.md`、`/.well-known/skills/*` 和 `/.well-known/agent-skills/*` 路径的请求转发到你的 Mintlify 子域。
 </Note>
 
 代理可以使用 [skills 命令行界面 (CLI) ](https://www.npmjs.com/package/skills) 来处理你的 `skill.md`。
@@ -93,11 +93,47 @@ metadata:
   ## Skills 发现端点
 </div>
 
-Mintlify 在 `/.well-known/skills/` 托管了一个 skills 目录，代理可以通过该目录以编程方式发现和获取你的 skill 文件。
+Mintlify 在 `/.well-known/skills/` 和 `/.well-known/agent-skills/` 托管了 skills 目录，代理可以通过这些目录以编程方式发现和获取你的 skill 文件。
 
-<div id="skills-index">
-  ### Skills 索引
+<div id="agent-skills-discovery">
+  ### Agent-skills 发现（推荐）
 </div>
+
+`/.well-known/agent-skills/` 端点遵循 [0.2.0 发现规范](https://agentskills.io/specification)，是推荐用于代理集成的端点。
+
+`GET /.well-known/agent-skills/index.json` 返回一个包含 schema 引用、内容 URL 和完整性摘要的 JSON 清单：
+
+```json
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "my-product",
+      "type": "skill-md",
+      "description": "A brief description of what your skill does.",
+      "url": "/.well-known/agent-skills/my-product/SKILL.md",
+      "digest": "sha256:a1b2c3..."
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+| ------------- | ----------------------------------------------------------- |
+| `$schema` | 用于验证的 schema URL（`discovery/0.2.0`）。 |
+| `name` | URL 安全的 slug，源自你 `skill.md` frontmatter 中的 `name` 字段。 |
+| `type` | 固定值 `skill-md`。 |
+| `description` | frontmatter 中描述的前 1024 个字符。 |
+| `url` | skill 文件的相对 URL。 |
+| `digest` | 文件内容的 SHA-256 哈希值，前缀为 `sha256:`。用于验证内容完整性或检测变更。 |
+
+`GET /.well-known/agent-skills/{name}/SKILL.md` 返回通过索引中 slugified 名称标识的特定 skill 的文件。
+
+<div id="skills-discovery-legacy">
+  ### Skills 发现（旧格式）
+</div>
+
+`/.well-known/skills/` 端点使用更简单的格式，不包含 schema 验证或内容摘要。
 
 `GET /.well-known/skills/index.json` 返回一个 JSON 清单，列出所有可用的 skills：
 
@@ -114,9 +150,5 @@ Mintlify 在 `/.well-known/skills/` 托管了一个 skills 目录，代理可以
 ```
 
 `name` 字段是一个 URL 安全的 slug，源自你 `skill.md` frontmatter 中的 `name` 字段。
-
-<div id="individual-skill-files">
-  ### 单个 skill 文件
-</div>
 
 `GET /.well-known/skills/{name}/skill.md` 返回通过索引中 slugified 名称标识的特定 skill 的 `skill.md` 文件。
