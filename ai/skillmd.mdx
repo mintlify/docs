@@ -24,7 +24,7 @@ View your `skill.md` by appending `/skill.md` to your documentation site's URL. 
 ## Use `skill.md` files with agents
 
 <Note>
-  If you use a [reverse proxy](/deploy/reverse-proxy), configure it to forward `/skill.md` and `/.well-known/skills/*` paths to your Mintlify subdomain.
+  If you use a [reverse proxy](/deploy/reverse-proxy), configure it to forward `/skill.md`, `/.well-known/agent-skills/*`, and `/.well-known/skills/*` paths to your Mintlify subdomain.
 </Note>
 
 Agents can process your `skill.md` with the [skills CLI](https://www.npmjs.com/package/skills).
@@ -83,9 +83,48 @@ metadata:
 
 ## Skills discovery endpoints
 
-Mintlify hosts a skills directory at `/.well-known/skills/` that agents can use to discover and fetch your skill files programmatically.
+Mintlify hosts skills discovery directories that agents can use to discover and fetch your skill files programmatically. Two endpoints are available:
 
-### Skills index
+- `/.well-known/agent-skills/` — follows the [Agent Skills Discovery v0.2.0](https://schemas.agentskills.io/discovery/0.2.0/schema.json) schema. Use this endpoint for agents that support the latest discovery protocol.
+- `/.well-known/skills/` — the original skills directory. Both endpoints serve the same underlying skill data.
+
+<Note>
+  If you use a [reverse proxy](/deploy/reverse-proxy), configure it to forward both `/.well-known/agent-skills/*` and `/.well-known/skills/*` paths to your Mintlify subdomain.
+</Note>
+
+### Agent skills index
+
+`GET /.well-known/agent-skills/index.json` returns a JSON manifest following the Agent Skills Discovery schema:
+
+```json
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "my-product",
+      "type": "skill-md",
+      "description": "A brief description of what your skill does.",
+      "url": "/.well-known/agent-skills/my-product/SKILL.md",
+      "digest": "sha256-..."
+    }
+  ]
+}
+```
+
+| Field         | Description                                                                 |
+| ------------- | --------------------------------------------------------------------------- |
+| `$schema`     | The schema URL identifying the discovery protocol version.                  |
+| `name`        | A URL-safe slug derived from the `name` in your `skill.md` frontmatter.    |
+| `type`        | The skill type. Always `skill-md` for Mintlify-hosted skills.              |
+| `description` | A brief description of what your skill does, truncated to 1024 characters. |
+| `url`         | The relative URL to fetch the full `skill.md` file.                        |
+| `digest`      | A SHA-256 digest of the skill file contents for cache validation.          |
+
+### Agent skills individual files
+
+`GET /.well-known/agent-skills/{name}/SKILL.md` returns the `skill.md` file for a specific skill identified by its slugified name from the index.
+
+### Legacy skills index
 
 `GET /.well-known/skills/index.json` returns a JSON manifest listing all available skills:
 
@@ -103,6 +142,6 @@ Mintlify hosts a skills directory at `/.well-known/skills/` that agents can use 
 
 The `name` field is a URL-safe slug derived from the `name` in your `skill.md` frontmatter.
 
-### Individual skill files
+### Legacy individual skill files
 
 `GET /.well-known/skills/{name}/skill.md` returns the `skill.md` file for a specific skill identified by its slugified name from the index.
