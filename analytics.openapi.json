@@ -455,7 +455,7 @@
                 },
                 "total": {
                   "type": "number",
-                  "description": "Unique visitors from all traffic."
+                  "description": "Approx. distinct visitors with any qualifying view on this path (deduplicated across human and AI)."
                 }
               },
               "required": [
@@ -474,6 +474,55 @@
         "required": [
           "totals",
           "visitors",
+          "hasMore"
+        ]
+      },
+      "FeedbackGroupedByPageResponse": {
+        "type": "object",
+        "properties": {
+          "feedback": {
+            "type": "array",
+            "description": "Per-page feedback aggregates.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "The documentation page path."
+                },
+                "thumbsUp": {
+                  "type": "number",
+                  "description": "Number of thumbs up ratings on this page."
+                },
+                "thumbsDown": {
+                  "type": "number",
+                  "description": "Number of thumbs down ratings on this page."
+                },
+                "code": {
+                  "type": "number",
+                  "description": "Number of code snippet feedback entries on this page."
+                },
+                "total": {
+                  "type": "number",
+                  "description": "Total feedback count on this page."
+                }
+              },
+              "required": [
+                "path",
+                "thumbsUp",
+                "thumbsDown",
+                "code",
+                "total"
+              ]
+            }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether more results exist beyond this page."
+          }
+        },
+        "required": [
+          "feedback",
           "hasMore"
         ]
       }
@@ -604,6 +653,111 @@
         }
       }
     },
+    "/v1/analytics/{projectId}/feedback/by-page": {
+      "get": {
+        "summary": "Get feedback grouped by page",
+        "description": "Returns feedback counts (thumbs up/down, code snippets, total) aggregated by page path",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Date in ISO 8601 or YYYY-MM-DD format",
+              "example": "2024-01-01"
+            },
+            "required": false,
+            "name": "dateFrom",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Date in ISO 8601 or YYYY-MM-DD format. `dateTo` is an exclusive upper limit. Results include dates before, but not on, the specified date.",
+              "example": "2024-01-01"
+            },
+            "required": false,
+            "name": "dateTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "description": "Max results per page (default 10)"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "code_snippet",
+                "contextual"
+              ],
+              "description": "Filter by feedback source"
+            },
+            "required": false,
+            "name": "source",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated list of statuses to filter by"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-page feedback aggregates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackGroupedByPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/analytics/{projectId}/assistant": {
       "get": {
         "summary": "Get assistant conversations",
@@ -700,7 +854,7 @@
     "/v1/analytics/{projectId}/views/by-page": {
       "get": {
         "summary": "Get page views by path",
-        "description": "Returns per-path and site-wide view counts broken down by human and AI traffic. Views are raw event counts, not unique.",
+        "description": "Returns per-path and site-wide content view event counts.",
         "tags": [
           "Analytics"
         ],
@@ -794,7 +948,7 @@
     "/v1/analytics/{projectId}/visitors/by-page": {
       "get": {
         "summary": "Get unique visitors by page",
-        "description": "Returns per-path and site-wide unique visitor counts broken down by human and AI traffic. Visitors are distinct by user or anonymous ID.",
+        "description": "Returns per-path and site-wide approximate distinct visitors by traffic type. `total` is deduplicated across human and AI (union of distinct visitor ids with any qualifying content view).",
         "tags": [
           "Analytics"
         ],
