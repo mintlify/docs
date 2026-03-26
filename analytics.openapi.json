@@ -465,6 +465,122 @@
           "totalSearches",
           "nextCursor"
         ]
+      },
+      "ViewsTrafficTotals": {
+        "type": "object",
+        "properties": {
+          "human": {
+            "type": "number",
+            "description": "Site-wide content view events from human traffic."
+          },
+          "ai": {
+            "type": "number",
+            "description": "Site-wide content view events from AI bot traffic."
+          },
+          "total": {
+            "type": "number",
+            "description": "Site-wide content view events."
+          }
+        },
+        "required": ["human", "ai", "total"]
+      },
+      "ViewsByPageResponse": {
+        "type": "object",
+        "properties": {
+          "totals": {
+            "$ref": "#/components/schemas/ViewsTrafficTotals",
+            "description": "Site-wide view totals for the date range."
+          },
+          "views": {
+            "type": "array",
+            "description": "Per-page view counts.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "The documentation page path."
+                },
+                "human": {
+                  "type": "number",
+                  "description": "Content view events on this path from human traffic."
+                },
+                "ai": {
+                  "type": "number",
+                  "description": "Content view events on this path from AI bot traffic."
+                },
+                "total": {
+                  "type": "number",
+                  "description": "Total content view events on this path."
+                }
+              },
+              "required": ["path", "human", "ai", "total"]
+            }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether additional results are available beyond this page."
+          }
+        },
+        "required": ["totals", "views", "hasMore"]
+      },
+      "VisitorsTrafficTotals": {
+        "type": "object",
+        "properties": {
+          "human": {
+            "type": "number",
+            "description": "Site-wide unique visitors from human traffic."
+          },
+          "ai": {
+            "type": "number",
+            "description": "Site-wide unique visitors from AI bot traffic."
+          },
+          "total": {
+            "type": "number",
+            "description": "Site-wide approximate distinct visitors with any qualifying view (deduplicated across human and AI)."
+          }
+        },
+        "required": ["human", "ai", "total"]
+      },
+      "VisitorsByPageResponse": {
+        "type": "object",
+        "properties": {
+          "totals": {
+            "$ref": "#/components/schemas/VisitorsTrafficTotals",
+            "description": "Site-wide unique visitor totals for the date range."
+          },
+          "visitors": {
+            "type": "array",
+            "description": "Per-page visitor counts.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "The documentation page path."
+                },
+                "human": {
+                  "type": "number",
+                  "description": "Unique visitors from human traffic."
+                },
+                "ai": {
+                  "type": "number",
+                  "description": "Unique visitors from AI bot traffic."
+                },
+                "total": {
+                  "type": "number",
+                  "description": "Approximate distinct visitors with any qualifying view on this path (deduplicated across human and AI)."
+                }
+              },
+              "required": ["path", "human", "ai", "total"]
+            }
+          },
+          "hasMore": {
+            "type": "boolean",
+            "description": "Whether additional results are available beyond this page."
+          }
+        },
+        "required": ["totals", "visitors", "hasMore"]
       }
     },
     "parameters": {
@@ -862,6 +978,194 @@
           },
           "400": {
             "description": "Invalid query parameters or cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/analytics/{projectId}/views": {
+      "get": {
+        "summary": "Get page views",
+        "description": "Returns per-path and site-wide content view event counts, split by human and AI traffic.",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Date in ISO 8601 or YYYY-MM-DD format",
+              "example": "2024-01-01"
+            },
+            "required": false,
+            "name": "dateFrom",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Date in ISO 8601 or YYYY-MM-DD format. `dateTo` is an exclusive upper limit. Results include dates before, but not on, the specified date.",
+              "example": "2024-01-01"
+            },
+            "required": false,
+            "name": "dateTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 250,
+              "default": 50,
+              "description": "Max results per page (1-250, default 50). Increment offset by limit while hasMore is true to paginate."
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "description": "Number of rows to skip. Use offset = (page - 1) * limit for page-based access."
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site-wide and per-path content view event counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewsByPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/analytics/{projectId}/visitors": {
+      "get": {
+        "summary": "Get unique visitors",
+        "description": "Returns per-path and site-wide approximate distinct visitors by traffic type. The `total` field is deduplicated across human and AI (union of distinct visitor IDs with any qualifying content view).",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Date in ISO 8601 or YYYY-MM-DD format",
+              "example": "2024-01-01"
+            },
+            "required": false,
+            "name": "dateFrom",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Date in ISO 8601 or YYYY-MM-DD format. `dateTo` is an exclusive upper limit. Results include dates before, but not on, the specified date.",
+              "example": "2024-01-01"
+            },
+            "required": false,
+            "name": "dateTo",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 250,
+              "default": 50,
+              "description": "Max results per page (1-250, default 50). Increment offset by limit while hasMore is true to paginate."
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "description": "Number of rows to skip. Use offset = (page - 1) * limit for page-based access."
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Site-wide totals and per-path visitor counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisitorsByPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
             "content": {
               "application/json": {
                 "schema": {
