@@ -106,6 +106,63 @@ keywords: ["SSO", "SAML 认证", "Okta 集成", "Microsoft Entra", "身份提供
 
 要启用 JIT 预配，你必须先启用 SSO。前往控制台中的 [Single Sign-On](https://dashboard.mintlify.com/settings/organization/sso) 页面，完成 SSO 设置，然后启用 JIT 预配。
 
+<div id="map-rbac-roles-with-saml-groups">
+  ## 将 RBAC 角色映射到 SAML 组
+</div>
+
+根据用户在身份提供商中的组成员身份分配[角色](/zh/dashboard/roles)。当用户通过 SSO 登录时，Mintlify 会读取 SAML 断言中的 `groups` 属性，并将这些组映射到控制台角色。
+
+<div id="configure-group-attribute-statements">
+  ### 配置组属性声明
+</div>
+
+在你的 SAML 身份提供商配置中添加 `groups` 属性声明。该属性必须使用 `unspecified` 名称格式。
+
+生成的 SAML 断言应包含一个 `AttributeStatement`。
+
+```xml Example SAML assertion
+<saml2:AttributeStatement xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">
+    <saml2:Attribute Name="groups" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">
+        <saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                              xsi:type="xs:string">Everyone</saml2:AttributeValue>
+        <saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                              xsi:type="xs:string">Engineering</saml2:AttributeValue>
+        <saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                              xsi:type="xs:string">Admins</saml2:AttributeValue>
+    </saml2:Attribute>
+</saml2:AttributeStatement>
+```
+
+**关键要求：**
+- 属性名称必须为 `groups`（区分大小写）
+- 名称格式必须为 `urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified`
+- 用户所属的每个组应为单独的 `AttributeValue` 元素
+
+<Tabs>
+  <Tab title="Okta">
+    在你的 Okta SAML 应用配置中，添加一个组属性声明：
+
+    | Name | Name format | Filter | Value |
+    | ---- | ----------- | ------ | ----- |
+    | `groups` | Unspecified | Matches regex | `.*` |
+
+    调整过滤器以匹配你希望发送到 Mintlify 的特定组。
+  </Tab>
+  <Tab title="Microsoft Entra">
+    在你的 Microsoft Entra 企业应用中：
+
+    1. 导航到 **Single Sign-On** > **Attributes & Claims**。
+    2. 选择 **Add a group claim**。
+    3. 选择要包含的组（所有组或特定组）。
+    4. 在 **Advanced options** 下，勾选 **Customize the name of the group claim** 并将名称设置为 `groups`。
+  </Tab>
+</Tabs>
+
+配置完成后，Mintlify 会将 SAML 断言中的组名称映射到你组织中的角色。要设置或修改组到角色的映射，请联系你的 Mintlify 客户代表。
+
 <div id="change-or-remove-sso-provider">
   ## 更改或移除 SSO 提供商
 </div>
