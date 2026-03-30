@@ -98,6 +98,59 @@ When you enable JIT (just-in-time) provisioning, users who sign in through your 
 
 To enable JIT provisioning, you must have SSO enabled. Navigate to the [Single Sign-On](https://dashboard.mintlify.com/settings/organization/sso) page in your dashboard, set up SSO, and then enable JIT provisioning.
 
+## RBAC role mapping with SAML groups
+
+You can automatically assign [roles](/dashboard/roles) to users based on their identity provider group membership. When a user signs in through SSO, Mintlify reads the `groups` attribute from the SAML assertion and maps those groups to dashboard roles.
+
+### Configure group attribute statements
+
+Add a `groups` attribute statement to your SAML identity provider configuration. The attribute must use the `unspecified` name format.
+
+The resulting SAML assertion should include an `AttributeStatement` like this:
+
+```xml
+<saml2:AttributeStatement xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">
+    <saml2:Attribute Name="groups" NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified">
+        <saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                              xsi:type="xs:string">Everyone</saml2:AttributeValue>
+        <saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                              xsi:type="xs:string">Engineering</saml2:AttributeValue>
+        <saml2:AttributeValue xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                              xsi:type="xs:string">Admins</saml2:AttributeValue>
+    </saml2:Attribute>
+</saml2:AttributeStatement>
+```
+
+Key requirements:
+- The attribute name must be `groups` (case-sensitive)
+- The name format must be `urn:oasis:names:tc:SAML:2.0:attrname-format:unspecified`
+- Each group the user belongs to should be a separate `AttributeValue` element
+
+<Tabs>
+  <Tab title="Okta">
+    In your Okta SAML app configuration, add a group attribute statement:
+
+    | Name | Name format | Filter | Value |
+    | ---- | ----------- | ------ | ----- |
+    | `groups` | Unspecified | Matches regex | `.*` |
+
+    Adjust the filter to match the specific groups you want to send to Mintlify.
+  </Tab>
+  <Tab title="Microsoft Entra">
+    In your Microsoft Entra enterprise application:
+
+    1. Navigate to **Single Sign-On** > **Attributes & Claims**.
+    2. Select **Add a group claim**.
+    3. Select which groups to include (all groups or specific ones).
+    4. Under **Advanced options**, check **Customize the name of the group claim** and set the name to `groups`.
+  </Tab>
+</Tabs>
+
+Once configured, Mintlify maps the group names from the SAML assertion to roles in your organization. You can manage these mappings in the [Single Sign-On](https://dashboard.mintlify.com/settings/organization/sso) page of your dashboard.
+
 ## Change or remove SSO provider
 
 1. Navigate to the [Single Sign-On](https://dashboard.mintlify.com/settings/organization/sso) page in your dashboard.
