@@ -28,16 +28,18 @@ Cuando una aplicación de IA se conecta a tu servidor MCP de documentación, pue
   Algunas herramientas de IA como Claude son compatibles tanto con MCP como con Skills. MCP da a la IA acceso al contenido de tu documentación, mientras que Skills le indican a la IA cómo usar ese contenido de forma eficaz. Son complementarios. MCP proporciona los datos y Skills proporcionan las instrucciones.
 </Tip>
 
-<div id="search-filtering-parameters">
-  ### Parámetros de filtrado de búsqueda
+<div id="search-parameters">
+  ### Parámetros de búsqueda
 </div>
 
-La herramienta de búsqueda de Model Context Protocol (MCP) admite parámetros de filtrado opcionales que las aplicaciones de IA usan para acotar los resultados de búsqueda.
+La herramienta de búsqueda MCP admite parámetros opcionales que las aplicaciones de IA usan para controlar y refinar los resultados de búsqueda.
 
+* **`pageSize`**: Número de resultados a devolver, entre 1 y 50. El valor predeterminado es 10.
+* **`scoreThreshold`**: Puntuación mínima de relevancia entre 0 y 1. Solo devuelve resultados que alcancen o superen este umbral. Úsalo para filtrar coincidencias de baja relevancia.
 * **`version`**: Filtra los resultados a una versión específica de la documentación. Por ejemplo, `'v0.7'`. Solo devuelve contenido etiquetado con la versión especificada o contenido disponible en todas las versiones.
 * **`language`**: Filtra los resultados a un código de idioma específico. Por ejemplo, `'en'`, `'zh'` o `'es'`. Solo devuelve contenido en el idioma especificado o contenido disponible en todos los idiomas.
 
-Las aplicaciones de IA determinan cuándo aplicar estos filtros en función del contexto de la búsqueda del usuario. Por ejemplo, si un usuario pregunta por una versión específica de la API, la aplicación de IA puede aplicar automáticamente el filtro adecuado para ofrecer resultados más relevantes.
+Las aplicaciones de IA determinan cuándo aplicar estos parámetros en función del contexto de la búsqueda del usuario. Por ejemplo, si un usuario pregunta por una versión específica de la API, la aplicación de IA puede aplicar automáticamente el filtro adecuado para ofrecer resultados más relevantes.
 
 <div id="mcp-compared-to-web-search">
   ### MCP en comparación con la búsqueda en la web
@@ -68,7 +70,7 @@ Puedes ver y copiar la URL de tu servidor MCP en la [página del servidor MCP](h
 </Frame>
 
 <Note>
-  Los servidores MCP alojados utilizan la ruta `/mcp` en sus URL. Otros elementos de navigation no pueden utilizar la ruta `/mcp`.
+  Los servidores MCP alojados utilizan las rutas `/mcp` y `/authed/mcp`. Otros elementos de navegación no pueden utilizar estas rutas.
 </Note>
 
 <div id="enable-authenticated-mcp">
@@ -77,7 +79,12 @@ Puedes ver y copiar la URL de tu servidor MCP en la [página del servidor MCP](h
 
 Si tu documentación requiere autenticación, tu servidor MCP exige que los usuarios se autentiquen antes de conectarse. Cuando un usuario añade la URL de tu servidor MCP a su herramienta de IA, debe iniciar sesión con sus credenciales existentes. Después de autenticarse, se le redirige de vuelta a su herramienta. El servidor MCP solo devuelve el contenido al que cada usuario tiene permiso de acceso según sus [grupos de usuarios](/es/deploy/authentication-setup).
 
-Si tu documentación tiene autenticación parcial con páginas públicas y protegidas, los usuarios pueden conectarse a tu servidor MCP sin autenticarse para acceder al contenido público. Los usuarios que se autentican obtienen acceso al contenido protegido que tienen disponible.
+Si tu documentación tiene autenticación parcial con páginas públicas y protegidas, dispones de dos endpoints del servidor MCP:
+
+- `/mcp`: No requiere autenticación. Devuelve solo contenido público. Comparte este endpoint con usuarios que necesiten acceso al contenido público.
+- `/authed/mcp`: Siempre requiere autenticación. Devuelve contenido según los permisos de cada usuario basados en sus [grupos de usuarios](/es/deploy/authentication-setup). Comparte este endpoint con usuarios que necesiten acceso al contenido protegido.
+
+El endpoint `/authed/mcp` utiliza su propio flujo OAuth en `/authed/mcp/oauth/*`. Los dominios de redirección configurados para tu servidor MCP se aplican tanto a `/mcp` como a `/authed/mcp`.
 
 De forma predeterminada, tu servidor MCP solo está disponible para herramientas en localhost. Para permitir que se conecten herramientas basadas en la web, agrega los dominios de redirección de las herramientas de IA. Un dominio de redirección es el nombre de host que usa una herramienta de IA después de que un usuario completa la autenticación, como `claude.ai` o `app.cursor.ai`. Las herramientas de IA de tus usuarios no pueden completar la autenticación a menos que su dominio de redirección esté en esta lista.
 
@@ -89,6 +96,8 @@ De forma predeterminada, tu servidor MCP solo está disponible para herramientas
 
   <Step title="Agregar dominios de redirección">
     Agrega los dominios de redirección de las herramientas de IA a las que quieres dar acceso a tus usuarios. Las herramientas de IA de tus usuarios no pueden completar la autenticación a menos que su dominio de redirección esté en esta lista. Entre los dominios de redirección más comunes están `claude.ai` y `vscode.dev/redirect`.
+
+    De forma predeterminada, los dominios de redirección utilizan `https://`. Para permitir un esquema de protocolo personalizado, incluye el protocolo completo en la entrada del dominio. Por ejemplo, un callback de aplicación nativa como `myapp://callback`. Mintlify siempre bloquea protocolos peligrosos como `javascript:`, `data:` y `file:`.
 
     Las direcciones loopback (`localhost`, `127.0.0.1`) siempre son de confianza y no es necesario agregarlas.
   </Step>
@@ -102,8 +111,8 @@ Para proteger la disponibilidad, Mintlify aplica límites de uso a los servidore
 
 | Alcance                             | Límite                     | Descripción                                                                       |
 | :---------------------------------- | :------------------------- | :-------------------------------------------------------------------------------- |
-| Por usuario (dirección IP)          | 5.000 solicitudes por hora | Limita la frecuencia con la que un solo usuario puede buscar en tu documentación. |
-| Por sitio de documentación (domain) | 1.000 solicitudes por hora | Limita el total de búsquedas entre todos los usuarios de tu servidor MCP.         |
+| Por usuario (dirección IP)          | 5.000 solicitudes por hora | Limita la frecuencia con la que un solo usuario puede consultar la configuración de tu servidor MCP. |
+| Por sitio de documentación (domain) | 10.000 solicitudes por hora | Limita el total de búsquedas entre todos los usuarios de tu servidor MCP.         |
 
 <div id="content-filtering-and-indexing">
   ## Filtrado de contenido e indexación
