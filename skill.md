@@ -100,8 +100,8 @@ Optional frontmatter fields:
 
 - Match existing naming patterns in the directory
 - If there are no existing files or inconsistent file naming patterns, use kebab-case: `getting-started.mdx`, `api-reference.mdx`
-- Use root-relative paths without file extensions for internal links: `/getting-started/quickstart`
-- Do not use relative paths (`../`) or absolute URLs for internal pages
+- Use relative paths without file extensions for internal links: `getting-started/quickstart`
+- Do not use absolute paths (`/page`) or absolute URLs for internal pages
 - When you create a new page, add it to `docs.json` navigation or it won't appear in the sidebar
 
 ## Organize content
@@ -139,8 +139,8 @@ The `navigation` property in `docs.json` controls site structure. Choose one pri
 
 ### Links and paths
 
-- **Internal links:** Root-relative, no extension: `/getting-started/quickstart`
-- **Images:** Store in `/images`, reference as `/images/example.png`
+- **Internal links:** Relative paths, no extension: `getting-started/quickstart`
+- **Images:** Store in `images/`, reference as `images/example.png`
 - **External links:** Use full URLs, they open in new tabs automatically
 
 ## Customize docs sites
@@ -188,7 +188,7 @@ The [components overview](https://mintlify.com/docs/components) organizes all co
 **When NOT to use snippets:**
 - Slight variations needed per page (leads to complex props)
 
-Import snippets with `import { Component } from "/path/to/snippet-name.jsx"`.
+Import snippets with `import { Component } from "snippets/snippet-name.jsx"`.
 
 ## Writing standards
 
@@ -292,7 +292,7 @@ Before submitting:
 
 - [ ] Frontmatter includes title and description
 - [ ] All code blocks have language tags
-- [ ] Internal links use root-relative paths without file extensions
+- [ ] Internal links use relative paths without file extensions
 - [ ] New pages are added to `docs.json` navigation
 - [ ] Content matches the style of surrounding pages
 - [ ] No marketing language or filler phrases
