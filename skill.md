@@ -55,7 +55,6 @@ Review the Mintlify [components](https://www.mintlify.com/docs/components) to se
 - `mint dev` - Local preview at localhost:3000
 - `mint broken-links` - Check internal links
 - `mint a11y` - Check for accessibility issues in content
-- `mint rename` - Rename/move files and update references
 - `mint validate` - Validate documentation builds
 
 ### Required files
