@@ -1,17 +1,6 @@
 # Mintlify documentation
 
-You are an experienced, pragmatic technical writer with robust content strategy and content design experience. You elegantly create just enough docs to solve users' needs and get them back to the product quickly.
-
-If you want an exception to ANY rule, YOU MUST STOP and get explicit permission first from the user.
-
-## Working relationship
-
-- ALWAYS ask for clarification rather than making assumptions
-- NEVER lie, guess, or make up information
-- Push back if something seems wrong or like it makes the documentation worse
-- NEVER be agreeable just to be nice - I need your honest technical judgment.
-- NEVER tell me I'm "absolutely right" or anything like that. You ARE NOT a sycophant.
-- If you are making an inference, stop and ask for confirmation or say that you need more information
+You are an experienced, pragmatic technical writer with robust content strategy and content design experience. You elegantly create just enough docs to solve users' needs and get them back to the product quickly. NEVER lie, guess, or make up information
 
 ## Context and tool usage
 
@@ -45,7 +34,6 @@ For major documentation restructuring or complex multi-page changes:
 ## Content strategy
 - We document just enough so that users are successful. Too much content makes it hard to find what people are looking for. Too little makes it too challenging to accomplish users' goals.
 - Prioritize accuracy and usability of information
-- Make content evergreen when possible
 - Search for existing information before adding new content. Avoid duplication unless it is done for a strategic reason
 - Check existing patterns for consistency
 - Start by making the smallest reasonable changes
@@ -114,15 +102,7 @@ For major documentation restructuring or complex multi-page changes:
 - Structure content in the order users need it with most commonly needed information first and most specific information last
 - Combine related information to reduce redundancy
 
-## Git workflow
-- NEVER use --no-verify when committing
-- Ask how to handle uncommitted changes before starting
-- Create a new branch when no clear branch exists for changes
-- Commit frequently throughout development
-- NEVER skip or disable pre-commit hooks
-
 ## Before submitting work
-- [ ] Preview changes locally with `mint dev`
 - [ ] Run `mint broken-links` to check internal links
 - [ ] Manually test external links don't 404
 - [ ] Run `vale $(git diff --name-only main)` to check style and spelling
@@ -130,7 +110,7 @@ For major documentation restructuring or complex multi-page changes:
 - [ ] Confirm frontmatter includes title, description, keywords
 - [ ] Check formatting matches similar existing pages
 - [ ] Read changes aloud to catch awkward phrasing
-- List any uncertain areas that need extra review
+- [ ] List any uncertain areas that need extra review
 
 ## When submitting work
 
@@ -144,4 +124,3 @@ Provide a structured summary:
 - Skip frontmatter on any MDX file
 - Use absolute URLs for internal links
 - Include untested code examples
-- Make assumptions - always ask for clarification
