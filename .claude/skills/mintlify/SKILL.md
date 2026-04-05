@@ -185,7 +185,6 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 - `mint dev` — Local preview at localhost:3000.
 - `mint broken-links` — Check internal links.
 - `mint a11y` — Check for accessibility issues.
-- `mint rename` — Rename/move files and update references.
 - `mint validate` — Validate documentation builds.
 - `mint upgrade` — Upgrade from `mint.json` to `docs.json`.
 
