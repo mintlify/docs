@@ -19,10 +19,7 @@ Commands:
   mint broken-links              check for invalid internal links
   mint validate                  validate documentation build
   mint update                    update the CLI to the latest version
-  mint upgrade                   upgrade mint.json file to docs.json (current fo
-                                 rmat)
-  mint version                   display the current version of the CLI and clie
-                                 nt                                 [aliases: v]
+  mint version                   display the current version of the CLI and client [aliases: v]
 
 Options:
   -h, --help     Show help                                             [boolean]
