@@ -3,7 +3,7 @@ allowed-tools: Bash(mint *), Bash(vale *)
 description: Check documentation for broken links, Vale style errors, and OpenAPI spec validity. Fix linting issues found. Use when the user asks to lint, check for broken links, run Vale, or fix documentation errors.
 ---
 
-Run `mint broken-links` and check the given git diff. For OpenAPI reference updates run `mint openai-check`.
+Run `mint broken-links` and check the given git diff. For OpenAPI validation run `mint validate`.
 
 If the Vale CLI exists, run a Vale check on all changed files.
 
@@ -16,18 +16,10 @@ mint <command>
 
 Commands:
   mint dev                       initialize a local preview environment
-  mint openapi-check <filename>  check if an OpenAPI spec is valid
   mint broken-links              check for invalid internal links
-  mint rename <from> <to>        rename a file and update all internal link refe
-                                 rences
+  mint validate                  validate documentation build
   mint update                    update the CLI to the latest version
-  mint upgrade                   upgrade mint.json file to docs.json (current fo
-                                 rmat)
-  mint migrate-mdx               migrate MDX OpenAPI endpoint pages to x-mint ex
-                                 tensions and docs.json
-  mint ai [prompt]               Use ai to document a page
-  mint version                   display the current version of the CLI and clie
-                                 nt                                 [aliases: v]
+  mint version                   display the current version of the CLI and client [aliases: v]
 
 Options:
   -h, --help     Show help                                             [boolean]
