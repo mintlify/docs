@@ -1,0 +1,99 @@
+---
+title: "Marvel API integration"
+description: "Integrate the Marvel Developer API with your documentation to display character data, comic information, and other Marvel Universe content."
+keywords: ["Marvel API", "Marvel Developer API", "Marvel Comics API", "API integration"]
+---
+
+The [Marvel Developer API](https://developer.marvel.com/) provides access to Marvel's catalog of comics, characters, creators, events, and stories. You can use it to enrich your documentation with dynamic Marvel Universe content.
+
+## Prerequisites
+
+- A Marvel Developer account at [developer.marvel.com](https://developer.marvel.com/)
+- Your Marvel API public and private keys
+- A server-side environment to handle API authentication
+
+## Authentication
+
+Marvel's API uses a key-based authentication system. Every request requires three parameters:
+
+| Parameter | Description |
+| --------- | ----------- |
+| `apikey`  | Your public API key |
+| `ts`      | A timestamp or incrementing value |
+| `hash`    | An MD5 hash of `ts + privateKey + publicKey` |
+
+<Warning>
+Never expose your private API key in client-side code. Generate the hash server-side and pass only the public key and hash to the client.
+</Warning>
+
+### Generate the authentication hash
+
+```javascript
+import crypto from "crypto";
+
+function getMarvelAuth(publicKey, privateKey) {
+  const ts = Date.now().toString();
+  const hash = crypto
+    .createHash("md5")
+    .update(ts + privateKey + publicKey)
+    .digest("hex");
+
+  return { ts, apikey: publicKey, hash };
+}
+```
+
+## Make your first request
+
+Fetch a list of Marvel characters with the following example:
+
+```javascript
+const BASE_URL = "https://gateway.marvel.com/v1/public";
+
+async function getCharacters(publicKey, privateKey) {
+  const auth = getMarvelAuth(publicKey, privateKey);
+  const params = new URLSearchParams(auth);
+
+  const response = await fetch(`${BASE_URL}/characters?${params}`);
+  const data = await response.json();
+
+  return data.data.results;
+}
+```
+
+## Common endpoints
+
+| Endpoint | Description |
+| -------- | ----------- |
+| `/v1/public/characters` | List Marvel characters |
+| `/v1/public/comics` | List comics |
+| `/v1/public/creators` | List creators |
+| `/v1/public/events` | List events |
+| `/v1/public/series` | List series |
+
+Each endpoint supports query parameters for filtering and pagination. See the [Marvel API interactive documentation](https://developer.marvel.com/docs) for the full parameter list.
+
+## Display character data in your docs
+
+You can use the Marvel API to pull character data and display it in your documentation using Mintlify components.
+
+```mdx
+<Card title="Spider-Man" icon="spider">
+  First appeared in Amazing Fantasy #15 (1962). Created by Stan Lee and Steve Ditko.
+</Card>
+```
+
+<Tip>
+Cache API responses to avoid hitting Marvel's rate limit of 3,000 calls per day.
+</Tip>
+
+## Rate limits and attribution
+
+Marvel enforces the following usage requirements:
+
+- **Rate limit**: 3,000 API calls per day
+- **Attribution**: You must visibly credit Marvel when displaying their data. Include the attribution text returned in each API response.
+- **Image usage**: Images must link back to the Marvel page for that resource
+
+<Note>
+Review the full [Marvel API terms of use](https://developer.marvel.com/terms) before integrating.
+</Note>
