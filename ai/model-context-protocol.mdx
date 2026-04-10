@@ -104,6 +104,90 @@ By default, your MCP server is only available for localhost tools. To allow web-
   </Step>
 </Steps>
 
+### Client credentials
+
+Client credentials let you connect to your authenticated MCP server programmatically without a browser-based login. Use client credentials for server-side integrations, CI/CD pipelines, automated workflows, and any environment where a user cannot complete an interactive OAuth flow.
+
+Client credentials authenticate against the `/authed/mcp` endpoint and return the same content as an authenticated user with access to all pages.
+
+<Steps>
+  <Step title="Create a client credential">
+    1. Navigate to the [MCP server page](https://dashboard.mintlify.com/products/mcp) in your dashboard.
+    2. In the **Client Credentials** section, select **Create credential**.
+    3. Enter a label for the credential to identify its purpose.
+    4. Copy the **client ID** and **client secret**. The client secret is only shown once. You cannot retrieve it later.
+  </Step>
+  <Step title="Exchange credentials for an access token">
+    Send a POST request to your MCP server's token endpoint with your client ID and secret. Your token endpoint is at the `/authed/mcp/oauth/token` path of your documentation URL.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET'
+    ```
+
+    ```bash cURL (Basic Auth)
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=client_credentials'
+    ```
+    </CodeGroup>
+
+    The response includes an access token:
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "token_type": "Bearer",
+      "expires_in": 1209600,
+      "scope": "mcp:search"
+    }
+    ```
+
+    Access tokens expire after 14 days. Request a new token when the current one expires.
+  </Step>
+  <Step title="Connect to the MCP server">
+    Use the access token as a bearer token when connecting to the `/authed/mcp` endpoint.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp \
+      -H 'Authorization: Bearer ACCESS_TOKEN' \
+      -H 'Content-Type: application/json' \
+      -H 'Accept: application/json, text/event-stream' \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-03-26",
+          "capabilities": {},
+          "clientInfo": {"name": "my-integration", "version": "1.0.0"}
+        }
+      }'
+    ```
+
+    ```bash Claude Code
+    claude mcp add --transport http \
+      --header "Authorization: Bearer ACCESS_TOKEN" \
+      my-docs https://your-docs.com/authed/mcp
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+#### Managing client credentials
+
+You can manage your client credentials from the [MCP server page](https://dashboard.mintlify.com/products/mcp) in your dashboard.
+
+- **Delete a credential** to permanently revoke access. This cannot be undone.
+
+<Warning>
+  Treat client secrets like passwords. Do not commit them to source control or expose them in client-side code. Use environment variables or a secrets manager to store them.
+</Warning>
+
 ### Rate limits
 
 To protect availability, Mintlify applies rate limits to MCP servers.

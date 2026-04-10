@@ -122,6 +122,94 @@ Par défaut, votre serveur MCP est uniquement disponible pour les outils localho
   </Step>
 </Steps>
 
+<div id="client-credentials">
+  ### Identifiants client
+</div>
+
+Les identifiants client vous permettent de vous connecter à votre serveur MCP authentifié de manière programmatique, sans connexion via un navigateur. Utilisez les identifiants client pour les intégrations côté serveur, les pipelines CI/CD, les workflows automatisés et tout environnement dans lequel un utilisateur ne peut pas effectuer un flux OAuth interactif.
+
+Les identifiants client s'authentifient auprès de l'endpoint `/authed/mcp` et renvoient le même contenu qu'un utilisateur authentifié ayant accès à toutes les pages.
+
+<Steps>
+  <Step title="Créer un identifiant client">
+    1. Accédez à la [page du serveur MCP](https://dashboard.mintlify.com/products/mcp) dans votre Dashboard.
+    2. Dans la section **Client Credentials**, sélectionnez **Create credential**.
+    3. Saisissez un libellé pour l'identifiant afin d'en identifier l'usage.
+    4. Copiez le **client ID** et le **client secret**. Le client secret n'est affiché qu'une seule fois. Vous ne pourrez pas le récupérer ultérieurement.
+  </Step>
+  <Step title="Échanger les identifiants contre un jeton d'accès">
+    Envoyez une requête POST à l'endpoint de jeton de votre serveur MCP avec votre client ID et votre secret. Votre endpoint de jeton se trouve au chemin `/authed/mcp/oauth/token` de l'URL de votre documentation.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET'
+    ```
+
+    ```bash cURL (Basic Auth)
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=client_credentials'
+    ```
+    </CodeGroup>
+
+    La réponse inclut un jeton d'accès :
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "token_type": "Bearer",
+      "expires_in": 1209600,
+      "scope": "mcp:search"
+    }
+    ```
+
+    Les jetons d'accès expirent au bout de 14 jours. Demandez un nouveau jeton lorsque le jeton actuel expire.
+  </Step>
+  <Step title="Se connecter au serveur MCP">
+    Utilisez le jeton d'accès comme bearer token lors de la connexion à l'endpoint `/authed/mcp`.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp \
+      -H 'Authorization: Bearer ACCESS_TOKEN' \
+      -H 'Content-Type: application/json' \
+      -H 'Accept: application/json, text/event-stream' \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-03-26",
+          "capabilities": {},
+          "clientInfo": {"name": "my-integration", "version": "1.0.0"}
+        }
+      }'
+    ```
+
+    ```bash Claude Code
+    claude mcp add --transport http \
+      --header "Authorization: Bearer ACCESS_TOKEN" \
+      my-docs https://your-docs.com/authed/mcp
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<div id="managing-client-credentials">
+  #### Gestion des identifiants client
+</div>
+
+Vous pouvez gérer vos identifiants client depuis la [page du serveur MCP](https://dashboard.mintlify.com/products/mcp) dans votre Dashboard.
+
+- **Supprimer un identifiant** pour révoquer définitivement l'accès. Cette action est irréversible.
+
+<Warning>
+  Traitez les client secrets comme des mots de passe. Ne les intégrez pas dans le contrôle de version et ne les exposez pas dans du code côté client. Utilisez des variables d'environnement ou un gestionnaire de secrets pour les stocker.
+</Warning>
+
 <div id="rate-limits">
   ### Limites de débit
 </div>
