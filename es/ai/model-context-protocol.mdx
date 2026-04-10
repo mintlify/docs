@@ -122,6 +122,94 @@ De forma predeterminada, tu servidor MCP solo está disponible para herramientas
   </Step>
 </Steps>
 
+<div id="client-credentials">
+  ### Credenciales de cliente
+</div>
+
+Las credenciales de cliente te permiten conectarte a tu servidor MCP autenticado de forma programática sin un inicio de sesión basado en el navegador. Usa las credenciales de cliente para integraciones del lado del servidor, pipelines de CI/CD, flujos de trabajo automatizados y cualquier entorno donde un usuario no pueda completar un flujo OAuth interactivo.
+
+Las credenciales de cliente se autentican contra el endpoint `/authed/mcp` y devuelven el mismo contenido que un usuario autenticado con acceso a todas las páginas.
+
+<Steps>
+  <Step title="Crear una credencial de cliente">
+    1. Ve a la [página del servidor MCP](https://dashboard.mintlify.com/products/mcp) en tu dashboard.
+    2. En la sección **Client Credentials**, selecciona **Create credential**.
+    3. Ingresa una etiqueta para la credencial para identificar su propósito.
+    4. Copia el **client ID** y el **client secret**. El client secret solo se muestra una vez. No podrás recuperarlo después.
+  </Step>
+  <Step title="Intercambiar credenciales por un token de acceso">
+    Envía una solicitud POST al endpoint de token de tu servidor MCP con tu client ID y secret. Tu endpoint de token se encuentra en la ruta `/authed/mcp/oauth/token` de la URL de tu documentación.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET'
+    ```
+
+    ```bash cURL (Basic Auth)
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=client_credentials'
+    ```
+    </CodeGroup>
+
+    La respuesta incluye un token de acceso:
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "token_type": "Bearer",
+      "expires_in": 1209600,
+      "scope": "mcp:search"
+    }
+    ```
+
+    Los tokens de acceso expiran después de 14 días. Solicita un nuevo token cuando el actual expire.
+  </Step>
+  <Step title="Conectarse al servidor MCP">
+    Usa el token de acceso como bearer token al conectarte al endpoint `/authed/mcp`.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp \
+      -H 'Authorization: Bearer ACCESS_TOKEN' \
+      -H 'Content-Type: application/json' \
+      -H 'Accept: application/json, text/event-stream' \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-03-26",
+          "capabilities": {},
+          "clientInfo": {"name": "my-integration", "version": "1.0.0"}
+        }
+      }'
+    ```
+
+    ```bash Claude Code
+    claude mcp add --transport http \
+      --header "Authorization: Bearer ACCESS_TOKEN" \
+      my-docs https://your-docs.com/authed/mcp
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<div id="managing-client-credentials">
+  #### Gestión de credenciales de cliente
+</div>
+
+Puedes gestionar tus credenciales de cliente desde la [página del servidor MCP](https://dashboard.mintlify.com/products/mcp) en tu dashboard.
+
+- **Eliminar una credencial** para revocar el acceso de forma permanente. Esta acción no se puede deshacer.
+
+<Warning>
+  Trata los client secrets como contraseñas. No los incluyas en el control de código fuente ni los expongas en código del lado del cliente. Usa variables de entorno o un administrador de secretos para almacenarlos.
+</Warning>
+
 <div id="rate-limits">
   ### Límites de uso
 </div>

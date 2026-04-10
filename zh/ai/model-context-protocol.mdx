@@ -122,6 +122,94 @@ Mintlify 会为你的文档生成一个 MCP 服务器，并将其托管在你的
   </Step>
 </Steps>
 
+<div id="client-credentials">
+  ### 客户端凭据
+</div>
+
+客户端凭据允许你以编程方式连接到你的认证 MCP 服务器，无需基于浏览器的登录。客户端凭据适用于服务端集成、CI/CD 流水线、自动化工作流以及用户无法完成交互式 OAuth 流程的任何环境。
+
+客户端凭据通过 `/authed/mcp` 端点进行认证，并返回与拥有所有页面访问权限的已认证用户相同的内容。
+
+<Steps>
+  <Step title="创建客户端凭据">
+    1. 前往你的控制台中的 [MCP 服务器页面](https://dashboard.mintlify.com/products/mcp)。
+    2. 在 **Client Credentials** 部分，选择 **Create credential**。
+    3. 输入凭据的标签以标识其用途。
+    4. 复制 **client ID** 和 **client secret**。client secret 仅显示一次，之后无法再次获取。
+  </Step>
+  <Step title="用凭据换取访问令牌">
+    向你的 MCP 服务器的令牌端点发送 POST 请求，附上你的 client ID 和 secret。令牌端点位于你的文档 URL 的 `/authed/mcp/oauth/token` 路径下。
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET'
+    ```
+
+    ```bash cURL (Basic Auth)
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=client_credentials'
+    ```
+    </CodeGroup>
+
+    响应中包含一个访问令牌：
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "token_type": "Bearer",
+      "expires_in": 1209600,
+      "scope": "mcp:search"
+    }
+    ```
+
+    访问令牌在 14 天后过期。当前令牌过期后，请重新请求新的令牌。
+  </Step>
+  <Step title="连接到 MCP 服务器">
+    连接到 `/authed/mcp` 端点时，将访问令牌用作 bearer token。
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp \
+      -H 'Authorization: Bearer ACCESS_TOKEN' \
+      -H 'Content-Type: application/json' \
+      -H 'Accept: application/json, text/event-stream' \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-03-26",
+          "capabilities": {},
+          "clientInfo": {"name": "my-integration", "version": "1.0.0"}
+        }
+      }'
+    ```
+
+    ```bash Claude Code
+    claude mcp add --transport http \
+      --header "Authorization: Bearer ACCESS_TOKEN" \
+      my-docs https://your-docs.com/authed/mcp
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<div id="managing-client-credentials">
+  #### 管理客户端凭据
+</div>
+
+你可以在控制台中的 [MCP 服务器页面](https://dashboard.mintlify.com/products/mcp) 管理你的客户端凭据。
+
+- **删除凭据**将永久撤销访问权限。此操作无法撤消。
+
+<Warning>
+  请像对待密码一样对待 client secret。不要将它们提交到源代码管理中，也不要在客户端代码中暴露它们。请使用环境变量或密钥管理器来存储它们。
+</Warning>
+
 <div id="rate-limits">
   ### 速率限制
 </div>
