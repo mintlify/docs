@@ -25,10 +25,6 @@ Chaque workflow peut s’exécuter jusqu’à 50 fois par jour. Les exécutions 
   ## Créer un workflow
 </div>
 
-<div id="create-a-workflow-in-the-dashboard">
-  ### Créer un workflow dans le Dashboard
-</div>
-
 1. Ouvrez la page [Workflows](https://dashboard.mintlify.com/products/workflows).
 2. Cliquez sur **New workflow**.
 3. Configurez le nom du workflow, le type de déclencheur, les référentiels et la planification.
@@ -37,9 +33,23 @@ Chaque workflow peut s’exécuter jusqu’à 50 fois par jour. Les exécutions 
 6. Cliquez sur **Create workflow**.
 
 <Frame>
-  <img src="/images/agent/new-workflow-light.png" alt="La page de configuration d’un nouveau workflow." className="block dark:hidden" />
+  <img src="/images/agent/new-workflow-light.png" alt="La page de configuration d'un nouveau workflow." className="block dark:hidden" />
 
-  <img src="/images/agent/new-workflow-dark.png" alt="La page de configuration d’un nouveau workflow." className="hidden dark:block" />
+  <img src="/images/agent/new-workflow-dark.png" alt="La page de configuration d'un nouveau workflow." className="hidden dark:block" />
+</Frame>
+
+<div id="configuration">
+  ## Configuration
+</div>
+
+Pour les référentiels GitHub, vous devez avoir installé la GitHub App Mintlify sur chaque dépôt répertorié dans les champs de contexte ou de déclencheur push. Ajoutez de nouveaux dépôts sur la page [GitHub app](https://dashboard.mintlify.com/settings/organization/github-app) de votre dashboard Mintlify.
+
+Pour les référentiels GitLab, chaque projet doit être connecté via OAuth sur la [page de configuration OAuth GitLab](https://dashboard.mintlify.com/settings/organization/gitlab-oauth). Voir [Configuration GitLab](#gitlab-setup).
+
+<Frame>
+  <img src="/images/github/app-repos-light.png" alt="La page GitHub app montrant les dépôts connectés pour deux organisations." className="block dark:hidden" />
+
+  <img src="/images/github/app-repos-dark.png" alt="La page GitHub app montrant les dépôts connectés pour deux organisations en mode sombre." className="hidden dark:block" />
 </Frame>
 
 <div id="create-a-workflow-file-with-the-cli">
@@ -115,7 +125,7 @@ Pour les référentiels GitLab, chaque projet doit être connecté via OAuth sur
   ### Déclencheurs
 </div>
 
-Chaque flux de travail doit définir un seul déclencheur en utilisant le champ `on`.
+Chaque flux de travail doit définir un seul déclencheur.
 
 <div id="on-schedule-cron">
   #### Selon une planification (cron)
@@ -125,10 +135,30 @@ Exécutez un workflow à intervalles réguliers à l&#39;aide d&#39;une expressi
 
 Les workflows sont placés en file d&#39;attente dans les 10 minutes suivant l&#39;heure planifiée et leur exécution peut prendre jusqu&#39;à 10 minutes.
 
-```yaml
-on:
-  cron: "0 9 * * 1"
-```
+La valeur est une expression cron standard à 5 champs au format `minute hour day-of-month month day-of-week`. Utilisez un outil comme [crontab.guru](https://crontab.guru) pour définir et valider les programmations.
+
+| Expression      | Planification                            |
+| --------------- | ---------------------------------------- |
+| `0 9 * * 1`   | Chaque lundi à 9 h 00 UTC                |
+| `0 0 1 * *`   | Premier jour de chaque mois à 0 h 00 UTC |
+| `0 8 * * 1-5` | Du lundi au vendredi à 8 h 00 UTC        |
+
+<div id="on-push-events">
+  #### Lors des événements de type push
+</div>
+
+Exécutez un workflow lorsque des modifications sont poussées vers un référentiel ou une branche spécifiques. Cela inclut les fusions de pull requests et les poussées directes vers la branche.
+
+* Spécifiez le référentiel au format `owner/repo`.
+* Spécifiez éventuellement une branche à surveiller. Si vous ne spécifiez pas de branche, le workflow se déclenche lorsque des modifications sont poussées vers la branche par défaut du référentiel.
+
+Un workflow peut surveiller les poussées vers plusieurs référentiels ou branches.
+
+<div id="context-repositories">
+  ### Référentiels de contexte
+</div>
+
+Accordez à l'agent un accès en lecture à des référentiels supplémentaires lors de l'exécution du workflow. Cela est utile lorsque votre prompt doit examiner du code ou du contenu en dehors de votre référentiel de documentation.
 
 La valeur est une expression cron standard à 5 champs au format `minute hour day-of-month month day-of-week`. Utilisez un outil comme [crontab.guru](https://crontab.guru) pour définir et valider les programmations.
 
@@ -180,17 +210,13 @@ context:
   ### Fusion automatique des modifications
 </div>
 
-Par défaut, l'agent ouvre une pull request (demande de fusion) pour chaque exécution de workflow afin que vous puissiez examiner les modifications avant leur mise en production. Activez `automerge: true` pour fusionner automatiquement la pull request sans approbation manuelle. Cela vous permet de conserver une trace des modifications dans l'historique des pull requests de votre référentiel tout en automatisant l'étape de fusion.
+Par défaut, l'agent ouvre une pull request (demande de fusion) pour chaque exécution de workflow afin que vous puissiez examiner les modifications avant leur mise en production. Activez l'automerge pour fusionner automatiquement la pull request sans approbation manuelle. Cela vous permet de conserver une trace des modifications dans l'historique des pull requests de votre référentiel tout en automatisant l'étape de fusion.
 
 <Note>
   Pour les référentiels GitHub, l'automerge nécessite que la GitHub App Mintlify dispose de permissions de contournement sur tous les ensembles de règles ciblant votre branche de déploiement, y compris les ensembles de règles définis au niveau de l'organisation et au niveau du dépôt. Consultez [Configurer l'automerge](/fr/guides/configure-automerge) pour les instructions de configuration.
 
   Pour les référentiels GitLab, l'automerge utilise le jeton d'accès configuré dans votre [intégration GitLab](/fr/deploy/gitlab). Assurez-vous que le jeton dispose de permissions suffisantes pour fusionner des merge requests sur la branche cible.
 </Note>
-
-```yaml
-automerge: true
-```
 
 <div id="slack-notifications">
   ### Notifications Slack
@@ -213,39 +239,11 @@ Lors de la création ou de la modification d'un workflow dans le dashboard, vous
 3. Recherchez et sélectionnez les canaux que vous souhaitez notifier.
 4. Enregistrez votre workflow.
 
-<div id="configure-slack-notifications-in-workflow-files">
-  #### Configurer les notifications Slack dans les fichiers de workflow
-</div>
-
-Utilisez le champ `notify` pour configurer les notifications Slack dans un fichier de workflow :
-
-```yaml
-notify:
-  slack:
-    channels:
-      - documentation
-      - dev-updates
-    users:
-      - alice
-      - bob
-```
-
-Vous pouvez spécifier les destinataires des notifications par nom ou par ID :
-
-| Champ         | Description                                                           |
-| ------------- | --------------------------------------------------------------------- |
-| `channels`    | Noms des canaux à notifier (avec ou sans le préfixe `#`).             |
-| `channel_ids` | ID des canaux à notifier.                                             |
-| `users`       | Noms d'utilisateur, noms d'affichage ou noms réels à contacter en DM. |
-| `user_ids`    | ID des utilisateurs Slack à contacter en DM.                          |
-
 <div id="manage-workflows">
   ## Gérer les workflows
 </div>
 
-Si vous créez un workflow dans le dashboard, modifiez-le ou supprimez-le depuis le dashboard.
-
-Si vous créez un workflow à partir d'un fichier dans votre référentiel, modifiez-le ou supprimez-le avec une pull request modifiant le fichier.
+Modifiez ou supprimez les workflows depuis la page [Workflows](https://dashboard.mintlify.com/products/workflows) de votre dashboard.
 
 <div id="trigger-a-workflow-manually">
   ### Déclencher un workflow manuellement
@@ -324,18 +322,15 @@ Les prompts qui demandent à l’agent d’exécuter des outils indisponibles pe
 
 S&#39;exécute lorsque vous poussez des modifications vers le référentiel de votre produit afin d&#39;identifier les mises à jour de la documentation nécessaires pour toute nouvelle fonctionnalité ou API.
 
-```markdown .mintlify/workflows/draft-feature-docs.md
----
-name: Draft docs for new features
-on:
-  push:
-    - repo: your-org/your-product
-      branch: main
-context:
-  - repo: your-org/your-docs
-automerge: false
----
+**Déclencheur :** Lors d'un push vers `your-org/your-product` (branche main)
 
+**Référentiels de contexte :** `your-org/your-docs`
+
+**Automerge :** Désactivé
+
+**Prompt :**
+
+```text
 Review the diff from the last merged PR in `your-org/your-product`. Identify any new features, APIs, or other changes that require documentation.
 
 For each new addition, draft documentation updates that explain what it does, when to use it, and how to configure it. Include a code example where relevant.
@@ -354,16 +349,13 @@ Success criteria: After reading any new or updated documentation, users understa
 
 S&#39;exécute lorsque des modifications sont poussées vers votre référentiel de documentation, afin de détecter les écarts par rapport au guide de style avant qu&#39;ils ne s&#39;accumulent. Cet exemple de flux de travail corrige automatiquement ces écarts et répertorie dans le corps de la pull request toutes les violations qui nécessitent un jugement humain.
 
-```markdown .mintlify/workflows/style-audit.md
----
-name: Style audit
-on:
-  push:
-    - repo: your-org/your-docs
-      branch: main
-automerge: false
----
+**Déclencheur :** Lors d'un push vers `your-org/your-docs` (branche main)
 
+**Automerge :** Désactivé
+
+**Prompt :**
+
+```text
 Examinez tous les fichiers MDX modifiés dans le dernier PR fusionné par rapport au guide de style à `path/to/style-guide`.
 
 Ouvrez une pull request pour résoudre les violations de style pouvant être corrigées automatiquement. Pour toute modification nécessitant un jugement ou de la nuance, notez-les dans le corps de la PR avec les lignes spécifiques, les violations de règles et les corrections suggérées.
@@ -384,18 +376,15 @@ Critères de succès :
 
 Ce workflow s&#39;exécute lorsque des modifications sont poussées vers le référentiel de votre produit afin de maintenir les pages de référence d&#39;API synchronisées avec le code de votre produit. Lorsque des points de terminaison (endpoints) ou des paramètres sont modifiés, ce workflow met à jour le contenu correspondant dans votre documentation.
 
-```markdown .mintlify/workflows/update-api-reference.md
----
-name: Update API reference
-on:
-  push:
-    - repo: your-org/your-product
-      branch: main
-context:
-  - repo: your-org/your-docs
-automerge: false
----
+**Déclencheur :** Lors d'un push vers `your-org/your-product` (branche main)
 
+**Référentiels de contexte :** `your-org/your-docs`
+
+**Automerge :** Désactivé
+
+**Prompt :**
+
+```text
 Review the diff from the last merged PR in `your-org/your-product` for changes to API endpoints, parameters, response shapes, or error codes.
 
 Update the corresponding API specifications or pages in the docs to reflect the changes. Include updated parameter descriptions, type information, and examples where affected.
@@ -416,13 +405,11 @@ Exécutez ce workflow chaque semaine pour comparer les fichiers sources anglais 
 
 Pour utiliser ce workflow, mettez à jour les sous-répertoires de langue d’exemple (`es/`, `fr/`, `zh/`) avec vos sous-répertoires de langue réels.
 
-```markdown .mintlify/workflows/translation-lag.md
----
-name: Track translation lag
-on:
-  cron: "0 9 * * 3"
----
+**Déclencheur :** Planification cron (`0 9 * * 3` — chaque mercredi à 9 h 00 UTC)
 
+**Prompt :**
+
+```text
 Compare the English MDX files in the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to identify English files updated more recently than their translations.
 
 Open a pull request that lists pages that are out of sync, organized by language. For each page, include the date of the last English update and a brief summary of what changed so translators have context on what to update.
@@ -441,14 +428,13 @@ Success criteria: Any discrepancies between the English and translated files are
 
 S’exécute chaque semaine pour rechercher les pages dont les métadonnées sont manquantes ou peu pertinentes, puis ouvrir une pull request (demande de fusion) avec des améliorations. Cet exemple de workflow vérifie les frontmatters `title` et `description` manquants, insuffisants ou dupliqués, et signale les modèles génériques. Modifiez le workflow pour vérifier d’autres métadonnées ou problèmes de contenu que vous jugez prioritaires pour votre documentation.
 
-```markdown .mintlify/workflows/seo-audit.md
----
-name: SEO and metadata audit
-on:
-  cron: "0 9 * * 1"
-automerge: false
----
+**Déclencheur :** Planification cron (`0 9 * * 1` — chaque lundi à 9 h 00 UTC)
 
+**Automerge :** Désactivé
+
+**Prompt :**
+
+```text
 Audit all MDX files in the docs for SEO and metadata quality. Check for:
 
 - Missing or empty `title` frontmatter
@@ -494,22 +480,17 @@ Success criteria:
 
 S’exécute chaque semaine pour générer un journal des modifications et avertir votre équipe sur Slack une fois le workflow terminé. Cet exemple montre comment combiner des workflows planifiés avec des notifications Slack.
 
-```markdown .mintlify/workflows/changelog-with-notify.md
----
-name: Weekly changelog
-on:
-  cron: "0 9 * * 1"
-context:
-  - repo: your-org/your-product
-automerge: false
-notify:
-  slack:
-    channels:
-      - documentation
-    users:
-      - tech-writer
----
+**Déclencheur :** Planification cron (`0 9 * * 1` — chaque lundi à 9 h 00 UTC)
 
+**Référentiels de contexte :** `your-org/your-product`
+
+**Automerge :** Désactivé
+
+**Notifications Slack :** Notifier le canal `#documentation` et l'utilisateur `tech-writer`
+
+**Prompt :**
+
+```text
 Review all merged PRs in `your-org/your-product` from the past week. Draft a changelog entry summarizing new features, bug fixes, and breaking changes.
 
 Success criteria: The changelog accurately reflects the week's changes and is ready for review.
