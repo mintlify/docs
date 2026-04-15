@@ -5,8 +5,7 @@ on:
 notify:
   slack:
     channel_ids:
-      - C0AKYE83VV4
-automerge: false
+      - "C0AKYE83VV4"
 ---
 
 Audit all MDX files in the docs for SEO and metadata quality. Check for:
