@@ -1,7 +1,7 @@
 ---
 title: "skill.md"
 description: "Make your documentation agent-ready with automatically generated skill.md files that describe your product's capabilities for AI agents."
-keywords: ["AI agents","skills","agent skills","agents"]
+keywords: ["AI agents", "skills", "agent skills", "agents"]
 ---
 
 Mintlify hosts a `skill.md` file at the root of your project that describes what AI agents can do with your product.
@@ -10,13 +10,13 @@ The [skill.md specification](https://agentskills.io/specification) is a structur
 
 Mintlify automatically generates a `skill.md` file for your project by analyzing your documentation with an agentic loop. This file stays up to date as you make updates to your documentation and requires no maintenance. You can optionally add a custom `skill.md` file to the root of your project that overrides the automatically generated one.
 
-<Note>
-  Generating or updating a `skill.md` file can take up to 24 hours.
-</Note>
+<Note>Generating or updating a `skill.md` file can take up to 24 hours.</Note>
 
 View your `skill.md` by appending `/skill.md` to your documentation site's URL. Mintlify only generates `skill.md` files for documentation sites that are public.
 
-<PreviewButton href="https://mintlify.com/docs/skill.md">Open the skill.md for this site.</PreviewButton>
+<PreviewButton href="https://mintlify.com/docs/skill.md">
+  Open the skill.md for this site.
+</PreviewButton>
 
 <Tip>
   Both `llms.txt` and `skill.md` files help agents work with your documentation, but they serve different purposes.
@@ -31,7 +31,9 @@ View your `skill.md` by appending `/skill.md` to your documentation site's URL. 
   If you use a [reverse proxy](/deploy/reverse-proxy), configure it to forward `/skill.md`, `/.well-known/skills/*`, and `/.well-known/agent-skills/*` paths to your Mintlify subdomain.
 </Note>
 
-Agents can process your `skill.md` with the [skills CLI](https://www.npmjs.com/package/skills).
+When users connect to your MCP server, their agents can discover and use your `skill.md` files as [MCP resources](/ai/model-context-protocol#mcp-resources) without installing the skills separately.
+
+To add your skills to an agent's context manually, use the [skills CLI](https://www.npmjs.com/package/skills).
 
 ```bash
 npx skills add https://your-docs-domain.com
@@ -54,11 +56,55 @@ Mintlify generates a `skill.md` file following the [agentskills.io specification
 - **Integration**: Supported tools and services.
 - **Context**: Background on your product's architecture.
 
-## Custom `skill.md` files
+## Custom skill files
 
-Add a `skill.md` file to the root of your project to override the automatically generated file. If you delete a custom file, Mintlify generates a new `skill.md` file.
+Add custom skill files to override the automatically generated `skill.md`. Mintlify supports hosting a single skill file and a directory for multiple skills. If you delete all custom skill files, Mintlify generates a new `skill.md` file.
 
-Write a custom file when you want precise control over how agents interact with your product. Follow the [agentskills.io specification](https://agentskills.io/specification) to ensure compatibility with agent tooling.
+### Single skill file
+
+Add a `skill.md` file to the root of your project to override the automatically generated file.
+
+### Multiple skill files
+
+Add multiple skill files to the `.mintlify/skills/` directory in your project. Each skill must be in its own subdirectory with a `SKILL.md` file:
+
+```
+.mintlify/
+  skills/
+    payments/
+      SKILL.md
+    analytics/
+      SKILL.md
+```
+
+When you have multiple skills, the `/skill.md` endpoint redirects to the `/.well-known/skills/index.json` discovery endpoint, which lists all available skills. The discovery endpoints make each skill individually accessible.
+
+<Note>
+  You can use both approaches together with a root `skill.md` file and `.mintlify/skills/` directory. The discovery index includes all skills.
+</Note>
+
+### Use symlinks to avoid duplication
+
+If your skill files live elsewhere in your repository (for example, in a `plugins/` or `skills/` directory), you can symlink `.mintlify/skills` to that location instead of duplicating files:
+
+```bash
+# Skills live in a top-level skills/ directory
+ln -s ../skills .mintlify/skills
+```
+
+```
+project/
+  skills/
+    payments/
+      SKILL.md
+    analytics/
+      SKILL.md
+  .mintlify/
+    skills -> ../skills
+  docs.json
+```
+
+Mintlify resolves symlinks during deployment, so the skill files are discovered and served as if they were directly inside `.mintlify/skills/`. This works with both directory symlinks and individual skill symlinks.
 
 ### Frontmatter fields
 
@@ -110,14 +156,14 @@ The `/.well-known/agent-skills/` endpoint follows the [agent-skills 0.2.0 discov
 }
 ```
 
-| Field | Description |
-| ----- | ----------- |
-| `$schema` | Schema URL for the agent-skills 0.2.0 discovery spec. |
-| `name` | A URL-safe slug derived from the `name` in your `skill.md` frontmatter. |
-| `type` | The skill format. Always `skill-md`. |
+| Field         | Description                                                                         |
+| ------------- | ----------------------------------------------------------------------------------- |
+| `$schema`     | Schema URL for the agent-skills 0.2.0 discovery spec.                               |
+| `name`        | A URL-safe slug derived from the `name` in your `skill.md` frontmatter.             |
+| `type`        | The skill format. Always `skill-md`.                                                |
 | `description` | A brief description from your `skill.md` frontmatter, truncated to 1024 characters. |
-| `url` | The path to fetch the full skill file. |
-| `digest` | A `sha256` hash of the skill file content for integrity verification. |
+| `url`         | The path to fetch the full skill file.                                              |
+| `digest`      | A `sha256` hash of the skill file content for integrity verification.               |
 
 `GET /.well-known/agent-skills/{name}/SKILL.md` returns the `skill.md` file for a specific skill identified by its slugified name from the index.
 

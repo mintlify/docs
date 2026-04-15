@@ -1,6 +1,6 @@
 ---
 title: "Flujos de trabajo"
-description: "Automatiza el mantenimiento de la documentación con tareas del agente programadas o activadas por eventos."
+description: "Automatiza el mantenimiento de la documentación con tareas del agente programadas o activadas por eventos, incluyendo horarios cron y automatización basada en webhooks."
 keywords: ["automation", "automate", "cron", "auto-update"]
 tag: "Beta"
 ---
@@ -9,9 +9,9 @@ tag: "Beta"
   Los flujos de trabajo están en beta. Actualmente son gratuitos para todos los planes durante el período beta. Las funciones, la disponibilidad y los precios de los flujos de trabajo están sujetos a cambios.
 </Info>
 
-Los flujos de trabajo ejecutan el agente automáticamente según una programación o cuando se hace un push a un repositorio. Cada flujo de trabajo define un prompt para el agente y un desencadenante para indicar cuándo ejecutarlo.
+Los flujos de trabajo ejecutan el agente automáticamente según una programación o cuando se hace un push a un repositorio. Cada flujo de trabajo define un prompt para el agente y un desencadenante para indicar cuándo ejecutarlo. Los flujos de trabajo son compatibles con repositorios de GitHub y GitLab.
 
-Cuando se ejecuta un flujo de trabajo, el agente clona los repositorios especificados como contexto, sigue el prompt y abre una solicitud de extracción o puede enviar los cambios directamente a tu rama de implementación.
+Cuando se ejecuta un flujo de trabajo, el agente clona los repositorios especificados como contexto, sigue el prompt y abre una solicitud de extracción (o solicitud de fusión en GitLab) o puede enviar los cambios directamente a tu rama de implementación.
 
 Cada flujo de trabajo puede ejecutarse hasta 50 veces al día. Las ejecuciones que fallan no cuentan para este límite.
 
@@ -46,7 +46,7 @@ Cada flujo de trabajo puede ejecutarse hasta 50 veces al día. Las ejecuciones q
   ### Crea un archivo de flujo de trabajo con la CLI
 </div>
 
-Si tienes instalada la [CLI de Mintlify](/es/installation), ejecuta el siguiente comando desde tu repositorio de documentación para crear de forma interactiva un archivo de flujo de trabajo en la CLI.
+Si tienes instalada la [CLI de Mintlify](/es/cli), ejecuta el siguiente comando desde tu repositorio de documentación para crear de forma interactiva un archivo de flujo de trabajo en la CLI.
 
 ```bash
 mint workflow
@@ -101,7 +101,9 @@ Success criteria: Someone who reads the changelog knows the most up to date info
 | `automerge` | No          | El valor predeterminado es `false`, lo que abre una solicitud de extracción para revisión. Si es `true`, abre una solicitud de extracción y la fusiona automáticamente. |
 | `notify`    | No          | Configuración de notificaciones. Envía mensajes de Slack cuando se completen los flujos de trabajo.                                                                     |
 
-Debes tener instalada la aplicación de GitHub de Mintlify en cada repositorio enumerado en los campos `context` o `on.push.repo`. Agrega nuevos repositorios en la página de la [aplicación de GitHub](https://dashboard.mintlify.com/settings/organization/github-app) de tu dashboard de Mintlify.
+Para repositorios de GitHub, debes tener instalada la aplicación de GitHub de Mintlify en cada repositorio enumerado en los campos `context` o `on.push.repo`. Agrega nuevos repositorios en la página de la [aplicación de GitHub](https://dashboard.mintlify.com/settings/organization/github-app) de tu dashboard de Mintlify.
+
+Para repositorios de GitLab, debes tener configurada la [integración de GitLab](/es/deploy/gitlab) con un token de acceso y un webhook válidos.
 
 <Frame>
   <img src="/images/github/app-repos-light.png" alt="La página de la aplicación de GitHub que muestra los repositorios conectados de dos organizaciones." className="block dark:hidden" />
@@ -149,7 +151,7 @@ on:
       branch: main
 ```
 
-* `repo`: El repositorio de GitHub en formato `owner/repo`.
+* `repo`: El repositorio en formato `owner/repo`.
 * `branch` (opcional): La branch que se supervisará para detectar pushes. Si no especificas una branch, el flujo de trabajo se activa cuando se realizan pushes a la branch predeterminada del repositorio.
 
 Un flujo de trabajo puede supervisar pushes en varios repositorios o branches.
@@ -181,7 +183,9 @@ context:
 De forma predeterminada, el agente abre una solicitud de extracción por cada ejecución del flujo de trabajo para que puedas revisar los cambios antes de que se publiquen. Establece `automerge: true` para fusionar automáticamente la solicitud de extracción sin necesidad de aprobación manual. Esto te proporciona un registro de los cambios en el historial de solicitudes de extracción de tu repositorio, a la vez que automatiza el paso de fusión.
 
 <Note>
-  La función automerge requiere que la aplicación GitHub de Mintlify tenga permisos de bypass en todos los rulesets que apunten a tu rama de implementación, incluyendo rulesets a nivel de organización y a nivel de repositorio. Consulta [Configurar automerge](/es/guides/configure-automerge) para ver las instrucciones de configuración.
+  Para repositorios de GitHub, la función automerge requiere que la aplicación GitHub de Mintlify tenga permisos de bypass en todos los rulesets que apunten a tu rama de implementación, incluyendo rulesets a nivel de organización y a nivel de repositorio. Consulta [Configurar automerge](/es/guides/configure-automerge) para ver las instrucciones de configuración.
+
+  Para repositorios de GitLab, la función automerge utiliza el token de acceso configurado en tu [integración de GitLab](/es/deploy/gitlab). Asegúrate de que el token tenga permisos suficientes para fusionar solicitudes de fusión en la rama de destino.
 </Note>
 
 ```yaml
@@ -266,7 +270,7 @@ Para activar o desactivar un flujo de trabajo:
 2. Haz clic en **View Workflows**.
 3. Haz clic en el interruptor junto al flujo de trabajo que deseas deshabilitar o habilitar.
 
-Cuando vuelves a habilitar un flujo de trabajo basado en cron, su próxima ejecución se recalcula a partir de la hora actual.
+Cuando vuelves a habilitar un flujo de trabajo basado en cron, Mintlify recalcula el próximo tiempo de ejecución a partir de la hora actual.
 
 <div id="prompts">
   ## Prompts
@@ -440,7 +444,7 @@ Audita todos los archivos MDX en la documentación para verificar la calidad del
 - frontmatter de `title` ausente o vacío
 - Títulos demasiado largos (más de 60 caracteres) — los títulos largos se truncan en los fragmentos de resultados de búsqueda
 - Títulos que siguen un patrón genérico como "TipoDePágina - Nombre" sin describir el contenido específico de la página
-- frontmatter de `description` ausente o vacío
+- frontmatter de `description` ausente o vacío (consulta la sección de páginas OpenAPI a continuación — no lo consideres ausente cuando una especificación OpenAPI proporciona la descripción)
 - Descripciones demasiado cortas (menos de 130 caracteres) — las descripciones cortas son frecuentemente ignoradas por Google en favor de fragmentos generados automáticamente
 - Descripciones demasiado largas (más de 160 caracteres)
 - Páginas que comparten una descripción idéntica con otras páginas — cada página necesita una descripción única
@@ -451,11 +455,26 @@ Al escribir títulos: sé descriptivo y específico sobre lo que cubre la págin
 
 Al escribir descripciones: resume lo que cubre la página específica en lenguaje sencillo. Incluye 2-3 términos que un usuario realmente buscaría. Nunca reutilices la misma descripción en varias páginas. Apunta a 130-155 caracteres.
 
-Criterios de éxito: Todas las páginas tienen un título único de menos de 60 caracteres que describe el contenido específico, y una descripción única de entre 130 y 160 caracteres.
+### Páginas con `openapi:` en el frontmatter (referencia de API desde la especificación)
+
+El valor de frontmatter `openapi:` puede ser una **referencia de operación** (por ejemplo, `openapi: GET /users/{id}`) o una **referencia de archivo** (por ejemplo, `openapi: ./openapi.yaml`). Solo las referencias de operación proporcionan `summary` y `description` por página desde la especificación.
+
+Para páginas con una **referencia de operación**:
+- Lee el archivo de especificación OpenAPI referenciado para comprobar si la operación define una `description`.
+- Si la operación **tiene** una `description`: no añadas un campo `description:` al frontmatter. Si se añadió incorrectamente, elimínalo para que los metadatos provengan de la especificación.
+- Si la operación **no tiene** una `description`: audita el frontmatter de `description` de forma normal — añade uno si falta o corrígelo si no cumple las comprobaciones de calidad.
+- Si la operación define un `summary` y la página no tiene frontmatter `title:`, considera el título como presente — no añadas uno.
+- Nunca edites los archivos de especificación OpenAPI.
+
+Para páginas con una **referencia de archivo**, audita todos los campos del frontmatter de forma normal.
+
+Criterios de éxito:
+- Las páginas tienen un título único de menos de 60 caracteres que describe el contenido específico
+- Las páginas tienen una descripción única de entre 130 y 160 caracteres (excepto las páginas donde la especificación OpenAPI proporciona la descripción)
 
 ## Importante
 
-- Solo actualiza el frontmatter. No modifiques el contenido de la página.
+- Solo actualiza el frontmatter. No modifiques el contenido de la página ni los archivos de especificación OpenAPI.
 - Si todas las páginas tienen metadata completa y razonable, no hagas nada.
 ```
 

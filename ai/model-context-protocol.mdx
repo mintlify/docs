@@ -21,17 +21,23 @@ When an AI application connects to your documentation MCP server, it can search 
 - Each tool call happens during the generation process, so the AI application uses up-to-date information from your documentation to generate its response.
 
 <Tip>
-  Some AI tools like Claude support both MCP and Skills. MCP gives the AI access to your documentation content, while Skills instruct the AI how to use that content effectively. They're complementary. MCP provides the data and Skills provide the instructions.
+  Some AI tools like Claude support both MCP and skills. MCP gives access to your documentation content, while skills instruct agents how to use that content effectively. They're complementary and connecting your MCP server gives agents access to both.
 </Tip>
 
 ### MCP tools
 
-Your MCP server provides two tools that AI applications can use:
+Your MCP server provides two tools that agents can use:
 
-- **Search**: Searches across your documentation to find relevant content, returning snippets with titles and links. Use this when you need to discover information or find pages matching a query.
-- **Get page**: Retrieves the full content of a specific documentation page by its path. Use this when you already know the page path, such as from search results, and need the complete content rather than a snippet.
+- **Search**: Searches across your documentation to find relevant content, returning snippets with titles and links. Use this to discover information or find pages matching a query.
+- **Query docs filesystem**: Reads and navigates your documentation's virtual filesystem using shell-style commands. Use this to retrieve page content, browse the docs structure, or extract specific sections—including batch reads across multiple pages in a single call.
 
-AI applications determine when to use each tool based on the context of the conversation. For example, an AI application might first search your documentation to find relevant pages, then use the get page tool to retrieve the full content of the most relevant result.
+Agents determine when to use each tool based on the context of the conversation. For example, an agent might first search your documentation to find relevant pages, then use the query docs filesystem tool to read the full content of the most relevant results.
+
+### MCP resources
+
+Your MCP server also exposes your [skill.md files](/ai/skillmd) as MCP resources. Agents connected to your MCP server can discover and access your skill files without installing them separately.
+
+`Skill.md` resources appear in the MCP server's resource list and contain the capability descriptions Mintlify generates or that you define in your [custom skill files](/ai/skillmd#custom-skill-files).
 
 ### Search parameters
 
@@ -43,12 +49,6 @@ The MCP search tool supports optional parameters that AI applications use to con
 - **`language`**: Filter results to a specific language code. For example, `'en'`, `'zh'`, or `'es'`. Only returns content in the specified language or content available across all languages.
 
 AI applications determine when to apply these parameters based on the context of the user's query. For example, if a user asks about a specific API version, the AI application may automatically apply the appropriate filter to provide more relevant results.
-
-### Get page parameters
-
-The get page tool accepts one required parameter:
-
-- **`page`**: The page path to retrieve, such as `'api-reference/create-customer'`. Use page paths returned from search results.
 
 ### MCP compared to web search
 
@@ -104,6 +104,90 @@ By default, your MCP server is only available for localhost tools. To allow web-
   </Step>
 </Steps>
 
+### Client credentials
+
+Client credentials let you connect to your authenticated MCP server programmatically without a browser-based login. Use client credentials for server-side integrations, CI/CD pipelines, automated workflows, and any environment where a user cannot complete an interactive OAuth flow.
+
+Client credentials authenticate against the `/authed/mcp` endpoint and return the same content as an authenticated user with access to all pages.
+
+<Steps>
+  <Step title="Create a client credential">
+    1. Navigate to the [MCP server page](https://dashboard.mintlify.com/products/mcp) in your dashboard.
+    2. In the **Client Credentials** section, select **Create credential**.
+    3. Enter a label for the credential to identify its purpose.
+    4. Copy the **client ID** and **client secret**. The client secret is only shown once. You cannot retrieve it later.
+  </Step>
+  <Step title="Exchange credentials for an access token">
+    Send a POST request to your MCP server's token endpoint with your client ID and secret. Your token endpoint is at the `/authed/mcp/oauth/token` path of your documentation URL.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET'
+    ```
+
+    ```bash cURL (Basic Auth)
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=client_credentials'
+    ```
+    </CodeGroup>
+
+    The response includes an access token:
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "token_type": "Bearer",
+      "expires_in": 1209600,
+      "scope": "mcp:search"
+    }
+    ```
+
+    Access tokens expire after 14 days. Request a new token when the current one expires.
+  </Step>
+  <Step title="Connect to the MCP server">
+    Use the access token as a bearer token when connecting to the `/authed/mcp` endpoint.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp \
+      -H 'Authorization: Bearer ACCESS_TOKEN' \
+      -H 'Content-Type: application/json' \
+      -H 'Accept: application/json, text/event-stream' \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-03-26",
+          "capabilities": {},
+          "clientInfo": {"name": "my-integration", "version": "1.0.0"}
+        }
+      }'
+    ```
+
+    ```bash Claude Code
+    claude mcp add --transport http \
+      --header "Authorization: Bearer ACCESS_TOKEN" \
+      my-docs https://your-docs.com/authed/mcp
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+#### Managing client credentials
+
+You can manage your client credentials from the [MCP server page](https://dashboard.mintlify.com/products/mcp) in your dashboard.
+
+- **Delete a credential** to permanently revoke access. This cannot be undone.
+
+<Warning>
+  Treat client secrets like passwords. Do not commit them to source control or expose them in client-side code. Use environment variables or a secrets manager to store them.
+</Warning>
+
 ### Rate limits
 
 To protect availability, Mintlify applies rate limits to MCP servers.
@@ -112,9 +196,9 @@ To protect availability, Mintlify applies rate limits to MCP servers.
 | :---- | :---- | :---------- |
 | Per user (IP address) | 5,000 requests per hour | Limits how frequently a single user can query your MCP server configuration. |
 | Search per documentation site (domain) | 10,000 requests per hour | Limits total search tool calls across all users of your MCP server. |
-| Get page per documentation site (domain) | 10,000 requests per hour | Limits total get page tool calls across all users of your MCP server. |
+| Query docs filesystem per documentation site (domain) | 10,000 requests per hour | Limits total query docs filesystem tool calls across all users of your MCP server. |
 | Authenticated search per documentation site (domain) | 5,000 requests per hour | Limits total authenticated search tool calls across all users of your MCP server. |
-| Authenticated get page per documentation site (domain) | 5,000 requests per hour | Limits total authenticated get page tool calls across all users of your MCP server. |
+| Authenticated query docs filesystem per documentation site (domain) | 5,000 requests per hour | Limits total authenticated query docs filesystem tool calls across all users of your MCP server. |
 
 ## Content filtering and indexing
 

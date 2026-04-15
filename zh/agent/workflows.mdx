@@ -1,6 +1,6 @@
 ---
 title: "工作流"
-description: "通过定时或事件触发的 agent 任务自动维护文档。"
+description: "通过定时或事件触发的 agent 任务自动维护文档，包括 cron 计划和基于 webhook 的自动化。"
 keywords: ["automation", "automate", "cron", "auto-update"]
 tag: "测试版"
 ---
@@ -9,9 +9,9 @@ tag: "测试版"
   工作流目前处于测试阶段。在测试期间，所有方案当前均可免费使用。工作流功能、可用性和定价可能会发生变化。
 </Info>
 
-工作流会在预设的计划下，或在存储库发生 push 时自动运行 agent。每个工作流都会为 agent 定义一个提示词，以及一个触发执行的条件。
+工作流会在预设的计划下，或在存储库发生 push 时自动运行 agent。每个工作流都会为 agent 定义一个提示词，以及一个触发执行的条件。工作流同时支持 GitHub 和 GitLab 存储库。
 
-当工作流运行时，agent 会将指定的存储库克隆为上下文，遵循提示词，并执行以下两种操作之一：要么创建一个拉取请求 (PR；亦称“合并请求”/Merge Request) ，要么将更改直接推送到你的部署用分支。
+当工作流运行时，agent 会将指定的存储库克隆为上下文，遵循提示词，并执行以下两种操作之一：要么创建一个拉取请求（或 GitLab 的合并请求），要么将更改直接推送到你的部署用分支。
 
 每个工作流每天最多可运行 50 次。运行失败不会计入此限制。
 
@@ -46,7 +46,7 @@ tag: "测试版"
   ### 使用 CLI 创建工作流文件
 </div>
 
-如果你已安装 [Mintlify CLI](/zh/installation)，请在你的文档存储库中运行以下命令，以便通过 CLI 以交互方式创建工作流文件。
+如果你已安装 [Mintlify CLI](/zh/cli)，请在你的文档存储库中运行以下命令，以便通过 CLI 以交互方式创建工作流文件。
 
 ```bash
 mint workflow
@@ -101,7 +101,9 @@ Success criteria: Someone who reads the changelog knows the most up to date info
 | `automerge` | 否 | 默认为 `false`，此时会打开一个拉取请求以供审查。如果为 `true`，则会打开一个拉取请求并自动将其合并。 |
 | `notify` | 否 | 通知配置。工作流完成时发送 Slack 消息。 |
 
-你必须在 `context` 或 `on.push.repo` 字段中列出的每个存储库上安装 Mintlify GitHub App。请在 Mintlify 仪表板的 [GitHub app](https://dashboard.mintlify.com/settings/organization/github-app) 页面中添加新的存储库。
+对于 GitHub 存储库，你必须在 `context` 或 `on.push.repo` 字段中列出的每个存储库上安装 Mintlify GitHub App。请在 Mintlify 仪表板的 [GitHub app](https://dashboard.mintlify.com/settings/organization/github-app) 页面中添加新的存储库。
+
+对于 GitLab 存储库，你必须配置 [GitLab 集成](/zh/deploy/gitlab)，并确保访问令牌和 webhook 有效。
 
 <Frame>
   <img src="/images/github/app-repos-light.png" alt="GitHub app 页面显示了两个组织已连接的存储库。" className="block dark:hidden" />
@@ -149,7 +151,7 @@ on:
       branch: main
 ```
 
-* `repo`: 以 `owner/repo` 格式指定的 GitHub 存储库。
+* `repo`: 以 `owner/repo` 格式指定的存储库。
 * `branch` (可选) ：要监控推送的 branch。如果你未指定 branch，则工作流会在更改推送到存储库默认 branch 时触发。
 
 一个工作流可以监控多个存储库或多个 branch 上的推送。
@@ -181,7 +183,9 @@ context:
 默认情况下，代理会为每次工作流运行创建一个拉取请求 (PR；亦称"合并请求"/Merge Request) ，以便你在更改上线之前进行审查。将 `automerge: true` 设为自动合并该拉取请求 (PR；亦称"合并请求"/Merge Request) ，无需手动批准。这样一来，你既可以在存储库的拉取请求历史记录中保留更改记录，又能自动完成合并步骤。
 
 <Note>
-  自动合并要求 Mintlify GitHub 应用对所有针对你部署分支的规则集都拥有绕过权限，包括组织级和仓库级的规则集。请参阅[配置自动合并](/zh/guides/configure-automerge)了解设置说明。
+  对于 GitHub 存储库，自动合并要求 Mintlify GitHub 应用对所有针对你部署分支的规则集都拥有绕过权限，包括组织级和仓库级的规则集。请参阅[配置自动合并](/zh/guides/configure-automerge)了解设置说明。
+
+  对于 GitLab 存储库，自动合并使用在你的 [GitLab 集成](/zh/deploy/gitlab)中配置的访问令牌。请确保该令牌拥有足够的权限以合并目标分支上的合并请求。
 </Note>
 
 ```yaml
@@ -266,7 +270,7 @@ notify:
 2. 点击 **View Workflows**。
 3. 点击你要禁用或启用的工作流旁边的开关。
 
-当你重新启用基于 cron 的工作流时，其下次运行时间将从当前时间重新计算。
+当你重新启用基于 cron 的工作流时，Mintlify 会从当前时间重新计算下次运行时间。
 
 <div id="prompts">
   ## 提示词
@@ -440,7 +444,7 @@ Audit all MDX files in the docs for SEO and metadata quality. Check for:
 - Missing or empty `title` frontmatter
 - Titles that are too long (over 60 characters) — long titles are truncated in search result snippets
 - Titles that follow a boilerplate pattern like "PageType - Name" without describing the specific content of the page
-- Missing or empty `description` frontmatter
+- Missing or empty `description` frontmatter (see OpenAPI pages below — do not treat as missing when an OpenAPI spec supplies the description)
 - Descriptions that are too short (under 130 characters) — short descriptions are frequently ignored by Google in favor of auto-generated snippets
 - Descriptions that are too long (over 160 characters)
 - Pages that share an identical description with other pages — each page needs a unique description
@@ -451,11 +455,26 @@ When writing titles: be descriptive and specific about what the page covers. Avo
 
 When writing descriptions: summarize what the specific page covers in plain language. Include 2-3 terms a user would actually search for. Never reuse the same description across pages. Target 130-155 characters.
 
-Success criteria: All pages have a unique title under 60 characters that describes the specific content, and a unique description between 130 and 160 characters.
+### Pages with `openapi:` in frontmatter (API reference from spec)
+
+The `openapi:` frontmatter value can be either an **operation reference** (e.g., `openapi: GET /users/{id}`) or a **file reference** (e.g., `openapi: ./openapi.yaml`). Only operation references supply per-page `summary` and `description` from the spec.
+
+For pages with an **operation reference**:
+- Read the referenced OpenAPI spec file to check whether the operation defines a `description`.
+- If the operation **has** a `description`: do not add a `description:` field to frontmatter. If one was incorrectly added, remove it so the metadata comes from the spec.
+- If the operation **has no** `description`: audit `description` frontmatter as normal — add one if missing or fix it if it fails the quality checks.
+- If the operation defines a `summary` and the page has no `title:` frontmatter, treat the title as present — do not add one.
+- Never edit the OpenAPI spec files themselves.
+
+For pages with a **file reference**, audit all frontmatter fields as normal.
+
+Success criteria:
+- Pages have a unique title under 60 characters that describes the specific content
+- Pages have a unique description between 130 and 160 characters (except for pages where the OpenAPI spec supplies the description)
 
 ## Important
 
-- Only update frontmatter. Do not change page content.
+- Only update frontmatter. Do not change page content or OpenAPI spec files.
 - If all pages have complete and reasonable metadata, do nothing.
 ```
 
