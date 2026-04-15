@@ -42,66 +42,11 @@ Cada flujo de trabajo puede ejecutarse hasta 50 veces al día. Las ejecuciones q
   <img src="/images/agent/new-workflow-dark.png" alt="La página de configuración del nuevo flujo de trabajo." className="hidden dark:block" />
 </Frame>
 
-<div id="create-a-workflow-file-with-the-cli">
-  ### Crea un archivo de flujo de trabajo con la CLI
+<div id="configuration">
+  ## Configuración
 </div>
 
-Si tienes instalada la [CLI de Mintlify](/es/cli), ejecuta el siguiente comando desde tu repositorio de documentación para crear de forma interactiva un archivo de flujo de trabajo en la CLI.
-
-```bash
-mint workflow
-```
-
-La CLI te pide información sobre el flujo de trabajo y crea un archivo `.md` en el directorio `.mintlify/workflows/`. Haz commit y push del archivo para activar el flujo de trabajo.
-
-<Tip>
-  Si ejecutas `mint workflow` en un entorno no interactivo, como un pipeline de CI/CD o un agente de programación con IA, la CLI devuelve instrucciones de uso y el formato del archivo del flujo de trabajo en lugar de solicitudes interactivas.
-</Tip>
-
-<div id="add-a-workflow-file-to-your-repository">
-  ### Agrega un archivo de flujo de trabajo a tu repositorio
-</div>
-
-Crea un archivo `.md` para cada flujo de trabajo en un directorio `.mintlify/workflows/` en la raíz de tu repositorio de documentación. Cada archivo define un flujo de trabajo.
-
-<Note>
-Si tienes un monorepo, coloca la carpeta `.mintlify/workflows/` dentro del directorio raíz de tu documentación donde se encuentra tu archivo `docs.json`, no en la raíz del repositorio.
-</Note>
-
-Los archivos de flujo de trabajo usan frontmatter YAML para configurar el flujo de trabajo, seguido de un prompt en Markdown para el agente.
-
-```markdown .mintlify/workflows/update-changelog.md
----
-name: Update changelog
-on:
-  cron: "0 9 * * 1"
-context:
-  - repo: your-org/your-product
-automerge: false
----
-
-Review all changes since the last changelog update. Draft a new changelog post with any new features, bug fixes, or breaking changes.
-
-Include information about what changed and how it affects users.
-
-Do not include any internal-only information or minor changes like bumping package versions or updating documentation.
-
-Success criteria: Someone who reads the changelog knows the most up to date information about the product including what changed and whether or not it affects them.
-```
-
-<div id="frontmatter-fields">
-  ## Campos de frontmatter
-</div>
-
-| Campo       | Obligatorio | Descripción                                                                                                                                                             |
-| ----------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`      | Sí          | Nombre para mostrar que se muestra en el dashboard.                                                                                                                     |
-| `on`        | Sí          | Configuración del disparador.                                                                                                                                           |
-| `context`   | No          | Repositorios clonados como referencia cuando se ejecuta el flujo de trabajo.                                                                                            |
-| `automerge` | No          | El valor predeterminado es `false`, lo que abre una solicitud de extracción para revisión. Si es `true`, abre una solicitud de extracción y la fusiona automáticamente. |
-| `notify`    | No          | Configuración de notificaciones. Envía mensajes de Slack cuando se completen los flujos de trabajo.                                                                     |
-
-Para repositorios de GitHub, debes tener instalada la aplicación de GitHub de Mintlify en cada repositorio enumerado en los campos `context` o `on.push.repo`. Agrega nuevos repositorios en la página de la [aplicación de GitHub](https://dashboard.mintlify.com/settings/organization/github-app) de tu dashboard de Mintlify.
+Para repositorios de GitHub, debes tener instalada la aplicación de GitHub de Mintlify en cada repositorio enumerado como repositorio de contexto o de activación. Agrega nuevos repositorios en la página de la [aplicación de GitHub](https://dashboard.mintlify.com/settings/organization/github-app) de tu dashboard de Mintlify.
 
 Para repositorios de GitLab, cada proyecto debe estar conectado mediante OAuth en la [página de configuración OAuth de GitLab](https://dashboard.mintlify.com/settings/organization/gitlab-oauth). Consulta [Configuración de GitLab](#gitlab-setup).
 
@@ -115,7 +60,7 @@ Para repositorios de GitLab, cada proyecto debe estar conectado mediante OAuth e
   ### Disparadores
 </div>
 
-Cada flujo de trabajo debe definir un único disparador mediante el campo `on`.
+Cada flujo de trabajo debe definir un único tipo de disparador.
 
 <div id="on-schedule-cron">
   #### Según programación (cron)
@@ -124,11 +69,6 @@ Cada flujo de trabajo debe definir un único disparador mediante el campo `on`.
 Ejecuta un flujo de trabajo de forma recurrente usando una expresión cron. Todas las ejecuciones programadas se realizan en UTC.
 
 Los flujos de trabajo se ponen en cola dentro de los 10 minutos siguientes a la hora programada y pueden tardar hasta 10 minutos en ejecutarse.
-
-```yaml
-on:
-  cron: "0 9 * * 1"
-```
 
 El campo value es una expresión cron estándar de 5 campos con el formato `minuto hora día-del-mes mes día-de-la-semana`. Utiliza una herramienta como [crontab.guru](https://crontab.guru) para crear y validar los horarios.
 
@@ -144,53 +84,28 @@ El campo value es una expresión cron estándar de 5 campos con el formato `minu
 
 Ejecuta un flujo de trabajo cuando se envían cambios a un repositorio o branch específicos. Esto incluye tanto fusiones de solicitudes de extracción como envíos directos al branch.
 
-```yaml
-on:
-  push:
-    - repo: your-org/your-product
-      branch: main
-```
-
-* `repo`: El repositorio en formato `owner/repo`.
-* `branch` (opcional): La branch que se supervisará para detectar pushes. Si no especificas una branch, el flujo de trabajo se activa cuando se realizan pushes a la branch predeterminada del repositorio.
+- **Repositorio**: El repositorio en formato `owner/repo`.
+- **Branch** (opcional): La branch que se supervisará para detectar pushes. Si no especificas una branch, el flujo de trabajo se activa cuando se realizan pushes a la branch predeterminada del repositorio.
 
 Un flujo de trabajo puede supervisar pushes en varios repositorios o branches.
-
-```yaml
-on:
-  push:
-    - repo: your-org/your-product
-    - repo: your-org/another-repo
-      branch: release
-```
 
 <div id="context-repositories">
   ### Repositorios de contexto
 </div>
 
-Usa `context` para conceder al agente acceso de lectura a repositorios adicionales cuando se ejecuta el flujo de trabajo. Esto es útil cuando tu prompt requiere revisar código o contenido fuera de tu repositorio de documentación. Puedes especificar hasta cinco repositorios de contexto por flujo de trabajo.
-
-```yaml
-context:
-  - repo: your-org/your-product
-  - repo: your-org/design-system
-```
+Usa repositorios de contexto para conceder al agente acceso de lectura a repositorios adicionales cuando se ejecuta el flujo de trabajo. Esto es útil cuando tu prompt requiere revisar código o contenido fuera de tu repositorio de documentación. Puedes especificar hasta cinco repositorios de contexto por flujo de trabajo.
 
 <div id="auto-merge-changes">
   ### Combinación automática de cambios
 </div>
 
-De forma predeterminada, el agente abre una solicitud de extracción por cada ejecución del flujo de trabajo para que puedas revisar los cambios antes de que se publiquen. Establece `automerge: true` para fusionar automáticamente la solicitud de extracción sin necesidad de aprobación manual. Esto te proporciona un registro de los cambios en el historial de solicitudes de extracción de tu repositorio, a la vez que automatiza el paso de fusión.
+De forma predeterminada, el agente abre una solicitud de extracción por cada ejecución del flujo de trabajo para que puedas revisar los cambios antes de que se publiquen. Habilita la combinación automática para fusionar automáticamente la solicitud de extracción sin necesidad de aprobación manual. Esto te proporciona un registro de los cambios en el historial de solicitudes de extracción de tu repositorio, a la vez que automatiza el paso de fusión.
 
 <Note>
   Para repositorios de GitHub, la función automerge requiere que la aplicación GitHub de Mintlify tenga permisos de bypass en todos los rulesets que apunten a tu rama de implementación, incluyendo rulesets a nivel de organización y a nivel de repositorio. Consulta [Configurar automerge](/es/guides/configure-automerge) para ver las instrucciones de configuración.
 
   Para repositorios de GitLab, la función automerge utiliza el token de acceso configurado en tu [integración de GitLab](/es/deploy/gitlab). Asegúrate de que el token tenga permisos suficientes para fusionar solicitudes de fusión en la rama de destino.
 </Note>
-
-```yaml
-automerge: true
-```
 
 <div id="slack-notifications">
   ### Notificaciones de Slack
@@ -213,39 +128,11 @@ Al crear o editar un flujo de trabajo en el dashboard, puedes habilitar las noti
 3. Busca y selecciona los canales a los que deseas notificar.
 4. Guarda tu flujo de trabajo.
 
-<div id="configure-slack-notifications-in-workflow-files">
-  #### Configurar notificaciones de Slack en archivos de flujo de trabajo
-</div>
-
-Usa el campo `notify` para configurar las notificaciones de Slack en un archivo de flujo de trabajo:
-
-```yaml
-notify:
-  slack:
-    channels:
-      - documentation
-      - dev-updates
-    users:
-      - alice
-      - bob
-```
-
-Puedes especificar los destinos de las notificaciones por nombre o por ID:
-
-| Campo         | Descripción                                                                                   |
-| ------------- | --------------------------------------------------------------------------------------------- |
-| `channels`    | Nombres de canales a los que notificar (con o sin el prefijo `#`).                            |
-| `channel_ids` | ID de los canales a los que notificar.                                                        |
-| `users`       | Nombres de usuario, nombres para mostrar o nombres reales a los que enviar mensajes directos. |
-| `user_ids`    | ID de usuario de Slack a los que enviar mensajes directos.                                    |
-
 <div id="manage-workflows">
   ## Gestionar flujos de trabajo
 </div>
 
-Si creas un flujo de trabajo en el dashboard, edítalo o elimínalo desde el dashboard.
-
-Si creas un flujo de trabajo a partir de un archivo en tu repositorio, edítalo o elimínalo con una solicitud de extracción que modifique el archivo.
+Edita o elimina los flujos de trabajo desde la página de [Workflows](https://dashboard.mintlify.com/products/workflows) en tu dashboard.
 
 <div id="trigger-a-workflow-manually">
   ### Activar un flujo de trabajo manualmente
@@ -324,26 +211,20 @@ Los prompts que indican al agente que ejecute herramientas no disponibles pueden
 
 Se ejecuta cuando envías cambios al repositorio de tu producto para identificar las actualizaciones de documentación necesarias para cualquier nueva funcionalidad o API.
 
-```markdown .mintlify/workflows/draft-feature-docs.md
----
-name: Borrador de documentación para nuevas funciones
-on:
-  push:
-    - repo: your-org/your-product
-      branch: main
-context:
-  - repo: your-org/your-docs
-automerge: false
----
+- **Disparador**: En push a `your-org/your-product` (rama main)
+- **Contexto**: `your-org/your-docs`
+- **Combinación automática**: Desactivada
 
+**Prompt:**
+
+```text
 Revisa el diff del último PR fusionado en `your-org/your-product`. Identifica cualquier nueva función, API u otros cambios que requieran documentación.
 
 Para cada nueva incorporación, redacta actualizaciones de documentación que expliquen qué hace, cuándo usarla y cómo configurarla. Incluye un ejemplo de código donde sea relevante.
 
 Criterios de éxito: Tras leer la documentación nueva o actualizada, los usuarios comprenden qué es la función, si se aplica a las tareas que realizan y cómo usarla.
 
-## Importante
-
+Importante:
 - Documenta solo los cambios que afecten a los usuarios finales. Omite refactorizaciones internas o actualizaciones de dependencias.
 - Mantén el estilo y la estructura de las páginas de documentación existentes.
 ```
@@ -354,16 +235,12 @@ Criterios de éxito: Tras leer la documentación nueva o actualizada, los usuari
 
 Se ejecuta cuando se envían cambios al repositorio de documentación para detectar violaciones de la guía de estilo antes de que se acumulen. Este flujo de trabajo de ejemplo corrige automáticamente las violaciones de la guía de estilo y enumera en el cuerpo de la solicitud de extracción aquellas que requieren criterio humano.
 
-```markdown .mintlify/workflows/style-audit.md
----
-name: Style audit
-on:
-  push:
-    - repo: your-org/your-docs
-      branch: main
-automerge: false
----
+- **Disparador**: En push a `your-org/your-docs` (rama main)
+- **Combinación automática**: Desactivada
 
+**Prompt:**
+
+```text
 Review all MDX files changed in the last merged PR against the style guide at `path/to/style-guide`.
 
 Open a pull request to resolve any style violations that can be fixed automatically. For any edits that require judgment or nuance, note them in the PR body with the specific lines, rule violations, and suggested fixes.
@@ -372,8 +249,7 @@ Success criteria:
 - All style violations have a proposed resolution.
 - No new style violations are introduced.
 
-## Important
-
+Important:
 - Do not change content meaning. Only correct style violations.
 - Skip any files in language subdirectories (`es/`, `fr/`, `zh/`).
 ```
@@ -384,26 +260,20 @@ Success criteria:
 
 Se ejecuta cuando se envían cambios al repositorio de tu producto para mantener las páginas de referencia de la API sincronizadas con el código de tu producto. Cuando cambian los endpoints o los parámetros, este flujo de trabajo actualiza el contenido correspondiente en tu documentación.
 
-```markdown .mintlify/workflows/update-api-reference.md
----
-name: Update API reference
-on:
-  push:
-    - repo: your-org/your-product
-      branch: main
-context:
-  - repo: your-org/your-docs
-automerge: false
----
+- **Disparador**: En push a `your-org/your-product` (rama main)
+- **Contexto**: `your-org/your-docs`
+- **Combinación automática**: Desactivada
 
+**Prompt:**
+
+```text
 Review the diff from the last merged PR in `your-org/your-product` for changes to API endpoints, parameters, response shapes, or error codes.
 
 Update the corresponding API specifications or pages in the docs to reflect the changes. Include updated parameter descriptions, type information, and examples where affected.
 
 Success criteria: All API specifications and pages are up to date with the changes in the product repository.
 
-## Important
-
+Important:
 - If a parameter or endpoint was removed, mark it as deprecated rather than deleting it unless the code explicitly removes it with no deprecation period.
 - If no API changes were introduced, do nothing.
 ```
@@ -416,21 +286,18 @@ Ejecuta este flujo de trabajo semanalmente para comparar los archivos originales
 
 Para usar este flujo de trabajo, actualiza los subdirectorios de idioma de ejemplo (`es/`, `fr/`, `zh/`) a tus subdirectorios de idioma reales.
 
-```markdown .mintlify/workflows/translation-lag.md
----
-name: Track translation lag
-on:
-  cron: "0 9 * * 3"
----
+- **Disparador**: Cron `0 9 * * 3` (miércoles a las 9:00 AM UTC)
 
+**Prompt:**
+
+```text
 Compare the English MDX files in the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to identify English files updated more recently than their translations.
 
 Open a pull request that lists pages that are out of sync, organized by language. For each page, include the date of the last English update and a brief summary of what changed so translators have context on what to update.
 
 Success criteria: Any discrepancies between the English and translated files are identified and listed in the pull request.
 
-## Important
-
+Important:
 - If a translated file does not exist, flag it as missing rather than out of sync.
 - Group findings by language, then by how far out of date they are (most stale first).
 ```
@@ -441,14 +308,12 @@ Success criteria: Any discrepancies between the English and translated files are
 
 Se ejecuta semanalmente para comprobar si hay páginas con metadata faltante o deficiente y abrir una solicitud de extracción con mejoras. Este flujo de trabajo de ejemplo comprueba si faltan, son deficientes o están duplicados los frontmatter `title` y `description`, y señala patrones genéricos. Edita el flujo de trabajo para comprobar otros problemas de metadata o contenido que consideres prioritarios para tu documentación.
 
-```markdown .mintlify/workflows/seo-audit.md
----
-name: Auditoría de SEO y metadata
-on:
-  cron: "0 9 * * 1"
-automerge: false
----
+- **Disparador**: Cron `0 9 * * 1` (lunes a las 9:00 AM UTC)
+- **Combinación automática**: Desactivada
 
+**Prompt:**
+
+```text
 Audita todos los archivos MDX en la documentación para verificar la calidad del SEO y la metadata. Comprueba lo siguiente:
 
 - frontmatter de `title` ausente o vacío
@@ -465,25 +330,24 @@ Al escribir títulos: sé descriptivo y específico sobre lo que cubre la págin
 
 Al escribir descripciones: resume lo que cubre la página específica en lenguaje sencillo. Incluye 2-3 términos que un usuario realmente buscaría. Nunca reutilices la misma descripción en varias páginas. Apunta a 130-155 caracteres.
 
-### Páginas con `openapi:` en el frontmatter (referencia de API desde la especificación)
+Páginas con `openapi:` en el frontmatter (referencia de API desde la especificación):
 
-El valor de frontmatter `openapi:` puede ser una **referencia de operación** (por ejemplo, `openapi: GET /users/{id}`) o una **referencia de archivo** (por ejemplo, `openapi: ./openapi.yaml`). Solo las referencias de operación proporcionan `summary` y `description` por página desde la especificación.
+El valor de frontmatter `openapi:` puede ser una referencia de operación (por ejemplo, `openapi: GET /users/{id}`) o una referencia de archivo (por ejemplo, `openapi: ./openapi.yaml`). Solo las referencias de operación proporcionan `summary` y `description` por página desde la especificación.
 
-Para páginas con una **referencia de operación**:
+Para páginas con una referencia de operación:
 - Lee el archivo de especificación OpenAPI referenciado para comprobar si la operación define una `description`.
-- Si la operación **tiene** una `description`: no añadas un campo `description:` al frontmatter. Si se añadió incorrectamente, elimínalo para que los metadatos provengan de la especificación.
-- Si la operación **no tiene** una `description`: audita el frontmatter de `description` de forma normal — añade uno si falta o corrígelo si no cumple las comprobaciones de calidad.
+- Si la operación tiene una `description`: no añadas un campo `description:` al frontmatter. Si se añadió incorrectamente, elimínalo para que los metadatos provengan de la especificación.
+- Si la operación no tiene una `description`: audita el frontmatter de `description` de forma normal — añade uno si falta o corrígelo si no cumple las comprobaciones de calidad.
 - Si la operación define un `summary` y la página no tiene frontmatter `title:`, considera el título como presente — no añadas uno.
 - Nunca edites los archivos de especificación OpenAPI.
 
-Para páginas con una **referencia de archivo**, audita todos los campos del frontmatter de forma normal.
+Para páginas con una referencia de archivo, audita todos los campos del frontmatter de forma normal.
 
 Criterios de éxito:
 - Las páginas tienen un título único de menos de 60 caracteres que describe el contenido específico
 - Las páginas tienen una descripción única de entre 130 y 160 caracteres (excepto las páginas donde la especificación OpenAPI proporciona la descripción)
 
-## Importante
-
+Importante:
 - Solo actualiza el frontmatter. No modifiques el contenido de la página ni los archivos de especificación OpenAPI.
 - Si todas las páginas tienen metadata completa y razonable, no hagas nada.
 ```
@@ -494,22 +358,14 @@ Criterios de éxito:
 
 Se ejecuta semanalmente para generar un registro de cambios y notificar a tu equipo en Slack cuando se complete el flujo de trabajo. Este ejemplo muestra cómo combinar flujos de trabajo programados con notificaciones en Slack.
 
-```markdown .mintlify/workflows/changelog-with-notify.md
----
-name: Weekly changelog
-on:
-  cron: "0 9 * * 1"
-context:
-  - repo: your-org/your-product
-automerge: false
-notify:
-  slack:
-    channels:
-      - documentation
-    users:
-      - tech-writer
----
+- **Disparador**: Cron `0 9 * * 1` (lunes a las 9:00 AM UTC)
+- **Contexto**: `your-org/your-product`
+- **Combinación automática**: Desactivada
+- **Notificaciones de Slack**: canal `#documentation`, usuario `tech-writer`
 
+**Prompt:**
+
+```text
 Review all merged PRs in `your-org/your-product` from the past week. Draft a changelog entry summarizing new features, bug fixes, and breaking changes.
 
 Success criteria: The changelog accurately reflects the week's changes and is ready for review.
