@@ -5,22 +5,31 @@ on:
 notify:
   slack:
     channel_ids:
-      - C0AKYE83VV4
+      - "C0AKYE83VV4"
 ---
+
+## Step 1 - Identify potential translation lag in files
 
 Compare the English MDX files in the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to find English files updated more recently than their translations.
 
+## Step 2 - Note files that need translation fixes
+
 For each candidate file, inspect the actual diff between the English file's last commit and the translation's last commit. Classify each change:
 
-- **Needs translation**: New or changed prose, headings, UI labels, or structured content (tables, steps) that translators must update. Flag these.
-- **No action needed**: English-only style fixes that don't apply to translated text — punctuation rules (period placement inside quotes), tense corrections, Vale style warnings, whitespace, or code-only changes. Do not flag these.
+- **Needs translation**: New or changed prose, headings, UI labels, or structured content (tables, steps) that translators must update. Note these for translation in the next step.
+- **No action needed**: English-only style fixes that don't apply to translated text — punctuation rules (period placement inside quotes), tense corrections, Vale style warnings, whitespace, or code-only changes. Do not note these.
 
-Open a pull request listing only the pages that genuinely need translation work, organized by language and sorted by staleness (most stale first). For each flagged page, include the date of the last English update and a brief description of what content needs to be translated.
+## Step 3 - Fix translation lag
 
-Success criteria: Every flagged page has a content change that a translator actually needs to act on. Pages where only English style fixes were applied are excluded.
+Open a pull request updating the localized files for any **needs translation** updates noted in the previous step.
+
+Only update pages that genuinely need translation work. You must never update English language pages as part of this workflow.
+
+In the pull request description, include what pages you changed organized by language and sorted by staleness (most stale first). For each updated page, include the date of the last English update and a brief description of what content was translated.
+
+Success criteria: All translation lag is fixed and English and localized pages have parity.
 
 ## Important
 
 - If a translated file does not exist at all, flag it as missing rather than out of sync
-- If all changes to an English file since the translation's last update are style-only, skip it entirely
-- When in doubt about whether a change requires translation, err on the side of flagging it
+- When in doubt about whether a change requires translation, err on the side of caution and flag it for human review in the PR description
