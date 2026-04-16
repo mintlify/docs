@@ -141,21 +141,35 @@ const extractSources = (parts) => {
 })}
 ```
 
-### Track conversation thread IDs
+### Track conversation threads
 
-Store thread IDs to maintain conversation history across sessions:
+Store thread IDs and thread keys to maintain conversation history across sessions.
+
+When a new thread is created, the server returns two values in the response headers:
+
+- `X-Thread-Id` — the thread identifier
+- `X-Thread-Key` — a secret key for the thread (only returned once, when the thread is created)
+
+You must capture and persist both values on the first response. On every subsequent message, include both `threadId` and `threadKey` in the request body. If you send a `threadId` without the corresponding `threadKey`, the server returns a `404` error.
+
+<Warning>
+  The `X-Thread-Key` header is only returned when a new thread is created. You must store it immediately — it cannot be retrieved again.
+</Warning>
 
 ```jsx
 import { useState, useEffect } from 'react';
 
 export function AssistantWidget({ domain, docsURL }) {
   const [threadId, setThreadId] = useState(null);
+  const [threadKey, setThreadKey] = useState(null);
 
   useEffect(() => {
-    // Retrieve saved thread ID from localStorage
-    const saved = localStorage.getItem('assistant-thread-id');
-    if (saved) {
-      setThreadId(saved);
+    // Retrieve saved thread ID and key from localStorage
+    const savedId = localStorage.getItem('assistant-thread-id');
+    const savedKey = localStorage.getItem('assistant-thread-key');
+    if (savedId && savedKey) {
+      setThreadId(savedId);
+      setThreadKey(savedKey);
     }
   }, []);
 
@@ -167,16 +181,22 @@ export function AssistantWidget({ domain, docsURL }) {
     body: {
       fp: 'anonymous',
       retrievalPageSize: 5,
-      ...(threadId && { threadId }), // Include thread ID if available
+      ...(threadId && { threadId }),
+      ...(threadKey && { threadKey }),
     },
     streamProtocol: 'data',
     sendExtraMessageFields: true,
     fetch: async (url, options) => {
       const response = await fetch(url, options);
       const newThreadId = response.headers.get('x-thread-id');
+      const newThreadKey = response.headers.get('x-thread-key');
       if (newThreadId) {
         setThreadId(newThreadId);
         localStorage.setItem('assistant-thread-id', newThreadId);
+      }
+      if (newThreadKey) {
+        setThreadKey(newThreadKey);
+        localStorage.setItem('assistant-thread-key', newThreadKey);
       }
       return response;
     },
