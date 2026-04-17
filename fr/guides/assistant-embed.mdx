@@ -154,22 +154,36 @@ const extractSources = (parts) => {
 ```
 
 <div id="track-conversation-thread-ids">
-  ### Suivre les identifiants des fils de conversation
+  ### Suivre les fils de conversation
 </div>
 
-Stockez les identifiants de fil pour conserver l’historique des conversations entre les sessions :
+Stockez les identifiants de fil et les clés de fil pour conserver l'historique des conversations entre les sessions.
+
+Lorsqu'un utilisateur crée un nouveau fil de conversation, le serveur renvoie deux valeurs dans les en-têtes de la réponse :
+
+- `X-Thread-Id` : L'identifiant du fil
+- `X-Thread-Key` : Une clé secrète pour le fil (renvoyée une seule fois, lors de la création du fil)
+
+Vous devez capturer et persister les deux valeurs dès la première réponse. Pour chaque message suivant, incluez à la fois `threadId` et `threadKey` dans le corps de la requête. Si vous envoyez un `threadId` sans le `threadKey` correspondant, le serveur renvoie une erreur `404`.
+
+<Warning>
+  Vous devez stocker l'en-tête `X-Thread-Key` immédiatement. Le serveur ne le renvoie que lors de la création d'un nouveau fil. Vous ne pouvez pas le récupérer ultérieurement.
+</Warning>
 
 ```jsx
 import { useState, useEffect } from 'react';
 
 export function AssistantWidget({ domain, docsURL }) {
   const [threadId, setThreadId] = useState(null);
+  const [threadKey, setThreadKey] = useState(null);
 
   useEffect(() => {
-    // Récupérer l'ID de fil enregistré depuis localStorage
-    const saved = localStorage.getItem('assistant-thread-id');
-    if (saved) {
-      setThreadId(saved);
+    // Récupérer l'ID et la clé de fil enregistrés depuis localStorage
+    const savedId = localStorage.getItem('assistant-thread-id');
+    const savedKey = localStorage.getItem('assistant-thread-key');
+    if (savedId && savedKey) {
+      setThreadId(savedId);
+      setThreadKey(savedKey);
     }
   }, []);
 
@@ -181,16 +195,22 @@ export function AssistantWidget({ domain, docsURL }) {
     body: {
       fp: 'anonymous',
       retrievalPageSize: 5,
-      ...(threadId && { threadId }), // Inclure l'ID de fil si disponible
+      ...(threadId && { threadId }),
+      ...(threadKey && { threadKey }),
     },
     streamProtocol: 'data',
     sendExtraMessageFields: true,
     fetch: async (url, options) => {
       const response = await fetch(url, options);
       const newThreadId = response.headers.get('x-thread-id');
+      const newThreadKey = response.headers.get('x-thread-key');
       if (newThreadId) {
         setThreadId(newThreadId);
         localStorage.setItem('assistant-thread-id', newThreadId);
+      }
+      if (newThreadKey) {
+        setThreadKey(newThreadKey);
+        localStorage.setItem('assistant-thread-key', newThreadKey);
       }
       return response;
     },

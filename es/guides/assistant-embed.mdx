@@ -154,22 +154,36 @@ const extractSources = (parts) => {
 ```
 
 <div id="track-conversation-thread-ids">
-  ### Seguimiento de los IDs de los hilos de conversación
+  ### Seguimiento de hilos de conversación
 </div>
 
-Guarda los IDs de los hilos para mantener el historial de la conversación entre sesiones:
+Almacena los IDs de hilo y las claves de hilo para mantener el historial de conversación entre sesiones.
+
+Cuando un usuario crea un nuevo hilo de conversación, el servidor devuelve dos valores en los encabezados de la respuesta:
+
+- `X-Thread-Id`: El identificador del hilo
+- `X-Thread-Key`: Una clave secreta para el hilo (solo se devuelve una vez, cuando se crea el hilo)
+
+Debes capturar y persistir ambos valores en la primera respuesta. En cada mensaje posterior, incluye tanto `threadId` como `threadKey` en el cuerpo de la solicitud. Si envías un `threadId` sin el `threadKey` correspondiente, el servidor devuelve un error `404`.
+
+<Warning>
+  Debes almacenar el encabezado `X-Thread-Key` inmediatamente. El servidor solo lo devuelve cuando se crea un nuevo hilo. No puedes recuperarlo más tarde.
+</Warning>
 
 ```jsx
 import { useState, useEffect } from 'react';
 
 export function AssistantWidget({ domain, docsURL }) {
   const [threadId, setThreadId] = useState(null);
+  const [threadKey, setThreadKey] = useState(null);
 
   useEffect(() => {
-    // Recuperar el ID del hilo guardado desde localStorage
-    const saved = localStorage.getItem('assistant-thread-id');
-    if (saved) {
-      setThreadId(saved);
+    // Recuperar el ID y la clave del hilo guardados desde localStorage
+    const savedId = localStorage.getItem('assistant-thread-id');
+    const savedKey = localStorage.getItem('assistant-thread-key');
+    if (savedId && savedKey) {
+      setThreadId(savedId);
+      setThreadKey(savedKey);
     }
   }, []);
 
@@ -181,16 +195,22 @@ export function AssistantWidget({ domain, docsURL }) {
     body: {
       fp: 'anonymous',
       retrievalPageSize: 5,
-      ...(threadId && { threadId }), // Incluir el ID del hilo si está disponible
+      ...(threadId && { threadId }),
+      ...(threadKey && { threadKey }),
     },
     streamProtocol: 'data',
     sendExtraMessageFields: true,
     fetch: async (url, options) => {
       const response = await fetch(url, options);
       const newThreadId = response.headers.get('x-thread-id');
+      const newThreadKey = response.headers.get('x-thread-key');
       if (newThreadId) {
         setThreadId(newThreadId);
         localStorage.setItem('assistant-thread-id', newThreadId);
+      }
+      if (newThreadKey) {
+        setThreadKey(newThreadKey);
+        localStorage.setItem('assistant-thread-key', newThreadKey);
       }
       return response;
     },

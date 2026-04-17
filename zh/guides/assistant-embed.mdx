@@ -151,22 +151,36 @@ const extractSources = (parts) => {
 ```
 
 <div id="track-conversation-thread-ids">
-  ### 跟踪会话线程 ID
+  ### 跟踪会话线程
 </div>
 
-存储线程 ID，以在不同会话中保留对话历史：
+存储线程 ID 和线程密钥，以在不同会话中保留对话历史。
+
+当用户创建新的会话线程时，服务器会在响应头中返回两个值：
+
+- `X-Thread-Id`：线程标识符
+- `X-Thread-Key`：线程的密钥（仅在创建线程时返回一次）
+
+你必须在第一次响应时捕获并持久化这两个值。在之后的每条消息中，都需要在请求体中同时包含 `threadId` 和 `threadKey`。如果你发送了 `threadId` 但没有附带对应的 `threadKey`，服务器将返回 `404` 错误。
+
+<Warning>
+  你必须立即存储 `X-Thread-Key` 响应头。服务器仅在创建新线程时返回该值，之后无法再次获取。
+</Warning>
 
 ```jsx
 import { useState, useEffect } from 'react';
 
 export function AssistantWidget({ domain, docsURL }) {
   const [threadId, setThreadId] = useState(null);
+  const [threadKey, setThreadKey] = useState(null);
 
   useEffect(() => {
-    // 从 localStorage 中获取已保存的线程 ID
-    const saved = localStorage.getItem('assistant-thread-id');
-    if (saved) {
-      setThreadId(saved);
+    // 从 localStorage 中获取已保存的线程 ID 和密钥
+    const savedId = localStorage.getItem('assistant-thread-id');
+    const savedKey = localStorage.getItem('assistant-thread-key');
+    if (savedId && savedKey) {
+      setThreadId(savedId);
+      setThreadKey(savedKey);
     }
   }, []);
 
@@ -178,16 +192,22 @@ export function AssistantWidget({ domain, docsURL }) {
     body: {
       fp: 'anonymous',
       retrievalPageSize: 5,
-      ...(threadId && { threadId }), // 如果可用则包含线程 ID
+      ...(threadId && { threadId }),
+      ...(threadKey && { threadKey }),
     },
     streamProtocol: 'data',
     sendExtraMessageFields: true,
     fetch: async (url, options) => {
       const response = await fetch(url, options);
       const newThreadId = response.headers.get('x-thread-id');
+      const newThreadKey = response.headers.get('x-thread-key');
       if (newThreadId) {
         setThreadId(newThreadId);
         localStorage.setItem('assistant-thread-id', newThreadId);
+      }
+      if (newThreadKey) {
+        setThreadKey(newThreadKey);
+        localStorage.setItem('assistant-thread-key', newThreadKey);
       }
       return response;
     },
