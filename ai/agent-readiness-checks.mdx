@@ -249,13 +249,13 @@ After fixing all broken links, provide the updated `llms-full.txt` file.
 
 This check looks for a skill discovery endpoint at `/.well-known/agent-skills/index.json`. If found, it fetches the first listed skill URL and verifies it returns Markdown content. If no index exists, it falls back to checking `/skill.md` directly.
 
-Mintlify automatically generates a `skill.md` file for every documentation site. See [skill.md](/ai/skillmd) for setup details and customization options.
+Mintlify generates a `skill.md` file for every documentation site. See [skill.md](/ai/skillmd) for customization options.
 
-**Why this check matters:** While `llms.txt` tells agents where your content is, `skill.md` tells agents what your product does and how to use it. This gives AI assistants the operating context they need to take meaningful actions on behalf of users—not just find information.
+**Why this check matters:** While `llms.txt` tells agents where your content is, `skill.md` tells agents how to use your product. This gives agents the operating context they need to take meaningful actions on behalf of users.
 
 **How to improve:** If you use a reverse proxy, configure it to forward `/skill.md`, `/.well-known/skills/*`, and `/.well-known/agent-skills/*` to your Mintlify subdomain.
 
-<Prompt description="Write a skill.md for your product" actions={["copy", "cursor"]}>
+<Prompt description="Write a `skill.md` for your product." actions={["copy", "cursor"]}>
 Draft a `skill.md` for my product that follows the [Agent Skills](https://agentskills.io) conventions and is suitable for discovery via `/.well-known/agent-skills/index.json` or `/skill.md`.
 
 Use YAML frontmatter at the top with at least: `name`, `description`, `license`, and `compatibility` (add other standard fields if useful).
@@ -264,56 +264,59 @@ Body structure:
 1. **Overview** — One short paragraph: what the product is and who the agent user is
 2. **Capabilities** — Bullet list of outcomes agents can drive end-to-end (not marketing features)
 3. **Skills** — For each skill: purpose, required inputs, outputs, guardrails (auth, PII, rate limits), and failure modes
-4. **Workflows** — Numbered procedures for 2–4 common tasks, with decision points and when to escalate to a human
+4. **Workflows** — Numbered procedures for 2-4 common tasks, with decision points and when to escalate to a human
 
 Tone: imperative, testable statements. Avoid vague adjectives. If you lack product facts, insert `TODO` with the specific fact needed instead of guessing.
 
-Output the full `skill.md` in one fenced markdown block.
+Output the full `skill.md` in one fenced markdown block. Call out any TODOs that must be resolved before the skill can be used.
 </Prompt>
 
 ## Markdown content negotiation
 
-The check sends a request to your documentation root with `Accept: text/markdown, text/html;q=0.9` and verifies that the response `Content-Type` is `text/markdown` or `text/x-markdown` and the body is not HTML.
+This check sends a request to your documentation root with `Accept: text/markdown, text/html;q=0.9` and verifies that the response `Content-Type` is `text/markdown` or `text/x-markdown` and the body is not HTML.
 
 Mintlify handles this automatically for all hosted documentation sites.
 
-**Why this check matters:** Agents requesting Markdown receive clean, structured content without HTML overhead. This reduces token usage and removes noise from navigation elements, scripts, and markup.
+**Why this check matters:** Agents requesting Markdown receive structured content that is more efficient to process than HTML. This reduces token usage and removes noise from navigation elements, scripts, and markup that takes up the context window.
 
 **How to improve:** If you use a [reverse proxy](/deploy/reverse-proxy), ensure it forwards `Accept` headers to your Mintlify subdomain rather than stripping or overriding them.
 
-<Prompt description="Add Markdown content negotiation to your server" actions={["copy", "cursor"]}>
-I need HTTP content negotiation so that requests to my documentation root (and ideally each doc path) with `Accept: text/markdown, text/html;q=0.9` receive **Markdown**, not HTML: response body must be raw Markdown and `Content-Type` must be `text/markdown` or `text/x-markdown`.
+<Prompt description="Implement Markdown content negotiation for your documentation server." actions={["copy", "cursor"]}>
+Configure the documentation server so that when a client sends a request with the `Accept: text/markdown, text/html;q=0.9` header to the root (and preferably any documentation path), it returns the raw Markdown source, not HTML. The HTTP response should have a `Content-Type` of either `text/markdown` or `text/x-markdown`. All other requests—such as those from browsers without this Accept header—must continue to return HTML as usual.
 
-Constraints:
-- Default browser requests without that Accept header should still get normal HTML
-- Do not strip or rewrite the Accept header at a reverse proxy—forward it to the origin
+Requirements:
+- Do not remove, transform, or ignore the `Accept` header at any reverse proxy—forward it to your origin server unchanged.
+- Only serve Markdown responses to requests explicitly asking for them via `Accept`.
 
-My stack: **&lt;name framework, host, and proxy, e.g. Next.js on Vercel behind Cloudflare&gt;**
+The response should include:
+1. Minimal example of request and response headers for both HTML and Markdown negotiations.
+2. The exact middleware or server configuration needed.
+3. A short `curl` command to test that Markdown negotiation works (ensure it checks both the `Content-Type` and body output, demonstrating Markdown is served).
 
-Give: (1) minimal example request/response headers, (2) exact config or middleware code for my stack, (3) a quick way to verify with `curl -H 'Accept: text/markdown' …`.
+Optional: If content negotiation for individual documentation pages as well as the root is supported, describe any additional setup needed.
+
+Be concise. Focus only on the changes or code/configuration necessary for robust Markdown negotiation.
 </Prompt>
 
 ## Plaintext content negotiation
 
-The check sends a request to your documentation root with `Accept: text/plain, text/html;q=0.9` and verifies that the response returns a non-HTML `text/*` content type.
+This check sends a request to your documentation root with `Accept: text/plain, text/html;q=0.9` and verifies that the response returns a non-HTML `text/*` content type.
 
 Mintlify handles this automatically for all hosted documentation sites.
 
-**Why this check matters:** Some agents and tools cannot handle Markdown and fall back to plain text. Supporting this keeps your content accessible to simpler clients.
+**Why this check matters:** Some agents cannot handle Markdown and fall back to plain text. Support plain text fallback to keep your content accessible to simpler clients.
 
-**How to improve:** Same as Markdown content negotiation—ensure your reverse proxy forwards `Accept` headers to Mintlify.
+**How to improve:** If you use a reverse proxy, ensure it forwards `Accept` headers to your Mintlify subdomain.
 
 <Prompt description="Add plain text content negotiation to your documentation server." actions={["copy", "cursor"]}>
-Configure my docs origin so a request with `Accept: text/plain, text/html;q=0.9` gets a **non-HTML** `text/*` body (typically plain text derived from the same page content browsers see as HTML). Browsers sending default Accept headers must still receive HTML.
+Configure the documentation server so a request with `Accept: text/plain, text/html;q=0.9` gets a **non-HTML** `text/*` body. Browsers sending default Accept headers must still receive HTML.
 
-My stack: **&lt;framework, host, reverse proxy if any&gt;**
-
-Provide: routing or middleware changes, how plain text differs from Markdown negotiation if both are supported, and a `curl` one-liner to confirm `Content-Type` and that the body is not HTML.
+Provide: routing or middleware changes, how plain text differs from Markdown negotiation if both are supported, and a `curl` command to confirm `Content-Type` and that the body is not HTML.
 </Prompt>
 
 ## MCP server
 
-The check sends a JSON-RPC `initialize` request to `{yourDomain}/mcp` using the MCP protocol. It passes if the response includes a valid `serverInfo.name`.
+This check sends a JSON-RPC `initialize` request to `/mcp` on your domain. It passes if the response includes a valid `serverInfo.name`.
 
 Mintlify hosts an MCP server for every documentation site. See [MCP server](/ai/model-context-protocol) for details and configuration.
 
@@ -336,7 +339,7 @@ Deliver: architecture sketch, minimal handler pseudocode or real code for my sta
 
 ### Tool count
 
-After confirming the server is discoverable, the check calls `tools/list` and verifies at least one tool is returned.
+The check calls `tools/list` and verifies at least one tool is returned.
 
 **Why this check matters:** An MCP server with no tools offers no actionable integration surface for agents.
 
@@ -360,13 +363,13 @@ Assume my repo layout: **&lt;monorepo path to MCP server if known&gt;**. If unkn
 
 ## OpenAPI spec
 
-The check looks for a valid spec at standard paths: `/openapi.json`, `/openapi.yaml`, `/swagger.json`, `/swagger.yaml`, and `/api/` variants of each. The spec must parse as valid JSON or YAML with an `openapi` or `swagger` version field.
+This check looks for a valid spec at standard paths: `/openapi.json`, `/openapi.yaml`, `/swagger.json`, `/swagger.yaml`, and `/api/` variants of each. The spec must parse as valid JSON or YAML with an `openapi` or `swagger` version field.
 
 **Why this check matters:** A discoverable OpenAPI spec lets agents auto-discover your API surface, parameters, and schemas without scraping documentation HTML. This is the most direct path for agents to call your API accurately.
 
 **How to improve:** Host your OpenAPI spec at one of the standard paths listed above. If you already have a spec, verify it is publicly accessible without authentication.
 
-<Prompt description="Serve your OpenAPI spec at a standard path" actions={["copy", "cursor"]}>
+<Prompt description="Serve your OpenAPI spec at a standard path." actions={["copy", "cursor"]}>
 Expose my OpenAPI document on the **public docs or API host** at one of the standard paths readiness checks probe: `/openapi.json`, `/openapi.yaml`, `/swagger.json`, `/swagger.yaml`, or `/api/` variants of those.
 
 Requirements:
@@ -381,13 +384,13 @@ Give: exact static or dynamic route to add, cache headers if relevant, and a sin
 
 ## robots.txt
 
-The check fetches `/robots.txt` and verifies that none of the known AI agent user-agents—including Claude, ChatGPT, Gemini, Copilot, and Perplexity—are blocked with `Disallow: /` or `Disallow: /*`. If no `robots.txt` exists, or it returns HTML, the check passes.
+This check fetches `/robots.txt` and verifies that none of the known AI agent user-agents—including Claude, ChatGPT, Gemini, Copilot, and Perplexity—are blocked with `Disallow: /` or `Disallow: /*`. If no `robots.txt` exists, or it returns HTML, the check passes.
 
 **Why this check matters:** Blocking AI crawlers in `robots.txt` prevents content from being indexed and fetched, even if your documentation is otherwise well-structured and publicly accessible.
 
 **How to improve:** Review your `robots.txt` for blanket disallow rules targeting AI user-agents. Replace them with path-specific rules if you need to restrict access to certain sections without blocking all content.
 
-<Prompt description="Update robots.txt to allow AI agents" actions={["copy", "cursor"]}>
+<Prompt description="Update `robots.txt` to allow AI agents." actions={["copy", "cursor"]}>
 You have my current `robots.txt` (paste below). Update it so **no major AI agent user-agent** is blocked with `Disallow: /` or `Disallow: /*` (readiness checks flag patterns that blanket-block crawlers such as Claude, ChatGPT, Gemini, Copilot, Perplexity, and similar).
 
 Rules:
@@ -400,7 +403,7 @@ Output: full revised `robots.txt`, then a short “what changed” note listing 
 
 ## Sitemap
 
-The check fetches `/sitemap.xml` and verifies it returns a valid XML content type or starts with valid XML (`<?xml`, `<urlset`, or `<sitemapindex`).
+This check fetches `/sitemap.xml` and verifies it returns a valid XML content type or starts with valid XML (`<?xml`, `<urlset`, or `<sitemapindex`).
 
 Mintlify automatically generates and hosts a `sitemap.xml` for all documentation sites.
 
@@ -408,7 +411,7 @@ Mintlify automatically generates and hosts a `sitemap.xml` for all documentation
 
 **How to improve:** If you use a reverse proxy, forward `/sitemap.xml` to your Mintlify subdomain. If you host docs outside Mintlify, generate a sitemap with your static site generator or framework.
 
-<Prompt description="Generate a sitemap.xml for your docs site" actions={["copy", "cursor"]}>
+<Prompt description="Generate a `sitemap.xml` for your documentation site." actions={["copy", "cursor"]}>
 Build a `sitemap.xml` for my documentation site that a readiness check can fetch at `/sitemap.xml` and recognize as XML (`Content-Type` `application/xml` or equivalent, or body starting with `<?xml`, `<urlset`, or `<sitemapindex`).
 
 Include:
@@ -423,7 +426,7 @@ Deliver: the XML file content plus where to place it in my build output so it is
 
 ## Structured data
 
-The check fetches your documentation homepage as HTML and looks for `<script type="application/ld+json">` tags containing parseable JSON-LD.
+This check fetches your documentation homepage as HTML and looks for `<script type="application/ld+json">` tags containing parseable JSON-LD.
 
 Mintlify embeds JSON-LD structured data automatically in all page responses.
 
@@ -431,7 +434,7 @@ Mintlify embeds JSON-LD structured data automatically in all page responses.
 
 **How to improve:** Mintlify handles this automatically. If you host docs outside Mintlify, add JSON-LD markup to your page templates.
 
-<Prompt description="Add JSON-LD structured data to your documentation" actions={["copy", "cursor"]}>
+<Prompt description="Add JSON-LD structured data to your documentation site." actions={["copy", "cursor"]}>
 Add JSON-LD to my documentation templates so pages include parseable `<script type="application/ld+json">` blocks (readiness checks scan the homepage HTML for valid JSON-LD).
 
 For each page type, propose minimal valid graphs:
@@ -447,13 +450,13 @@ Show: exact template injection points, one example JSON-LD blob per page type fi
 
 ## Response latency
 
-The check times a direct request to your documentation root and passes if the first byte arrives within 2,000 milliseconds. The check fails if the request times out.
+This check times a GET request to your documentation root. It passes if the first byte arrives within 2,000 milliseconds and fails if the request times out.
 
 **Why this check matters:** Slow responses cause agent timeouts in multi-step workflows where documentation is fetched as a subtask. A 2-second threshold accounts for agent processing overhead on top of network time.
 
 **How to improve:** For Mintlify-hosted sites, response time is handled by Mintlify's infrastructure and should pass for most deployments. If your site uses a reverse proxy or custom hosting, enable CDN caching, reduce server-side rendering time, and minimize blocking resources on the documentation homepage.
 
-<Prompt description="Diagnose slow documentation response time" actions={["copy", "cursor"]}>
+<Prompt description="Diagnose and fix slow documentation response time." actions={["copy", "cursor"]}>
 My documentation **homepage/root** sometimes exceeds **2,000 ms time to first byte (TTFB)**—that fails our agent-readiness latency check (first byte must arrive within 2s).
 
 Help me triage in order:
