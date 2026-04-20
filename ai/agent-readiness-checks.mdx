@@ -1,0 +1,227 @@
+---
+title: "Agent readiness checks"
+description: "What each Agent Rank check tests, why it matters, and how to pass it."
+keywords: ["agent rank", "agent readiness", "llms.txt", "skill.md", "MCP", "robots.txt", "sitemap", "structured data", "content negotiation", "OpenAPI"]
+---
+
+[Agent Rank](https://agentrank.mintlify.com) scores your documentation site on how accessible it is to AI agents. This page explains what each agent readiness check tests, why it matters, and how to improve your documentation.
+
+## How scoring works
+
+Checks are weighted and organized into a tree. Some checks depend on other checks, so they only run if their parent check passes.
+
+For example, if your site has no `llms.txt` file, none of the checks that evaluate the contents of `llms.txt` run and you cannot get any points for them.
+
+Focus on passing parent checks first to make the biggest improvements to how accessible your documentation is to agents.
+
+## llms.txt
+
+The check fetches `/llms.txt` from your domain (and fallback paths including `/.well-known/llms.txt`). It passes if the file is reachable and returns a text content type with non-HTML content.
+
+Mintlify automatically generates and hosts `llms.txt` for every documentation site. See [llms.txt](/ai/llmstxt) for setup details and customization options.
+
+**Why it matters:** `llms.txt` gives agents a standard starting point for discovering your documentation before crawling or guessing at navigation.
+
+**How to improve:** If you use a [reverse proxy](/deploy/reverse-proxy), configure it to forward `/llms.txt` and `/.well-known/llms.txt` to your Mintlify subdomain. If you host your docs outside Mintlify, create an `llms.txt` file at the root of your site.
+
+<Prompt description="Create a valid llms.txt" actions={["copy", "cursor"]}>
+Create a valid llms.txt file for my documentation site following the llmstxt.org specification. The file should start with a # heading for the site title, include a > blockquote description below the title, and list all main documentation pages under a ## Docs section. Each page entry should use Markdown link format pointing to the .md version of each URL: [Page Title](https://example.com/docs/page.md). Group pages by topic using ## section headings where appropriate.
+</Prompt>
+
+### llms.txt valid structure
+
+The file must contain at least one Markdown link in `[text](url)` format.
+
+**Why it matters:** Without links, `llms.txt` cannot direct agents to your content.
+
+**How to improve:** Mintlify-generated files always include links. If you use a custom file, ensure it contains at least one `[Page Title](url)` entry.
+
+### llms.txt size
+
+The file must be under 100,000 characters. Files over 50,000 characters are flagged as a truncation risk.
+
+**Why it matters:** Oversized files may be truncated by AI tools with limited context windows, causing agents to miss pages listed toward the end.
+
+**How to improve:** If you have a large custom `llms.txt`, trim it to the most important pages. Use `llms-full.txt` for the complete content corpus.
+
+### llms.txt links resolve
+
+Up to 50 same-origin links are sampled and checked. At least 90% must return HTTP 200.
+
+**Why it matters:** Broken links mean agents cannot reach content they were directed to.
+
+**How to improve:** Fix deleted or renamed pages, or remove outdated entries from your custom `llms.txt`.
+
+<Prompt description="Audit and fix broken links in llms.txt" actions={["copy", "cursor"]}>
+Review the links in my llms.txt file and identify any that may point to pages that no longer exist or have moved. For each broken link, suggest whether the page should be restored, the link updated to the new URL, or the entry removed from llms.txt.
+</Prompt>
+
+### llms.txt links point to Markdown
+
+At least 50% of links must end in `.md`.
+
+**Why it matters:** `.md` links let agents fetch the Markdown version of a page directly, which is cleaner and more token-efficient than parsing HTML.
+
+**How to improve:** Mintlify-generated `llms.txt` always uses `.md` links. If you have a custom file, append `.md` to your page URLs.
+
+### llms.txt directive format
+
+The file must start with an H1 title (`# Site Name`) and include a `## Docs` or `## Documentation` section heading.
+
+**Why it matters:** This structure follows the llms.txt specification, which tools use to parse the file predictably.
+
+**How to improve:** Mintlify-generated files always meet this requirement. For custom files, ensure the first non-empty line is an H1 and the main page list appears under a `## Docs` heading.
+
+## llms-full.txt
+
+The check fetches `/llms-full.txt` from your domain and verifies it is reachable, returns a text content type, is non-empty, and is not HTML.
+
+Mintlify automatically generates and hosts `llms-full.txt` for every documentation site. See [llms.txt](/ai/llmstxt#llms-fulltxt) for details.
+
+**Why it matters:** A single-file corpus lets long-context agents ingest your entire documentation in one pass without making individual page requests.
+
+**How to improve:** If you use a reverse proxy, forward `/llms-full.txt` and `/.well-known/llms-full.txt` to your Mintlify subdomain.
+
+### llms-full.txt size
+
+The file must be between 500 and 5,000,000 characters.
+
+**Why it matters:** Files under 500 characters contain too little content to be useful. Files over 5MB exceed what most AI tools can process in a single context window.
+
+**How to improve:** If the file is too small, your site may have very few published pages—add more documentation content. If the file is over the limit, use `llms.txt` to point agents to individual pages instead.
+
+### llms-full.txt valid structure
+
+The file must start with an H1 heading and contain at least 2 headings total.
+
+**Why it matters:** Structure helps agents navigate and chunk the file rather than processing it as undifferentiated text.
+
+**How to improve:** Mintlify-generated files always meet this requirement. For custom files, ensure each major documentation section starts with a heading.
+
+### llms-full.txt links resolve
+
+At least 90% of same-origin links in the file must return HTTP 200.
+
+**Why it matters:** Same reasoning as the `llms.txt` links resolve check—broken references make content unreachable to agents following them.
+
+**How to improve:** Fix broken links in your documentation source.
+
+## skill.md
+
+The check looks for a skill discovery endpoint at `/.well-known/agent-skills/index.json`. If found, it fetches the first listed skill URL and verifies it returns Markdown content. If no index exists, it falls back to checking `/skill.md` directly.
+
+Mintlify automatically generates a `skill.md` file for every documentation site. See [skill.md](/ai/skillmd) for setup details and customization options.
+
+**Why it matters:** While `llms.txt` tells agents where your content is, `skill.md` tells agents what your product does and how to use it. This gives AI assistants the operating context they need to take meaningful actions on behalf of users—not just find information.
+
+**How to improve:** If you use a reverse proxy, configure it to forward `/skill.md`, `/.well-known/skills/*`, and `/.well-known/agent-skills/*` to your Mintlify subdomain.
+
+<Prompt description="Write a skill.md for your product" actions={["copy", "cursor"]}>
+Write a skill.md file for my product following the agentskills.io specification. Start with YAML frontmatter containing name, description, license, and compatibility fields. Then document: Capabilities (high-level things agents can accomplish), Skills (specific actions with required inputs and constraints), and Workflows (step-by-step procedures for common tasks). Focus on what agents can do programmatically, not just what product features exist. Keep descriptions precise and action-oriented.
+</Prompt>
+
+## Markdown content negotiation
+
+The check sends a request to your documentation root with `Accept: text/markdown, text/html;q=0.9` and verifies that the response `Content-Type` is `text/markdown` or `text/x-markdown` and the body is not HTML.
+
+Mintlify handles this automatically for all hosted documentation sites.
+
+**Why it matters:** Agents requesting Markdown receive clean, structured content without HTML overhead. This reduces token usage and removes noise from navigation elements, scripts, and markup.
+
+**How to improve:** If you use a [reverse proxy](/deploy/reverse-proxy), ensure it forwards `Accept` headers to your Mintlify subdomain rather than stripping or overriding them.
+
+<Prompt description="Add Markdown content negotiation to your server" actions={["copy", "cursor"]}>
+I need my documentation server to support HTTP content negotiation for Markdown. When a client sends Accept: text/markdown or Accept: text/x-markdown, the server should respond with the Markdown source of the page and set Content-Type: text/markdown. Show me how to configure this for [your server framework or platform].
+</Prompt>
+
+## Plaintext content negotiation
+
+The check sends a request to your documentation root with `Accept: text/plain, text/html;q=0.9` and verifies that the response returns a non-HTML `text/*` content type.
+
+Mintlify handles this automatically for all hosted documentation sites.
+
+**Why it matters:** Some agents and tools cannot handle Markdown and fall back to plain text. Supporting this keeps your content accessible to simpler clients.
+
+**How to improve:** Same as Markdown content negotiation—ensure your reverse proxy forwards `Accept` headers to Mintlify.
+
+## MCP server
+
+The check sends a JSON-RPC `initialize` request to `{yourDomain}/mcp` using the MCP protocol. It passes if the response includes a valid `serverInfo.name`.
+
+Mintlify hosts an MCP server for every documentation site. See [MCP server](/ai/model-context-protocol) for details and configuration.
+
+**Why it matters:** An MCP server gives agents a first-class integration path with structured tools and typed outputs, rather than forcing them to scrape HTML or infer behavior from documentation.
+
+**How to improve:** If you use a reverse proxy, configure it to forward `/mcp` to your Mintlify subdomain.
+
+### Tool count
+
+After confirming the server is discoverable, the check calls `tools/list` and verifies at least one tool is returned.
+
+**Why it matters:** An MCP server with no tools offers no actionable integration surface for agents.
+
+**How to improve:** See [MCP resources](/ai/model-context-protocol#mcp-resources) to understand which tools Mintlify exposes and how to configure them.
+
+## OpenAPI spec
+
+The check looks for a valid spec at standard paths: `/openapi.json`, `/openapi.yaml`, `/swagger.json`, `/swagger.yaml`, and `/api/` variants of each. The spec must parse as valid JSON or YAML with an `openapi` or `swagger` version field.
+
+**Why it matters:** A discoverable OpenAPI spec lets agents auto-discover your API surface, parameters, and schemas without scraping documentation HTML. This is the most direct path for agents to call your API accurately.
+
+**How to improve:** Host your OpenAPI spec at one of the standard paths listed above. If you already have a spec, verify it is publicly accessible without authentication.
+
+<Prompt description="Serve your OpenAPI spec at a standard path" actions={["copy", "cursor"]}>
+I want to make my OpenAPI spec discoverable to AI agents at /openapi.json or /openapi.yaml. Show me how to configure my server to serve the spec file at that path with the correct Content-Type header (application/json for JSON, application/x-yaml for YAML). The spec should be publicly accessible without authentication.
+</Prompt>
+
+## robots.txt
+
+The check fetches `/robots.txt` and verifies that none of the known AI agent user-agents—including Claude, ChatGPT, Gemini, Copilot, and Perplexity—are blocked with `Disallow: /` or `Disallow: /*`. If no `robots.txt` exists, or it returns HTML, the check passes.
+
+**Why it matters:** Blocking AI crawlers in `robots.txt` prevents content from being indexed and fetched, even if your documentation is otherwise well-structured and publicly accessible.
+
+**How to improve:** Review your `robots.txt` for blanket disallow rules targeting AI user-agents. Replace them with path-specific rules if you need to restrict access to certain sections without blocking all content.
+
+<Prompt description="Update robots.txt to allow AI agents" actions={["copy", "cursor"]}>
+Review my robots.txt and update it to allow the major AI agent crawlers: GPTBot, ClaudeBot, Claude-User, Google-Extended, PerplexityBot, Copilot, and OAI-SearchBot. Preserve any existing rules for non-AI bots. If I currently have a wildcard User-agent: * rule with Disallow: /, show me how to add explicit Allow rules for AI agents above it.
+</Prompt>
+
+## Sitemap
+
+The check fetches `/sitemap.xml` and verifies it returns a valid XML content type or starts with valid XML (`<?xml`, `<urlset`, or `<sitemapindex`).
+
+Mintlify automatically generates and hosts a `sitemap.xml` for all documentation sites.
+
+**Why it matters:** A sitemap gives agents a complete URL inventory so they can plan systematic crawls without guessing at navigation or following every internal link.
+
+**How to improve:** If you use a reverse proxy, forward `/sitemap.xml` to your Mintlify subdomain. If you host docs outside Mintlify, generate a sitemap with your static site generator or framework.
+
+<Prompt description="Generate a sitemap.xml for your docs site" actions={["copy", "cursor"]}>
+Generate a sitemap.xml for my documentation site. Include all public documentation pages with canonical URLs. Use the standard sitemap XML format with urlset, url, loc, and optionally lastmod and changefreq elements. The file should be served at /sitemap.xml with Content-Type: application/xml.
+</Prompt>
+
+## Structured data
+
+The check fetches your documentation homepage as HTML and looks for `<script type="application/ld+json">` tags containing parseable JSON-LD.
+
+Mintlify embeds JSON-LD structured data automatically in all page responses.
+
+**Why it matters:** JSON-LD gives agents machine-readable context about your pages—organization information, breadcrumbs, article metadata, and relationships—without requiring them to infer context from content or HTML structure.
+
+**How to improve:** Mintlify handles this automatically. If you host docs outside Mintlify, add JSON-LD markup to your page templates.
+
+<Prompt description="Add JSON-LD structured data to your documentation" actions={["copy", "cursor"]}>
+Add JSON-LD structured data to my documentation site. Include a WebSite schema on the homepage and a TechArticle or Article schema on individual documentation pages. Add BreadcrumbList markup for page hierarchy and Organization markup for the company. Show me where to place the `<script type="application/ld+json">` tag in my HTML template and what properties to include for a technical documentation site.
+</Prompt>
+
+## Response latency
+
+The check times a direct request to your documentation root and passes if the first byte arrives within 2,000 milliseconds. The check fails if the request times out.
+
+**Why it matters:** Slow responses cause agent timeouts in multi-step workflows where documentation is fetched as a subtask. A 2-second threshold accounts for agent processing overhead on top of network time.
+
+**How to improve:** For Mintlify-hosted sites, response time is handled by Mintlify's infrastructure and should pass for most deployments. If your site uses a reverse proxy or custom hosting, enable CDN caching, reduce server-side rendering time, and minimize blocking resources on the documentation homepage.
+
+<Prompt description="Diagnose slow documentation response time" actions={["copy", "cursor"]}>
+My documentation site is responding slowly (over 2 seconds to first byte). Help me identify the cause. Analyze: server-side rendering time, missing CDN or cache headers, unoptimized assets, third-party scripts blocking page load, and uncached database queries. Suggest specific changes to bring time-to-first-byte under 2 seconds. My site is hosted on [your hosting platform].
+</Prompt>
