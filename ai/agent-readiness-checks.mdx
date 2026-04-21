@@ -391,14 +391,16 @@ This check fetches `/robots.txt` and verifies that none of the known AI agent us
 **How to improve:** Review your `robots.txt` for blanket disallow rules targeting AI user-agents. Replace them with path-specific rules if you need to restrict access to certain sections without blocking all content.
 
 <Prompt description="Update `robots.txt` to allow AI agents." actions={["copy", "cursor"]}>
-You have my current `robots.txt` (paste below). Update it so **no major AI agent user-agent** is blocked with `Disallow: /` or `Disallow: /*` (readiness checks flag patterns that blanket-block crawlers such as Claude, ChatGPT, Gemini, Copilot, Perplexity, and similar).
+My `robots.txt` may be blocking AI crawlers. Update it so none of these user-agents are blocked with `Disallow: /` or `Disallow: /*`: `GPTBot`, `ClaudeBot`, `Claude-User`, `Google-Extended`, `PerplexityBot`, `Copilot`, `OAI-SearchBot`.
 
 Rules:
-- Prefer **path-specific** `Disallow` for sensitive areas instead of sitewide blocks for AI bots
-- Keep or improve rules for abusive scrapers if present—do not weaken protections unrelated to documentation
-- If `User-agent: *` is overly broad, add explicit `Allow` lines for doc paths for AI bots **or** narrow the wildcard rule; explain precedence so I do not accidentally keep a sitewide deny
+- Use path-specific `Disallow` for sensitive areas rather than sitewide blocks for AI crawlers
+- Preserve existing rules for non-AI bots—do not weaken unrelated protections
+- If `User-agent: *` has a broad `Disallow`, add explicit `Allow` lines for AI crawlers above it and explain precedence
 
-Output: full revised `robots.txt`, then a short “what changed” note listing each AI-related user-agent and its effective access to `/` and `/docs` (or my doc path prefix).
+Deliver:
+1. The complete revised `robots.txt`
+2. A summary of what changed for each AI-related user-agent and its effective access to my documentation path
 </Prompt>
 
 ## Sitemap
@@ -412,16 +414,17 @@ Mintlify automatically generates and hosts a `sitemap.xml` for all documentation
 **How to improve:** If you use a reverse proxy, forward `/sitemap.xml` to your Mintlify subdomain. If you host docs outside Mintlify, generate a sitemap with your static site generator or framework.
 
 <Prompt description="Generate a `sitemap.xml` for your documentation site." actions={["copy", "cursor"]}>
-Build a `sitemap.xml` for my documentation site that a readiness check can fetch at `/sitemap.xml` and recognize as XML (`Content-Type` `application/xml` or equivalent, or body starting with `<?xml`, `<urlset`, or `<sitemapindex`).
+I need a `sitemap.xml` served at `/sitemap.xml` so agents and crawlers can discover all my documentation URLs without guessing at navigation.
 
 Include:
-- Every **public** doc URL I care about crawlers indexing (canonical `https://` URLs, no auth-gated pages)
-- Optional `lastmod` if you can infer from git or file dates; otherwise omit rather than guess wildly
-- `changefreq` / `priority` only if my stack already uses them—do not invent policy I did not ask for
+- Every public documentation URL in canonical `https://` form—no auth-gated pages
+- `lastmod` if you can derive it from git history or file dates; omit it rather than guess
+- `changefreq` and `priority` only if my framework already generates them
 
-Inputs I can provide: **&lt;base URL, list of routes, or “crawl this repo path”&gt;**
-
-Deliver: the XML file content plus where to place it in my build output so it is served at `/sitemap.xml`.
+Deliver:
+1. The complete `sitemap.xml` file content
+2. Where to place it so it is served at `/sitemap.xml` in my build output
+3. A `curl` one-liner to confirm it's reachable and recognized as XML: `curl -sI https://yourdomain.com/sitemap.xml | grep content-type`
 </Prompt>
 
 ## Structured data
@@ -430,42 +433,45 @@ This check fetches your documentation homepage as HTML and looks for `<script ty
 
 Mintlify embeds JSON-LD structured data automatically in all page responses.
 
-**Why this check matters:** JSON-LD gives agents machine-readable context about your pages—organization information, breadcrumbs, article metadata, and relationships—without requiring them to infer context from content or HTML structure.
+**Why this check matters:** JSON-LD gives agents machine-readable context about your pages-organization information, breadcrumbs, article metadata, and relationships—without requiring them to infer context from content or HTML structure.
 
 **How to improve:** Mintlify handles this automatically. If you host docs outside Mintlify, add JSON-LD markup to your page templates.
 
 <Prompt description="Add JSON-LD structured data to your documentation site." actions={["copy", "cursor"]}>
-Add JSON-LD to my documentation templates so pages include parseable `<script type="application/ld+json">` blocks (readiness checks scan the homepage HTML for valid JSON-LD).
+I need parseable `<script type="application/ld+json">` blocks on my documentation pages so agents can read machine-readable context about my site structure and content.
 
-For each page type, propose minimal valid graphs:
-- **Home / docs root:** `WebSite` (name, url, optional `potentialAction` search)
-- **Article-style doc pages:** `TechArticle` or `Article` (headline, datePublished if available, author/org)
-- **All inner pages:** `BreadcrumbList` matching the sidebar hierarchy
-- **Organization** once (homepage or layout): name, url, logo if I have a stable URL
+For each page type, add a minimal valid JSON-LD graph:
+- **Homepage / docs root:** `WebSite` with `name`, `url`, and optional `potentialAction` for site search
+- **Doc pages:** `TechArticle` or `Article` with `headline`, `datePublished` if available, and `author` or `organization`
+- **All inner pages:** `BreadcrumbList` matching the page's position in the navigation hierarchy
+- **Once in the layout:** `Organization` with `name`, `url`, and `logo`
 
-My stack: **&lt;framework and templating, e.g. Docusaurus, Next.js App Router, Mintlify custom head&gt;**
-
-Show: exact template injection points, one example JSON-LD blob per page type filled with placeholders, and how to avoid duplicate `@id` collisions across routes.
+Deliver:
+1. Exact template injection points for each page type in my stack
+2. One complete example JSON-LD blob per page type with realistic placeholders
+3. How to keep `@id` values unique across routes to avoid collisions
+4. How to verify: open DevTools → Elements → search for `application/ld+json`
 </Prompt>
 
 ## Response latency
 
 This check times a GET request to your documentation root. It passes if the first byte arrives within 2,000 milliseconds and fails if the request times out.
 
-**Why this check matters:** Slow responses cause agent timeouts in multi-step workflows where documentation is fetched as a subtask. A 2-second threshold accounts for agent processing overhead on top of network time.
+**Why this check matters:** Slow responses cause agent timeouts in multi-step workflows where documentation is fetched as a subtask. A two-second threshold accounts for agent processing overhead on top of network time.
 
-**How to improve:** For Mintlify-hosted sites, response time is handled by Mintlify's infrastructure and should pass for most deployments. If your site uses a reverse proxy or custom hosting, enable CDN caching, reduce server-side rendering time, and minimize blocking resources on the documentation homepage.
+**How to improve:** If your site uses a reverse proxy or custom hosting, enable CDN caching, reduce server-side rendering time, and minimize blocking resources on the documentation homepage.
 
 <Prompt description="Diagnose and fix slow documentation response time." actions={["copy", "cursor"]}>
-My documentation **homepage/root** sometimes exceeds **2,000 ms time to first byte (TTFB)**—that fails our agent-readiness latency check (first byte must arrive within 2s).
+My documentation homepage is exceeding 2,000 ms time to first byte (TTFB), which fails the agent-readiness latency check.
 
 Help me triage in order:
-1. **Measure** — How to isolate TTFB vs total load (e.g. `curl -w '%{time_starttransfer}\n' -o /dev/null -s`, browser DevTools)
-2. **Edge vs origin** — CDN cache hit ratio, whether HTML is dynamically rendered per request, cold starts
-3. **Origin work** — SSR cost, data fetching on the critical path, region distance
-4. **Proxy misconfig** — buffering, auth subrequests, slow upstream health checks
+1. **Measure** — Isolate TTFB from total load time: `curl -w '%{time_starttransfer}\n' -o /dev/null -s https://yourdomain.com` and browser DevTools Network tab
+2. **Edge vs origin** — CDN cache hit ratio, whether HTML is server-rendered per request, cold start behavior
+3. **Origin bottlenecks** — SSR render cost, blocking data fetches on the critical path, server region vs. user location
+4. **Proxy misconfiguration** — Response buffering, auth subrequests adding latency, slow upstream health checks
 
-My setup: **&lt;hosting, CDN, proxy, framework&gt;**
-
-Return: top 3 likely causes for *my* stack, concrete settings or code changes to try first, and success criteria (which metric should drop below what threshold).
+Deliver:
+1. The top 3 most likely causes for my specific stack
+2. Concrete configuration changes or code edits to try first
+3. How to verify the fix: TTFB should drop below 1,500 ms measured with the `curl` command above
 </Prompt>
