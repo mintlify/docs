@@ -1,0 +1,176 @@
+---
+title: "Edit documentation with the admin MCP"
+sidebarTitle: "Admin MCP"
+description: "Connect AI tools to the Mintlify admin MCP to edit your documentation, manage navigation, and open pull requests without installing Git or cloning your docs repository."
+keywords: ["admin MCP", "AI editing", "no clone", "no Git", "docs MCP", "Claude", "Cursor"]
+icon: "pen-to-square"
+---
+
+The admin MCP is a hosted Mintlify MCP server that lets AI tools edit your documentation directly. Agents check out branches, read and edit pages, manage navigation, and open pull requests through the MCP protocol. No Git client, no local clone, no MDX file system to set up.
+
+Use the admin MCP when you want to make documentation changes from any MCP-compatible client like Claude, Cursor, or VS Code without leaving the conversation to switch over to a terminal.
+
+<Note>
+  The admin MCP is separate from the [documentation MCP server](/ai/model-context-protocol). The documentation MCP is read-only and lets your end users search your published docs. The admin MCP is write-capable and lets you and your team author and edit your docs source.
+</Note>
+
+## Admin MCP compared to the docs MCP
+
+| Capability | Docs MCP (`/mcp`) | Admin MCP (`mcp.mintlify.com`) |
+| :-- | :-- | :-- |
+| Search published content | Yes | Yes |
+| Read full page content | Yes | Yes |
+| Edit pages | No | Yes |
+| Create, move, and delete navigation nodes | No | Yes |
+| Update `docs.json` configuration | No | Yes |
+| Open pull requests | No | Yes |
+| Audience | Your end users | You and your team |
+
+## Getting started
+
+**Prerequisites:**
+
+- A Mintlify project with a connected Git repository
+- Editor or admin access to the project
+- An MCP-compatible AI tool (Claude, Cursor, Claude Code, VS Code, and others)
+
+**Connect to the admin MCP server:**
+
+The admin MCP is hosted at `https://mcp.mintlify.com`. Add it to your AI tool the same way you would add any remote MCP server.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Add the connector">
+        1. Navigate to the [Connectors](https://claude.ai/settings/connectors) page in Claude settings.
+        2. Select **Add custom connector**.
+        3. Use the following details:
+           - Name: `Mintlify admin`
+           - URL: `https://mcp.mintlify.com`
+        4. Select **Add**.
+      </Step>
+      <Step title="Authenticate">
+        Sign in with your Mintlify account when Claude prompts you.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    Run the following command in your terminal:
+
+    ```bash
+    claude mcp add --transport http mintlify-admin https://mcp.mintlify.com
+    ```
+
+    Authenticate when Claude Code prompts you.
+  </Tab>
+  <Tab title="Cursor">
+    Add the server to your `mcp.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify-admin": {
+          "url": "https://mcp.mintlify.com"
+        }
+      }
+    }
+    ```
+
+    Authenticate when Cursor prompts you.
+  </Tab>
+  <Tab title="VS Code">
+    Create or edit `.vscode/mcp.json`:
+
+    ```json
+    {
+      "servers": {
+        "mintlify-admin": {
+          "type": "http",
+          "url": "https://mcp.mintlify.com"
+        }
+      }
+    }
+    ```
+
+    Authenticate when VS Code prompts you.
+  </Tab>
+</Tabs>
+
+## How it works
+
+The admin MCP runs every change against a branch in your documentation repository, the same way the web editor does. A typical session follows this shape:
+
+<Steps>
+  <Step title="Check out a branch">
+    The agent binds the session to a branch. If you don't specify one, the admin MCP creates a fresh `admin-mcp/<slug>-<sha>` branch from your deploy branch.
+  </Step>
+  <Step title="Read, edit, or create content">
+    The agent reads, searches, and edits MDX pages. It can also manage navigation nodes (tabs, groups, pages) and update `docs.json` settings, all without touching the underlying files directly.
+  </Step>
+  <Step title="Save or discard">
+    Saving the session pushes the branch to your repository and opens a pull request. Discarding the session ends it without creating a PR.
+  </Step>
+</Steps>
+
+You can review the pull request in your repository, request changes, and merge it through your normal review process. Preview deployments work automatically.
+
+## What the admin MCP can do
+
+- **Edit pages.** String-replace edits and full-page rewrites against any MDX file in your project.
+- **Create new pages.** Add MDX content and insert the new page into your navigation in one step.
+- **Restructure navigation.** Add, rename, reorder, or remove tabs, groups, and pages in `docs.json`.
+- **Update site configuration.** Change theme, SEO, redirects, integrations, and other `docs.json` settings.
+- **Search across the site.** Find every page that mentions a term, function, or component before making changes.
+- **Open pull requests.** Save a session to push the branch and open a PR for review.
+
+## Sample prompts
+
+These prompts work well once your admin MCP is connected. Adapt them to your project.
+
+### Add a new page
+
+```text wrap
+Add a new page at guides/rate-limiting that explains how to handle rate limits with exponential backoff. Include a code example in TypeScript and put it in the API docs group.
+```
+
+### Restructure navigation
+
+```text wrap
+Move the "Webhooks" page out of "Get started" and into a new group called "Events" under the API reference tab.
+```
+
+### Sweep a deprecated term
+
+```text wrap
+Find every page that uses "API key" and update it to "access token". Show me the diff before saving.
+```
+
+### Update site config
+
+```text wrap
+Add a redirect from /old-quickstart to /quickstart and set the primary color to #0066FF.
+```
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="Do I need Git installed to use the admin MCP?">
+    No. The admin MCP performs all Git operations on the server. You don't need to install Git, clone your docs repository, or know any Git commands. Branches, commits, and pull requests are all created through the MCP tools.
+  </Accordion>
+
+  <Accordion title="How is this different from the documentation MCP server?">
+    The [documentation MCP](/ai/model-context-protocol), hosted at the `/mcp` path of your docs site, is read-only and exposes your published docs so your end users' AI tools can answer questions about your product. The admin MCP, hosted at `mcp.mintlify.com`, is write-capable and intended for you and your team to author and edit content.
+  </Accordion>
+
+  <Accordion title="What happens to my changes if I don't save?">
+    Edits live on the session branch until you save or discard. Saving opens a pull request with the changes. Discarding ends the session without creating a PR. Sessions that go idle eventually expire.
+  </Accordion>
+
+  <Accordion title="Can I work on an existing branch instead of a new one?">
+    Yes. Pass the branch name when starting the session. If the branch already exists in Git, the session attaches to it as-is. If it doesn't, the admin MCP creates it from your deploy branch.
+  </Accordion>
+
+  <Accordion title="Who can use the admin MCP?">
+    Anyone with editor or admin access to your Mintlify project. Permissions match what they have in the dashboard and web editor.
+  </Accordion>
+</AccordionGroup>
