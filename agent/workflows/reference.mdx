@@ -1,0 +1,109 @@
+---
+title: "Workflows reference"
+description: "Complete reference for Mintlify workflow configuration, triggers, run statuses, and the agent sandbox environment."
+keywords: ["workflow configuration", "cron", "trigger", "reference", "rate limits"]
+---
+
+## Configuration fields
+
+| Field | Required | Description |
+|---|---|---|
+| **Name** | Yes | Display name shown in the dashboard. |
+| **Trigger** | Yes | When to run the workflow. Exactly one trigger per workflow. |
+| **Prompt** | Yes | Instructions sent to the agent when the workflow runs. |
+| **Context** | No | Up to 5 repositories cloned as read-only reference. |
+| **Automerge** | No | Default: off. When enabled, automatically merges the opened pull request. |
+| **Notify** | No | Slack channels or users to notify when a run completes or fails. |
+
+## Triggers
+
+Each workflow supports exactly one trigger type.
+
+### Cron trigger
+
+| Field | Description |
+|---|---|
+| **Expression** | A 5-field cron expression in UTC: `minute hour day-of-month month day-of-week`. |
+
+Workflows queue within 10 minutes of the scheduled time. Use [crontab.guru](https://crontab.guru) to build and validate expressions.
+
+**Common expressions:**
+
+| Expression | Schedule |
+|---|---|
+| `0 9 * * 1` | Every Monday at 9:00 AM UTC |
+| `0 0 1 * *` | First day of each month at midnight UTC |
+| `0 8 * * 1-5` | Weekdays at 8:00 AM UTC |
+| `0 9 * * 3` | Every Wednesday at 9:00 AM UTC |
+
+### Push trigger
+
+| Field | Description |
+|---|---|
+| **Repository** | Repository to watch in `owner/repo` format. |
+| **Branch** | Branch to watch. If omitted, watches the repository's default branch. |
+
+A single workflow can watch up to 10 repository/branch combinations.
+
+Triggers fire on both pull request merges and direct pushes to the specified branch.
+
+## Run statuses
+
+| Status | Description |
+|---|---|
+| `queued` | The run is waiting to be picked up. |
+| `running` | The agent is actively executing the workflow. |
+| `completed` | The workflow finished and a pull request was opened or merged. |
+| `failed` | The workflow encountered an error. Failed runs do not count toward usage limits. |
+
+Runs that remain in `running` status for more than 25 minutes are automatically marked as failed.
+
+## Trigger types (run history)
+
+The run history records how each run was initiated:
+
+| Value | Description |
+|---|---|
+| `cron` | Triggered by the workflow's schedule. |
+| `manual` | Triggered manually from the dashboard. |
+| `push` | Triggered by a push event to a watched repository. |
+
+## Usage limits
+
+| Plan | Daily limit | Monthly limit |
+|---|---|---|
+| Hobby | 50 runs | 100 runs |
+| Pro, Growth, Enterprise | 50 runs | Unlimited |
+
+Failed runs do not count toward either limit. Manually triggered runs do count.
+
+## Agent sandbox environment
+
+Workflows run in an isolated sandbox with restricted internet access. Package registries and most external services are not reachable from the sandbox.
+
+**Available tools:**
+
+| Tool | Details |
+|---|---|
+| Shell utilities | `grep`, `sed`, `awk`, `curl`, `find`, and other standard utilities |
+| Git | `git` |
+| GitHub CLI | `gh` |
+| Mintlify CLI | `mint` |
+| Node.js | Available runtime |
+| Bun | Available runtime |
+
+The agent cannot install additional packages or tools at runtime. Prompts that reference unavailable tools may produce unexpected results or fail.
+
+## Repository permissions
+
+### GitHub
+
+The Mintlify GitHub App must be installed on every repository used in a workflow—including the documentation repository, trigger repositories, and context repositories. Manage installed repositories on the [GitHub app](https://dashboard.mintlify.com/settings/organization/github-app) settings page.
+
+For automerge, the GitHub App must have bypass permissions on every ruleset targeting your deploy branch. See [Configure automerge](/guides/configure-automerge).
+
+### GitLab
+
+Connect GitLab repositories through the [GitLab OAuth](https://dashboard.mintlify.com/settings/organization/gitlab-oauth) settings page. You must have at least the Maintainer role on each project.
+
+Workflows require a paid GitLab tier. GitLab's Free plan does not support the short-lived project access tokens the agent uses for repository access.

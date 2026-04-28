@@ -1,0 +1,152 @@
+---
+title: "Write workflow prompts"
+description: "Best practices and example prompts for Mintlify workflow automation."
+keywords: ["workflow prompt", "agent instructions", "prompt engineering", "examples"]
+---
+
+Effective workflow prompts focus on a single task and define a clear, verifiable outcome. Workflows have some variance because agents are nondeterministic, but consistent prompts produce consistent results.
+
+## Best practices
+
+- **Describe the outcome, not the steps.** Tell the agent what the result should look like, not how to get there.
+- **Include success criteria.** Describe what "done" looks like so the agent knows when to stop.
+- **Specify context.** Reference the files, directories, or repositories the agent should use.
+- **Keep scope narrow.** Split complex tasks across multiple workflows rather than combining them into one prompt.
+
+## Example prompts
+
+These examples demonstrate common workflow patterns. Adapt them to your repository structure before using.
+
+### Draft documentation for new features
+
+**Trigger:** On push to `your-org/your-product` (main branch)
+**Context repos:** `your-org/your-docs`
+
+<Tip>
+  This workflow replicates the agent suggestions behavior in your dashboard, but runs automatically on every push.
+</Tip>
+
+```text
+Review the diff from the last merged PR in `your-org/your-product`. Identify any new features, APIs, or other changes that require documentation.
+
+For each new addition, draft documentation updates that explain what it does, when to use it, and how to configure it. Include a code example where relevant.
+
+Success criteria: After reading any new or updated documentation, users understand what the feature is, if it applies to tasks they do, and how to use it.
+
+## Important
+
+- Only document changes that affect end users. Skip internal refactors or dependency updates.
+- Match the style and structure of existing docs pages.
+```
+
+### Update API reference
+
+**Trigger:** On push to `your-org/your-product` (main branch)
+**Context repos:** `your-org/your-docs`
+
+```text
+Review the diff from the last merged PR in `your-org/your-product` for changes to API endpoints, parameters, response shapes, or error codes.
+
+Update the corresponding API specifications or pages in the docs to reflect the changes. Include updated parameter descriptions, type information, and examples where affected.
+
+Success criteria: All API specifications and pages are up to date with the changes in the product repository.
+
+## Important
+
+- If a parameter or endpoint was removed, mark it as deprecated rather than deleting it unless the code explicitly removes it with no deprecation period.
+- If no API changes were introduced, do nothing.
+```
+
+### Style audit
+
+**Trigger:** On push to `your-org/your-docs` (main branch)
+
+```text
+Review all MDX files changed in the last merged PR against the style guide at `path/to/style-guide`.
+
+Open a pull request to resolve any style violations that can be fixed automatically. For any edits that require judgment or nuance, note them in the PR body with the specific lines, rule violations, and suggested fixes.
+
+Success criteria:
+- All style violations have a proposed resolution.
+- No new style violations are introduced.
+
+## Important
+
+- Do not change content meaning. Only correct style violations.
+- Skip any files in language subdirectories (`es/`, `fr/`, `zh/`).
+```
+
+### Track translation lag
+
+**Trigger:** Cron `0 9 * * 3` (Wednesdays at 9:00 AM UTC)
+
+Update the example language subdirectories to your actual locale directories.
+
+```text
+Compare the English MDX files in the repo against their counterparts in the `es/`, `fr/`, and `zh/` subdirectories. Use git history to identify English files updated more recently than their translations.
+
+Open a pull request that lists pages that are out of sync, organized by language. For each page, include the date of the last English update and a brief summary of what changed so translators have context on what to update.
+
+Success criteria: Any discrepancies between the English and translated files are identified and listed in the pull request.
+
+## Important
+
+- If a translated file does not exist, flag it as missing rather than out of sync.
+- Group findings by language, then by how far out of date they are (most stale first).
+```
+
+### SEO and metadata audit
+
+**Trigger:** Cron `0 9 * * 1` (Mondays at 9:00 AM UTC)
+
+```text
+Audit all MDX files in the docs for SEO and metadata quality. Check for:
+
+- Missing or empty `title` frontmatter
+- Titles over 60 characters (truncated in search snippets)
+- Titles that follow a boilerplate pattern like "PageType - Name" without describing the specific page content
+- Missing or empty `description` frontmatter
+- Descriptions under 130 characters (frequently ignored by Google in favor of auto-generated snippets)
+- Descriptions over 160 characters
+- Pages that share an identical description with other pages
+
+Open a pull request with improvements for any issues found.
+
+When writing titles: be descriptive and specific about what the page covers. Avoid generic patterns like "Overview - Product Name". Target 50-60 characters.
+
+When writing descriptions: summarize what the specific page covers in plain language. Include 2-3 terms a user would actually search for. Never reuse the same description across pages. Target 130-155 characters.
+
+### Pages with `openapi:` in frontmatter
+
+The `openapi:` frontmatter value can be either an operation reference (e.g., `openapi: GET /users/{id}`) or a file reference (e.g., `openapi: ./openapi.yaml`). Only operation references supply per-page `summary` and `description` from the spec.
+
+For pages with an operation reference:
+- Read the referenced OpenAPI spec to check whether the operation defines a `description`.
+- If it does, do not add a `description:` field to frontmatter—remove it if one was incorrectly added.
+- If it does not, audit `description` frontmatter as normal.
+- If the operation defines a `summary` and the page has no `title:` frontmatter, treat the title as present.
+- Never edit OpenAPI spec files directly.
+
+For pages with a file reference, audit all frontmatter fields as normal.
+
+Success criteria:
+- Pages have a unique title under 60 characters that describes the specific content.
+- Pages have a unique description between 130 and 160 characters, except where the OpenAPI spec supplies the description.
+
+## Important
+
+- Only update frontmatter. Do not change page content or OpenAPI spec files.
+- If all pages have complete and reasonable metadata, do nothing.
+```
+
+### Changelog with Slack notification
+
+**Trigger:** Cron `0 9 * * 1` (Mondays at 9:00 AM UTC)
+**Context repos:** `your-org/your-product`
+**Slack notifications:** `#documentation` channel
+
+```text
+Review all merged PRs in `your-org/your-product` from the past week. Draft a changelog entry summarizing new features, bug fixes, and breaking changes.
+
+Success criteria: The changelog accurately reflects the week's changes and is ready for review.
+```
