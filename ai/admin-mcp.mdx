@@ -1,0 +1,157 @@
+---
+title: "Admin MCP"
+description: "Let AI tools edit your Mintlify documentation directly with the admin MCP server. Connect Claude, Cursor, or any MCP client to draft, save, and ship doc changes."
+keywords: ["admin MCP", "write access", "AI editing", "Claude", "Cursor", "branch", "pull request"]
+---
+
+## About the admin MCP
+
+The admin MCP server gives AI tools write access to your Mintlify documentation. Where the [documentation MCP server](/ai/model-context-protocol) lets AI tools read and search your published docs, the admin MCP lets them propose changes: edit pages, restructure navigation, update `docs.json`, and open pull requests.
+
+Connect any MCP client like Claude, Claude Code, or Cursor to the admin MCP and your assistant can collaborate with you on docs the same way it collaborates on code — except every change runs through a Mintlify branch and lands in your repository as a pull request.
+
+<Note>
+  The admin MCP edits your documentation. Treat it like a developer with commit access. Connect it only from trusted AI tools and review every pull request before merging.
+</Note>
+
+### How it differs from the documentation MCP
+
+|  | Documentation MCP | Admin MCP |
+| :-- | :-- | :-- |
+| **Audience** | Your end users | Your team |
+| **Access** | Read and search published pages | Read, edit, restructure, save |
+| **Endpoint** | `/mcp` on your docs domain | Hosted by Mintlify, scoped to your project |
+| **Output** | Search results and page content | MDX edits, navigation changes, pull requests |
+
+## Connect to the admin MCP
+
+Find your admin MCP URL on the [MCP server page](https://dashboard.mintlify.com/products/mcp) in your dashboard. Connecting requires an interactive OAuth login against your Mintlify account; the AI tool exchanges that login for a session token scoped to one project.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Add the admin MCP as a custom connector">
+        1. Navigate to the [Connectors](https://claude.ai/settings/connectors) page in the Claude settings.
+        2. Select **Add custom connector**.
+        3. Add your admin MCP server name and URL.
+        4. Select **Add** and complete the OAuth login.
+      </Step>
+      <Step title="Use it in a chat">
+        Select the attachments button (the plus icon) and choose your admin MCP server. Claude can now call the admin MCP tools while answering your prompt.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    Add the admin MCP server with the Claude Code CLI:
+
+    ```bash
+    claude mcp add --transport http mintlify-admin <admin-mcp-url>
+    ```
+
+    On first use, Claude Code opens a browser window to complete the OAuth login. After authenticating, the session is reused for subsequent calls.
+  </Tab>
+  <Tab title="Cursor">
+    1. Open the command palette with <kbd>Command</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> (<kbd>Ctrl</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> on Windows).
+    2. Search for **Open MCP settings** and select **Add custom MCP**.
+    3. In `mcp.json`, add the admin MCP:
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify-admin": {
+          "url": "<admin-mcp-url>"
+        }
+      }
+    }
+    ```
+
+    4. Reload Cursor and complete the OAuth login when prompted.
+  </Tab>
+</Tabs>
+
+## How a session works
+
+Every admin MCP session is bound to a single git branch. The flow is:
+
+<Steps>
+  <Step title="Check out a branch">
+    The first call must be `checkout`. It creates a fresh `admin-mcp/<slug>-<sha>` branch from your deploy branch (or attaches to an existing branch you name) and returns an `editorUrl` you can open to follow along in the dashboard editor.
+  </Step>
+  <Step title="Read, search, and edit">
+    The AI uses tools like `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node`, and `update_config` to make changes. All edits are buffered on the session branch in real time — nothing touches your deploy branch yet.
+  </Step>
+  <Step title="Review the diff">
+    Call `diff` at any time to see exactly what changed since `main`. Open the `editorUrl` in your dashboard to see the same changes rendered.
+  </Step>
+  <Step title="Save">
+    Call `save` to flush the branch to git. Use `mode: "pr"` (default) to open a pull request, or `mode: "commit"` to push directly to an existing PR branch.
+  </Step>
+  <Step title="Discard if needed">
+    Call `discard_session` to drop all in-session changes and release the branch.
+  </Step>
+</Steps>
+
+<Tip>
+  Calling `checkout` again during an active session switches the session to the new branch. Use this to abandon an in-progress draft and start fresh without ending the conversation.
+</Tip>
+
+## What the admin MCP can do
+
+### Content
+
+- **`read`** — Fetch the full MDX of any page on the session branch.
+- **`search`** — Find lines matching a substring or regex across every page.
+- **`edit_page`** — Apply a targeted edit to a page.
+- **`write_page`** — Overwrite a page's full MDX content.
+
+### Navigation
+
+- **`list_nodes`** — Walk the navigation tree, filtered by type, language, version, or tab.
+- **`create_node`** — Add a new page, group, tab, anchor, version, language, product, or dropdown.
+- **`update_node`** — Update a node's properties in place (rename a group, change an icon, set a default version).
+- **`move_node`** — Reparent or reorder a node, including renaming a page's path.
+- **`delete_node`** — Remove a node from the navigation.
+
+### Configuration
+
+- **`update_config`** — Modify `docs.json` (theme, navigation roots, integrations, SEO settings).
+
+### Session
+
+- **`checkout`** — Bind the session to a branch.
+- **`get_session_state`** — Inspect the current branch, edited files, and pending nav diff.
+- **`diff`** — List all changes between the session and `main`.
+- **`save`** — Open a pull request or commit to the session branch.
+- **`discard_session`** — Drop the session and its in-flight changes.
+
+## Example prompts
+
+Once the admin MCP is connected, you can drive it with natural-language prompts. For example:
+
+- _"Check out a branch called `add-billing-faq` and create a new page under the FAQ group titled 'Billing'. Draft answers for the five questions in this Linear issue: ..."_
+- _"Find every page that mentions the deprecated `legacy_token` field and update the example to use `api_key` instead. Save as a PR titled 'docs: replace legacy\_token references'."_
+- _"Reorganize the API reference: move the webhooks pages into a new group called 'Webhooks' and update the icons to match the rest of the section."_
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Open the editor URL">
+    Every `checkout` returns an `editorUrl`. Open it in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
+  </Accordion>
+
+  <Accordion title="Review every PR">
+    The admin MCP is powerful enough to rewrite hundreds of pages in a single session. Before merging, read the PR diff and skim the rendered preview — don't rubber-stamp large changes.
+  </Accordion>
+
+  <Accordion title="Use slugs for branch names">
+    Pass a `slug` to `checkout` (e.g. `add-quickstart`) so the auto-generated branch is human-readable. Without it, the branch name is derived from the session token and is hard to recognize in your repo.
+  </Accordion>
+
+  <Accordion title="Keep sessions focused">
+    One session, one logical change. Smaller sessions produce smaller, easier-to-review pull requests. Use `discard_session` and `checkout` again to pivot to unrelated work.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Sessions hold an in-memory branch on the Mintlify side. If a session is abandoned without a `save` or `discard_session`, the branch persists until your next checkout overwrites it. Avoid leaving stale `admin-mcp/*` branches in your repository — clean them up periodically.
+</Warning>
