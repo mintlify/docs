@@ -1,0 +1,153 @@
+---
+title: "Admin MCP server"
+description: "Let agents and MCP clients edit your Mintlify documentation programmatically through a hosted Model Context Protocol server."
+keywords: ["admin MCP", "MCP", "agent", "edit docs", "automation", "OAuth"]
+---
+
+<Info>
+  The Admin MCP server is available on [Pro and Enterprise plans](https://mintlify.com/pricing).
+</Info>
+
+The Admin MCP server is a hosted Model Context Protocol server that lets authenticated agents and MCP clients edit your documentation programmatically. Connect a tool like Claude, Cursor, or a custom agent to your Admin MCP server and it can branch your docs, edit pages, restructure navigation, update `docs.json`, and ship a pull request, all over standard MCP tool calls.
+
+The Admin MCP server is different from your [public MCP server](/ai/model-context-protocol):
+
+|  | Public MCP server | Admin MCP server |
+| :--- | :--- | :--- |
+| Endpoint | `/mcp` (and `/authed/mcp`) | `/admin-mcp` |
+| Audience | Your end users connecting AI tools to your published docs. | Your team and trusted agents that author your docs. |
+| Capabilities | Search and read indexed content. | Branch, read, search, edit pages, restructure navigation, update `docs.json`, open a PR. |
+| Auth | None or end-user OAuth, scoped to user permissions. | OAuth (per user) or client credentials (machine-to-machine), scoped to a specific deployment. |
+
+## How the Admin MCP server works
+
+When an agent connects to your Admin MCP server, every change happens on a session-bound git branch instead of your deploy branch. A typical flow looks like:
+
+1. The agent calls `checkout` to bind its session to a new or existing branch. Mintlify returns an `editorUrl` that lets a human follow along in the dashboard editor.
+2. The agent uses read-only tools (`read`, `search`, `list_nodes`, `get_session_state`, `diff`) to explore your docs.
+3. The agent edits pages with `edit_page` or `write_page`, restructures navigation with `create_node`, `update_node`, `move_node`, and `delete_node`, and tweaks `docs.json` with `update_config`.
+4. The agent calls `save` to flush the branch to git as a pull request, or `discard_session` to throw the work away.
+
+Edits flow through the same live editor pipeline as the dashboard editor, so a teammate can watch the agent work in real time and intervene at any point before the PR is opened.
+
+## Set up the Admin MCP server
+
+Each Admin MCP client is registered against a single deployment. Agents that authenticate against that client get a token bound to that deployment's subdomain.
+
+<Steps>
+  <Step title="Create an Admin MCP client">
+    Use the dashboard API to register a client for the deployment you want the agent to edit. Audit log entries are recorded for every client created or deleted.
+
+    | Method | Path | Description |
+    | :--- | :--- | :--- |
+    | `POST` | `/admin-mcp/clients/:subdomain` | Create a new Admin MCP client for the deployment. |
+    | `GET` | `/admin-mcp/clients/:subdomain` | List existing clients. |
+    | `DELETE` | `/admin-mcp/clients/:subdomain/:clientId` | Revoke a client. |
+  </Step>
+  <Step title="Connect from your MCP client">
+    Point your MCP client at your Admin MCP URL. Most MCP clients (Claude Desktop, Cursor, Claude Code, custom agents) discover OAuth and PKCE settings automatically through standard `.well-known` endpoints.
+
+    ```bash Claude Code
+    claude mcp add --transport http \
+      mintlify-admin https://your-docs.com/admin-mcp
+    ```
+
+    On first use, the client opens an OAuth flow that prompts the user to sign into Mintlify, choose the deployment to grant access to, and approve the requested scopes.
+  </Step>
+</Steps>
+
+## Authentication
+
+The Admin MCP server uses Stytch-backed OAuth 2.1 with PKCE. Tokens are bound to a single deployment subdomain, so an agent authenticated for `acme-docs` cannot edit `widget-docs`.
+
+### Discovery endpoints
+
+The server exposes standard discovery metadata so MCP clients can configure themselves automatically.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `/.well-known/oauth-protected-resource` | Resource metadata (RFC 9728). |
+| `/.well-known/oauth-authorization-server` | Authorization server metadata (RFC 8414). |
+| `POST /admin-mcp/oauth/register` | Dynamic client registration (RFC 7591). |
+| `GET /admin-mcp/oauth/authorize` | Begin authorization with PKCE. |
+| `POST /admin-mcp/oauth/token` | Exchange a code or refresh token for an access token. |
+
+### Scopes
+
+Tokens carry one or more of the following scopes. Each tool requires a specific scope, so you can issue narrow tokens for narrow tasks.
+
+| Scope | Grants |
+| :--- | :--- |
+| `docs:read` | Read pages, search, list navigation, view session state and diffs. |
+| `docs:write` | Edit and overwrite page content. |
+| `nav:write` | Create, update, move, and delete navigation nodes. |
+| `config:write` | Update `docs.json` and manage redirects. |
+| `session:write` | Check out branches, save (open PRs), and discard sessions. |
+
+### Machine-to-machine access
+
+For automated workflows that cannot complete an interactive OAuth flow (CI/CD, scheduled agents), use a Stytch M2M token whose `custom_claims.deploymentId` matches the target deployment. The server resolves the deployment from the claim and applies the same scope checks as user tokens.
+
+## Tools
+
+After authenticating, the agent must call `checkout` first. All other tools require an active session. The toolkit returned by `checkout` groups tools by purpose:
+
+- **Explore**: `list_nodes`, `read`, `search`, `get_session_state`, `diff`
+- **Edit content**: `edit_page`, `write_page`
+- **Edit navigation**: `create_node`, `update_node`, `move_node`, `delete_node`
+- **Edit config**: `update_config`
+- **Ship**: `save`, `discard_session`
+
+### Session
+
+| Tool | Scope | Description |
+| :--- | :--- | :--- |
+| `checkout` | `session:write` | Bind the session to a branch. Pass `branch` to attach to an existing branch, or `slug` to auto-generate one named `admin-mcp/<slug>-<sha>` from the deploy branch. Returns `branchName`, `sessionId`, `baseBranch`, `editorUrl`, and a `toolkit` listing the remaining tools. |
+| `save` | `session:write` | Flush the branch to git. The default `mode: "pr"` opens a pull request (or commits to the existing PR branch). Use `mode: "commit"` to commit directly without a PR. Returns `prUrl` or `commitSha`. |
+| `discard_session` | `session:write` | End the session without saving. Cleans up auto-generated branches, editor metadata, and live editor rooms. |
+
+### Read
+
+| Tool | Scope | Description |
+| :--- | :--- | :--- |
+| `read` | `docs:read` | Read full MDX content for a single page on the current branch, including in-session edits. |
+| `search` | `docs:read` | Substring or regex search across all pages on the branch (max 1024-character query, capped at 30 KB of results). |
+| `list_nodes` | `docs:read` | List navigation nodes from the current branch's nav tree. Filter by `parentId`, `type` (`page`, `group`, `tab`, `dropdown`, `anchor`, `language`, `version`, `product`, `item`), `language`, `version`, `tab`, and paginate with `cursor` and `limit`. |
+| `get_session_state` | `docs:read` | Return the current branch name, edited files, and navigation diff. |
+| `diff` | `docs:read` | Return a list of changes between the session and the deploy branch, including unified diffs per file. |
+
+### Write
+
+| Tool | Scope | Description |
+| :--- | :--- | :--- |
+| `edit_page` | `docs:write` | Surgical string-replace edit. Pass `path`, `oldString`, `newString`, and optional `replaceAll`. The result is validated as MDX before being written. |
+| `write_page` | `docs:write` | Full overwrite of a page's content. Validated as MDX. |
+| `create_node` | `docs:write` | Insert a navigation node under `parentId` (`null` for root) at an optional `order`. The `data` field is a discriminated union by `type` (`page`, `group`, `tab`, `anchor`, `version`, `language`, `product`). |
+| `update_node` | `nav:write` | Update an existing node's properties in place by `nodeId`. Use `move_node` to reposition. |
+| `move_node` | `nav:write` | Reposition a node by `nodeId`. Pass `parentId` (or `null` for root) and a 0-based `order`. Cross-boundary moves (across version, tab, language, or product) are allowed. |
+| `delete_node` | `nav:write` | Delete a node and all descendants. Pass `redirect` to append a permanent redirect to `docs.json` when removing a page. |
+| `update_config` | `config:write` | Update top-level fields in `docs.json` (everything except `navigation`). Use `op: "set"` to shallow-merge a partial config, or `op: "add_redirect"` and `op: "remove_redirect"` to manage redirects. Changes are validated; any violation rejects the entire write. |
+
+## Example: Edit a page with Claude Code
+
+The following session uses the Admin MCP server to update a single page and open a PR.
+
+```bash
+# Connect Claude Code to your Admin MCP server.
+claude mcp add --transport http mintlify-admin https://your-docs.com/admin-mcp
+
+# Ask Claude to edit a page.
+claude "Use the mintlify-admin MCP server to update the rate limits table on the API reference page. Open a PR titled 'Update rate limits'."
+```
+
+Claude calls `checkout` to create a session branch, uses `read` and `search` to find the relevant page, calls `edit_page` to make the change, and finishes with `save` to open a pull request.
+
+## Security
+
+Every Admin MCP request is:
+
+- **Bound to a single deployment.** The token's subdomain claim determines which deployment the agent can edit. Agents cannot read or write any other deployment.
+- **Scoped to the requested scopes.** Each tool checks its required scope before running.
+- **Rate-limited.** Per-token and per-deployment rate limits protect against runaway agents.
+- **Audit-logged.** Client creation and deletion are recorded in your audit log under the `deployment.admin_mcp_client_created` and `deployment.admin_mcp_client_deleted` actions.
+- **Reviewable.** By default, `save` opens a pull request so a human can review every change before it merges into your deploy branch.
