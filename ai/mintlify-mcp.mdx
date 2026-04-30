@@ -1,0 +1,157 @@
+---
+title: "Mintlify MCP"
+description: "Let AI tools directly edit your content on Mintlify with the MCP server. Connect Claude, Cursor, or any MCP client to draft, save, and ship doc changes."
+keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch", "pull request"]
+---
+
+## About the Mintlify MCP
+
+The Mintlify MCP server gives AI tools write access to your Mintlify content. Where the [documentation MCP server](/ai/model-context-protocol) lets AI tools read and search your published content, the Mintlify MCP lets them propose changes: edit pages, restructure navigation, update `docs.json`, and open pull requests.
+
+Connect any MCP client like Claude, Claude Code, or Cursor to the Mintlify MCP to collaborate on your Mintlify content with the same tools you use to write code. When you use the MCP server, all changes happen on a branch and require a pull request to merge.
+
+<Note>
+  The Mintlify MCP edits your documentation. Treat it like a developer with commit access. Connect it only from trusted AI tools and review every pull request before merging.
+</Note>
+
+### How the Mintlify MCP differs from the documentation MCP
+
+|  | Documentation MCP | Mintlify MCP |
+| :-- | :-- | :-- |
+| **Audience** | Your end users | Your team |
+| **Access** | Read and search published pages | Read, edit, restructure, save |
+| **Endpoint** | `/mcp` on your site domain | Hosted by Mintlify, scoped to your project |
+| **Output** | Search results and page content | Content edits, navigation changes, pull requests |
+
+## Connect to the Mintlify MCP
+
+Find your Mintlify MCP URL on the [MCP server page](https://dashboard.mintlify.com/products/mcp) in your dashboard. Connecting requires an interactive OAuth login against your Mintlify account. The AI tool exchanges that login for a session token scoped to one project.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Add the Mintlify MCP as a custom connector">
+        1. Navigate to the [Connectors](https://claude.ai/settings/connectors) page in the Claude settings.
+        2. Select **Add custom connector**.
+        3. Add your Mintlify MCP server name and URL.
+        4. Select **Add** and complete the OAuth login.
+      </Step>
+      <Step title="Use the MCP in a chat">
+        Select the attachments button (the plus icon) and choose your Mintlify MCP server. Claude can now call the Mintlify MCP tools while answering your prompt.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    Add the Mintlify MCP server with the Claude Code CLI:
+
+    ```bash
+    claude mcp add --transport http mintlify <mintlify-mcp-url>
+    ```
+
+    On first use, Claude Code opens a browser window to complete the OAuth login. After authenticating, the session is reused for subsequent calls.
+  </Tab>
+  <Tab title="Cursor">
+    1. Open the command palette with <kbd>Command</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> (<kbd>Ctrl</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> on Windows).
+    2. Search for **Open MCP settings** and select **Add custom MCP**.
+    3. In `mcp.json`, add the Mintlify MCP:
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify": {
+          "url": "<mintlify-mcp-url>"
+        }
+      }
+    }
+    ```
+
+    4. Reload Cursor and complete the OAuth login when prompted.
+  </Tab>
+</Tabs>
+
+## How a session works
+
+Every Mintlify MCP session binds to a single Git branch. The flow is:
+
+<Steps>
+  <Step title="Check out a branch">
+    The first call must be `checkout`. It creates a fresh `mintlify-mcp/<slug>-<sha>` branch from your deploy branch (or attaches to an existing branch you name) and returns an `editorUrl` you can open to follow along in the dashboard editor.
+  </Step>
+  <Step title="Read, search, and edit">
+    The AI uses tools like `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node`, and `update_config` to make changes. All edits buffer on the session branch in real time—nothing touches your deploy branch yet.
+  </Step>
+  <Step title="Review the diff">
+    Call `diff` at any time to see exactly what changed since `main`. Open the `editorUrl` in your dashboard to see the same changes rendered.
+  </Step>
+  <Step title="Save">
+    Call `save` to flush the branch to Git. Use `mode: "pr"` (default) to open a pull request, or `mode: "commit"` to push directly to an existing PR branch.
+  </Step>
+  <Step title="Discard if needed">
+    Call `discard_session` to drop all in-session changes and release the branch.
+  </Step>
+</Steps>
+
+<Tip>
+  Calling `checkout` again during an active session switches the session to the new branch. Use this to abandon an in-progress draft and start fresh without ending the conversation.
+</Tip>
+
+## What the Mintlify MCP can do
+
+### Content
+
+- **`read`** — Fetch the full MDX of any page on the session branch.
+- **`search`** — Find lines matching a substring or regex across every page.
+- **`edit_page`** — Apply a targeted edit to a page.
+- **`write_page`** — Overwrite a page's full MDX content.
+
+### Navigation
+
+- **`list_nodes`** — Walk the navigation tree, filtered by type, language, version, or tab.
+- **`create_node`** — Add a new page, group, tab, anchor, version, language, product, or dropdown.
+- **`update_node`** — Update a node's properties in place (rename a group, change an icon, set a default version).
+- **`move_node`** — Move a node, including renaming a page's path.
+- **`delete_node`** — Remove a node from the navigation.
+
+### Configuration
+
+- **`update_config`** — Modify `docs.json` (theme, navigation roots, integrations, SEO settings).
+
+### Session
+
+- **`checkout`** — Bind the session to a branch.
+- **`get_session_state`** — Inspect the current branch, edited files, and pending nav diff.
+- **`diff`** — List all changes between the session and `main`.
+- **`save`** — Open a pull request or commit to the session branch.
+- **`discard_session`** — Drop the session and its in-flight changes.
+
+## Example prompts
+
+After you connect the Mintlify MCP, you can drive it with natural-language prompts. For example:
+
+- _"Check out a branch called `add-billing-faq` and create a new page under the FAQ group titled 'Billing'. Draft answers for the five questions in this Linear issue."_
+- _"Find every page that mentions the deprecated `legacy_token` field and update the example to use `api_key` instead. Save as a PR titled 'docs: replace legacy\_token references'."_
+- _"Reorganize the API reference: move the webhooks pages into a new group called 'Webhooks' and update the icons to match the rest of the section."_
+
+## Best practices
+
+<AccordionGroup>
+  <Accordion title="Open the editor URL">
+    Every `checkout` returns an `editorUrl`. Open it in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
+  </Accordion>
+
+  <Accordion title="Review every PR">
+    The Mintlify MCP is powerful enough to rewrite hundreds of pages in a single session. Before merging, read the PR diff and skim the rendered preview. Don't rubber-stamp large changes.
+  </Accordion>
+
+  <Accordion title="Use slugs for branch names">
+    Pass a `slug` to `checkout` (for example, `add-quickstart`) so the auto-generated branch is human-readable. Without it, the branch name derives from the session token and is hard to recognize in your repository.
+  </Accordion>
+
+  <Accordion title="Keep sessions focused">
+    Keep each session focused to one change. Smaller sessions produce easier to review pull requests and preserve agents' context windows. Use `discard_session` and `checkout` again to pivot to unrelated work.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Sessions hold an in-memory branch on the Mintlify side. If you abandon a session without saving or discarding it, the branch persists until your next checkout overwrites it. Avoid leaving stale `mintlify-mcp/*` branches in your repository. Clean them up periodically.
+</Note>
