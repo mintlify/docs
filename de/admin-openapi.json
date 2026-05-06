@@ -1,0 +1,634 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Mintlify Admin API",
+    "description": "An API for administrative operations including documentation updates and agent management.",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/v1/agent/{projectId}/job": {
+      "post": {
+        "summary": "Create agent job (v1)",
+        "deprecated": true,
+        "description": "Deprecated: use [v2 create agent job](/api/agent/v2/create-agent-job) instead. Creates a new agent job that can generate and edit documentation based on provided messages and branch information.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "messages"
+                ],
+                "properties": {
+                  "branch": {
+                    "type": "string",
+                    "description": "The name of the Git branch that the agent should work on. If omitted, the agent generates a branch name based on the message content."
+                  },
+                  "messages": {
+                    "type": "array",
+                    "description": "A list of messages to provide to the agent. A default system prompt is always prepended automatically, so you typically only need to include user messages.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "role",
+                        "content"
+                      ],
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": ["system", "user", "assistant"],
+                          "description": "The role of the message sender. Use `user` for task instructions. Use `system` to add supplementary instructions that are appended after the default system prompt (does not replace it). Use `assistant` to provide example assistant responses for few-shot prompting."
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "The content of the message."
+                        }
+                      }
+                    }
+                  },
+                  "asDraft": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Control whether the pull request is created in draft or non-draft mode. When true, creates a draft pull request. When false (default), creates a regular pull request ready for review."
+                  },
+                  "model": {
+                    "type": "string",
+                    "enum": ["sonnet", "opus"],
+                    "default": "sonnet",
+                    "description": "The AI model to use for the agent job. Use `sonnet` for faster, cost-effective processing. Use `opus` for more capable, but slower processing."
+                  }
+                }
+              }
+            }
+          }
+        },
+          "responses": {
+            "200": {
+              "description": "Agent job created successfully. Returns a streaming response with Server-Sent Events.",
+              "headers": {
+                "X-Session-Id": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "description": "Unique session identifier for the created agent job."
+                },
+                "X-Branch-Name": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "description": "Git branch name where the agent is making changes."
+                }
+              },
+              "content": {
+                "text/event-stream": {
+                  "schema": {
+                    "type": "string",
+                    "description": "Server-Sent Events stream containing the agent job execution details and results."
+                  }
+                }
+              }
+            }
+          }
+      }
+    },
+    "/v1/agent/{projectId}/job/{id}": {
+      "get": {
+        "summary": "Get agent job by ID (v1)",
+        "deprecated": true,
+        "description": "Deprecated: use [v2 get agent job](/api/agent/v2/get-agent-job) instead. Retrieves the details and status of a specific agent job by its ID.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the agent job to retrieve."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent job details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "description": "The subdomain this session belongs to."
+                    },
+                    "subdomain": {
+                      "type": "string",
+                      "description": "The subdomain this session belongs to."
+                    },
+                    "branch": {
+                      "type": "string",
+                      "description": "Git branch name where changes were made.",
+                      "nullable": true
+                    },
+                    "haulted": {
+                      "type": "boolean",
+                      "description": "Whether the session execution was halted."
+                    },
+                    "haultReason": {
+                      "type": "string",
+                      "enum": ["completed", "github_missconfigured", "error", "processing", "interrupted"],
+                      "description": "Reason for session halt. `processing` indicates the job is still running. `interrupted` indicates the job was manually interrupted."
+                    },
+                    "pullRequestLink": {
+                      "type": "string",
+                      "description": "Link to the created pull request."
+                    },
+                    "messageToUser": {
+                      "type": "string",
+                      "description": "Message for the user about the session outcome."
+                    },
+                    "todos": {
+                      "type": "array",
+                      "description": "List of todo items from the session.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "content": {
+                            "type": "string",
+                            "description": "Brief description of the task."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": ["pending", "in_progress", "completed", "cancelled"],
+                            "description": "Current status of the task."
+                          },
+                          "priority": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                            "description": "Priority level of the task."
+                          },
+                          "id": {
+                            "type": "string",
+                            "description": "Unique identifier for the todo item."
+                          }
+                        }
+                      }
+                    },
+                    "userId": {
+                      "type": "string",
+                      "description": "The ID of the user who created this session, if available."
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "A generated title summarizing the agent job."
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Timestamp when the session was created."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent/{projectId}/jobs": {
+      "get": {
+        "summary": "Get all agent jobs (v1)",
+        "deprecated": true,
+        "description": "Deprecated: use [v2 get agent job](/api/agent/v2/get-agent-job) instead. Retrieves all agent jobs for the specified domain, including their status and details.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Number of results to skip for pagination."
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 12
+            },
+            "description": "Number of results to return. Maximum 100."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All agent jobs retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "allSessions": {
+                      "type": "array",
+                      "description": "Array of all agent sessions for the domain.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sessionId": {
+                            "type": "string",
+                            "description": "The subdomain this session belongs to."
+                          },
+                          "subdomain": {
+                            "type": "string",
+                            "description": "The subdomain this session belongs to."
+                          },
+                          "branch": {
+                            "type": "string",
+                            "description": "Git branch name where changes were made.",
+                            "nullable": true
+                          },
+                          "haulted": {
+                            "type": "boolean",
+                            "description": "Whether the session execution was halted."
+                          },
+                          "haultReason": {
+                            "type": "string",
+                            "enum": ["completed", "github_missconfigured", "error", "processing", "interrupted"],
+                            "description": "Reason for session halt. `processing` indicates the job is still running. `interrupted` indicates the job was manually interrupted."
+                          },
+                          "pullRequestLink": {
+                            "type": "string",
+                            "description": "Link to the created pull request."
+                          },
+                          "messageToUser": {
+                            "type": "string",
+                            "description": "Message for the user about the session outcome."
+                          },
+                          "todos": {
+                            "type": "array",
+                            "description": "List of todo items from the session.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "content": {
+                                  "type": "string",
+                                  "description": "Brief description of the task."
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["pending", "in_progress", "completed", "cancelled"],
+                                  "description": "Current status of the task."
+                                },
+                                "priority": {
+                                  "type": "string",
+                                  "enum": ["high", "medium", "low"],
+                                  "description": "Priority level of the task."
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "description": "Unique identifier for the todo item."
+                                }
+                              }
+                            }
+                          },
+                          "userId": {
+                            "type": "string",
+                            "description": "The ID of the user who created this session, if available."
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "A generated title summarizing the agent job."
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Timestamp when the session was created."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job": {
+      "post": {
+        "summary": "Create agent job",
+        "description": "Creates a new agent job that runs in the background. The job processes the prompt asynchronously — poll the get job endpoint to track progress. If the agent edits files successfully, a pull request is automatically created.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The instruction for the agent to execute."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Agent job created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}": {
+      "get": {
+        "summary": "Get agent job",
+        "description": "Retrieves the current status and details of an agent job. Poll this endpoint to track job progress.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the agent job."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent job details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/agent/{projectId}/job/{id}/message": {
+      "post": {
+        "summary": "Send follow-up message",
+        "description": "Sends a follow-up message to an existing agent job. The message is processed asynchronously — poll the get job endpoint to track progress.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the agent job to send a message to."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["prompt"],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The follow-up instruction for the agent."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the agent job."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "completed", "archived", "failed"],
+            "description": "Current status of the job. `active` — the agent is currently processing the prompt. `completed` — the agent finished successfully and a PR may have been created (check `prLink`). `archived` — the job has been archived. `failed` — the agent encountered an unrecoverable error. Poll until status is `completed`, `archived`, or `failed`."
+          },
+          "source": {
+            "type": "object",
+            "description": "Source repository information.",
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "Full URL of the GitHub repository."
+              },
+              "ref": {
+                "type": "string",
+                "description": "Git branch the agent is working on.",
+                "nullable": true
+              }
+            }
+          },
+          "model": {
+            "type": "string",
+            "description": "The AI model used for this job."
+          },
+          "prLink": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://github.com/org/repo/pull/123",
+            "description": "GitHub pull request URL created by the agent. `null` while the job is still `active` or if no files were changed. Populated once the agent successfully creates a PR.",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the job was created."
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the job was archived.",
+            "nullable": true
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message."
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The Authorization header expects a Bearer token. Use an admin API key (prefixed with `mint_`). This is a server-side secret key. Generate one on the [API keys page](https://dashboard.mintlify.com/settings/organization/api-keys) in your dashboard."
+      }
+    }
+  }
+}

@@ -1,0 +1,184 @@
+---
+title: "Mintlify MCP"
+description: "Permettez aux outils IA de modifier directement votre contenu sur Mintlify avec le serveur MCP. Connectez Claude, Cursor ou tout client MCP pour rédiger, enregistrer et expédier des modifications de documentation."
+keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch", "pull request"]
+---
+
+<div id="about-the-mintlify-mcp">
+  ## À propos du Mintlify MCP
+</div>
+
+Le serveur Mintlify MCP donne aux outils IA un accès en écriture à votre contenu Mintlify. Là où le [serveur MCP de documentation](/fr/ai/model-context-protocol) permet aux outils IA de lire et de rechercher dans votre contenu publié, le Mintlify MCP leur permet de proposer des modifications : modifier des pages, restructurer la navigation, mettre à jour `docs.json` et ouvrir des pull requests.
+
+Connectez n'importe quel client MCP comme Claude, Claude Code ou Cursor au Mintlify MCP pour collaborer sur votre contenu Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Lorsque vous utilisez le serveur MCP, toutes les modifications se font sur une branche et nécessitent une pull request pour être fusionnées.
+
+<Note>
+  Le Mintlify MCP modifie votre documentation. Traitez-le comme un développeur ayant accès aux commits. Connectez-le uniquement depuis des outils IA de confiance et examinez chaque pull request avant de la fusionner.
+</Note>
+
+<div id="how-the-mintlify-mcp-differs-from-the-documentation-mcp">
+  ### En quoi le Mintlify MCP diffère du MCP de documentation
+</div>
+
+|  | MCP de documentation | Mintlify MCP |
+| :-- | :-- | :-- |
+| **Public** | Vos utilisateurs finaux | Votre équipe |
+| **Accès** | Lire et rechercher dans les pages publiées | Lire, modifier, restructurer, enregistrer |
+| **Endpoint** | `/mcp` sur le domaine de votre site | Hébergé par Mintlify, limité à un projet |
+| **Sortie** | Résultats de recherche et contenu de page | Modifications de contenu, changements de navigation, pull requests |
+
+<div id="connect-to-the-mintlify-mcp">
+  ## Se connecter au Mintlify MCP
+</div>
+
+La connexion nécessite une connexion OAuth interactive avec votre compte Mintlify. L'outil IA échange cette connexion contre un jeton de session limité à un projet.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Ajouter le Mintlify MCP en tant que connecteur personnalisé">
+        1. Accédez à la page [Connecteurs](https://claude.ai/settings/connectors) dans les paramètres Claude.
+        2. Sélectionnez **Ajouter un connecteur personnalisé**.
+        3. Ajoutez le connecteur
+           - Nom : Mintlify MCP
+           - URL : `https://mcp.mintlify.com`
+        4. Sélectionnez **Ajouter** et terminez la connexion OAuth.
+      </Step>
+      <Step title="Utiliser le MCP dans une conversation">
+        Sélectionnez le bouton des pièces jointes (l'icône plus) et choisissez votre serveur Mintlify MCP. Claude peut maintenant appeler les outils Mintlify MCP en répondant à votre invite.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    Ajoutez le serveur Mintlify MCP avec la CLI Claude Code :
+
+    ```bash
+    claude mcp add --transport http mintlify https://mcp.mintlify.com
+    ```
+
+    À la première utilisation, Claude Code ouvre une fenêtre du navigateur pour terminer la connexion OAuth. Après l'authentification, la session est réutilisée pour les appels suivants.
+  </Tab>
+  <Tab title="Cursor">
+    1. Ouvrez la palette de commandes avec <kbd>Command</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> (<kbd>Ctrl</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> sur Windows).
+    2. Recherchez **Open MCP settings** et sélectionnez **Add custom MCP**.
+    3. Dans `mcp.json`, ajoutez le Mintlify MCP :
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify": {
+          "url": "https://mcp.mintlify.com"
+        }
+      }
+    }
+    ```
+
+    4. Rechargez Cursor et terminez la connexion OAuth lorsque vous y êtes invité.
+  </Tab>
+</Tabs>
+
+<div id="how-a-session-works">
+  ## Comment fonctionne une session
+</div>
+
+Chaque session Mintlify MCP est liée à une seule branche Git. Le flux est le suivant :
+
+<Steps>
+  <Step title="Vérifier une branche">
+    Le premier appel doit être `checkout`. Il crée une nouvelle branche `mintlify-mcp/<slug>-<sha>` à partir de votre branche de déploiement (ou s'attache à une branche existante que vous nommez) et renvoie un `editorUrl` que vous pouvez ouvrir pour suivre dans l'éditeur du tableau de bord.
+
+    Appelez `list_branches` avant `checkout` si vous devez découvrir ou filtrer des branches existantes dans le dépôt.
+  </Step>
+  <Step title="Lire, rechercher et modifier">
+    L'IA utilise des outils tels que `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` et `update_config` pour effectuer des modifications. Toutes les modifications sont mises en mémoire tampon sur la branche de session en temps réel — rien ne touche encore votre branche de déploiement.
+  </Step>
+  <Step title="Examiner le diff">
+    Appelez `diff` à tout moment pour voir exactement ce qui a changé depuis `main`. Ouvrez l'`editorUrl` dans votre tableau de bord pour voir les mêmes modifications rendues.
+  </Step>
+  <Step title="Enregistrer">
+    Appelez `save` pour vider la branche dans Git. Utilisez `mode: "pr"` (par défaut) pour ouvrir une pull request, ou `mode: "commit"` pour pousser directement vers une branche PR existante.
+  </Step>
+  <Step title="Annuler si nécessaire">
+    Appelez `discard_session` pour supprimer toutes les modifications en session et libérer la branche.
+  </Step>
+</Steps>
+
+<Tip>
+  Appeler `checkout` à nouveau pendant une session active fait basculer la session vers la nouvelle branche. Utilisez ceci pour abandonner un brouillon en cours et recommencer sans terminer la conversation.
+</Tip>
+
+<div id="what-the-mintlify-mcp-can-do">
+  ## Ce que le Mintlify MCP peut faire
+</div>
+
+<div id="content">
+  ### Contenu
+</div>
+
+- **`read`** — Récupère le MDX complet de toute page sur la branche de session.
+- **`search`** — Trouve les lignes correspondant à une sous-chaîne ou à une regex sur toutes les pages.
+- **`edit_page`** — Applique une modification ciblée à une page.
+- **`write_page`** — Écrase tout le contenu MDX d'une page.
+
+<div id="navigation">
+  ### Navigation
+</div>
+
+- **`list_nodes`** — Parcourt l'arbre de navigation, filtré par type, langue, version ou onglet.
+- **`create_node`** — Ajoute une nouvelle page, un groupe, un onglet, une ancre, une version, une langue, un produit ou une liste déroulante.
+- **`update_node`** — Met à jour les propriétés d'un nœud sur place (renommer un groupe, changer une icône, définir une version par défaut).
+- **`move_node`** — Déplace un nœud, y compris en renommant le chemin d'une page.
+- **`delete_node`** — Supprime un nœud de la navigation.
+
+<div id="configuration">
+  ### Configuration
+</div>
+
+- **`update_config`** — Modifie `docs.json` (thème, racines de navigation, intégrations, paramètres SEO).
+
+<div id="session">
+  ### Session
+</div>
+
+- **`checkout`** — Lie la session à une branche.
+- **`list_branches`** — Liste les branches Git disponibles pour le projet, avec un filtrage optionnel par `query`. Renvoie les noms de branche, le nombre total et la branche de déploiement. Appelez ceci avant `checkout` pour vous attacher à une branche existante par son nom.
+- **`get_session_state`** — Inspecte la branche actuelle, les fichiers modifiés et le diff de navigation en attente.
+- **`diff`** — Liste toutes les modifications entre la session et `main`.
+- **`save`** — Ouvre une pull request ou commit sur la branche de session.
+- **`discard_session`** — Supprime la session et ses modifications en cours.
+
+<div id="example-prompts">
+  ## Exemples de prompts
+</div>
+
+Après avoir connecté le Mintlify MCP, vous pouvez le piloter avec des invites en langage naturel. Par exemple :
+
+- _"Vérifie une branche appelée `add-billing-faq` et crée une nouvelle page sous le groupe FAQ intitulée 'Facturation'. Rédige des réponses aux cinq questions de cette issue Linear."_
+- _"Trouve toutes les pages mentionnant le champ obsolète `legacy_token` et mets à jour l'exemple pour utiliser `api_key` à la place. Enregistre sous forme de PR intitulée 'docs: replace legacy\_token references'."_
+- _"Réorganise la référence API : déplace les pages des webhooks dans un nouveau groupe appelé 'Webhooks' et mets à jour les icônes pour qu'elles correspondent au reste de la section."_
+
+<div id="best-practices">
+  ## Bonnes pratiques
+</div>
+
+<AccordionGroup>
+  <Accordion title="Ouvrez l'URL de l'éditeur">
+    Chaque `checkout` renvoie un `editorUrl`. Ouvrez-le dans un onglet séparé afin de pouvoir voir les modifications de l'IA s'afficher en direct dans l'éditeur du tableau de bord pendant que vous donnez des invites.
+  </Accordion>
+
+  <Accordion title="Examinez chaque PR">
+    Le Mintlify MCP est suffisamment puissant pour réécrire des centaines de pages en une seule session. Avant de fusionner, lisez le diff de la PR et parcourez l'aperçu rendu. Ne validez pas aveuglément les grandes modifications.
+  </Accordion>
+
+  <Accordion title="Utilisez des slugs pour les noms de branche">
+    Passez un `slug` à `checkout` (par exemple, `add-quickstart`) afin que la branche générée automatiquement soit lisible par un humain. Sans cela, le nom de la branche est dérivé du jeton de session et est difficile à reconnaître dans votre dépôt.
+  </Accordion>
+
+  <Accordion title="Gardez les sessions concentrées">
+    Gardez chaque session concentrée sur un seul changement. Les sessions plus petites produisent des pull requests plus faciles à examiner et préservent les fenêtres de contexte des agents. Utilisez `discard_session` et `checkout` à nouveau pour passer à un travail sans rapport.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Les sessions conservent une branche en mémoire du côté Mintlify. Si vous abandonnez une session sans l'enregistrer ni l'annuler, la branche persiste jusqu'à ce que votre prochain checkout l'écrase. Évitez de laisser des branches `mintlify-mcp/*` obsolètes dans votre dépôt. Nettoyez-les périodiquement.
+</Note>

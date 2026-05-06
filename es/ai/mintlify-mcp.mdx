@@ -1,0 +1,184 @@
+---
+title: "Mintlify MCP"
+description: "Permita que las herramientas de IA editen directamente su contenido en Mintlify con el servidor MCP. Conecte Claude, Cursor o cualquier cliente MCP para redactar, guardar y enviar cambios de documentación."
+keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch", "pull request"]
+---
+
+<div id="about-the-mintlify-mcp">
+  ## Acerca del Mintlify MCP
+</div>
+
+El servidor Mintlify MCP da a las herramientas de IA acceso de escritura a su contenido de Mintlify. Mientras que el [servidor MCP de documentación](/es/ai/model-context-protocol) permite a las herramientas de IA leer y buscar en su contenido publicado, el Mintlify MCP les permite proponer cambios: editar páginas, reestructurar la navegación, actualizar `docs.json` y abrir pull requests.
+
+Conecte cualquier cliente MCP como Claude, Claude Code o Cursor al Mintlify MCP para colaborar en su contenido de Mintlify con las mismas herramientas que usa para escribir código. Cuando usa el servidor MCP, todos los cambios ocurren en una rama y requieren una pull request para fusionarse.
+
+<Note>
+  El Mintlify MCP edita su documentación. Trátelo como un desarrollador con acceso para hacer commits. Conéctelo solo desde herramientas de IA confiables y revise cada pull request antes de fusionarla.
+</Note>
+
+<div id="how-the-mintlify-mcp-differs-from-the-documentation-mcp">
+  ### Cómo difiere el Mintlify MCP del MCP de documentación
+</div>
+
+|  | MCP de documentación | Mintlify MCP |
+| :-- | :-- | :-- |
+| **Audiencia** | Sus usuarios finales | Su equipo |
+| **Acceso** | Leer y buscar páginas publicadas | Leer, editar, reestructurar, guardar |
+| **Endpoint** | `/mcp` en el dominio de su sitio | Alojado por Mintlify, limitado a un proyecto |
+| **Salida** | Resultados de búsqueda y contenido de página | Ediciones de contenido, cambios de navegación, pull requests |
+
+<div id="connect-to-the-mintlify-mcp">
+  ## Conectarse al Mintlify MCP
+</div>
+
+La conexión requiere un inicio de sesión OAuth interactivo con su cuenta de Mintlify. La herramienta de IA intercambia ese inicio de sesión por un token de sesión limitado a un proyecto.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Añadir el Mintlify MCP como conector personalizado">
+        1. Vaya a la página de [Conectores](https://claude.ai/settings/connectors) en la configuración de Claude.
+        2. Seleccione **Añadir conector personalizado**.
+        3. Añada el conector
+           - Nombre: Mintlify MCP
+           - URL: `https://mcp.mintlify.com`
+        4. Seleccione **Añadir** y complete el inicio de sesión OAuth.
+      </Step>
+      <Step title="Usar el MCP en una conversación">
+        Seleccione el botón de adjuntos (el icono más) y elija su servidor Mintlify MCP. Claude ya puede llamar a las herramientas Mintlify MCP mientras responde a su prompt.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    Añada el servidor Mintlify MCP con la CLI de Claude Code:
+
+    ```bash
+    claude mcp add --transport http mintlify https://mcp.mintlify.com
+    ```
+
+    En el primer uso, Claude Code abre una ventana del navegador para completar el inicio de sesión OAuth. Tras la autenticación, la sesión se reutiliza para llamadas posteriores.
+  </Tab>
+  <Tab title="Cursor">
+    1. Abra la paleta de comandos con <kbd>Command</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> (<kbd>Ctrl</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> en Windows).
+    2. Busque **Open MCP settings** y seleccione **Add custom MCP**.
+    3. En `mcp.json`, añada el Mintlify MCP:
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify": {
+          "url": "https://mcp.mintlify.com"
+        }
+      }
+    }
+    ```
+
+    4. Recargue Cursor y complete el inicio de sesión OAuth cuando se le solicite.
+  </Tab>
+</Tabs>
+
+<div id="how-a-session-works">
+  ## Cómo funciona una sesión
+</div>
+
+Cada sesión Mintlify MCP se vincula a una sola rama Git. El flujo es:
+
+<Steps>
+  <Step title="Hacer checkout de una rama">
+    La primera llamada debe ser `checkout`. Crea una nueva rama `mintlify-mcp/<slug>-<sha>` desde su rama de despliegue (o se adjunta a una rama existente que nombre) y devuelve un `editorUrl` que puede abrir para seguir el progreso en el editor del panel.
+
+    Llame a `list_branches` antes de `checkout` si necesita descubrir o filtrar ramas existentes en el repositorio.
+  </Step>
+  <Step title="Leer, buscar y editar">
+    La IA usa herramientas como `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` y `update_config` para realizar cambios. Todas las ediciones se almacenan en la rama de sesión en tiempo real — nada toca su rama de despliegue todavía.
+  </Step>
+  <Step title="Revisar el diff">
+    Llame a `diff` en cualquier momento para ver exactamente qué ha cambiado desde `main`. Abra el `editorUrl` en su panel para ver los mismos cambios renderizados.
+  </Step>
+  <Step title="Guardar">
+    Llame a `save` para volcar la rama a Git. Use `mode: "pr"` (predeterminado) para abrir una pull request, o `mode: "commit"` para enviar directamente a una rama PR existente.
+  </Step>
+  <Step title="Descartar si es necesario">
+    Llame a `discard_session` para descartar todos los cambios de la sesión y liberar la rama.
+  </Step>
+</Steps>
+
+<Tip>
+  Llamar a `checkout` de nuevo durante una sesión activa cambia la sesión a la nueva rama. Use esto para abandonar un borrador en curso y empezar de nuevo sin terminar la conversación.
+</Tip>
+
+<div id="what-the-mintlify-mcp-can-do">
+  ## Qué puede hacer el Mintlify MCP
+</div>
+
+<div id="content">
+  ### Contenido
+</div>
+
+- **`read`** — Obtiene el MDX completo de cualquier página en la rama de sesión.
+- **`search`** — Encuentra líneas que coincidan con una subcadena o regex en todas las páginas.
+- **`edit_page`** — Aplica una edición dirigida a una página.
+- **`write_page`** — Sobrescribe todo el contenido MDX de una página.
+
+<div id="navigation">
+  ### Navegación
+</div>
+
+- **`list_nodes`** — Recorre el árbol de navegación, filtrado por tipo, idioma, versión o pestaña.
+- **`create_node`** — Añade una nueva página, grupo, pestaña, ancla, versión, idioma, producto o desplegable.
+- **`update_node`** — Actualiza las propiedades de un nodo en el lugar (renombrar un grupo, cambiar un icono, establecer una versión predeterminada).
+- **`move_node`** — Mueve un nodo, incluyendo el cambio de nombre de la ruta de una página.
+- **`delete_node`** — Elimina un nodo de la navegación.
+
+<div id="configuration">
+  ### Configuración
+</div>
+
+- **`update_config`** — Modifica `docs.json` (tema, raíces de navegación, integraciones, configuración SEO).
+
+<div id="session">
+  ### Sesión
+</div>
+
+- **`checkout`** — Vincula la sesión a una rama.
+- **`list_branches`** — Lista las ramas Git disponibles para el proyecto, con filtrado opcional por `query`. Devuelve los nombres de las ramas, el recuento total y la rama de despliegue. Llame a este antes de `checkout` para adjuntarse a una rama existente por nombre.
+- **`get_session_state`** — Inspecciona la rama actual, los archivos editados y el diff de navegación pendiente.
+- **`diff`** — Lista todos los cambios entre la sesión y `main`.
+- **`save`** — Abre una pull request o hace commit en la rama de sesión.
+- **`discard_session`** — Descarta la sesión y sus cambios en curso.
+
+<div id="example-prompts">
+  ## Ejemplos de prompts
+</div>
+
+Después de conectar el Mintlify MCP, puede dirigirlo con prompts en lenguaje natural. Por ejemplo:
+
+- _"Haz checkout de una rama llamada `add-billing-faq` y crea una nueva página bajo el grupo FAQ titulada 'Facturación'. Redacta respuestas para las cinco preguntas de esta issue de Linear."_
+- _"Encuentra todas las páginas que mencionen el campo obsoleto `legacy_token` y actualiza el ejemplo para usar `api_key` en su lugar. Guárdalo como una PR titulada 'docs: replace legacy\_token references'."_
+- _"Reorganiza la referencia de la API: mueve las páginas de webhooks a un nuevo grupo llamado 'Webhooks' y actualiza los iconos para que coincidan con el resto de la sección."_
+
+<div id="best-practices">
+  ## Mejores prácticas
+</div>
+
+<AccordionGroup>
+  <Accordion title="Abra la URL del editor">
+    Cada `checkout` devuelve un `editorUrl`. Ábralo en una pestaña separada para ver los cambios de la IA renderizarse en vivo en el editor del panel mientras envía prompts.
+  </Accordion>
+
+  <Accordion title="Revise cada PR">
+    El Mintlify MCP es lo suficientemente potente como para reescribir cientos de páginas en una sola sesión. Antes de fusionar, lea el diff de la PR y revise rápidamente la vista previa renderizada. No apruebe sin revisar grandes cambios.
+  </Accordion>
+
+  <Accordion title="Use slugs para los nombres de rama">
+    Pase un `slug` a `checkout` (por ejemplo, `add-quickstart`) para que la rama autogenerada sea legible por humanos. Sin él, el nombre de la rama deriva del token de sesión y es difícil de reconocer en su repositorio.
+  </Accordion>
+
+  <Accordion title="Mantenga las sesiones enfocadas">
+    Mantenga cada sesión enfocada en un solo cambio. Sesiones más pequeñas producen pull requests más fáciles de revisar y preservan las ventanas de contexto de los agentes. Use `discard_session` y `checkout` de nuevo para cambiar a trabajo no relacionado.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Las sesiones mantienen una rama en memoria del lado de Mintlify. Si abandona una sesión sin guardarla ni descartarla, la rama persiste hasta que su próximo checkout la sobrescriba. Evite dejar ramas `mintlify-mcp/*` obsoletas en su repositorio. Límpielas periódicamente.
+</Note>
