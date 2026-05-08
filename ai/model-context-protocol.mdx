@@ -1,5 +1,5 @@
 ---
-title: "Model Context Protocol"
+title: "Model Context Protocol (MCP)"
 description: "Connect your documentation and API endpoints to AI tools like Claude and Cursor with a hosted Model Context Protocol (MCP) server."
 keywords: ["MCP", "AI tools", "Claude", "Cursor"]
 ---
@@ -48,7 +48,7 @@ Your MCP server also exposes your [skill.md files](/ai/skillmd) as MCP resources
 The MCP search tool supports optional parameters that AI applications use to control and refine search results.
 
 - **`pageSize`**: Number of results to return, between 1 and 50. Defaults to 10.
-- **`scoreThreshold`**: Minimum relevance score between 0 and 1. Only returns results at or above this threshold. Use this to filter out low-relevance matches.
+- **`scoreThreshold`**: Minimum relevance score between 0 and 1. Returns only results at or above this score. Use this to filter out low-relevance matches.
 - **`version`**: Filter results to a specific documentation version. For example, `'v0.7'`. Only returns content tagged with the specified version or content available across all versions.
 - **`language`**: Filter results to a specific language code. For example, `'en'`, `'zh'`, or `'es'`. Only returns content in the specified language or content available across all languages.
 
@@ -81,6 +81,43 @@ View and copy your MCP server URL on the [MCP server page](https://dashboard.min
   Hosted MCP servers use the `/mcp` and `/authed/mcp` paths. Other navigation elements cannot use these paths.
 </Note>
 
+### Discovery endpoint
+
+Mintlify hosts a discovery document at `/.well-known/mcp` for agents and tools to locate your MCP server without prior configuration.
+
+`GET /.well-known/mcp` returns a JSON document describing your MCP server:
+
+```json
+{
+  "version": "1.0.0",
+  "transport": "http",
+  "url": "https://your-docs.com/mcp",
+  "servers": [
+    {
+      "name": "public",
+      "url": "https://your-docs.com/mcp",
+      "transport": "http",
+      "authentication": "none"
+    },
+    {
+      "name": "authenticated",
+      "url": "https://your-docs.com/authed/mcp",
+      "transport": "http",
+      "authentication": "oauth2"
+    }
+  ]
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `version` | The MCP server version. |
+| `transport` | The transport protocol. Always `http`. |
+| `url` | The default public MCP server URL. |
+| `servers` | Available MCP servers. Always includes a `public` entry. When authentication is enabled on your site, also includes an `authenticated` entry. |
+| `servers[].name` | Identifier for the server entry. |
+| `servers[].authentication` | Authentication method for the server entry. |
+
 ### Enable authenticated MCP
 
 If your documentation requires authentication, your MCP server requires users to authenticate before connecting. When a user adds your MCP server URL to their AI tool, they must log in with their existing credentials. After authenticating, a redirect sends them back to their tool. The MCP server only returns content each user has permission to access based on their [user groups](/deploy/authentication-setup).
@@ -112,7 +149,7 @@ By default, your MCP server is only available for localhost tools. To allow web-
 
 Client credentials let you connect to your authenticated MCP server programmatically without a browser-based login. Use client credentials for server-side integrations, CI/CD pipelines, automated workflows, and any environment where a user cannot complete an interactive OAuth flow.
 
-Client credentials authenticate against the `/authed/mcp` endpoint and return the same content as an authenticated user with access to all pages.
+Client credentials authenticate against the `/authed/mcp` endpoint and return all content from public pages and authenticated pages that aren't restricted to specific groups.
 
 <Steps>
   <Step title="Create a client credential">
@@ -209,7 +246,9 @@ To protect availability, Mintlify applies rate limits to MCP servers.
 
 Your MCP server searches content that Mintlify indexes from your documentation repository. File processing and search indexing control what content is available through your MCP server.
 
-For documentation that requires authentication, your MCP server only indexes pages in [public user groups](/deploy/authentication-setup#make-pages-public). For documentation with partial authentication, your MCP server indexes public pages for unauthenticated users and any pages in public user groups.
+For documentation that requires authentication, your MCP server indexes [public pages](/deploy/authentication-setup#make-pages-public) and any pages an authenticated user has permission to access based on their [user groups](/deploy/authentication-setup#restrict-pages-to-specific-user-groups).
+
+For documentation with partial authentication, unauthenticated users can search public pages. Authenticated users can search public pages and any pages they have permission to access based on their user groups.
 
 ### File processing with `.mintignore`
 
@@ -354,7 +393,7 @@ Connect to the Mintlify MCP server to search this documentation site within your
 
 <Tabs>
 <Tab title="Contextual menu">
-  At the top of this page, select the contextual menu and choose **Connect to Cursor** or **Connect to VS Code** to connect the Mintlify MCP server to the IDE of your choice.
+  At the top of this page, click the contextual menu, then click **Connect to Cursor** or **Connect to VS Code** to connect the Mintlify MCP server to the IDE of your choice.
 </Tab>
 <Tab title="Claude">
 
