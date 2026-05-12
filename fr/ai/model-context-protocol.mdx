@@ -1,5 +1,5 @@
 ---
-title: "Model Context Protocol"
+title: "Model Context Protocol (MCP)"
 description: "Connectez votre documentation et vos endpoints d'API aux outils d'IA comme Claude et Cursor avec un serveur Model Context Protocol (MCP) hébergé."
 keywords: ["MCP", "AI tools", "Claude", "Cursor"]
 ---
@@ -13,6 +13,10 @@ import { PreviewButton } from "/snippets/previewbutton.jsx"
 Le Model Context Protocol (MCP) est un protocole ouvert qui crée des connexions standardisées entre les applications d&#39;IA et des services externes, comme la documentation. Mintlify génère un serveur MCP à partir de votre documentation, en préparant votre contenu pour un écosystème d&#39;IA plus vaste dans lequel n&#39;importe quel client MCP comme Claude, Cursor, Goose, ChatGPT et d&#39;autres peut se connecter à votre documentation.
 
 Votre serveur MCP expose des outils permettant aux applications d'IA de rechercher dans votre documentation et de récupérer le contenu complet des pages. Vos utilisateurs doivent connecter votre serveur MCP à leurs outils.
+
+<Tip>
+  Vous souhaitez plutôt permettre aux agents de modifier votre contenu au lieu de simplement le lire ? Consultez le [serveur MCP Mintlify](/ai/mintlify-mcp) pour découvrir un serveur MCP authentifié qui expose des outils de branching, d'édition de pages, de navigation et de `docs.json` aux agents de confiance.
+</Tip>
 
 <div id="how-mcp-servers-work">
   ### Fonctionnement des serveurs MCP
@@ -53,10 +57,8 @@ Les ressources `Skill.md` apparaissent dans la liste des ressources du serveur M
 
 L’outil de recherche MCP prend en charge des paramètres facultatifs que les applications d’IA utilisent pour contrôler et affiner les résultats de recherche.
 
-* **`pageSize`** : Nombre de résultats à renvoyer, entre 1 et 50. La valeur par défaut est 10.
-* **`scoreThreshold`** : Score de pertinence minimum entre 0 et 1. Ne renvoie que les résultats atteignant ou dépassant ce seuil. Utilisez ce paramètre pour filtrer les correspondances peu pertinentes.
-* **`version`** : Filtre les résultats pour une version spécifique de la documentation. Par exemple, `'v0.7'`. Ne renvoie que le contenu balisé avec la version spécifiée ou le contenu disponible dans toutes les versions.
-* **`language`** : Filtre les résultats pour un code de langue spécifique. Par exemple, `'en'`, `'zh'` ou `'es'`. Ne renvoie que le contenu dans la langue spécifiée ou le contenu disponible dans toutes les langues.
+* **`version`** : Filtre les résultats pour une version spécifique de la documentation. Par exemple, `'v0.7'`. Disponible uniquement lorsque votre documentation comporte plusieurs versions. Ne renvoie que le contenu balisé avec la version spécifiée ou le contenu disponible dans toutes les versions.
+* **`language`** : Filtre les résultats pour un code de langue spécifique. Par exemple, `'en'`, `'zh'` ou `'es'`. Disponible uniquement lorsque votre documentation comporte plusieurs langues. Ne renvoie que le contenu dans la langue spécifiée ou le contenu disponible dans toutes les langues.
 
 Les applications d’IA déterminent quand appliquer ces paramètres en fonction du contexte de la requête de l’utilisateur. Par exemple, si un utilisateur pose une question sur une version spécifique d’une API, l’application d’IA peut appliquer automatiquement le filtre approprié pour fournir des résultats plus pertinents.
 
@@ -128,7 +130,7 @@ Par défaut, votre serveur MCP est uniquement disponible pour les outils localho
 
 Les identifiants client vous permettent de vous connecter à votre serveur MCP authentifié de manière programmatique, sans connexion via un navigateur. Utilisez les identifiants client pour les intégrations côté serveur, les pipelines CI/CD, les workflows automatisés et tout environnement dans lequel un utilisateur ne peut pas effectuer un flux OAuth interactif.
 
-Les identifiants client s'authentifient auprès de l'endpoint `/authed/mcp` et renvoient le même contenu qu'un utilisateur authentifié ayant accès à toutes les pages.
+Les identifiants client s'authentifient auprès de l'endpoint `/authed/mcp` et renvoient l'ensemble du contenu des pages publiques et des pages authentifiées qui ne sont pas restreintes à des groupes spécifiques.
 
 <Steps>
   <Step title="Créer un identifiant client">
@@ -155,18 +157,19 @@ Les identifiants client s'authentifient auprès de l'endpoint `/authed/mcp` et r
     ```
     </CodeGroup>
 
-    La réponse inclut un jeton d'accès :
+    La réponse inclut un jeton d'accès et un jeton de rafraîchissement :
 
     ```json
     {
       "access_token": "eyJhbGciOi...",
       "token_type": "Bearer",
       "expires_in": 1209600,
+      "refresh_token": "eyJhbGciOi...",
       "scope": "mcp:search"
     }
     ```
 
-    Les jetons d'accès expirent au bout de 14 jours. Demandez un nouveau jeton lorsque le jeton actuel expire.
+    Les jetons d'accès expirent au bout du nombre de secondes spécifié dans `expires_in`. Utilisez le `refresh_token` pour obtenir un nouveau jeton d'accès lorsque le jeton actuel expire.
   </Step>
   <Step title="Se connecter au serveur MCP">
     Utilisez le jeton d'accès comme bearer token lors de la connexion à l'endpoint `/authed/mcp`.
@@ -230,7 +233,9 @@ Pour protéger la disponibilité, Mintlify applique des limites de débit aux se
 
 Votre serveur MCP recherche le contenu que Mintlify indexe à partir de votre référentiel de documentation. Le traitement des fichiers et l’indexation pour la recherche déterminent quel contenu est disponible via votre serveur MCP.
 
-Pour la documentation nécessitant une authentification, votre serveur MCP indexe uniquement les pages des [groupes d’utilisateurs publics](/fr/deploy/authentication-setup#make-pages-public). Pour la documentation avec authentification partielle, votre serveur MCP indexe les pages publiques pour les utilisateurs non authentifiés ainsi que toutes les pages des groupes d’utilisateurs publics.
+Pour la documentation nécessitant une authentification, votre serveur MCP indexe les [pages publiques](/fr/deploy/authentication-setup#make-pages-public) ainsi que toutes les pages auxquelles un utilisateur authentifié a l'autorisation d'accéder en fonction de ses [groupes d'utilisateurs](/fr/deploy/authentication-setup#restrict-pages-to-specific-user-groups).
+
+Pour la documentation avec authentification partielle, les utilisateurs non authentifiés peuvent rechercher dans les pages publiques. Les utilisateurs authentifiés peuvent rechercher dans les pages publiques ainsi que dans toutes les pages auxquelles ils ont l'autorisation d'accéder en fonction de leurs groupes d'utilisateurs.
 
 <div id="file-processing-with-mintignore">
   ### Traitement des fichiers avec `.mintignore`

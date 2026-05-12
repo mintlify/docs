@@ -1,5 +1,5 @@
 ---
-title: "Model Context Protocol（模型上下文协议）"
+title: "Model Context Protocol (MCP)（模型上下文协议）"
 description: "通过托管的模型上下文协议（MCP）服务器，将文档和 API 端点连接到 Claude、Cursor 等 AI 工具。"
 keywords: ["MCP", "AI 工具", "Claude", "Cursor"]
 ---
@@ -13,6 +13,10 @@ import { PreviewButton } from "/snippets/previewbutton.jsx"
 Model Context Protocol (MCP，模型上下文协议) 是一个开放协议，用于在 AI 应用与外部服务 (例如文档) 之间建立标准化连接。Mintlify 会基于你的文档生成一个 MCP 服务器，为更广泛的 AI 生态系统做好准备，让任何 MCP 客户端例如 Claude、Cursor、Goose、ChatGPT 等都可以连接到你的文档。
 
 你的 MCP 服务器会向 AI 应用提供搜索文档和获取完整页面内容的工具。你的用户必须将你的 MCP 服务器连接到他们的工具中。
+
+<Tip>
+  想要让代理编辑你的内容，而不只是读取？请参阅 [Mintlify MCP 服务器](/ai/mintlify-mcp)，这是一个已认证的 MCP 服务器，会向受信任的代理公开 branching、页面编辑、导航和 `docs.json` 工具。
+</Tip>
 
 <div id="how-mcp-servers-work">
   ### MCP 服务器的工作方式
@@ -53,10 +57,8 @@ Model Context Protocol (MCP，模型上下文协议) 是一个开放协议，用
 
 MCP 搜索工具支持可选参数，AI 应用使用它们来控制和优化搜索结果。
 
-* **`pageSize`**：返回的结果数量，介于 1 到 50 之间。默认值为 10。
-* **`scoreThreshold`**：最低相关性分数，介于 0 到 1 之间。只返回达到或超过此阈值的结果。用于过滤低相关性的匹配项。
-* **`version`**：将结果筛选为特定的文档版本。例如，`'v0.7'`。只返回带有指定版本标签的内容，或在所有版本中通用的内容。
-* **`language`**：将结果筛选为特定的语言代码。例如，`'en'`、`'zh'` 或 `'es'`。只返回指定语言的内容，或在所有语言中通用的内容。
+* **`version`**：将结果筛选为特定的文档版本。例如，`'v0.7'`。仅在你的文档包含多个版本时可用。只返回带有指定版本标签的内容，或在所有版本中通用的内容。
+* **`language`**：将结果筛选为特定的语言代码。例如，`'en'`、`'zh'` 或 `'es'`。仅在你的文档包含多种语言时可用。只返回指定语言的内容，或在所有语言中通用的内容。
 
 AI 应用会根据用户 query 的上下文来决定何时应用这些参数。例如，如果用户询问特定 API 版本，AI 应用可能会自动应用相应的筛选条件，以提供更相关的结果。
 
@@ -128,7 +130,7 @@ Mintlify 会为你的文档生成一个 MCP 服务器，并将其托管在你的
 
 客户端凭据允许你以编程方式连接到你的认证 MCP 服务器，无需基于浏览器的登录。客户端凭据适用于服务端集成、CI/CD 流水线、自动化工作流以及用户无法完成交互式 OAuth 流程的任何环境。
 
-客户端凭据通过 `/authed/mcp` 端点进行认证，并返回与拥有所有页面访问权限的已认证用户相同的内容。
+客户端凭据通过 `/authed/mcp` 端点进行认证，并返回所有公开页面以及未限制为特定用户组的认证页面的全部内容。
 
 <Steps>
   <Step title="创建客户端凭据">
@@ -155,18 +157,19 @@ Mintlify 会为你的文档生成一个 MCP 服务器，并将其托管在你的
     ```
     </CodeGroup>
 
-    响应中包含一个访问令牌：
+    响应中包含一个访问令牌和一个刷新令牌：
 
     ```json
     {
       "access_token": "eyJhbGciOi...",
       "token_type": "Bearer",
       "expires_in": 1209600,
+      "refresh_token": "eyJhbGciOi...",
       "scope": "mcp:search"
     }
     ```
 
-    访问令牌在 14 天后过期。当前令牌过期后，请重新请求新的令牌。
+    访问令牌在 `expires_in` 指定的秒数后过期。当前令牌过期后，请使用 `refresh_token` 获取新的访问令牌。
   </Step>
   <Step title="连接到 MCP 服务器">
     连接到 `/authed/mcp` 端点时，将访问令牌用作 bearer token。
@@ -230,7 +233,9 @@ Mintlify 会为你的文档生成一个 MCP 服务器，并将其托管在你的
 
 你的 MCP 服务器会搜索 Mintlify 从你的文档存储库中索引编入的内容。文件处理和搜索索引编入控制了通过你的 MCP 服务器可用的内容。
 
-对于需要身份验证的文档，你的 MCP 服务器只会索引编入[公开用户组](/zh/deploy/authentication-setup#make-pages-public)中的页面。对于采用部分身份验证的文档，你的 MCP 服务器会为未经身份验证的用户索引编入公开页面，以及公开用户组中的任何页面。
+对于需要身份验证的文档，你的 MCP 服务器会索引[公开页面](/zh/deploy/authentication-setup#make-pages-public)以及已认证用户根据其[用户组](/zh/deploy/authentication-setup#restrict-pages-to-specific-user-groups)有权访问的所有页面。
+
+对于采用部分身份验证的文档，未认证用户可以搜索公开页面。已认证用户可以搜索公开页面以及他们根据其用户组有权访问的所有页面。
 
 <div id="file-processing-with-mintignore">
   ### 使用 `.mintignore` 进行文件处理
