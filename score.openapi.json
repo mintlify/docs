@@ -1,0 +1,164 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mintlify Agent Score API",
+    "description": "Public, unauthenticated endpoint for checking how agent-ready a documentation site is. Powers the free score tool at https://mintlify.com/score.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/api",
+      "description": "Production"
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/agent/score": {
+      "get": {
+        "summary": "Get agent score",
+        "description": "Returns the agent readiness score for a public documentation URL. The endpoint is unauthenticated and rate limited to 10 requests per minute per IP address. The first request for a new URL queues a score computation and returns `202 Accepted` with a `Retry-After` header. Poll the endpoint until the response is `200 OK` with the computed score.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "The public HTTPS URL of the documentation site to score. The host must be publicly resolvable. Maximum length is 2048 characters.",
+            "schema": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2048,
+              "example": "https://mintlify.com/docs"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A score has been computed for the requested URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["canonicalUrl", "score", "status"],
+                  "properties": {
+                    "canonicalUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "The canonical URL of the tracked site that Mintlify scored. This may differ from the requested URL if Mintlify resolved it to a different canonical form."
+                    },
+                    "score": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100,
+                      "description": "Overall agent readiness score between 0 and 100."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["ready"],
+                      "description": "Indicates that a score is available in the response."
+                    }
+                  }
+                },
+                "example": {
+                  "canonicalUrl": "https://mintlify.com/docs",
+                  "score": 86,
+                  "status": "ready"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "A score is being computed. Wait `retryAfterSeconds` seconds and request again. The same value is returned in the standard `Retry-After` HTTP header.",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before polling again.",
+                "schema": {
+                  "type": "integer",
+                  "example": 10
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["canonicalUrl", "retryAfterSeconds", "status"],
+                  "properties": {
+                    "canonicalUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "The canonical URL of the tracked site Mintlify is scoring."
+                    },
+                    "retryAfterSeconds": {
+                      "type": "integer",
+                      "description": "Number of seconds to wait before polling again.",
+                      "example": 10
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": ["queued"],
+                      "description": "Indicates that a score computation is in progress."
+                    }
+                  }
+                },
+                "example": {
+                  "canonicalUrl": "https://mintlify.com/docs",
+                  "retryAfterSeconds": 10,
+                  "status": "queued"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The `url` query parameter is missing, malformed, or not a public HTTPS address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "examples": {
+                  "missingUrl": {
+                    "summary": "Missing or malformed URL",
+                    "value": {
+                      "error": "url query param is required"
+                    }
+                  },
+                  "unsafeUrl": {
+                    "summary": "Non-public or non-HTTPS URL",
+                    "value": {
+                      "error": "url must be a public HTTPS address"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Each IP address may make up to 10 requests per minute."
+          },
+          "502": {
+            "description": "Mintlify could not resolve or analyze the provided URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "Failed to analyze the provided URL"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
