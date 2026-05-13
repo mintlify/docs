@@ -1,0 +1,185 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mintlify Agent Score API",
+    "version": "1.0.0",
+    "description": "Public API for checking how well a documentation site is structured for AI agents."
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com",
+      "description": "Production"
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/agent/score": {
+      "get": {
+        "summary": "Get agent score",
+        "description": "Returns the agent readiness score for a public documentation URL. The endpoint is unauthenticated. If the URL has not been analyzed before (or its cached score is being refreshed), the response is `queued` and you should poll again after `retryAfterSeconds`. Once the analysis finishes, subsequent calls return the `ready` score with the full list of checks.",
+        "operationId": "getAgentScore",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "Public HTTPS URL of the documentation site to score. URLs without a scheme are upgraded to `https://`. Maximum length is 2048 characters.",
+            "schema": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2048,
+              "example": "https://mintlify.com/docs"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The score is ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["canonicalUrl", "checks", "score", "status"],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["ready"],
+                      "description": "Indicates that the score is available."
+                    },
+                    "canonicalUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "The canonical URL Mintlify resolved from the requested URL."
+                    },
+                    "score": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100,
+                      "description": "Overall agent readiness score for the site, from 0 to 100."
+                    },
+                    "checks": {
+                      "type": "array",
+                      "description": "Individual check results from the AgentRank (AFDocs) framework and Mintlify-specific checks.",
+                      "items": {
+                        "$ref": "#/components/schemas/Check"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The score is being computed. Retry after the number of seconds in `retryAfterSeconds` (also returned as the `Retry-After` response header).",
+            "headers": {
+              "Retry-After": {
+                "description": "Number of seconds to wait before retrying the request.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["canonicalUrl", "retryAfterSeconds", "status"],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["queued"]
+                    },
+                    "canonicalUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "retryAfterSeconds": {
+                      "type": "integer",
+                      "description": "Suggested number of seconds to wait before polling again."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The `url` query parameter is missing, malformed, or not a public HTTPS address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The endpoint allows up to 10 requests per minute per IP.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Mintlify could not analyze the provided URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Check": {
+        "type": "object",
+        "required": ["id", "name", "status"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable identifier for the check."
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable name of the check."
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "warn", "skip"],
+            "description": "Result of the check."
+          },
+          "message": {
+            "type": "string",
+            "description": "Optional explanation of the result."
+          },
+          "category": {
+            "type": "string",
+            "description": "Optional category the check belongs to."
+          },
+          "children": {
+            "type": "array",
+            "description": "Nested checks for grouped extensions.",
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

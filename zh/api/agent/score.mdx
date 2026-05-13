@@ -1,0 +1,66 @@
+---
+title: "Get agent score"
+description: "Check how well any public documentation site is structured for AI agents with a single unauthenticated request."
+openapi: /zh/agent-score.openapi.json GET /agent/score
+keywords: ["agent score", "agent readiness", "AgentRank", "AFDocs", "public API"]
+---
+
+Use this endpoint to fetch the agent readiness score for any public documentation URL. It powers the `mint score` CLI command and the public AgentRank leaderboard, and you can call it directly from your own tools, CI checks, or dashboards.
+
+The endpoint is unauthenticated — no API key is required.
+
+## When to use it
+
+- Show an agent readiness badge or score on a status page.
+- Add a quality gate to CI that fails when a docs site falls below a target score.
+- Build a custom report or comparison across multiple documentation sites.
+
+If you only need to check your own site interactively, run [`mint score`](/zh/cli/commands#mint-score) instead.
+
+## How it works
+
+The first request for a URL Mintlify has not analyzed before returns `202 Accepted` with `status: "queued"` and a `Retry-After` header. Mintlify analyzes the site in the background, then subsequent requests return `200 OK` with `status: "ready"` and the full list of checks.
+
+Cached scores are returned immediately. If a cached score is older than one hour, Mintlify queues a background refresh but still returns the cached result so your application is not blocked.
+
+## Rate limits
+
+- 10 requests per minute, per IP address.
+
+Requests beyond the limit receive `429 Too Many Requests`.
+
+## Example
+
+Poll until the score is ready:
+
+```bash
+curl "https://api.mintlify.com/agent/score?url=https://mintlify.com/docs"
+```
+
+A queued response looks like:
+
+```json
+{
+  "status": "queued",
+  "canonicalUrl": "https://mintlify.com/docs",
+  "retryAfterSeconds": 10
+}
+```
+
+A ready response looks like:
+
+```json
+{
+  "status": "ready",
+  "canonicalUrl": "https://mintlify.com/docs",
+  "score": 92,
+  "checks": [
+    {
+      "id": "llms-txt",
+      "name": "llms-txt",
+      "status": "pass",
+      "category": "discovery"
+    }
+  ]
+}
+```
