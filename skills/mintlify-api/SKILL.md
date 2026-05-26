@@ -20,7 +20,7 @@ All API requests require an API key passed in the `Authorization` header:
 Authorization: Bearer <your-api-key>
 ```
 
-Generate API keys from the [Mintlify dashboard](https://dashboard.mintlify.com) under Settings > API Keys.
+Generate API keys from the [Mintlify dashboard](https://app.mintlify.com) under Settings > API Keys.
 
 ## Core capabilities
 
@@ -39,5 +39,5 @@ Create and manage preview deployments for pull requests and branches to review d
 ## Resources
 
 - [API reference](https://mintlify.com/docs/api)
-- [Dashboard](https://dashboard.mintlify.com)
+- [Dashboard](https://app.mintlify.com)
 - [Deployment guide](https://mintlify.com/docs/deploy)
