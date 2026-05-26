@@ -1,0 +1,103 @@
+---
+title: "Agent card"
+description: "通过自动托管的 agent-card.json 文件，帮助兼容 A2A 的智能体发现你的文档和 skills。"
+keywords: ["A2A", "agent card", "智能体发现", "AI 智能体", "well-known"]
+---
+
+import { PreviewButton } from "/snippets/previewbutton.jsx"
+
+Mintlify 会自动在 `/.well-known/agent-card.json` 路径下托管一份 [Agent-to-Agent (A2A)](https://a2aproject.github.io/A2A/latest/) agent card。Agent card 是一份标准化的 JSON 文档，帮助 AI 智能体发现你的文档站点提供了什么，以及在何处获取详细的能力信息。
+
+可以把 agent card 视为给智能体使用的地图：通过一个统一的发现端点，指向站点元数据、文档 URL 以及可用的 skills。
+
+在你的文档站点 URL 后追加 `/.well-known/agent-card.json` 即可查看你的 agent card。Mintlify 会自动生成 agent card 并保持其更新，无需任何配置。
+
+<PreviewButton href="https://mintlify.com/docs/.well-known/agent-card.json">
+  打开本站的 agent-card.json。
+</PreviewButton>
+
+<div id="when-to-use-the-agent-card">
+  ## 何时使用 agent card
+</div>
+
+在以下场景中，agent card 最为实用：
+
+- 你希望兼容 A2A 的智能体能够以编程方式发现你的文档。
+- 你希望通过标准的发现端点将 `skill.md` 文件暴露给智能体。
+- 你正在将文档与遵循 A2A 规范的智能体框架集成。
+
+如果你的用户通过 MCP 客户端连接你的文档，请参阅 [Model Context Protocol (MCP)](/zh/ai/model-context-protocol)。Agent card 作为补充，提供了一个无需建立会话的轻量发现层。
+
+<div id="agent-card-structure">
+  ## Agent card 结构
+</div>
+
+`GET /.well-known/agent-card.json` 会返回一份遵循 A2A agent card 0.2.0 架构的 JSON 文档：
+
+```json
+{
+  "schemaVersion": "0.2.0",
+  "name": "你的文档站点",
+  "description": "对你的文档站点的简要描述。",
+  "url": "https://your-docs-domain.com/",
+  "version": "1.0.0",
+  "documentationUrl": "https://your-docs-domain.com/",
+  "capabilities": {
+    "streaming": false
+  },
+  "skills": [
+    {
+      "id": "payments",
+      "name": "Payments",
+      "description": "接收付款并管理订阅。",
+      "tags": [],
+      "url": "https://your-docs-domain.com/.well-known/agent-skills/payments/skill.md"
+    }
+  ]
+}
+```
+
+| 字段               | 说明                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `schemaVersion`    | A2A agent card 架构版本。                                                                  |
+| `name`             | 文档站点的名称，来源于 `llms.txt` 文件。                                                    |
+| `description`     | 文档站点的简要描述，来源于 `llms.txt` 文件。                                                |
+| `url`              | 文档站点的根 URL。                                                                          |
+| `version`          | Agent card 的版本。                                                                         |
+| `documentationUrl` | 智能体可以获取人类可读文档的 URL。                                                          |
+| `capabilities`     | 支持的智能体能力，当前报告 `streaming: false`。                                             |
+| `skills`           | 文档暴露的 skills 数组。每一项都指向一个托管的 `skill.md` 文件。                            |
+
+<div id="skill-entries">
+  ### Skill 条目
+</div>
+
+`skills` 数组中的每一项描述一个智能体可以获取的 skill：
+
+| 字段          | 说明                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `id`          | 从 `skill.md` frontmatter 中的 `name` 派生的 URL 安全 slug。                                |
+| `name`        | Skill 的显示名称。                                                                          |
+| `description` | 来自 `skill.md` frontmatter 的简要描述，截断为 1024 个字符。                                |
+| `tags`        | 与该 skill 关联的标签列表，目前始终为空。                                                   |
+| `url`         | 获取完整 `skill.md` 文件的 URL。                                                            |
+
+Skills 与 [skills 发现端点](/zh/ai/skillmd#skills-discovery-endpoints) 的来源相同。若要自定义 agent card 中显示的 skills，可向你的项目中添加自定义 skill 文件。更多信息请参阅 [自定义 skill 文件](/zh/ai/skillmd#custom-skill-files)。
+
+<div id="use-the-agent-card-with-agents">
+  ## 配合智能体使用 agent card
+</div>
+
+兼容 A2A 的智能体会获取 `/.well-known/agent-card.json` 以发现你的文档。根据响应内容，智能体可以：
+
+- 通过名称和描述识别你的文档站点。
+- 通过 `documentationUrl` 获取人类可读的内容。
+- 遍历 `skills` 数组并获取每个 `skill.md` 文件，了解可以使用你的产品完成哪些操作。
+
+```bash
+curl https://your-docs-domain.com/.well-known/agent-card.json
+```
+
+<Note>
+  如果你使用 [反向代理](/zh/deploy/reverse-proxy)，请配置它将 `/.well-known/agent-card.json` 路径转发到你的 Mintlify 子域名。
+</Note>
