@@ -621,3 +621,54 @@ openapi: "openapi.json webhook orderUpdated"
 ```
 
 Le nom du webhook doit correspondre exactement à la clé du champ `webhooks` de votre spécification OpenAPI.
+
+<div id="callbacks">
+  ## Callbacks
+</div>
+
+Les callbacks décrivent des requêtes hors bande que votre API envoie à une URL fournie par l'appelant, généralement en réponse à un événement. Utilisez-les pour documenter des notifications de type webhook liées à une opération spécifique (par exemple, « lorsque ce endpoint d'abonnement est appelé, votre API enverra un POST à la `callbackUrl` fournie par l'appelant »).
+
+Lorsque votre spécification OpenAPI définit des [`callbacks`](https://spec.openapis.org/oas/v3.1.0#callback-object) sur une opération, Mintlify affiche automatiquement une section **Callbacks** entre les sections **Body** et **Response** de la page de référence d'API générée. Vous n'avez pas besoin de créer une page distincte pour chaque callback.
+
+Chaque callback s'affiche sous forme de ligne déroulante avec :
+
+- La pastille de méthode HTTP de l'opération du callback.
+- L'URL d'expression du callback (par exemple, `{$request.body#/callbackUrl}`).
+- Le nom du callback issu de votre spécification.
+
+Le déploiement d'une ligne révèle le corps de la requête et les réponses du callback, en utilisant la même interface que les endpoints classiques. Les liens directs de la forme `#callback-{index}-…` font défiler automatiquement la page jusqu'au callback correspondant et l'ouvrent. Le [filtrage par groupes d'utilisateurs](/fr/api-playground/managing-page-visibility) s'applique également de manière récursive à l'intérieur des corps de requête et des réponses des callbacks.
+
+Définissez les callbacks sur l'opération dans votre document OpenAPI :
+
+```yaml
+paths:
+  /subscribe:
+    post:
+      summary: Subscribe to events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callbackUrl:
+                  type: string
+                  format: uri
+      responses:
+        "201":
+          description: Subscription created
+      callbacks:
+        orderUpdated:
+          "{$request.body#/callbackUrl}":
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Order"
+              responses:
+                "200":
+                  description: Callback received successfully
+```
