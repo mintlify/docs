@@ -584,3 +584,52 @@ openapi: "openapi.json webhook orderUpdated"
 ```
 
 The webhook name must exactly match the key in your OpenAPI spec's `webhooks` field.
+
+## Callbacks
+
+Callbacks describe out-of-band requests that your API sends to a URL provided by the caller, typically in response to an event. Use them to document webhook-style notifications that are tied to a specific operation (for example, "when this subscription endpoint is called, your API will POST to the `callbackUrl` the caller supplied").
+
+When your OpenAPI spec defines [`callbacks`](https://spec.openapis.org/oas/v3.1.0#callback-object) on an operation, Mintlify automatically renders a **Callbacks** section between the **Body** and **Response** sections of the generated API reference page. You do not need to create a separate page for each callback.
+
+Each callback is shown as an expandable row with:
+
+- The HTTP method pill for the callback operation.
+- The callback expression URL (for example, `{$request.body#/callbackUrl}`).
+- The callback name from your spec.
+
+Expanding a row reveals the callback's request body and responses, using the same UI as regular endpoints. Deep links of the form `#callback-{index}-…` automatically scroll to and open the matching callback. [User group filtering](/api-playground/managing-page-visibility) is also applied recursively inside callback request bodies and responses.
+
+Define callbacks on the operation in your OpenAPI document:
+
+```yaml
+paths:
+  /subscribe:
+    post:
+      summary: Subscribe to events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callbackUrl:
+                  type: string
+                  format: uri
+      responses:
+        "201":
+          description: Subscription created
+      callbacks:
+        orderUpdated:
+          "{$request.body#/callbackUrl}":
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/Order"
+              responses:
+                "200":
+                  description: Callback received successfully
+```
