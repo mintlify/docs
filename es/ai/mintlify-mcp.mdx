@@ -1,0 +1,185 @@
+---
+title: "Servidor Admin Model Context Protocol (MCP)"
+shortTitle: "Admin MCP"
+description: "Permite que las herramientas de IA editen directamente tu contenido y actualicen la configuración de tu panel con el servidor Admin MCP. Conecta Claude, Cursor o cualquier cliente MCP para redactar, guardar y publicar cambios."
+keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch", "pull request"]
+---
+
+<div id="about-the-admin-mcp">
+  ## Acerca del Admin MCP
+</div>
+
+El servidor Admin MCP otorga a las herramientas de IA acceso de escritura a tu contenido y configuración de Mintlify. Úsalo para actualizar contenido y acceder a tu panel. Con el Admin MCP, puedes usar tus herramientas de IA preferidas para editar páginas, reestructurar la navegación, actualizar `docs.json`, abrir pull requests, cambiar configuraciones, crear workflows y más.
+
+Conecta cualquier cliente MCP como Claude, Claude Code o Cursor al servidor Admin MCP para colaborar en tu contenido y configuración de Mintlify con las mismas herramientas que usas para escribir código. Cuando usas el servidor Admin MCP, todos los cambios ocurren en una rama y requieren una pull request para fusionarse.
+
+<Note>
+  El servidor Admin MCP permite que las herramientas de IA accedan a tu panel de Mintlify. Trátalo como a un compañero de trabajo con acceso de escritura. Conéctalo solo desde herramientas de IA de confianza y revisa cada pull request antes de fusionarla.
+</Note>
+
+<div id="how-the-admin-mcp-differs-from-the-search-mcp">
+  ### Cómo se diferencia el Admin MCP del Search MCP
+</div>
+
+|  | Admin MCP | Search MCP |
+| :-- | :-- | :-- |
+| **Audiencia** | Tu equipo | Tus usuarios finales |
+| **Acceso** | Leer, editar, reestructurar, guardar, crear workflows, gestionar la configuración | Leer y buscar en las páginas publicadas |
+| **Endpoints** | Alojado por Mintlify, limitado a tu proyecto | `/mcp` en el dominio de tu sitio |
+| **Salida** | Ediciones de contenido, cambios de navegación, pull requests, ejecuciones de workflows | Resultados de búsqueda y contenido de páginas |
+
+<div id="connect-to-the-admin-mcp">
+  ## Conectarse al Admin MCP
+</div>
+
+Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para conectarte al Admin MCP. Las herramientas de IA intercambian ese inicio de sesión por un token de sesión limitado a un proyecto.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Agregar el Admin MCP como conector personalizado">
+        1. Navega a la página [Connectors](https://claude.ai/settings/connectors) en la configuración de Claude.
+        2. Haz clic en **Add custom connector**.
+        3. Agrega el conector
+           - Nombre: Admin MCP
+           - URL: `https://mcp.mintlify.com`
+        4. Haz clic en **Add** y completa el inicio de sesión OAuth.
+      </Step>
+      <Step title="Usar el MCP en un chat">
+        Haz clic en el botón de archivos adjuntos (el icono más) y luego selecciona tu servidor Admin MCP. Claude ahora puede llamar a las herramientas del Mintlify Admin MCP mientras responde a tu prompt.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    Agrega el servidor Admin MCP con la CLI de Claude Code:
+
+    ```bash
+    claude mcp add --transport http mintlify https://mcp.mintlify.com
+    ```
+
+    En el primer uso, Claude Code abre una ventana del navegador para completar el inicio de sesión OAuth. Tras autenticarte, la sesión se reutiliza para las llamadas posteriores.
+  </Tab>
+  <Tab title="Cursor">
+    1. Abre la paleta de comandos con <kbd>Command</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> (<kbd>Ctrl</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> en Windows).
+    2. Busca **Open MCP settings** y haz clic en **Add custom MCP**.
+    3. En `mcp.json`, agrega el Admin MCP:
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify": {
+          "url": "https://mcp.mintlify.com"
+        }
+      }
+    }
+    ```
+
+    4. Recarga Cursor y completa el inicio de sesión OAuth cuando se te solicite.
+  </Tab>
+</Tabs>
+
+<div id="how-a-session-works">
+  ## Cómo funciona una sesión
+</div>
+
+Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
+
+<Steps>
+  <Step title="Hacer checkout de una rama">
+    La primera llamada debe ser `checkout`. Crea una nueva rama `mintlify-mcp/<slug>-<sha>` a partir de tu rama de despliegue (o se adjunta a una rama existente que indiques) y devuelve un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel.
+
+    Llama a `list_branches` antes de `checkout` si necesitas descubrir o filtrar las ramas existentes en el repositorio.
+  </Step>
+  <Step title="Leer, buscar y editar">
+    La IA usa herramientas como `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` y `update_config` para realizar cambios. Todas las ediciones se mantienen en la rama de la sesión en tiempo real; nada toca aún tu rama de despliegue.
+  </Step>
+  <Step title="Revisar el diff">
+    Llama a `diff` en cualquier momento para ver exactamente qué ha cambiado desde `main`. Abre el `editorUrl` en tu panel para ver los mismos cambios renderizados.
+  </Step>
+  <Step title="Guardar">
+    Llama a `save` para enviar la rama a Git. Usa `mode: "pr"` (predeterminado) para abrir una pull request, o `mode: "commit"` para hacer push directamente a una rama de PR existente.
+  </Step>
+  <Step title="Descartar si es necesario">
+    Llama a `discard_session` para descartar todos los cambios en la sesión y liberar la rama.
+  </Step>
+</Steps>
+
+<Tip>
+  Llamar a `checkout` nuevamente durante una sesión activa cambia la sesión a la nueva rama. Usa esto para abandonar un borrador en curso y empezar de nuevo sin terminar la conversación.
+</Tip>
+
+<div id="what-the-admin-mcp-can-do">
+  ## Qué puede hacer el Admin MCP
+</div>
+
+<div id="content">
+  ### Contenido
+</div>
+
+- **`read`** — Obtén el MDX completo de cualquier página en la rama de la sesión.
+- **`search`** — Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas.
+- **`edit_page`** — Aplica una edición dirigida a una página.
+- **`write_page`** — Sobrescribe el contenido MDX completo de una página.
+
+<div id="navigation">
+  ### Navegación
+</div>
+
+- **`list_nodes`** — Recorre el árbol de navegación con filtros opcionales. Filtra por `parentId` (usa `recursive: true` para incluir todos los descendientes), uno o más tipos de nodo, o cualquier ámbito de división: `language`, `version`, `tab`, `dropdown`, `anchor`, `product` o `item`. Los resultados se paginan a través de un `cursor` opaco.
+- **`create_node`** — Agrega una nueva página, grupo, pestaña, ancla, versión, idioma, producto o desplegable.
+- **`update_node`** — Actualiza las propiedades de un nodo en su lugar (renombrar un grupo, cambiar un icono, establecer una versión predeterminada).
+- **`move_node`** — Mueve un nodo, incluido renombrar la ruta de una página.
+- **`delete_node`** — Elimina un nodo de la navegación.
+
+<div id="configuration">
+  ### Configuración
+</div>
+
+- **`update_config`** — Modifica `docs.json` (tema, raíces de navegación, integraciones, configuración de SEO).
+
+<div id="session">
+  ### Sesión
+</div>
+
+- **`checkout`** — Vincula la sesión a una rama.
+- **`list_branches`** — Lista las ramas de Git disponibles para el proyecto, con filtrado opcional por `query`. Devuelve los nombres de las ramas, el total y la rama de despliegue. Llama a esto antes de `checkout` para adjuntarte a una rama existente por nombre.
+- **`get_session_state`** — Inspecciona la rama actual, los archivos editados y el diff de navegación pendiente.
+- **`diff`** — Lista todos los cambios entre la sesión y `main`.
+- **`save`** — Abre una pull request o hace commit en la rama de la sesión.
+- **`discard_session`** — Descarta la sesión y sus cambios pendientes.
+
+<div id="example-prompts">
+  ## Ejemplos de prompts
+</div>
+
+Después de conectarte al Admin MCP, puedes manejarlo con prompts en lenguaje natural. Por ejemplo:
+
+- _"Haz checkout de una rama llamada `add-billing-faq` y crea una nueva página bajo el grupo FAQ titulada 'Billing'. Redacta respuestas para las cinco preguntas de este issue de Linear."_
+- _"Encuentra todas las páginas que mencionen el campo obsoleto `legacy_token` y actualiza el ejemplo para que use `api_key` en su lugar. Guarda como PR titulada 'docs: replace legacy\_token references'."_
+- _"Reorganiza la referencia de API: mueve las páginas de webhooks a un nuevo grupo llamado 'Webhooks' y actualiza los iconos para que coincidan con el resto de la sección."_
+
+<div id="best-practices">
+  ## Buenas prácticas
+</div>
+
+<AccordionGroup>
+  <Accordion title="Abrir la URL del editor">
+    Cada `checkout` devuelve un `editorUrl`. Ábrelo en una pestaña aparte para ver cómo se renderizan los cambios de la IA en vivo en el editor del panel mientras escribes prompts.
+  </Accordion>
+
+  <Accordion title="Revisar cada PR">
+    El Admin MCP es lo suficientemente potente como para reescribir cientos de páginas en una sola sesión. Antes de fusionar, lee el diff de la PR y revisa la vista previa renderizada. No apruebes cambios grandes sin revisarlos.
+  </Accordion>
+
+  <Accordion title="Usar slugs para los nombres de ramas">
+    Pasa un `slug` a `checkout` (por ejemplo, `add-quickstart`) para que la rama generada automáticamente sea legible. Sin él, el nombre de la rama deriva del token de sesión y es difícil de reconocer en tu repositorio.
+  </Accordion>
+
+  <Accordion title="Mantener las sesiones enfocadas">
+    Mantén cada sesión enfocada en un solo cambio. Las sesiones más pequeñas producen pull requests más fáciles de revisar y preservan las ventanas de contexto de los agentes. Usa `discard_session` y vuelve a llamar a `checkout` para cambiar a un trabajo no relacionado.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Las sesiones mantienen una rama en memoria en el lado de Mintlify. Si abandonas una sesión sin guardarla ni descartarla, la rama persiste hasta que tu próximo checkout la sobrescriba. Evita dejar ramas `mintlify-mcp/*` obsoletas en tu repositorio. Límpialas periódicamente.
+</Note>
