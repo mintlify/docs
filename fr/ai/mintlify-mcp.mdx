@@ -1,0 +1,185 @@
+---
+title: "Serveur Admin Model Context Protocol (MCP)"
+shortTitle: "Admin MCP"
+description: "Permettez aux outils d'IA de modifier directement votre contenu et de mettre à jour les paramètres de votre tableau de bord avec le serveur Admin MCP. Connectez Claude, Cursor ou tout autre client MCP pour rédiger, enregistrer et publier des changements."
+keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch", "pull request"]
+---
+
+<div id="about-the-admin-mcp">
+  ## À propos du serveur Admin MCP
+</div>
+
+Le serveur Admin MCP donne aux outils d'IA un accès en écriture à votre contenu et à vos paramètres Mintlify. Utilisez-le pour mettre à jour le contenu et accéder à votre tableau de bord. Avec l'Admin MCP, vous pouvez utiliser vos outils d'IA préférés pour modifier des pages, restructurer la navigation, mettre à jour `docs.json`, ouvrir des pull requests, modifier des paramètres, créer des workflows, et plus encore.
+
+Connectez n'importe quel client MCP comme Claude, Claude Code ou Cursor au serveur Admin MCP pour collaborer sur votre contenu et vos paramètres Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Lorsque vous utilisez le serveur Admin MCP, toutes les modifications se produisent sur une branche et nécessitent une pull request pour être fusionnées.
+
+<Note>
+  Le serveur Admin MCP permet aux outils d'IA d'accéder à votre tableau de bord Mintlify. Considérez-le comme un collègue avec un accès en écriture. Connectez-le uniquement depuis des outils d'IA de confiance et examinez chaque pull request avant de la fusionner.
+</Note>
+
+<div id="how-the-admin-mcp-differs-from-the-search-mcp">
+  ### En quoi l'Admin MCP diffère du Search MCP
+</div>
+
+|  | Admin MCP | Search MCP |
+| :-- | :-- | :-- |
+| **Audience** | Votre équipe | Vos utilisateurs finaux |
+| **Accès** | Lire, modifier, restructurer, enregistrer, créer des workflows, gérer les paramètres | Lire et rechercher dans les pages publiées |
+| **Endpoints** | Hébergé par Mintlify, à la portée de votre projet | `/mcp` sur le domaine de votre site |
+| **Résultat** | Modifications de contenu, changements de navigation, pull requests, exécutions de workflows | Résultats de recherche et contenu des pages |
+
+<div id="connect-to-the-admin-mcp">
+  ## Se connecter à l'Admin MCP
+</div>
+
+Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify pour vous connecter à l'Admin MCP. Les outils d'IA échangent cette connexion contre un jeton de session limité à un seul projet.
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Ajouter l'Admin MCP comme connecteur personnalisé">
+        1. Accédez à la page [Connectors](https://claude.ai/settings/connectors) dans les paramètres de Claude.
+        2. Cliquez sur **Add custom connector**.
+        3. Ajoutez le connecteur
+           - Nom : Admin MCP
+           - URL : `https://mcp.mintlify.com`
+        4. Cliquez sur **Add** et terminez la connexion OAuth.
+      </Step>
+      <Step title="Utiliser le MCP dans une conversation">
+        Cliquez sur le bouton des pièces jointes (l'icône plus), puis sélectionnez votre serveur Admin MCP. Claude peut maintenant appeler les outils Mintlify Admin MCP tout en répondant à votre prompt.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    Ajoutez le serveur Admin MCP avec la CLI Claude Code :
+
+    ```bash
+    claude mcp add --transport http mintlify https://mcp.mintlify.com
+    ```
+
+    Lors de la première utilisation, Claude Code ouvre une fenêtre de navigateur pour terminer la connexion OAuth. Après authentification, la session est réutilisée pour les appels suivants.
+  </Tab>
+  <Tab title="Cursor">
+    1. Ouvrez la palette de commandes avec <kbd>Command</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> (<kbd>Ctrl</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> sous Windows).
+    2. Recherchez **Open MCP settings** et cliquez sur **Add custom MCP**.
+    3. Dans `mcp.json`, ajoutez l'Admin MCP :
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify": {
+          "url": "https://mcp.mintlify.com"
+        }
+      }
+    }
+    ```
+
+    4. Rechargez Cursor et terminez la connexion OAuth lorsque vous y êtes invité.
+  </Tab>
+</Tabs>
+
+<div id="how-a-session-works">
+  ## Comment fonctionne une session
+</div>
+
+Chaque session Admin MCP est liée à une seule branche Git. Le flux est le suivant :
+
+<Steps>
+  <Step title="Extraire une branche">
+    Le premier appel doit être `checkout`. Il crée une nouvelle branche `mintlify-mcp/<slug>-<sha>` à partir de votre branche de déploiement (ou se rattache à une branche existante que vous nommez) et renvoie une `editorUrl` que vous pouvez ouvrir pour suivre l'évolution dans l'éditeur du tableau de bord.
+
+    Appelez `list_branches` avant `checkout` si vous avez besoin de découvrir ou de filtrer les branches existantes du dépôt.
+  </Step>
+  <Step title="Lire, rechercher et modifier">
+    L'IA utilise des outils tels que `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` et `update_config` pour effectuer des modifications. Toutes les modifications sont mises en mémoire tampon sur la branche de session en temps réel — rien ne touche encore votre branche de déploiement.
+  </Step>
+  <Step title="Examiner le diff">
+    Appelez `diff` à tout moment pour voir exactement ce qui a changé depuis `main`. Ouvrez l'`editorUrl` dans votre tableau de bord pour voir les mêmes changements rendus.
+  </Step>
+  <Step title="Enregistrer">
+    Appelez `save` pour pousser la branche vers Git. Utilisez `mode: "pr"` (par défaut) pour ouvrir une pull request, ou `mode: "commit"` pour pousser directement sur une branche de PR existante.
+  </Step>
+  <Step title="Abandonner si nécessaire">
+    Appelez `discard_session` pour abandonner toutes les modifications en session et libérer la branche.
+  </Step>
+</Steps>
+
+<Tip>
+  Appeler `checkout` à nouveau pendant une session active fait basculer la session sur la nouvelle branche. Utilisez cela pour abandonner un brouillon en cours et repartir à zéro sans mettre fin à la conversation.
+</Tip>
+
+<div id="what-the-admin-mcp-can-do">
+  ## Ce que l'Admin MCP peut faire
+</div>
+
+<div id="content">
+  ### Contenu
+</div>
+
+- **`read`** — Récupère le MDX complet de n'importe quelle page sur la branche de session.
+- **`search`** — Trouve les lignes correspondant à une sous-chaîne ou à une expression régulière dans toutes les pages.
+- **`edit_page`** — Applique une modification ciblée à une page.
+- **`write_page`** — Réécrit le contenu MDX complet d'une page.
+
+<div id="navigation">
+  ### Navigation
+</div>
+
+- **`list_nodes`** — Parcourt l'arbre de navigation avec des filtres optionnels. Filtrez par `parentId` (utilisez `recursive: true` pour inclure tous les descendants), un ou plusieurs types de nœuds, ou n'importe quel scope de division : `language`, `version`, `tab`, `dropdown`, `anchor`, `product` ou `item`. Les résultats sont paginés via un `cursor` opaque.
+- **`create_node`** — Ajoute une nouvelle page, un groupe, un onglet, une ancre, une version, une langue, un produit ou une liste déroulante.
+- **`update_node`** — Met à jour les propriétés d'un nœud sur place (renommer un groupe, modifier une icône, définir une version par défaut).
+- **`move_node`** — Déplace un nœud, y compris renommer le chemin d'une page.
+- **`delete_node`** — Supprime un nœud de la navigation.
+
+<div id="configuration">
+  ### Configuration
+</div>
+
+- **`update_config`** — Modifie `docs.json` (thème, racines de navigation, intégrations, paramètres SEO).
+
+<div id="session">
+  ### Session
+</div>
+
+- **`checkout`** — Lie la session à une branche.
+- **`list_branches`** — Liste les branches Git disponibles pour le projet, avec un filtrage `query` optionnel. Renvoie les noms de branches, le nombre total et la branche de déploiement. Appelez ceci avant `checkout` pour vous rattacher à une branche existante par son nom.
+- **`get_session_state`** — Inspecte la branche en cours, les fichiers modifiés et le diff de navigation en attente.
+- **`diff`** — Liste toutes les modifications entre la session et `main`.
+- **`save`** — Ouvre une pull request ou pousse un commit sur la branche de session.
+- **`discard_session`** — Abandonne la session et ses modifications en cours.
+
+<div id="example-prompts">
+  ## Exemples de prompts
+</div>
+
+Une fois l'Admin MCP connecté, vous pouvez le piloter avec des prompts en langage naturel. Par exemple :
+
+- _"Extrais une branche appelée `add-billing-faq` et crée une nouvelle page sous le groupe FAQ intitulée 'Billing'. Rédige des réponses aux cinq questions de ce ticket Linear."_
+- _"Trouve toutes les pages qui mentionnent le champ déprécié `legacy_token` et mets à jour l'exemple pour utiliser `api_key` à la place. Enregistre comme une PR intitulée 'docs: replace legacy\_token references'."_
+- _"Réorganise la référence d'API : déplace les pages webhooks dans un nouveau groupe appelé 'Webhooks' et mets à jour les icônes pour qu'elles correspondent au reste de la section."_
+
+<div id="best-practices">
+  ## Bonnes pratiques
+</div>
+
+<AccordionGroup>
+  <Accordion title="Ouvrir l'URL de l'éditeur">
+    Chaque `checkout` renvoie une `editorUrl`. Ouvrez-la dans un onglet séparé pour pouvoir voir les modifications de l'IA s'afficher en direct dans l'éditeur du tableau de bord pendant que vous rédigez vos prompts.
+  </Accordion>
+
+  <Accordion title="Examiner chaque PR">
+    L'Admin MCP est suffisamment puissant pour réécrire des centaines de pages en une seule session. Avant de fusionner, lisez le diff de la PR et parcourez l'aperçu rendu. Ne validez pas des changements importants sans les examiner.
+  </Accordion>
+
+  <Accordion title="Utiliser des slugs pour les noms de branches">
+    Passez un `slug` à `checkout` (par exemple, `add-quickstart`) pour que la branche générée automatiquement soit lisible. Sans cela, le nom de la branche dérive du jeton de session et est difficile à reconnaître dans votre dépôt.
+  </Accordion>
+
+  <Accordion title="Garder les sessions ciblées">
+    Limitez chaque session à un seul changement. Des sessions plus petites produisent des pull requests plus faciles à examiner et préservent les fenêtres de contexte des agents. Utilisez `discard_session` puis `checkout` à nouveau pour passer à un travail sans lien.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Les sessions conservent une branche en mémoire côté Mintlify. Si vous abandonnez une session sans l'enregistrer ou la supprimer, la branche persiste jusqu'à ce que votre prochain checkout l'écrase. Évitez de laisser des branches `mintlify-mcp/*` obsolètes dans votre dépôt. Nettoyez-les périodiquement.
+</Note>
