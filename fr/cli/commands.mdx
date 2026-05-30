@@ -196,6 +196,112 @@ mint analytics conversation buckets view <bucket-id>
 
 ---
 
+<div id="mint-workflow">
+  ## `mint workflow`
+</div>
+
+Créez, listez et supprimez des [workflows](/fr/workflows) depuis le terminal. Nécessite une authentification avec `mint login`.
+
+```bash
+mint workflow <subcommand> [flags]
+```
+
+Tous les sous-commandes acceptent ces flags partagés :
+
+| Flag | Description |
+| --- | --- |
+| `--subdomain` | Sous-domaine de la documentation. Par défaut, utilise la valeur définie avec `mint config set subdomain`, ou le premier projet de votre compte. |
+| `--format` | Format de sortie : `table` (par défaut, lisible) ou `json` (brut, lisible par machine). |
+
+Lorsque `--format json` est défini, les erreurs sont écrites sur stderr sous la forme `Error: <message>` et la commande se termine avec un statut non nul, afin que vous puissiez rediriger la sortie réussie vers d'autres outils.
+
+<div id="mint-workflow-create">
+  ### `mint workflow create`
+</div>
+
+Crée un nouveau workflow. Vous pouvez passer la définition du workflow en ligne avec des flags, ou pointer vers un fichier JSON ou YAML avec `--file`.
+
+```bash
+mint workflow create [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--name` | Nom du workflow. Obligatoire sauf si `--file` est fourni. |
+| `--prompt` | Instructions ajoutées au prompt de base du workflow à chaque exécution. |
+| `--type` | Type de workflow. L'une des valeurs suivantes : `changelog`, `source-code-agent`, `translations`, `writing-style`, `typo-check`, `broken-link-detection`, `seo-metadata-audit`, `assistant-docs-updates` ou `contextual-feedback-docs-updates`. Omettez pour un workflow personnalisé. |
+| `--cron` | Expression cron pour un trigger planifié. Mutuellement exclusif avec `--push-repo`. |
+| `--push-repo` | Dépôt (`owner/repo`) pour un trigger de push. Répétable pour écouter plusieurs dépôts. Mutuellement exclusif avec `--cron`. |
+| `--context-repo` | Dépôt de contexte supplémentaire (`owner/repo`) que l'agent lit lors de l'exécution du workflow. Répétable, jusqu'à 10 au total. |
+| `--automerge` | Fusionne automatiquement les pull requests ouvertes par ce workflow. Consultez [Configurer l'automerge](/fr/guides/configure-automerge) pour les prérequis de configuration. |
+| `--file` | Chemin vers un fichier JSON ou YAML contenant le corps complet du workflow. Remplace les flags en ligne. |
+
+Exactement un trigger est requis : passez `--cron` pour un workflow planifié ou un ou plusieurs flags `--push-repo` pour un workflow déclenché par push.
+
+<div id="examples">
+  #### Exemples
+</div>
+
+```bash
+# Workflow de traductions planifié
+mint workflow create \
+  --name "Translate content" \
+  --type translations \
+  --cron "0 6 * * *"
+
+# Workflow déclenché par push avec contexte supplémentaire
+mint workflow create \
+  --name "Sync API reference" \
+  --type source-code-agent \
+  --push-repo my-org/api \
+  --context-repo my-org/shared-types \
+  --automerge
+
+# Créer à partir d'un fichier
+mint workflow create --file workflow.yaml
+```
+
+Un fichier de workflow utilise la même structure que les flags en ligne. Le champ `on` contient le trigger :
+
+```yaml
+name: Translate content
+type: translations
+on:
+  cron: "0 6 * * *"
+prompt: Prefer formal tone in French translations.
+automerge: false
+context:
+  - repo: my-org/shared-content
+```
+
+<div id="mint-workflow-list">
+  ### `mint workflow list`
+</div>
+
+Liste les workflows pour le déploiement actuel.
+
+```bash
+mint workflow list [flags]
+```
+
+La sortie sous forme de tableau par défaut affiche l'ID, le nom, le type, le trigger et le statut de chaque workflow. Utilisez `--format json` pour obtenir les objets workflow complets.
+
+<div id="mint-workflow-delete">
+  ### `mint workflow delete`
+</div>
+
+Supprime un workflow par ID. Utilisez `mint workflow list` pour obtenir l'ID.
+
+```bash
+mint workflow delete <id> [flags]
+```
+
+| Argument | Description |
+| --- | --- |
+| `id` | ID du schéma du workflow à supprimer. |
+
+---
+
 <div id="mint-config">
   ## `mint config`
 </div>
@@ -218,7 +324,7 @@ mint config <subcommand> <key> [value]
 
 | Clé | Description | Utilisé par |
 | --- | --- | --- |
-| `subdomain` | Sous-domaine par défaut de la documentation. | `mint analytics` |
+| `subdomain` | Sous-domaine par défaut de la documentation. | `mint analytics`, `mint workflow` |
 | `dateFrom` | Date de début par défaut pour les requêtes d'analytique (`YYYY-MM-DD`). | `mint analytics` |
 | `dateTo` | Date de fin par défaut pour les requêtes d'analytique (`YYYY-MM-DD`). | `mint analytics` |
 
