@@ -136,6 +136,64 @@ Mintlify héberge un document de découverte à l'adresse `/.well-known/mcp` pou
 
 Pour la compatibilité avec les agents, le même document de découverte est également disponible à l’adresse `/.well-known/mcp.json`. Mintlify expose en plus une carte de serveur MCP à `/.well-known/mcp/server-card.json` et une liste de cartes de serveur à `/.well-known/mcp/server-cards.json`. Tous les endpoints de découverte sont servis automatiquement et ne nécessitent aucune configuration.
 
+#### Endpoints des cartes de serveur
+
+`GET /.well-known/mcp/server-card.json` renvoie une seule carte de serveur décrivant votre serveur MCP. `GET /.well-known/mcp/server-cards.json` renvoie un tableau `servers` contenant une carte par endpoint disponible (inclut toujours une carte de serveur publique, ainsi qu’une carte de serveur authentifiée lorsque l’authentification est activée).
+
+Chaque carte de serveur inclut les champs de découverte standards et un tableau `tools` qui décrit les outils MCP annoncés par le serveur. Utilisez-le pour pré-remplir les métadonnées des outils dans les clients MCP sans avoir à effectuer un appel `initialize` au serveur.
+
+```json
+{
+  "name": "your-docs-search",
+  "version": "1.0.0",
+  "url": "https://your-docs.com/mcp",
+  "transport": "http",
+  "description": "Search and retrieve your documentation",
+  "capabilities": {
+    "tools": true,
+    "resources": true
+  },
+  "authentication": "none",
+  "tools": [
+    {
+      "name": "search_your_docs",
+      "title": "Search documentation",
+      "description": "Search across your documentation site.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Search query" }
+        },
+        "required": ["query"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
+```
+
+| Champ | Description |
+| --- | --- |
+| `tools[].name` | Nom de l’outil annoncé via MCP. Les noms d’outils sont spécifiques à chaque site ; utilisez donc la valeur renvoyée par l’endpoint de découverte plutôt que de la coder en dur. |
+| `tools[].title` | Titre lisible facultatif pour l’outil. |
+| `tools[].description` | Description lisible de ce que fait l’outil. |
+| `tools[].inputSchema` | JSON Schema des paramètres d’entrée de l’outil. |
+| `tools[].annotations` | [Annotations d’outils MCP](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations) facultatives qui décrivent le comportement de l’outil. |
+
+Les outils intégrés de recherche et de requête du système de fichiers de documentation sont annoncés comme étant en lecture seule et non destructifs, avec les annotations suivantes :
+
+- `readOnlyHint: true` — l’outil ne modifie aucun état.
+- `destructiveHint: false` — l’outil n’a aucun effet de bord destructeur.
+- `idempotentHint: true` — des appels répétés avec les mêmes arguments renvoient des résultats équivalents.
+- `openWorldHint: false` — l’outil opère sur votre documentation indexée plutôt que sur le web ouvert.
+
+Les clients MCP peuvent utiliser ces annotations pour présenter des informations de sécurité aux utilisateurs ou pour permettre aux outils en lecture seule de s’exécuter sans approbation explicite.
+
 <div id="enable-authenticated-mcp">
   ### Activer le MCP avec authentification
 </div>
