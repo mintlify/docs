@@ -119,6 +119,64 @@ Mintlify hosts a discovery document at `/.well-known/mcp` for agents and tools t
 
 For agent-readiness, the same discovery document is also available at `/.well-known/mcp.json`. Mintlify additionally serves an MCP server card at `/.well-known/mcp/server-card.json` and a list of server cards at `/.well-known/mcp/server-cards.json`. All discovery endpoints are served automatically and don't require configuration.
 
+#### Server card endpoints
+
+`GET /.well-known/mcp/server-card.json` returns a single server card describing your MCP server. `GET /.well-known/mcp/server-cards.json` returns a `servers` array with one card per available endpoint (always includes a public server card, and an authenticated server card when authentication is enabled).
+
+Each server card includes the standard discovery fields and a `tools` array that describes the MCP tools the server advertises. Use this to pre-populate tool metadata in MCP clients without making an `initialize` call to the server.
+
+```json
+{
+  "name": "your-docs-search",
+  "version": "1.0.0",
+  "url": "https://your-docs.com/mcp",
+  "transport": "http",
+  "description": "Search and retrieve your documentation",
+  "capabilities": {
+    "tools": true,
+    "resources": true
+  },
+  "authentication": "none",
+  "tools": [
+    {
+      "name": "search_your_docs",
+      "title": "Search documentation",
+      "description": "Search across your documentation site.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Search query" }
+        },
+        "required": ["query"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `tools[].name` | Tool name advertised over MCP. Tool names are site-specific, so use the value returned by the discovery endpoint rather than hardcoding it. |
+| `tools[].title` | Optional human-readable title for the tool. |
+| `tools[].description` | Human-readable description of what the tool does. |
+| `tools[].inputSchema` | JSON Schema for the tool's input parameters. |
+| `tools[].annotations` | Optional [MCP tool annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations) that describe tool behavior. |
+
+The built-in search and query docs filesystem tools are read-only and non-destructive with the following annotations:
+
+- `readOnlyHint: true` — the tool does not modify any state.
+- `destructiveHint: false` — the tool has no destructive side effects.
+- `idempotentHint: true` — repeated calls with the same arguments return equivalent results.
+- `openWorldHint: false` — the tool operates against your indexed documentation rather than the open web.
+
+MCP clients can use these annotations to surface tool safety information to users or to allow read-only tools to run without explicit approval.
+
 ### Enable authenticated MCP
 
 If your site requires authentication, your search MCP server requires users to authenticate before connecting. When a user adds your MCP server URL to their AI tool, they must log in with their existing credentials. After authenticating, a redirect sends them back to their tool. The MCP server only returns content each user has permission to access based on their [user groups](/deploy/authentication-setup).

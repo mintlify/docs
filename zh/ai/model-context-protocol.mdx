@@ -133,6 +133,68 @@ Mintlify 在 `/.well-known/mcp` 托管一个发现文档，便于智能体和工
 | `servers[].name` | 服务器条目的标识符。 |
 | `servers[].authentication` | 服务器条目的身份验证方式。 |
 
+为了便于智能体直接使用，相同的发现文档也可在 `/.well-known/mcp.json` 获取。此外，Mintlify 还会在 `/.well-known/mcp/server-card.json` 提供一个 MCP 服务器卡片，并在 `/.well-known/mcp/server-cards.json` 提供服务器卡片列表。所有发现端点均会自动提供，无需任何配置。
+
+<div id="server-card-endpoints">
+  #### 服务器卡片端点
+</div>
+
+`GET /.well-known/mcp/server-card.json` 返回一个描述你的 MCP 服务器的单个服务器卡片。`GET /.well-known/mcp/server-cards.json` 返回一个 `servers` 数组，其中每个可用端点对应一个卡片（始终包含一个公开服务器卡片；当启用身份验证时，还会包含一个已认证的服务器卡片）。
+
+每个服务器卡片都包含标准的发现字段以及一个 `tools` 数组，用于描述该服务器对外公布的 MCP 工具。你可以借助此信息在 MCP 客户端中预先填充工具元数据，而无需向服务器发起 `initialize` 调用。
+
+```json
+{
+  "name": "your-docs-search",
+  "version": "1.0.0",
+  "url": "https://your-docs.com/mcp",
+  "transport": "http",
+  "description": "Search and retrieve your documentation",
+  "capabilities": {
+    "tools": true,
+    "resources": true
+  },
+  "authentication": "none",
+  "tools": [
+    {
+      "name": "search_your_docs",
+      "title": "Search documentation",
+      "description": "Search across your documentation site.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Search query" }
+        },
+        "required": ["query"]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `tools[].name` | 通过 MCP 对外公布的工具名称。工具名称因站点而异，请使用发现端点返回的值，而不要硬编码。 |
+| `tools[].title` | 工具的可选人类可读标题。 |
+| `tools[].description` | 工具功能的人类可读描述。 |
+| `tools[].inputSchema` | 工具输入参数的 JSON Schema。 |
+| `tools[].annotations` | 可选的 [MCP 工具注解](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations)，用于描述工具的行为特征。 |
+
+内置的搜索和查询文档文件系统工具会以只读且非破坏性的方式对外公布，并带有以下注解：
+
+- `readOnlyHint: true` — 该工具不会修改任何状态。
+- `destructiveHint: false` — 该工具没有破坏性副作用。
+- `idempotentHint: true` — 使用相同参数重复调用会返回等价的结果。
+- `openWorldHint: false` — 该工具针对你已索引的文档进行操作，而非开放的互联网。
+
+MCP 客户端可以利用这些注解向用户呈现工具的安全性信息，或允许只读工具在无需显式批准的情况下运行。
+
 <div id="enable-authenticated-mcp">
   ### 启用 MCP 认证
 </div>
