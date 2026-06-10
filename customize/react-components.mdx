@@ -217,4 +217,51 @@ import { ColorGenerator } from "/snippets/color-generator.jsx"
 - **Optimize dependency arrays**: Only include necessary dependencies in `useEffect`.
 - **Memoize expensive operations**: Use `useMemo` or `useCallback` where appropriate.
 - **Reduce re-renders**: Break large components into smaller ones.
-- **Lazy loading**: Lazy load complex components to improve initial page load.
+- **Lazy loading**: Defer rendering complex components to improve initial page load. Because the MDX sandbox does not support `React.lazy` or dynamic `import()`, gate heavy components behind user interaction or visibility instead. See [Defer rendering for heavy components](#defer-rendering-for-heavy-components).
+
+### Defer rendering for heavy components
+
+`React.lazy`, `Suspense`, and dynamic `import()` are not available in the MDX sandbox. To get the same benefit, render a lightweight placeholder first and only mount the expensive component after the reader opts in. This keeps the initial page load fast while still letting readers interact with the full component.
+
+The example below keeps the `ColorGenerator` from the previous section unmounted until the reader clicks **Load color generator**:
+
+export const LazyColorGenerator = () => {
+  const [show, setShow] = useState(false)
+
+  if (!show) {
+    return (
+      <button
+        onClick={() => setShow(true)}
+        className="px-3 py-1.5 text-sm rounded-lg border border-zinc-950/20 dark:border-white/20 text-zinc-950/80 dark:text-white/80"
+      >
+        Load color generator
+      </button>
+    )
+  }
+
+  return <ColorGenerator />
+}
+
+<LazyColorGenerator />
+
+```mdx
+import { ColorGenerator } from "/snippets/color-generator.jsx"
+
+export const LazyColorGenerator = () => {
+  const [show, setShow] = useState(false)
+
+  if (!show) {
+    return (
+      <button onClick={() => setShow(true)}>
+        Load color generator
+      </button>
+    )
+  }
+
+  return <ColorGenerator />
+}
+
+<LazyColorGenerator />
+```
+
+To defer rendering until the component scrolls into view, swap the button for an `IntersectionObserver` set up inside a `useEffect`. The pattern is the same: keep `show` false until the trigger fires, then return the heavy component.

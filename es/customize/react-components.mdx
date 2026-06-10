@@ -213,4 +213,53 @@ import { ColorGenerator } from "/snippets/color-generator.jsx"
 - **Optimiza los arrays de dependencias**: Incluye solo las dependencias necesarias en `useEffect`.
 - **Memoriza operaciones costosas**: Usa `useMemo` o `useCallback` cuando proceda.
 - **Reduce los renderizados**: Divide los componentes grandes en otros más pequeños.
-- **Carga diferida**: Carga de forma diferida los componentes complejos para mejorar el tiempo de carga inicial de la página.
+- **Carga diferida**: Difiere el renderizado de los componentes complejos hasta que sean necesarios para mejorar el tiempo de carga inicial de la página. Como el entorno sandbox de MDX no admite `React.lazy` ni `import()` dinámico, en su lugar condiciona los componentes pesados a la interacción del usuario o a su visibilidad. Consulta [Diferir el renderizado de componentes pesados](#defer-rendering-for-heavy-components).
+
+<div id="defer-rendering-for-heavy-components">
+  ## Diferir el renderizado de componentes pesados
+</div>
+
+`React.lazy`, `Suspense` y el `import()` dinámico no están disponibles en el sandbox de MDX. Para obtener el mismo beneficio, renderiza primero un marcador de posición ligero y monta el componente costoso solo después de que el lector lo solicite. Esto mantiene rápida la carga inicial de la página y, aun así, permite que los lectores interactúen con el componente completo.
+
+El ejemplo siguiente mantiene el `ColorGenerator` de la sección anterior sin montar hasta que el lector hace clic en **Load color generator**:
+
+export const LazyColorGenerator = () => {
+  const [show, setShow] = useState(false)
+
+  if (!show) {
+    return (
+      <button
+        onClick={() => setShow(true)}
+        className="px-3 py-1.5 text-sm rounded-lg border border-zinc-950/20 dark:border-white/20 text-zinc-950/80 dark:text-white/80"
+      >
+        Load color generator
+      </button>
+    )
+  }
+
+  return <ColorGenerator />
+}
+
+<LazyColorGenerator />
+
+```mdx
+import { ColorGenerator } from "/snippets/color-generator.jsx"
+
+export const LazyColorGenerator = () => {
+  const [show, setShow] = useState(false)
+
+  if (!show) {
+    return (
+      <button onClick={() => setShow(true)}>
+        Load color generator
+      </button>
+    )
+  }
+
+  return <ColorGenerator />
+}
+
+<LazyColorGenerator />
+```
+
+Para diferir el renderizado hasta que el componente entre en el área visible, sustituye el botón por un `IntersectionObserver` configurado dentro de un `useEffect`. El patrón es el mismo: mantén `show` en `false` hasta que se active el disparador y, entonces, devuelve el componente pesado.
