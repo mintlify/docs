@@ -1,0 +1,114 @@
+---
+title: "Múltiples fuentes"
+description: "Extrae documentación desde varios repositorios de git hacia un único despliegue de Mintlify, con cada fuente montada bajo su propia ruta."
+keywords: ["multi-source", "multiple repos", "git sources", "mount path", "products"]
+---
+
+Conecta más de un repositorio de git a un único despliegue de Mintlify. Cada repositorio, llamado _fuente_, aporta su propio `docs.json` y su contenido, y Mintlify los combina en un solo sitio durante la compilación. Usa despliegues de múltiples fuentes cuando la documentación de productos relacionados vive en repositorios separados pero debe aparecer bajo un único dominio y árbol de navegación.
+
+## Cómo se combinan las fuentes
+
+Cuando un despliegue tiene más de una fuente, Mintlify obtiene el `docs.json` de cada fuente en cada compilación y los combina en un único árbol `navigation.products`:
+
+* La **primera fuente listada en el despliegue** es la _fuente principal_. Su `docs.json` proporciona la configuración de nivel superior para el sitio combinado, incluidos `name`, `theme`, `colors`, `logo`, `favicon`, `redirects` y cualquier otro campo de nivel superior.
+* Las **fuentes adicionales** solo aportan su `navigation`. Los demás campos de nivel superior en esas configuraciones (por ejemplo, `redirects` o `theme`) se ignoran, y se registra una advertencia durante la compilación que lista las claves ignoradas.
+* El `navigation` de cada fuente se convierte en una entrada del arreglo `navigation.products` combinado. El nombre visible del producto es la etiqueta de la fuente, o el `name` de su `docs.json` si no se ha establecido una etiqueta.
+
+El resultado combinado equivale a un único `docs.json` que usa [products](/organize/navigation#products) como su división de navegación de nivel superior.
+
+<Note>
+El `docs.json` de una fuente no puede usar `navigation.products`. Los products solo existen en el nivel superior combinado, por lo que cada fuente debe usar una navegación que no sea de products (por ejemplo, `groups`, `tabs`, `versions` o `anchors`).
+</Note>
+
+## Rutas de montaje
+
+Cada fuente en un despliegue de múltiples fuentes debe tener una **ruta de montaje** no vacía. La ruta de montaje es el prefijo de URL bajo el cual se sirve el contenido de la fuente, y se antepone a cada referencia en el `docs.json` de esa fuente durante la combinación:
+
+* Rutas de página en los campos `pages`, `root` y `href`. Por ejemplo, `quickstart` de una fuente montada en `eng` se resuelve como `eng/quickstart`.
+* Referencias de OpenAPI y AsyncAPI en los campos `openapi` y `asyncapi`, incluidas las propiedades `source` y `directory`.
+* Valores `href` en entradas de navegación globales como `anchors` y `tabs`.
+
+Las URLs absolutas (`https://…`) y los anclas dentro de la página (`#section`) se dejan sin cambios. Las rutas de montaje no pueden superponerse entre fuentes del mismo despliegue.
+
+Las URLs resultantes en tu sitio publicado incluyen la ruta de montaje. Una página creada como `quickstart.mdx` en una fuente montada en `eng` se sirve en `/eng/quickstart`.
+
+## Ejemplo
+
+Un despliegue con dos fuentes —una montada en `platform` y otra montada en `eng`— produce una configuración combinada que se ve así:
+
+**`docs.json` de la fuente principal (montada en `platform`):**
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Acme Docs",
+  "colors": { "primary": "#0D9373" },
+  "favicon": "/favicon.svg",
+  "redirects": [{ "source": "/old", "destination": "/new" }],
+  "navigation": {
+    "groups": [
+      { "group": "Get started", "pages": ["index", "setup"] }
+    ]
+  }
+}
+```
+
+**`docs.json` de la segunda fuente (montada en `eng`):**
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Engineering",
+  "navigation": {
+    "groups": [
+      { "group": "Guides", "pages": ["quickstart"] }
+    ]
+  }
+}
+```
+
+**Configuración combinada que Mintlify compila y sirve:**
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Acme Docs",
+  "colors": { "primary": "#0D9373" },
+  "favicon": "/favicon.svg",
+  "redirects": [{ "source": "/old", "destination": "/new" }],
+  "navigation": {
+    "products": [
+      {
+        "product": "Platform",
+        "groups": [
+          { "group": "Get started", "pages": ["platform/index", "platform/setup"] }
+        ]
+      },
+      {
+        "product": "Engineering",
+        "groups": [
+          { "group": "Guides", "pages": ["eng/quickstart"] }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Fallos de compilación
+
+La compilación falla y el despliegue no se actualiza si:
+
+* A alguna fuente le falta un `docs.json`, o el `docs.json` de una fuente no es válido.
+* Alguna fuente tiene una ruta de montaje vacía.
+* Dos fuentes tienen rutas de montaje superpuestas.
+* El `navigation` de una fuente usa `products` en el nivel superior.
+
+El error de compilación indica el nombre de la fuente que causó el fallo para que puedas corregirlo en ese repositorio.
+
+## Relacionado
+
+* [Configuración de monorepo](/deploy/monorepo) — apuntar una única fuente a un subdirectorio de un repositorio más grande.
+* [Products](/organize/navigation#products) — la división de navegación que producen los despliegues de múltiples fuentes.

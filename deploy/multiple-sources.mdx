@@ -1,0 +1,114 @@
+---
+title: "Multiple sources"
+description: "Pull documentation from multiple git repositories into a single Mintlify deployment, with each source mounted under its own path."
+keywords: ["multi-source", "multiple repos", "git sources", "mount path", "products"]
+---
+
+Connect more than one git repository to a single Mintlify deployment. Each repository, called a _source_, contributes its own `docs.json` and content, and Mintlify merges them into one site at build time. Use multi-source deployments when documentation for related products lives in separate repositories but should appear under a single domain and navigation tree.
+
+## How sources are merged
+
+When a deployment has more than one source, Mintlify fetches each source's `docs.json` during every build and merges them into a single `navigation.products` tree:
+
+* The **first source listed on the deployment** is the _primary source_. Its `docs.json` provides the top-level configuration for the merged site, including `name`, `theme`, `colors`, `logo`, `favicon`, `redirects`, and any other top-level fields.
+* **Additional sources** contribute only their `navigation`. Other top-level fields in those configs (for example, `redirects` or `theme`) are ignored, and a warning is logged at build time listing the ignored keys.
+* Each source's `navigation` becomes one entry in the merged `navigation.products` array. The product's display name is the source's label, or its `docs.json` `name` if no label is set.
+
+The merged result is equivalent to a single `docs.json` that uses [products](/organize/navigation#products) as its top-level navigation division.
+
+<Note>
+A source's `docs.json` cannot itself use `navigation.products`. Products only exist at the merged top level, so each source must use a non-product navigation (for example, `groups`, `tabs`, `versions`, or `anchors`).
+</Note>
+
+## Mount paths
+
+Every source on a multi-source deployment must have a non-empty **mount path**. The mount path is the URL prefix that the source's content is served under, and it is prepended to every reference in that source's `docs.json` during the merge:
+
+* Page paths in `pages`, `root`, and `href` fields. For example, `quickstart` from a source mounted at `eng` resolves to `eng/quickstart`.
+* OpenAPI and AsyncAPI references in `openapi` and `asyncapi` fields, including `source` and `directory` properties.
+* `href` values in global navigation entries such as `anchors` and `tabs`.
+
+Absolute URLs (`https://…`) and in-page anchors (`#section`) are left unchanged. Mount paths cannot overlap between sources on the same deployment.
+
+The resulting URLs in your live site include the mount path. A page authored as `quickstart.mdx` in a source mounted at `eng` is served at `/eng/quickstart`.
+
+## Example
+
+A deployment with two sources — one mounted at `platform`, one mounted at `eng` — produces a merged config that looks like this:
+
+**Primary source `docs.json` (mounted at `platform`):**
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Acme Docs",
+  "colors": { "primary": "#0D9373" },
+  "favicon": "/favicon.svg",
+  "redirects": [{ "source": "/old", "destination": "/new" }],
+  "navigation": {
+    "groups": [
+      { "group": "Get started", "pages": ["index", "setup"] }
+    ]
+  }
+}
+```
+
+**Second source `docs.json` (mounted at `eng`):**
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Engineering",
+  "navigation": {
+    "groups": [
+      { "group": "Guides", "pages": ["quickstart"] }
+    ]
+  }
+}
+```
+
+**Merged config Mintlify builds and serves:**
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Acme Docs",
+  "colors": { "primary": "#0D9373" },
+  "favicon": "/favicon.svg",
+  "redirects": [{ "source": "/old", "destination": "/new" }],
+  "navigation": {
+    "products": [
+      {
+        "product": "Platform",
+        "groups": [
+          { "group": "Get started", "pages": ["platform/index", "platform/setup"] }
+        ]
+      },
+      {
+        "product": "Engineering",
+        "groups": [
+          { "group": "Guides", "pages": ["eng/quickstart"] }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Build failures
+
+The build fails and the deployment is not updated if:
+
+* Any source is missing a `docs.json`, or a source's `docs.json` is invalid.
+* Any source has an empty mount path.
+* Two sources have overlapping mount paths.
+* A source's `navigation` uses `products` at the top level.
+
+The build error names the source that caused the failure so you can fix it in that repository.
+
+## Related
+
+* [Monorepo setup](/deploy/monorepo) — pointing a single source at a subdirectory of a larger repository.
+* [Products](/organize/navigation#products) — the navigation division that multi-source deployments produce.
