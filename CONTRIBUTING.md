@@ -84,7 +84,7 @@ We agree to restrict the following behaviors in our community. Instances, threat
 2. **Character attacks.** Making insulting, demeaning, or pejorative comments directed at a community member or group of people.
 3. **Stereotyping or discrimination.** Characterizing anyone’s personality or behavior on the basis of immutable identities or traits.
 4. **Sexualization.** Behaving in a way that would generally be considered inappropriately intimate in the context or purpose of the community.
-5. **Violating confidentiality**. Sharing or acting on someone's personal or private information without their permission.
+5. **Violating confidentiality.** Sharing or acting on someone's personal or private information without their permission.
 6. **Endangerment.** Causing, encouraging, or threatening violence or other harm toward any person or group.
 7. Behaving in other ways that **threaten the well-being** of our community.
 
@@ -92,7 +92,7 @@ We agree to restrict the following behaviors in our community. Instances, threat
 
 1. **Misleading identity.** Impersonating someone else for any reason, or pretending to be someone else to evade enforcement actions.
 2. **Failing to credit sources.** Not properly crediting the sources of content you contribute.
-3. **Promotional materials**. Sharing marketing or other commercial content in a way that is outside the norms of the community.
+3. **Promotional materials.** Sharing marketing or other commercial content in a way that is outside the norms of the community.
 4. **Irresponsible communication.** Failing to responsibly present content which includes, links or describes any other restricted behaviors.
 
 ### Reporting an Issue
