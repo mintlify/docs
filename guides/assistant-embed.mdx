@@ -33,9 +33,9 @@ Users can use the widget to get help with your product without leaving your appl
 2. Click **Create Assistant API Key**.
 3. Copy the assistant API key (starts with `mint_dsc_`) and save it securely.
 
-<Warning>
-  Do not embed your assistant API key directly in client-side code in production. Anyone who extracts the key can send requests on your behalf, consuming credits and potentially triggering overage charges. Use the key in this tutorial for local development, then proxy requests through your own backend before deploying. See [Production deployment](#production-deployment) below.
-</Warning>
+<Note>
+  Your assistant API key controls access to your assistant quota. This tutorial keeps the key server-side using a backend proxy so it never reaches the client bundle.
+</Note>
 
 ## Set up the example
 
@@ -81,15 +81,22 @@ Replace:
 - `https://yourdocs.mintlify.app` with your actual documentation URL.
 
 </Step>
-<Step title="Add your API token">
+<Step title="Set up your API key">
 
-Create a `.env` file in the project root.
+Store your assistant API key as a server-side environment variable. Avoid the `VITE_` prefix, which bundles the value into your client code:
 
 ```bash .env
-VITE_MINTLIFY_TOKEN=mint_dsc_your_token_here
+MINTLIFY_TOKEN=mint_dsc_your_token_here
 ```
 
 Replace `mint_dsc_your_token_here` with your assistant API key.
+
+Then add a backend route (for example, `/api/assistant`) to proxy requests to the Mintlify API:
+
+1. Accept the user's message from the widget.
+2. Attach the `Authorization: Bearer $MINTLIFY_TOKEN` header and forward the request to `https://api.mintlify.com/discovery/v1/assistant/{domain}/message`.
+3. Stream the upstream response back to the client unchanged, so token streaming and `X-Thread-Id` / `X-Thread-Key` headers reach the widget.
+4. Point the widget's `api` option at your backend route instead of the Mintlify API directly.
 
 </Step>
 <Step title="Start the development server">
@@ -174,10 +181,7 @@ export function AssistantWidget({ domain, docsURL }) {
   }, []);
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: `https://api.mintlify.com/discovery/v1/assistant/${domain}/message`,
-    headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_MINTLIFY_TOKEN}`,
-    },
+    api: '/api/assistant',
     body: {
       fp: 'anonymous',
       retrievalPageSize: 5,
@@ -205,17 +209,6 @@ export function AssistantWidget({ domain, docsURL }) {
   // ... rest of component
 }
 ```
-
-### Production deployment
-
-The example exposes your assistant API key in the browser, which is fine for local development but unsafe to ship. Before deploying, move the key behind your own backend:
-
-1. Store `VITE_MINTLIFY_TOKEN` as a server-side environment variable, not a `VITE_`-prefixed variable that gets bundled with the client.
-2. Add a backend route (for example, `/api/assistant`) that accepts the user's message, attaches the `Authorization: Bearer mint_dsc_...` header, and forwards the request to `https://api.mintlify.com/discovery/v1/assistant/{domain}/message`.
-3. Stream the response from the upstream API back to the client unchanged so token streaming and `X-Thread-Id` / `X-Thread-Key` headers reach the widget.
-4. Point the widget's `api` option at your backend route instead of the Mintlify API directly.
-
-This keeps the key on your server, lets you add rate limiting and authentication, and prevents abuse from anonymous visitors.
 
 ### Add keyboard shortcuts
 
