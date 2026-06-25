@@ -54,7 +54,7 @@ For major documentation restructuring or complex multi-page changes:
 - Match style and formatting of existing pages
 - All code blocks must have language tags
 - All images and media must have descriptive alt text
-- Use root-relative paths for internal links like `/content/components/accordions`
+- Use root-relative paths for internal links like `/components/accordions`
 - Lead with context when helpful - explain what something is before diving into implementation details
 - Use sentence case for all headings ("Getting started", not "Getting Started")
 - Use sentence case for code block titles ("Expandable example", not "Expandable Example")
@@ -104,6 +104,7 @@ For major documentation restructuring or complex multi-page changes:
 
 ## Before submitting work
 - [ ] Run `mint broken-links` to check internal links
+- [ ] Run `mint a11y` to check for accessibility issues
 - [ ] Manually test external links don't 404
 - [ ] Run `vale $(git diff --name-only main)` to check style and spelling
 - [ ] Verify all code blocks have language tags
