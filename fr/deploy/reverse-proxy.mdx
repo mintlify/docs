@@ -12,10 +12,10 @@ Lorsque vous mettez en place un proxy inverse, surveillez les problèmes potenti
   ## Choisissez votre approche de déploiement
 </div>
 
-Mintlify prend en charge deux configurations de proxy inverse en fonction de vos exigences en matière de sous-chemin.
+Mintlify prend en charge deux configurations de proxy inverse en fonction de vos exigences en matière de sous-chemin. Les deux ciblent votre hostname `<your-subdomain>.mintlify.site`.
 
-- **Héberger sur `/docs`** : utilisez `mintlify.dev` comme cible du proxy. Activez le bouton **Héberger sur `/docs`** sur la page [Configuration du domaine personnalisé](https://dashboard.mintlify.com/settings/deployment/custom-domain) de votre Dashboard. Il s’agit d’une configuration plus simple avec moins de routes.
-- **Sous-chemin personnalisé** : utilisez `mintlify.app` comme cible du proxy. Cette approche prend en charge n’importe quel sous-chemin et nécessite des règles de routage supplémentaires.
+- **Héberger sur `/docs`** : activez le bouton **Héberger sur `/docs`** sur la page [Configuration du domaine personnalisé](https://dashboard.mintlify.com/settings/deployment/custom-domain) de votre Dashboard. Il s’agit d’une configuration plus simple avec moins de routes.
+- **Sous-chemin personnalisé** : utilisez-le lorsque vous avez besoin d’un sous-chemin autre que `/docs` (par exemple `/help` ou `/resources`). Cette approche nécessite des règles de routage supplémentaires.
 
 <div id="host-at-docs-subpath">
   ## Héberger sur le sous-chemin `/docs`
@@ -30,7 +30,7 @@ Avant de configurer votre reverse proxy :
 3. Saisissez votre domaine et sélectionnez **Add domain**.
 
 <Warning>
-  Lorsque vous activez **Host at `/docs`**, l’URL canonique de votre documentation devient `<your-subdomain>.mintlify.dev`. L’invalidation du cache s’arrête sur `mintlify.app`, et vous devez configurer le proxy vers `mintlify.dev` pour que les mises à jour apparaissent.
+  Lorsque vous activez **Host at `/docs`**, l’URL canonique de votre documentation devient `<your-subdomain>.mintlify.site`. Configurez le proxy vers ce hostname pour que les invalidations de cache et les mises à jour atteignent votre site.
 </Warning>
 
 <div id="routing-configuration">
@@ -41,14 +41,14 @@ Redirigez ces chemins via un proxy vers votre sous-domaine Mintlify :
 
 | Path                              | Destination                          | Caching  |
 | --------------------------------- | ------------------------------------ | -------- |
-| `/docs`                           | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/docs/*`                         | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.dev`      | No cache |
-| `/.well-known/skills/*` (optional)        | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/.well-known/agent-skills/*` (optional)  | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/skill.md` (optional)                    | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/llms.txt` (optional)            | `<your-subdomain>.mintlify.dev/docs` | No cache |
-| `/llms-full.txt` (optional)       | `<your-subdomain>.mintlify.dev/docs` | No cache |
+| `/docs`                           | `<your-subdomain>.mintlify.site/docs` | No cache |
+| `/docs/*`                         | `<your-subdomain>.mintlify.site/docs` | No cache |
+| `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site`      | No cache |
+| `/.well-known/skills/*` (optional)        | `<your-subdomain>.mintlify.site/docs` | No cache |
+| `/.well-known/agent-skills/*` (optional)  | `<your-subdomain>.mintlify.site/docs` | No cache |
+| `/skill.md` (optional)                    | `<your-subdomain>.mintlify.site/docs` | No cache |
+| `/llms.txt` (optional)            | `<your-subdomain>.mintlify.site/docs` | No cache |
+| `/llms-full.txt` (optional)       | `<your-subdomain>.mintlify.site/docs` | No cache |
 
 Les routes `/.well-known/skills/*`, `/.well-known/agent-skills/*`, `/skill.md`, `/llms.txt` et `/llms-full.txt` sont facultatives. Ne les incluez que si vous souhaitez servir des fichiers d'IA sur des chemins à la racine comme `your-domain.com/llms.txt` plutôt que sous votre sous-chemin de documentation, par exemple `your-domain.com/docs/llms.txt`.
 
@@ -58,7 +58,7 @@ Les routes `/.well-known/skills/*`, `/.well-known/agent-skills/*`, `/skill.md`, 
 
 Configurez votre reverse proxy avec les en-têtes suivants :
 
-* **Origin** : contient le sous-domaine cible `<your-subdomain>.mintlify.dev`
+* **Origin** : contient le sous-domaine cible `<your-subdomain>.mintlify.site`
 * **X-Forwarded-For** : conserve les informations d’adresse IP du client
 * **X-Forwarded-Proto** : conserve le protocole d’origine (HTTP/HTTPS)
 * **X-Real-IP** : transmet la véritable adresse IP du client
@@ -79,8 +79,8 @@ server {
 
     # Vercel verification paths
     location ~ ^/\.well-known/vercel/ {
-        proxy_pass https://<your-subdomain>.mintlify.dev;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -91,8 +91,8 @@ server {
 
     # AI skills paths
     location ^~ /.well-known/skills/ {
-        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -103,8 +103,8 @@ server {
 
     # Agent-skills discovery paths
     location ^~ /.well-known/agent-skills/ {
-        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -115,8 +115,8 @@ server {
 
     # Manifeste de compétence (facultatif)
     location = /skill.md {
-        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -127,8 +127,8 @@ server {
 
     # Fichiers d'index LLM (facultatif)
     location = /llms.txt {
-        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -138,8 +138,8 @@ server {
     }
 
     location = /llms-full.txt {
-        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -150,8 +150,8 @@ server {
 
     # Documentation root
     location = /docs {
-        proxy_pass https://<your-subdomain>.mintlify.dev/docs;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site/docs;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -162,8 +162,8 @@ server {
 
     # All documentation paths
     location /docs/ {
-        proxy_pass https://<your-subdomain>.mintlify.dev/docs/;
-        proxy_set_header Origin <your-subdomain>.mintlify.dev;
+        proxy_pass https://<your-subdomain>.mintlify.site/docs/;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -189,16 +189,16 @@ Redirigez ces chemins vers votre sous-domaine Mintlify avec les politiques de mi
 
 | Chemin                            | Destination                     | Mise en cache |
 | --------------------------------- | ------------------------------- | ------------- |
-| `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/.well-known/skills/*`           | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/.well-known/agent-skills/*`     | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/skill.md`                       | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/llms.txt`                       | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/llms-full.txt`                  | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.app` | Cache activé |
-| `/_mintlify/*`                    | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/*`                              | `<your-subdomain>.mintlify.app` | Pas de cache      |
-| `/`                               | `<your-subdomain>.mintlify.app` | Pas de cache      |
+| `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/.well-known/skills/*`           | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/.well-known/agent-skills/*`     | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/skill.md`                       | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/llms.txt`                       | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/llms-full.txt`                  | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.site` | Cache activé |
+| `/_mintlify/*`                    | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/*`                              | `<your-subdomain>.mintlify.site` | Pas de cache      |
+| `/`                               | `<your-subdomain>.mintlify.site` | Pas de cache      |
 
 <Note>
   Mintlify sert `llms.txt`, `llms-full.txt` et `skill.md` à la racine. Si votre documentation se trouve sous un sous-chemin (comme `/help`), vous pouvez également servir ces fichiers depuis ce sous-chemin (par exemple, `/help/llms.txt`). Pour cela, ajoutez des blocs location qui réécrivent le sous-chemin vers le chemin racine. Consultez l'exemple nginx ci-dessous pour les deux approches.
@@ -210,7 +210,7 @@ Redirigez ces chemins vers votre sous-domaine Mintlify avec les politiques de mi
 
 Configurez votre reverse proxy avec les en-têtes suivants :
 
-- **Origin** : contient le sous-domaine cible `<your-subdomain>.mintlify.app`
+- **Origin** : contient le sous-domaine cible `<your-subdomain>.mintlify.site`
 - **X-Forwarded-For** : conserve les informations d’adresse IP du client
 - **X-Forwarded-Proto** : conserve le protocole d’origine (HTTP/HTTPS)
 - **X-Real-IP** : transmet la véritable adresse IP du client
@@ -231,8 +231,8 @@ server {
 
     # Vercel verification paths
     location ~ ^/\.well-known/vercel/ {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -244,8 +244,8 @@ server {
 
     # AI skills paths
     location ^~ /.well-known/skills/ {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -257,8 +257,8 @@ server {
 
     # Agent-skills discovery paths
     location ^~ /.well-known/agent-skills/ {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -270,8 +270,8 @@ server {
 
     # Skill manifest
     location = /skill.md {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -283,8 +283,8 @@ server {
 
     # Fichiers d'index LLM
     location = /llms.txt {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -294,8 +294,8 @@ server {
     }
 
     location = /llms-full.txt {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -309,8 +309,8 @@ server {
     # sous-chemin afin que Mintlify reçoive le chemin racine attendu.
     #
     # location = /help/llms.txt {
-    #     proxy_pass https://<your-subdomain>.mintlify.app/llms.txt;
-    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_pass https://<your-subdomain>.mintlify.site/llms.txt;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.site;
     #     proxy_set_header X-Real-IP $remote_addr;
     #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     #     proxy_set_header X-Forwarded-Proto $scheme;
@@ -319,8 +319,8 @@ server {
     # }
     #
     # location = /help/llms-full.txt {
-    #     proxy_pass https://<your-subdomain>.mintlify.app/llms-full.txt;
-    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_pass https://<your-subdomain>.mintlify.site/llms-full.txt;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.site;
     #     proxy_set_header X-Real-IP $remote_addr;
     #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     #     proxy_set_header X-Forwarded-Proto $scheme;
@@ -329,8 +329,8 @@ server {
     # }
     #
     # location = /help/skill.md {
-    #     proxy_pass https://<your-subdomain>.mintlify.app/skill.md;
-    #     proxy_set_header Origin <your-subdomain>.mintlify.app;
+    #     proxy_pass https://<your-subdomain>.mintlify.site/skill.md;
+    #     proxy_set_header Origin <your-subdomain>.mintlify.site;
     #     proxy_set_header X-Real-IP $remote_addr;
     #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     #     proxy_set_header X-Forwarded-Proto $scheme;
@@ -340,8 +340,8 @@ server {
 
     # Static assets with caching
     location ~ ^/mintlify-assets/_next/static/ {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -353,8 +353,8 @@ server {
 
     # Mintlify-specific paths
     location ~ ^/_mintlify/ {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -366,8 +366,8 @@ server {
 
     # Root path
     location = / {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -379,8 +379,8 @@ server {
 
     # All other documentation paths
     location / {
-        proxy_pass https://<your-subdomain>.mintlify.app;
-        proxy_set_header Origin <your-subdomain>.mintlify.app;
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -403,9 +403,9 @@ server {
 
 **Symptômes** : Vous publiez des mises à jour de la documentation, mais les modifications n'apparaissent pas sur votre site.
 
-**Cause** : Vous avez activé **Host at `/docs`** dans votre Dashboard, mais votre proxy inverse pointe vers `mintlify.app` au lieu de `mintlify.dev`.
+**Cause** : Votre proxy inverse pointe vers un hostname autre que votre sous-domaine Mintlify canonique, de sorte que les invalidations de cache n’atteignent pas votre site.
 
-**Solution** : Mettez à jour la configuration de votre proxy inverse pour qu'il pointe vers `<your-subdomain>.mintlify.dev` au lieu de `<your-subdomain>.mintlify.app`.
+**Solution** : Mettez à jour la configuration de votre proxy inverse pour qu'il pointe vers `<your-subdomain>.mintlify.site`.
 
 <div id="404-error">
   ### Erreur 404
@@ -418,7 +418,7 @@ server {
 **Solution** :
 
 - Supprimer le transfert de l’en-tête `Host`
-- Définir l’en-tête `Origin` sur votre sous-domaine Mintlify (`mintlify.dev` pour un sous-chemin `/docs` ou `mintlify.app` pour un autre sous-chemin)
+- Définir l’en-tête `Origin` sur votre sous-domaine Mintlify (`<your-subdomain>.mintlify.site`)
 
 <div id="performance-issues">
   ### Problèmes de performances
