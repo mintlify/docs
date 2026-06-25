@@ -1,0 +1,122 @@
+---
+title: "自托管 GitLab OAuth"
+description: "通过 OAuth 将自托管的 GitLab 实例连接到 Mintlify，让自动化能够代表你克隆存储库、推送提交和发起合并请求。"
+keywords: ["GitLab", "自托管", "OAuth", "自动化", "企业"]
+---
+
+除了 gitlab.com 之外，Mintlify 还支持基于 OAuth 的自托管 GitLab 实例授权。OAuth 允许 Mintlify 代理在自动化运行期间以 GitLab 用户身份进行操作：克隆存储库、推送提交、发起合并请求以及注册项目 webhook。
+
+你必须为自托管的 GitLab 实例配置 OAuth 授权，才能支持[自动化](/zh/automations)。
+
+与 gitlab.com 不同（Mintlify 提供单个 OAuth 应用供每位客户进行授权），每个自托管实例都必须注册自己的 OAuth 应用。请在你的 GitLab 实例上创建应用，将其凭据共享给 Mintlify，然后通过 OAuth 授权来连接用户。
+
+<Note>
+  本指南仅涉及为自动化提供支持的 **OAuth** 集成。你必须使用部署令牌单独配置部署端连接（用于内容同步和预览），请参阅 [GitLab 指南](/zh/deploy/gitlab)。OAuth 集成依赖于部署端连接。
+</Note>
+
+<div id="prerequisites">
+  ## 前置条件
+</div>
+
+- 拥有自托管 GitLab 实例的管理员权限。
+- 你的 GitLab 实例必须可以从 `https://app.mintlify.com` 访问。位于 VPN 之后或被防火墙阻止公网入站访问的实例无法使用。
+- 你的 Mintlify 组织已启用自托管 GitLab 功能。如果你在 [Git 设置](https://app.mintlify.com/settings/deployment/git-settings)控制台页面中未看到 **Self-hosted GitLab** 部分，请联系支持团队。
+
+<div id="set-up-the-connection">
+  ## 设置连接
+</div>
+
+<Steps>
+  <Step title="Register an OAuth application on your GitLab instance">
+    在自托管 GitLab 中，以管理员身份登录并依次前往 **Admin Area** \> **Applications** \> **Add new application**。
+
+    使用以下值配置应用：
+
+    - **Name**：`Mintlify`
+    - **Redirect URI**：`https://app.mintlify.com/api/gitlab-oauth/callback`
+    - **Trusted**：保持**未勾选**。将应用标记为 Trusted 会跳过每位用户的同意界面；保持未勾选状态可在每位用户首次连接时显示正常的授权提示。
+    - **Confidential**：**勾选**。Mintlify 是服务端客户端，会对密钥保密。
+    - **Scopes**：选择 `api`、`read_repository` 和 `write_repository`。代理会使用这些权限读取项目元数据、克隆存储库以及推送提交。
+
+    点击 **Save application**。
+
+    <Tip>
+      在 GitLab 上编辑 OAuth 应用可能会静默地轮换客户端密钥。如果你稍后做出更改，请点击 **Renew secret** 并在 Mintlify 中更新新的值。
+    </Tip>
+  </Step>
+  <Step title="Copy the application credentials">
+    保存后，GitLab 会显示应用的 **Application ID** 和 **Secret**。请保持此页面打开——密钥只会显示一次。
+  </Step>
+  <Step title="Register the instance in Mintlify">
+    在 Mintlify 控制台中，打开 **Settings** \> **Git settings**，找到 **GitLab OAuth** 下的 **Self-hosted GitLab** 部分。
+
+    点击 **Connect Self-Hosted GitLab** 并输入：
+
+    - **GitLab instance URL**：你的 GitLab 实例的公网 URL，例如 `https://gitlab.your-company.com`。Mintlify 在交换令牌和调用 GitLab API 时会通过此 URL 访问你的实例。
+    - **OAuth application client ID**：上一步中的 **Application ID**。
+    - **OAuth application client secret**：上一步中的 **Secret**。
+
+    点击 **Save instance**。Mintlify 会对密钥进行静态加密，保存后绝不会再将其返回到浏览器。
+  </Step>
+  <Step title="Authorize">
+    点击 **Authorize self-hosted GitLab**。系统会将你重定向至你的 GitLab 实例，必要时提示登录，并显示列出所请求权限范围的同意界面。
+
+    在 GitLab 上点击 **Authorize** 之后，你会被重定向回 Mintlify，新建的连接将显示在已安装列表中，并以你的实例主机名作为标识。
+  </Step>
+  <Step title="Choose projects">
+    在控制台中展开该连接。Mintlify 会列出授权用户拥有 Maintainer 或更高访问权限的每个群组，以及一个 **Personal projects** 条目（用于用户个人命名空间下的项目）。
+
+    勾选每个应参与自动化的项目旁的复选框。Mintlify 会在项目上注册 webhook，生成一个密钥令牌，并将其加密存储。从那时起，Mintlify 会接收你的实例针对该项目发送的推送和合并请求事件。
+
+    <Note>
+      连接的用户必须在项目上具有 **Maintainer** 角色，Mintlify 才能在自动化运行期间生成短期项目访问令牌。没有 Maintainer 权限时，代理可以读取但无法推送提交或发起合并请求。
+    </Note>
+  </Step>
+</Steps>
+
+<div id="rotate-credentials">
+  ## 轮换凭据
+</div>
+
+如果你需要更改已注册应用的客户端密钥——例如在 GitLab 上更新密钥后——请在 Mintlify 中删除已保存的实例，并使用新值重新添加。你必须先撤销活动的 OAuth 连接，否则 Mintlify 会阻止删除。
+
+<Steps>
+  <Step title="Revoke each connection">
+    点击自托管实例下列出的每个安装上的 **Revoke**。这将移除每个已连接项目上的 webhook，并撤销 GitLab 上的 OAuth 令牌。
+  </Step>
+  <Step title="Remove the instance">
+    在 **Self-hosted GitLab** 卡片中，点击 **Remove instance**。
+  </Step>
+  <Step title="Re-add with new credentials">
+    使用新的客户端密钥按照前述的 **Set up the connection** 步骤进行操作。
+  </Step>
+</Steps>
+
+<div id="troubleshooting">
+  ## 故障排查
+</div>
+
+<div id="invalid_client-after-authorizing">
+  ### 授权后出现 `invalid_client`
+</div>
+
+GitLab 拒绝了令牌交换步骤，因为 Mintlify 发送的客户端密钥与应用上注册的不匹配。最常见的原因是 GitLab 上的密钥被轮换了——由显式的 **Renew secret** 操作触发，或在有人编辑应用时静默轮换——而 Mintlify 中的值已过时。
+
+修复方法：使用当前密钥按照[轮换凭据](#rotate-credentials)的步骤轮换凭据。
+
+<div id="webhook-registration-failed-invalid-url-given">
+  ### Webhook 注册失败：`Invalid url given`
+</div>
+
+GitLab 拒绝注册 webhook，因为 Mintlify 发送的 URL（`https://app.mintlify.com/gitlab-oauth-webhook`）被 GitLab 的出站请求白名单拒绝。自托管实例会拒绝"本地"URL，除非管理员明确允许。
+
+修复方法：在 GitLab 管理区域中，依次前往 **Settings** \> **Network** \> **Outbound requests**，启用 **Allow requests to the local network from webhooks and integrations**。如果你的网络策略阻止 `app.mintlify.com`，请联系网络管理员，允许出站 HTTPS 流量到达该主机。
+
+<div id="no-consent-screen-on-authorize">
+  ### 授权时没有同意界面
+</div>
+
+如果你在授权时没有看到 GitLab 的同意对话框，可能是以下原因之一：
+
+- 该应用在 GitLab 上被标记为 **Trusted**。Trusted 应用会跳过所有用户的同意环节。如果你希望用户看到并确认权限范围，请在应用设置中取消勾选 **Trusted**。
+- 你的 GitLab 用户之前已使用相同的权限范围授权了该应用。GitLab 会记住先前的授权，并在后续授权时跳过同意环节。请在 **User settings** \> **Applications** \> **Authorized applications** 中撤销该应用的授权，以再次查看同意界面。
