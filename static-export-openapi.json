@@ -1,0 +1,290 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Mintlify Static Export API",
+    "description": "Programmatically generate a self-contained static export of your documentation and download it as a single bundle. Available on Enterprise plans.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/static-export/jobs": {
+      "post": {
+        "summary": "Start static export job",
+        "description": "Kick off a static export job for a deployment. The job pre-renders your documentation into a self-contained set of static HTML, RSC, and asset files. Returns a job ID you can use to poll status and, once complete, generate a downloadable bundle.\n\nStatic export is available on Enterprise plans.",
+        "operationId": "startStaticExportJob",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStaticExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The export job was accepted and queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticExportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Static export is not enabled for this organization. Contact sales to enable it on an Enterprise plan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/static-export/jobs/{jobId}": {
+      "get": {
+        "summary": "Get static export job status",
+        "description": "Retrieve the current status and progress of a static export job. Poll this endpoint after starting a job until `status` is `completed` (or `failed`).\n\nStatic export is available on Enterprise plans.",
+        "operationId": "getStaticExportJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "The ID of the static export job returned by `Start static export job`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The current state of the export job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticExportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No job exists with the provided ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/static-export/jobs/{jobId}/bundle": {
+      "post": {
+        "summary": "Generate export bundle",
+        "description": "Package a completed static export job into a single archive and return a download link. The link points to the static export bundle stored in S3 as a presigned URL that expires after a short time.\n\nThe job must have a `status` of `completed` before a bundle can be generated.\n\nStatic export is available on Enterprise plans.",
+        "operationId": "generateStaticExportBundle",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "The ID of a completed static export job.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A presigned S3 link to the static export bundle.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No job exists with the provided ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The job has not finished yet, so a bundle cannot be generated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Admin API key. Generate one on the API keys page in your dashboard."
+      }
+    },
+    "schemas": {
+      "StartStaticExportRequest": {
+        "type": "object",
+        "required": ["domain"],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "The domain of the deployment to export, for example `docs.example.com`.",
+            "example": "docs.example.com"
+          },
+          "version": {
+            "type": "string",
+            "description": "An optional version label to tag this export. Defaults to the latest published version.",
+            "example": "2024-06-01"
+          },
+          "paths": {
+            "type": "array",
+            "description": "An optional list of page paths to include. When omitted, every published page is exported.",
+            "items": {
+              "type": "string"
+            },
+            "example": ["index", "guides/getting-started", "api-reference/introduction"]
+          }
+        }
+      },
+      "StaticExportJob": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Unique identifier for the static export job.",
+            "example": "se_3f9a2c1b8e7d4a06"
+          },
+          "status": {
+            "type": "string",
+            "description": "The current state of the job.",
+            "enum": ["queued", "running", "completed", "failed"],
+            "example": "running"
+          },
+          "progress": {
+            "type": "number",
+            "description": "Completion percentage from 0 to 100.",
+            "example": 42
+          },
+          "pageCount": {
+            "type": "integer",
+            "description": "The number of pages exported so far.",
+            "example": 128
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the job was created."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the job was last updated."
+          },
+          "error": {
+            "type": "string",
+            "description": "A human-readable error message. Present only when `status` is `failed`.",
+            "nullable": true
+          }
+        }
+      },
+      "BundleResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "The ID of the job this bundle was generated for.",
+            "example": "se_3f9a2c1b8e7d4a06"
+          },
+          "bundleUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "A presigned S3 link to the static export bundle archive. Download it before the link expires.",
+            "example": "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz?X-Amz-Signature=..."
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "description": "The size of the bundle in bytes.",
+            "example": 18432000
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the presigned link expires."
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A human-readable description of the error."
+          }
+        }
+      }
+    }
+  }
+}
