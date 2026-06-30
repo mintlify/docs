@@ -1,0 +1,53 @@
+---
+title: "Déclencher une automatisation"
+openapi: "/fr/openapi.json POST /workflow/{projectId}/{workflowSchemaId}/trigger"
+keywords: ["automation", "workflow", "trigger", "webhook", "schedule", "CI"]
+---
+
+Utilisez cet endpoint pour déclencher à la demande une automatisation planifiée, au lieu d'attendre sa prochaine exécution planifiée. L'automatisation se comporte exactement comme une exécution planifiée habituelle : elle récupère tout ce qui a changé depuis la dernière exécution terminée.
+
+Cet endpoint ne prend en charge que les automatisations configurées avec un déclencheur **Calendrier personnalisé**. Les requêtes pour des automatisations utilisant d'autres déclencheurs, comme **Modification de code** ou **Mise à jour de contenu**, renvoient une erreur `400`.
+
+<div id="use-cases">
+  ## Cas d'utilisation
+</div>
+
+- **Pipelines CI/CD** : Exécutez l'automatisation **Update from code changes** à chaque fusion dans `main`, afin que la documentation soit mise à jour au rythme de vos versions plutôt que selon un calendrier fixe.
+- **Événements de version** : Exécutez l'automatisation **Draft changelog** lorsque vous créez un tag de version, afin que le changelog soit rédigé au moment même où la version est publiée.
+- **Outillage personnalisé** : Déclenchez des automatisations depuis vos outils internes, des commandes Slack ou des tâches planifiées que vous exécutez déjà.
+
+<div id="find-the-automation-id">
+  ## Trouver l'identifiant de l'automatisation
+</div>
+
+Copiez l'identifiant de l'automatisation depuis le panneau de paramètres de l'automatisation sur la page [Automations](https://app.mintlify.com/products/automations) de votre dashboard.
+
+<div id="example">
+  ## Exemple
+</div>
+
+Déclenchez une automatisation depuis une GitHub Action chaque fois que du code est fusionné dans `main` :
+
+```yaml .github/workflows/trigger-docs.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v1/workflow/$PROJECT_ID/$WORKFLOW_ID/trigger" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          WORKFLOW_ID: ${{ vars.MINTLIFY_WORKFLOW_ID }}
+```
+
+<div id="rate-limits">
+  ## Limites de débit
+</div>
+
+Cet endpoint partage une limite de débit avec [Trigger update](/fr/api/update/trigger) : jusqu'à 5 requêtes par minute et par organisation. Les exécutions déclenchées consomment des crédits au même rythme que les exécutions planifiées.
