@@ -1,0 +1,304 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "API de Exportación Estática de Mintlify",
+    "description": "Genera de forma programática una exportación estática autocontenida de tu documentación y descárgala como un único paquete. Disponible en los planes Enterprise.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/static-export/jobs": {
+      "post": {
+        "summary": "Iniciar trabajo de exportación estática",
+        "description": "Inicia un trabajo de exportación estática para una implementación. El trabajo prerrenderiza tu documentación en un conjunto autocontenido de archivos HTML, RSC y recursos estáticos. Devuelve un ID de trabajo que puedes usar para consultar el estado y, una vez completado, generar un paquete descargable.\n\nLa exportación estática está disponible en los planes Enterprise.",
+        "operationId": "startStaticExportJob",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStaticExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "El trabajo de exportación fue aceptado y puesto en cola.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticExportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "La autenticación falló.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El cuerpo de la solicitud no es válido. Verifica que `domain` sea un nombre de host accesible y que las entradas de `paths` sean rutas de página válidas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "La exportación estática no está habilitada para esta organización. Contacta con el equipo de ventas para habilitarla en un plan Enterprise.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/static-export/jobs/{jobId}": {
+      "get": {
+        "summary": "Obtener el estado del trabajo de exportación estática",
+        "description": "Recupera el estado y el progreso actuales de un trabajo de exportación estática. Consulta este endpoint después de iniciar un trabajo hasta que `status` sea `completed` (o `failed`).\n\nLa exportación estática está disponible en los planes Enterprise.",
+        "operationId": "getStaticExportJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "El ID del trabajo de exportación estática devuelto por `Start static export job`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "El estado actual del trabajo de exportación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticExportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "La autenticación falló.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe ningún trabajo con el ID proporcionado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/static-export/jobs/{jobId}/bundle": {
+      "post": {
+        "summary": "Generar paquete de exportación",
+        "description": "Empaqueta un trabajo de exportación estática completado en un único archivo y devuelve un enlace de descarga. El enlace es una URL de S3 prefirmada: descárgalo antes de `expiresAt`.\n\nEl trabajo debe tener un `status` de `completed` antes de que se pueda generar un paquete.\n\nLa exportación estática está disponible en los planes Enterprise.",
+        "operationId": "generateStaticExportBundle",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "El ID de un trabajo de exportación estática completado.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Un enlace de S3 prefirmado al paquete de exportación estática.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "La autenticación falló.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe ningún trabajo con el ID proporcionado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "El trabajo aún no ha terminado, por lo que no se puede generar un paquete.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Clave de API de administrador. Genera una en la página de claves de API de tu dashboard."
+      }
+    },
+    "schemas": {
+      "StartStaticExportRequest": {
+        "type": "object",
+        "required": ["domain"],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "El dominio de la implementación que se va a exportar, por ejemplo `docs.example.com`.",
+            "example": "docs.example.com"
+          },
+          "version": {
+            "type": "string",
+            "description": "Una etiqueta de versión opcional para identificar esta exportación. Por defecto, se usa la última versión publicada.",
+            "example": "2024-06-01"
+          },
+          "paths": {
+            "type": "array",
+            "description": "Una lista opcional de rutas de página que se incluirán. Si se omite, se exportan todas las páginas publicadas.",
+            "items": {
+              "type": "string"
+            },
+            "example": ["index", "guides/getting-started", "api-reference/introduction"]
+          }
+        }
+      },
+      "StaticExportJob": {
+        "type": "object",
+        "required": ["jobId", "status", "progress", "pageCount", "createdAt", "updatedAt"],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Identificador único del trabajo de exportación estática.",
+            "example": "se_3f9a2c1b8e7d4a06"
+          },
+          "status": {
+            "type": "string",
+            "description": "El estado actual del trabajo.",
+            "enum": ["queued", "running", "completed", "failed"],
+            "example": "running"
+          },
+          "progress": {
+            "type": "number",
+            "description": "Porcentaje de finalización de 0 a 100.",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 42
+          },
+          "pageCount": {
+            "type": "integer",
+            "description": "El número de páginas exportadas hasta el momento.",
+            "example": 128
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se creó el trabajo."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo se actualizó por última vez el trabajo."
+          },
+          "error": {
+            "type": "string",
+            "description": "Un mensaje de error legible por humanos. Solo está presente cuando `status` es `failed`.",
+            "nullable": true
+          }
+        }
+      },
+      "BundleResponse": {
+        "type": "object",
+        "required": ["jobId", "bundleUrl", "sizeBytes", "expiresAt"],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "El ID del trabajo para el que se generó este paquete.",
+            "example": "se_3f9a2c1b8e7d4a06"
+          },
+          "bundleUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Un enlace de S3 prefirmado al archivo del paquete de exportación estática. Descárgalo antes de que caduque el enlace.",
+            "example": "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz?X-Amz-Signature=..."
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "description": "El tamaño del paquete en bytes.",
+            "example": 18432000
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Cuándo caduca el enlace prefirmado."
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Una descripción del error legible por humanos."
+          }
+        }
+      }
+    }
+  }
+}

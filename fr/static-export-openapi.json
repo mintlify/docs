@@ -1,0 +1,304 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "API d’export statique Mintlify",
+    "description": "Générez par programmation un export statique autonome de votre documentation et téléchargez-le sous forme d’un seul paquet. Disponible sur les plans Enterprise.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/static-export/jobs": {
+      "post": {
+        "summary": "Lancer une tâche d’export statique",
+        "description": "Lance une tâche d’export statique pour un déploiement. La tâche pré-rend votre documentation sous la forme d’un ensemble autonome de fichiers HTML, RSC et ressources statiques. Retourne un identifiant de tâche que vous pouvez utiliser pour interroger le statut et, une fois la tâche terminée, générer un paquet téléchargeable.\n\nL’export statique est disponible sur les plans Enterprise.",
+        "operationId": "startStaticExportJob",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartStaticExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "La tâche d’export a été acceptée et mise en file d’attente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticExportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "L’authentification a échoué.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Le corps de la requête n’est pas valide. Vérifiez que `domain` est un nom d’hôte accessible et que les entrées de `paths` sont des chemins de page valides.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L’export statique n’est pas activé pour cette organisation. Contactez le service commercial pour l’activer sur un plan Enterprise.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/static-export/jobs/{jobId}": {
+      "get": {
+        "summary": "Obtenir le statut d’une tâche d’export statique",
+        "description": "Récupère le statut et la progression actuels d’une tâche d’export statique. Interrogez cet endpoint après avoir lancé une tâche jusqu’à ce que `status` soit `completed` (ou `failed`).\n\nL’export statique est disponible sur les plans Enterprise.",
+        "operationId": "getStaticExportJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "L’identifiant de la tâche d’export statique retourné par `Start static export job`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "L’état actuel de la tâche d’export.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticExportJob"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "L’authentification a échoué.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune tâche n’existe avec l’identifiant fourni.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/static-export/jobs/{jobId}/bundle": {
+      "post": {
+        "summary": "Générer le paquet d’export",
+        "description": "Empaquette une tâche d’export statique terminée dans une archive unique et retourne un lien de téléchargement. Le lien est une URL S3 présignée — téléchargez-la avant `expiresAt`.\n\nLa tâche doit avoir un `status` égal à `completed` pour qu’un paquet puisse être généré.\n\nL’export statique est disponible sur les plans Enterprise.",
+        "operationId": "generateStaticExportBundle",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "L’identifiant d’une tâche d’export statique terminée.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Un lien S3 présigné vers le paquet d’export statique.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "L’authentification a échoué.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune tâche n’existe avec l’identifiant fourni.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La tâche n’est pas encore terminée, donc un paquet ne peut pas être généré.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Clé d’API administrateur. Générez-en une sur la page des clés d’API de votre Dashboard."
+      }
+    },
+    "schemas": {
+      "StartStaticExportRequest": {
+        "type": "object",
+        "required": ["domain"],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Le domaine du déploiement à exporter, par exemple `docs.example.com`.",
+            "example": "docs.example.com"
+          },
+          "version": {
+            "type": "string",
+            "description": "Un libellé de version facultatif pour identifier cet export. Par défaut, il s’agit de la dernière version publiée.",
+            "example": "2024-06-01"
+          },
+          "paths": {
+            "type": "array",
+            "description": "Une liste facultative de chemins de page à inclure. Si elle est omise, toutes les pages publiées sont exportées.",
+            "items": {
+              "type": "string"
+            },
+            "example": ["index", "guides/getting-started", "api-reference/introduction"]
+          }
+        }
+      },
+      "StaticExportJob": {
+        "type": "object",
+        "required": ["jobId", "status", "progress", "pageCount", "createdAt", "updatedAt"],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Identifiant unique de la tâche d’export statique.",
+            "example": "se_3f9a2c1b8e7d4a06"
+          },
+          "status": {
+            "type": "string",
+            "description": "L’état actuel de la tâche.",
+            "enum": ["queued", "running", "completed", "failed"],
+            "example": "running"
+          },
+          "progress": {
+            "type": "number",
+            "description": "Pourcentage d’avancement de 0 à 100.",
+            "minimum": 0,
+            "maximum": 100,
+            "example": 42
+          },
+          "pageCount": {
+            "type": "integer",
+            "description": "Le nombre de pages exportées jusqu’à présent.",
+            "example": 128
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la tâche."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière mise à jour de la tâche."
+          },
+          "error": {
+            "type": "string",
+            "description": "Un message d’erreur lisible par un humain. Présent uniquement lorsque `status` est `failed`.",
+            "nullable": true
+          }
+        }
+      },
+      "BundleResponse": {
+        "type": "object",
+        "required": ["jobId", "bundleUrl", "sizeBytes", "expiresAt"],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "L’identifiant de la tâche pour laquelle ce paquet a été généré.",
+            "example": "se_3f9a2c1b8e7d4a06"
+          },
+          "bundleUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Un lien S3 présigné vers l’archive du paquet d’export statique. Téléchargez-le avant l’expiration du lien.",
+            "example": "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz?X-Amz-Signature=..."
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "description": "La taille du paquet en octets.",
+            "example": 18432000
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d’expiration du lien présigné."
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Une description de l’erreur lisible par un humain."
+          }
+        }
+      }
+    }
+  }
+}
