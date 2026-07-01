@@ -11,7 +11,7 @@ keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch",
 
 El servidor Admin MCP otorga a las herramientas de IA acceso de escritura a tu contenido y configuración de Mintlify. Úsalo para actualizar contenido y acceder a tu panel. Con el Admin MCP, puedes usar tus herramientas de IA preferidas para editar páginas, reestructurar la navegación, actualizar `docs.json`, abrir pull requests, cambiar configuraciones, crear workflows y más.
 
-Conecta cualquier cliente MCP como Claude, Claude Code o Cursor al servidor Admin MCP para colaborar en tu contenido y configuración de Mintlify con las mismas herramientas que usas para escribir código. Cuando usas el servidor Admin MCP, todos los cambios ocurren en una rama y requieren una pull request para fusionarse.
+Conecta cualquier cliente MCP como Claude, Claude Code o Cursor al servidor Admin MCP para colaborar en tu contenido y configuración de Mintlify con las mismas herramientas que usas para escribir código. Cuando usas el servidor Admin MCP, todos los cambios ocurren en una rama y requieren una pull request para fusionarse. Si tu organización tiene varias implementaciones, una sola conexión de Admin MCP puede acceder a todas ellas y alternar entre ellas.
 
 <Note>
   El servidor Admin MCP permite que las herramientas de IA accedan a tu panel de Mintlify. Trátalo como a un compañero de trabajo con acceso de escritura. Conéctalo solo desde herramientas de IA de confianza y revisa cada pull request antes de fusionarla.
@@ -42,7 +42,7 @@ Antes de conectar el Admin MCP, confirma lo siguiente:
   ## Conectarse al Admin MCP
 </div>
 
-Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para conectarte al Admin MCP. Las herramientas de IA intercambian ese inicio de sesión por un token de sesión limitado a un proyecto.
+Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para conectarte al Admin MCP. Las herramientas de IA intercambian ese inicio de sesión por un token de sesión limitado a una o varias implementaciones, según cómo otorgues el acceso. Una conexión limitada a implementaciones específicas solo puede hacer checkout de esas, mientras que una conexión a nivel de organización puede hacer checkout de cualquier implementación de tu organización.
 
 <Tabs>
   <Tab title="Claude">
@@ -107,10 +107,13 @@ Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para
 Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
 
 <Steps>
+  <Step title="Descubrir implementaciones (opcional)">
+    Si tu conexión tiene acceso a más de una implementación, llama a `list_deployments` para ver qué valores de `subdomain` puedes usar en checkout. Omite este paso si tu conexión cubre solo una implementación.
+  </Step>
   <Step title="Hacer checkout de una rama">
-    La primera llamada debe ser `checkout`. Crea una nueva rama `mintlify-mcp/<slug>-<sha>` a partir de tu rama de despliegue (o se adjunta a una rama existente que indiques) y devuelve un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel.
+    La primera llamada requerida es `checkout {subdomain}`. Crea una nueva rama `mintlify-mcp/<slug>-<sha>` a partir de la rama de despliegue de esa implementación (o se adjunta a una rama existente que indiques) y devuelve un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel.
 
-    Llama a `list_branches` antes de `checkout` si necesitas descubrir o filtrar las ramas existentes en el repositorio.
+    Llama a `list_branches` antes de `checkout` si necesitas descubrir o filtrar las ramas existentes en el repositorio de una implementación.
   </Step>
   <Step title="Leer, buscar y editar">
     La IA usa herramientas como `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` y `update_config` para realizar cambios. Todas las ediciones se mantienen en la rama de la sesión en tiempo real; nada toca aún tu rama de despliegue.
@@ -127,7 +130,9 @@ Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
 </Steps>
 
 <Tip>
-  Llamar a `checkout` nuevamente durante una sesión activa cambia la sesión a la nueva rama. Usa esto para abandonar un borrador en curso y empezar de nuevo sin terminar la conversación.
+  Si tu conexión tiene acceso a varias implementaciones, cada implementación de la que hagas checkout mantiene su propia sesión y rama en memoria al mismo tiempo.
+
+  Llamar a `checkout` de nuevo con un `subdomain` o una rama distinta cambia qué sesión está activa. No descarta las demás. Para abandonar un borrador en curso en lugar de simplemente alejarte de él, llama a `discard_session`.
 </Tip>
 
 <div id="what-the-admin-mcp-can-do">
@@ -163,8 +168,9 @@ Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
   ### Sesión
 </div>
 
-- **`checkout`** — Vincula la sesión a una rama.
-- **`list_branches`** — Lista las ramas de Git disponibles para el proyecto, con filtrado opcional por `query`. Devuelve los nombres de las ramas, el total y la rama de despliegue. Llama a esto antes de `checkout` para adjuntarte a una rama existente por nombre.
+- **`list_deployments`** — Lista las implementaciones a las que tu conexión puede acceder, devolviendo cada `{subdomain, name}`. Llama a esto para descubrir qué `subdomain` pasar a `checkout`.
+- **`checkout`** — Vincula una sesión a una rama para un `subdomain` de implementación dado, o cambia qué sesión de implementación está activa.
+- **`list_branches`** — Lista las ramas de Git disponibles para el proyecto de una implementación, con filtrado opcional por `query`. Devuelve los nombres de las ramas, el total y la rama de despliegue. Llama a esto antes de `checkout` para adjuntarte a una rama existente por nombre.
 - **`get_session_state`** — Inspecciona la rama actual, los archivos editados y el diff de navegación pendiente.
 - **`diff`** — Lista todos los cambios entre la sesión y `main`.
 - **`save`** — Abre una pull request o hace commit en la rama de la sesión.
