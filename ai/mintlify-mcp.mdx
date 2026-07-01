@@ -9,7 +9,7 @@ keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch",
 
 The admin MCP server gives AI tools write access to your Mintlify content and settings. Use it to update content and access your dashboard. With the admin MCP, you can use your preferred AI tools to edit pages, restructure navigation, update `docs.json`, open pull requests, change settings, create workflows, and more.
 
-Connect any MCP client like Claude, Claude Code, or Cursor to the admin MCP server to collaborate on your Mintlify content and settings with the same tools you use to write code. When you use the admin MCP server, all changes happen on a branch and require a pull request to merge.
+Connect any MCP client like Claude, Claude Code, or Cursor to the admin MCP server to collaborate on your Mintlify content and settings with the same tools you use to write code. When you use the admin MCP server, all changes happen on a branch and require a pull request to merge. If your organization has multiple deployments, a single admin MCP connection can access and switch between all of them.
 
 <Note>
   The admin MCP server allows AI tools to access your Mintlify dashboard. Treat it like a coworker with write access. Connect it only from trusted AI tools and review every pull request before merging.
@@ -34,7 +34,7 @@ Before connecting the admin MCP, confirm the following:
 
 ## Connect to the admin MCP
 
-You must have an interactive OAuth login against your Mintlify account to connect to the admin MCP. AI tools exchange that login for a session token scoped to one project.
+You must have an interactive OAuth login against your Mintlify account to connect to the admin MCP. AI tools exchange that login for a session token scoped to one or more deployments, depending on how you grant access. A connection scoped to specific deployments can only check out those, while an organization-wide connection can check out any deployment in your organization.
 
 <Tabs>
   <Tab title="Claude">
@@ -97,10 +97,13 @@ You must have an interactive OAuth login against your Mintlify account to connec
 Every admin MCP session binds to a single Git branch. The flow is:
 
 <Steps>
+  <Step title="Discover deployments (optional)">
+    If your connection has access to more than one deployment, call `list_deployments` to see which `subdomain` values you can check out. Skip this step if your connection covers only a single deployment.
+  </Step>
   <Step title="Check out a branch">
-    The first call must be `checkout`. It creates a fresh `mintlify-mcp/<slug>-<sha>` branch from your deploy branch (or attaches to an existing branch you name) and returns an `editorUrl` you can open to follow along in the dashboard editor.
+    The first required call is `checkout {subdomain}`. It creates a fresh `mintlify-mcp/<slug>-<sha>` branch from that deployment's deploy branch (or attaches to an existing branch you name) and returns an `editorUrl` you can open to follow along in the dashboard editor.
 
-    Call `list_branches` before `checkout` if you need to discover or filter existing branches in the repository.
+    Call `list_branches` before `checkout` if you need to discover or filter existing branches in a deployment's repository.
   </Step>
   <Step title="Read, search, and edit">
     The AI uses tools like `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node`, and `update_config` to make changes. All edits buffer on the session branch in real time—nothing touches your deploy branch yet.
@@ -117,7 +120,9 @@ Every admin MCP session binds to a single Git branch. The flow is:
 </Steps>
 
 <Tip>
-  Calling `checkout` again during an active session switches the session to the new branch. Use this to abandon an in-progress draft and start fresh without ending the conversation.
+  If your connection has access to multiple deployments, each checked-out deployment keeps its own session and branch in memory at the same time.
+  
+  Calling `checkout` again with a different `subdomain` or branch switches which session is active. It doesn't discard the others. To abandon an in-progress draft instead of switching away from it, call `discard_session`.
 </Tip>
 
 ## What the admin MCP can do
@@ -143,8 +148,9 @@ Every admin MCP session binds to a single Git branch. The flow is:
 
 ### Session
 
-- **`checkout`** — Bind the session to a branch.
-- **`list_branches`** — List Git branches available for the project, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Call this before `checkout` to attach to an existing branch by name.
+- **`list_deployments`** — List the deployments your connection can access, returning each `{subdomain, name}`. Call this to discover which `subdomain` to pass to `checkout`.
+- **`checkout`** — Bind a session to a branch for a given deployment `subdomain`, or switch which deployment's session is active.
+- **`list_branches`** — List Git branches available for a deployment's project, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Call this before `checkout` to attach to an existing branch by name.
 - **`get_session_state`** — Inspect the current branch, edited files, and pending nav diff.
 - **`diff`** — List all changes between the session and `main`.
 - **`save`** — Open a pull request or commit to the session branch.
