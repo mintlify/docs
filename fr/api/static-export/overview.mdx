@@ -1,0 +1,148 @@
+---
+title: "Exportation statique"
+description: "Générez une exportation statique autonome de votre documentation et téléchargez-la sous forme d'un unique bundle via l'API REST Mintlify."
+keywords: ["static export", "static site", "bundle", "self-host", "enterprise"]
+---
+
+<Info>
+  L'exportation statique nécessite un [forfait Enterprise](https://mintlify.com/pricing?ref=static-export).
+</Info>
+
+Utilisez l'API d'exportation statique pour pré-rendre votre site par programmation en un ensemble autonome de fichiers statiques et télécharger le résultat sous forme d'un unique bundle. Le bundle exporté est composé de HTML, CSS et JavaScript purs, sans dépendances d'exécution, afin que vous puissiez l'héberger sur n'importe quel stockage de fichiers statiques ou CDN.
+
+<div id="how-static-export-works">
+  ## Fonctionnement de l'exportation statique
+</div>
+
+Une exportation statique s'exécute sous forme de tâche asynchrone. Vous démarrez la tâche, interrogez son statut, puis générez un bundle téléchargeable une fois la tâche terminée.
+
+<Steps>
+  <Step title="Démarrer une tâche d'exportation statique">
+    Appelez [Démarrer une tâche d'exportation statique](/fr/api/static-export/start-job) avec le domaine que vous souhaitez exporter. L'API met la tâche en file d'attente et renvoie un `jobId`.
+  </Step>
+  <Step title="Interroger le statut de la tâche">
+    Interrogez [Obtenir le statut d'une tâche d'exportation statique](/fr/api/static-export/get-job-status) avec le `jobId` jusqu'à ce que `status` soit `completed`. La réponse inclut `progress` et `pageCount` en direct pendant l'exécution de la tâche.
+  </Step>
+  <Step title="Générer le bundle">
+    Appelez [Générer le bundle d'exportation](/fr/api/static-export/generate-bundle) avec le `jobId`. L'API empaquète l'exportation dans une seule archive et renvoie `bundleUrl`, un lien S3 présigné vers le bundle d'exportation statique. Téléchargez-le avant l'expiration du lien.
+  </Step>
+</Steps>
+
+<div id="feature-support-by-deployment">
+  ## Prise en charge des fonctionnalités par type de déploiement
+</div>
+
+Les fonctionnalités disponibles dépendent de la manière dont vous hébergez votre déploiement. Les déploiements en air-gapped n'ont aucun accès réseau sortant, donc toute fonctionnalité qui repose sur les services cloud de Mintlify est indisponible. Les fonctionnalités étiquetées **Configurable** ont une disponibilité différente selon la configuration de votre environnement.
+
+| Fonctionnalité | Cloud | Auto-hébergé par le client | Air-gapped |
+| --- | :---: | :---: | :---: |
+| Recherche dans la documentation | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
+| Assistant IA | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
+| Analyses web | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
+| Playground API (« Essayer ») | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | Configurable |
+| Bundle d'exportation statique | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> |
+
+<div id="endpoints">
+  ## Endpoints
+</div>
+
+- [Démarrer une tâche d'exportation statique](/fr/api/static-export/start-job) : démarrer une tâche d'exportation statique pour un déploiement.
+- [Obtenir le statut d'une tâche d'exportation statique](/fr/api/static-export/get-job-status) : interroger le statut et la progression d'une tâche en cours.
+- [Générer le bundle d'exportation](/fr/api/static-export/generate-bundle) : empaqueter une tâche terminée et renvoyer un unique lien S3 vers le bundle.
+
+<div id="authentication">
+  ## Authentification
+</div>
+
+Authentifiez les requêtes avec votre clé d'API admin. Générez une clé d'API admin sur la [page des clés d'API](https://app.mintlify.com/settings/organization/api-keys) de votre tableau de bord. Les clés d'API admin commencent par le préfixe `mint_` et sont des secrets côté serveur — ne les exposez pas dans du code côté client.
+
+<div id="deploy-the-bundle-to-your-enterprise-helm-chart">
+  ## Déployer le bundle sur votre chart Helm Enterprise
+</div>
+
+Mintlify auto-hébergé est déployé avec le chart Helm du dépôt [`mintlify/enterprise`](https://github.com/mintlify/enterprise). Une fois qu'une tâche d'exportation statique produit un bundle, vous pointez le chart vers le bundle et le déploiement le sert depuis votre propre infrastructure.
+
+<Steps>
+  <Step title="Ajouter la référence du bundle à vos valeurs">
+    Définissez les champs d'exportation statique dans votre `values.yaml` sur la `bundleUrl` renvoyée par [Générer le bundle d'exportation](/fr/api/static-export/generate-bundle). Le chart récupère le bundle au démarrage et le sert comme version active.
+
+    ```yaml values.yaml
+    staticExport:
+      enabled: true
+      # Presigned S3 link returned by the Generate export bundle endpoint.
+      bundleUrl: "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz"
+      # Optional: pin to a specific export version for reproducible rollouts.
+      version: "2024-06-01"
+    ```
+  </Step>
+  <Step title="Déployer le chart">
+    Appliquez les valeurs mises à jour avec `helm upgrade`. Le déploiement télécharge le bundle, le remplace en tant que site en direct et le sert depuis votre cluster.
+
+    ```bash
+    helm upgrade --install mintlify mintlify/enterprise \
+      --namespace mintlify \
+      --create-namespace \
+      -f values.yaml
+    ```
+  </Step>
+</Steps>
+
+Comme les liens présignés expirent, régénérez le bundle et relancez la mise à niveau chaque fois que vous publiez du nouveau contenu, ou automatisez la boucle avec GitHub Actions.
+
+<div id="automate-with-a-github-action">
+  ## Automatiser avec une GitHub Action
+</div>
+
+Le workflow modèle suivant exécute la boucle complète d'exportation selon un calendrier ou à la demande. Il démarre une tâche, interroge jusqu'à la fin de l'exportation, génère un bundle et déploie la nouvelle `bundleUrl` dans le chart Helm.
+
+```yaml .github/workflows/static-export.yml
+name: Publish static export
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 06:00 UTC
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start static export job
+        id: start
+        run: |
+          JOB_ID=$(curl -s -X POST https://api.mintlify.com/v1/static-export/jobs \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"domain": "docs.example.com"}' | jq -r '.jobId')
+          echo "job_id=$JOB_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the job to complete
+        run: |
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }} \
+              -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.status')
+            echo "status=$STATUS"
+            [ "$STATUS" = "completed" ] && exit 0
+            [ "$STATUS" = "failed" ] && exit 1
+            sleep 10
+          done
+          echo "Timed out waiting for the export job to complete." >&2
+          exit 1
+
+      - name: Generate the bundle
+        id: bundle
+        run: |
+          BUNDLE_URL=$(curl -s -X POST \
+            https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }}/bundle \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.bundleUrl')
+          echo "bundle_url=$BUNDLE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to the Helm chart
+        run: |
+          helm upgrade --install mintlify mintlify/enterprise \
+            --namespace mintlify \
+            --set staticExport.enabled=true \
+            --set staticExport.bundleUrl="${{ steps.bundle.outputs.bundle_url }}"
+```
+
+Stockez votre clé d'API admin sous forme de secret de dépôt `MINTLIFY_ADMIN_KEY`, et configurez les identifiants du cluster (par exemple, avec `azure/setup-helm` et votre kubeconfig) avant l'étape de déploiement.
