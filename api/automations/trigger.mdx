@@ -1,0 +1,45 @@
+---
+title: "Trigger automation"
+openapi: "/openapi.json POST /workflow/{projectId}/{workflowSchemaId}/trigger"
+keywords: ["automation", "workflow", "trigger", "webhook", "schedule", "CI"]
+---
+
+Use this endpoint to trigger a scheduled automation on demand, instead of waiting for its next scheduled run. The automation behaves identically to a regular scheduled run: it picks up everything that has changed since the last completed run.
+
+This endpoint only supports automations configured with a **Custom schedule** trigger. Requests for automations with other triggers, like **Code change** or **Content update**, return a `400` error.
+
+## Use cases
+
+- **CI/CD pipelines**: Run the **Update from code changes** automation on every merge to `main`, so docs update at your release cadence rather than on a fixed schedule.
+- **Release events**: Run the **Draft changelog** automation when you cut a release tag, so the changelog drafts at the same time the release ships.
+- **Custom tooling**: Trigger automations from internal tools, Slack commands, or scheduled jobs you already run.
+
+## Find the automation ID
+
+Copy the automation ID from the automation's settings panel on the [Automations](https://app.mintlify.com/products/automations) page in your dashboard.
+
+## Example
+
+Trigger an automation from a GitHub Action whenever code merges to `main`:
+
+```yaml .github/workflows/trigger-docs.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v1/workflow/$PROJECT_ID/$WORKFLOW_ID/trigger" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          WORKFLOW_ID: ${{ vars.MINTLIFY_WORKFLOW_ID }}
+```
+
+## Rate limits
+
+This endpoint shares a rate limit with [Trigger update](/api/update/trigger): up to 10 requests per 10 seconds per organization. Triggered runs consume credits at the same rate as scheduled runs.
