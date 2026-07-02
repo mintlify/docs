@@ -1,7 +1,7 @@
 ---
 title: "Multi-repository deployments"
 description: "Combine multiple Git repositories into one Mintlify site, with a dedicated URL path for each source repo's content and navigation."
-keywords: ["multi-repo", "multiple repositories", "git sources", "url path"]
+keywords: ["multi-repo", "multiple repositories", "git sources", "URL path"]
 ---
 
 <Info>
@@ -110,7 +110,7 @@ The base source provides the site-wide configuration for your multi-repository d
 </Steps>
 
 <Warning>
-  Changing the base source replaces site-level settings such as theme, colors, logo, site name, and top-level navigation with the values from the new base repository's `docs.json`. URL paths and content from other sources are unaffected.
+  Changing the base source replaces site-level settings such as theme, colors, logo, site name, and top-level navigation with the values from the new base repository's `docs.json`. This change doesn't affect URL paths or content from other sources.
 </Warning>
 
 ## Example repository layout
@@ -151,6 +151,60 @@ The name of each product section comes from the `name` field in the correspondin
 Keep each source's navigation scoped to that repository. For example, pages in the API repository should reference only files that live in the API repository, and pages in the SDK repository should reference only files that live in the SDK repository.
 
 Nested `navigation.products` configurations are not supported inside individual source repositories.
+
+### Link between sources
+
+Relative Markdown links can't resolve across repositories because each source only sees its own files at build time. To link from one source to a page in another source, use a root-relative URL path that includes the destination source's URL path:
+
+```mdx
+See the [API reference](/api/reference/authentication) for details.
+```
+
+In this example, `/api` is the URL path configured for the API repository source. The link resolves at the published site level to `docs.example.com/api/reference/authentication`.
+
+Do not use full `https://` URLs for internal cross-source links. Root-relative paths keep previews and custom domains working correctly.
+
+## Reference navigation from another source
+
+Use `sourceRef` to place another repository's navigation at a specific location in the base source's `docs.json`. If you don't use `sourceRef`, Mintlify adds each repository as a separate top-level product section.
+
+### Requirements
+
+- Configure the referenced repository as a source in the same multi-repository deployment.
+- `sourceRef` values must use `owner/repo` format. Mount paths and repository names by themselves are not supported.
+- The referenced source must define a similar navigation pattern as the main source. For example, a `sourceRef` inside `anchors` requires the referenced source to define `navigation.anchors`.
+- `sourceRef` entries cannot form a cycle. A source cannot reference itself, and two sources cannot reference each other.
+- `sourceRef` must appear inside a navigation array. It is not valid at the top level of `navigation`.
+
+### Usage
+
+Add a `sourceRef` entry to a navigation array in the base source's `docs.json`. The value must be the repository's `owner/repo` identifier.
+
+```json
+{ "sourceRef": "acme/api-docs" }
+```
+
+`sourceRef` is supported inside `anchors`, `tabs`, `groups`, `pages`, `products`, and arrays under `navigation.global`.
+
+For example, to combine anchors from multiple repositories into a single anchor navigation:
+
+```json
+{
+  "navigation": {
+    "anchors": [
+      {
+        "anchor": "Guides",
+        "pages": ["quickstart"]
+      },
+      {
+        "sourceRef": "acme/api-docs"
+      }
+    ]
+  }
+}
+```
+
+If `acme/api-docs` defines its own `navigation.anchors`, Mintlify replaces the `sourceRef` entry with those anchors and prefixes their paths with the referenced source's URL path.
 
 ## Removing a repository source
 

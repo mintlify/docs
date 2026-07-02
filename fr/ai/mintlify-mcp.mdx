@@ -11,11 +11,13 @@ keywords: ["MCP", "write access", "AI", "editing", "Claude", "Cursor", "branch",
 
 Le serveur Admin MCP donne aux outils d'IA un accès en écriture à votre contenu et à vos paramètres Mintlify. Utilisez-le pour mettre à jour le contenu et accéder à votre tableau de bord. Avec l'Admin MCP, vous pouvez utiliser vos outils d'IA préférés pour modifier des pages, restructurer la navigation, mettre à jour `docs.json`, ouvrir des pull requests, modifier des paramètres, créer des workflows, et plus encore.
 
-Connectez n'importe quel client MCP comme Claude, Claude Code ou Cursor au serveur Admin MCP pour collaborer sur votre contenu et vos paramètres Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Lorsque vous utilisez le serveur Admin MCP, toutes les modifications se produisent sur une branche et nécessitent une pull request pour être fusionnées.
+Connectez n'importe quel client MCP comme Claude, Claude Code ou Cursor au serveur Admin MCP pour collaborer sur votre contenu et vos paramètres Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Lorsque vous utilisez le serveur Admin MCP, toutes les modifications se produisent sur une branche et nécessitent une pull request pour être fusionnées. Si votre organisation dispose de plusieurs déploiements, une seule connexion Admin MCP peut accéder à tous ces déploiements et basculer entre eux.
 
 <Note>
   Le serveur Admin MCP permet aux outils d'IA d'accéder à votre tableau de bord Mintlify. Considérez-le comme un collègue avec un accès en écriture. Connectez-le uniquement depuis des outils d'IA de confiance et examinez chaque pull request avant de la fusionner.
 </Note>
+
+L'Admin MCP est un service Mintlify hébergé à l'adresse `https://mcp.mintlify.com`. Il n'existe pas de version auto-hébergée — chaque client se connecte au même endpoint et s'authentifie avec votre compte Mintlify.
 
 <div id="how-the-admin-mcp-differs-from-the-search-mcp">
   ### En quoi l'Admin MCP diffère du Search MCP
@@ -28,11 +30,21 @@ Connectez n'importe quel client MCP comme Claude, Claude Code ou Cursor au serve
 | **Endpoints** | Hébergé par Mintlify, à la portée de votre projet | `/mcp` sur le domaine de votre site |
 | **Résultat** | Modifications de contenu, changements de navigation, pull requests, exécutions de workflows | Résultats de recherche et contenu des pages |
 
+<div id="prerequisites">
+  ## Prérequis
+</div>
+
+Avant de connecter l'Admin MCP, confirmez ce qui suit :
+
+- **Compte Mintlify** : Vous avez besoin d'un compte Mintlify avec accès au projet que vous souhaitez modifier. La session OAuth hérite de vos autorisations du tableau de bord, donc les actions réservées aux administrateurs (telles que `update_config` sur les paramètres protégés) nécessitent un rôle d'administrateur sur le projet.
+- **Accès au fournisseur Git** : L'application GitHub Mintlify ou la connexion GitLab du projet doit avoir un accès en écriture au dépôt de la branche de déploiement. `save` ouvre des PR via la même intégration que celle utilisée pour les déploiements normaux.
+- **Client MCP** : Un outil d'IA compatible MCP tel que Claude, Claude Code, Cursor ou Codex.
+
 <div id="connect-to-the-admin-mcp">
   ## Se connecter à l'Admin MCP
 </div>
 
-Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify pour vous connecter à l'Admin MCP. Les outils d'IA échangent cette connexion contre un jeton de session limité à un seul projet.
+Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify pour vous connecter à l'Admin MCP. Les outils d'IA échangent cette connexion contre un jeton de session limité à un ou plusieurs déploiements, selon la manière dont vous accordez l'accès. Une connexion limitée à des déploiements spécifiques ne peut faire de checkout que sur ceux-ci, tandis qu'une connexion à l'échelle de l'organisation peut faire de checkout n'importe quel déploiement de votre organisation.
 
 <Tabs>
   <Tab title="Claude">
@@ -76,6 +88,18 @@ Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify p
 
     4. Rechargez Cursor et terminez la connexion OAuth lorsque vous y êtes invité.
   </Tab>
+  <Tab title="Codex">
+    Ajoutez le serveur Admin MCP à la configuration de votre CLI Codex dans `~/.codex/config.toml` :
+
+    ```toml
+    [mcp_servers.mintlify]
+    url = "https://mcp.mintlify.com"
+    ```
+
+    Lors de la première utilisation, Codex ouvre une fenêtre de navigateur pour finaliser la connexion OAuth. Une fois authentifié, la session est réutilisée pour les appels suivants.
+
+    Consultez la [documentation Codex MCP](https://developers.openai.com/codex/mcp) pour plus de détails.
+  </Tab>
 </Tabs>
 
 <div id="how-a-session-works">
@@ -85,10 +109,13 @@ Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify p
 Chaque session Admin MCP est liée à une seule branche Git. Le flux est le suivant :
 
 <Steps>
+  <Step title="Découvrir les déploiements (facultatif)">
+    Si votre connexion a accès à plusieurs déploiements, appelez `list_deployments` pour voir les valeurs de `subdomain` que vous pouvez utiliser dans checkout. Passez cette étape si votre connexion ne couvre qu'un seul déploiement.
+  </Step>
   <Step title="Extraire une branche">
-    Le premier appel doit être `checkout`. Il crée une nouvelle branche `mintlify-mcp/<slug>-<sha>` à partir de votre branche de déploiement (ou se rattache à une branche existante que vous nommez) et renvoie une `editorUrl` que vous pouvez ouvrir pour suivre l'évolution dans l'éditeur du tableau de bord.
+    Le premier appel requis est `checkout {subdomain}`. Il crée une nouvelle branche `mintlify-mcp/<slug>-<sha>` à partir de la branche de déploiement de ce déploiement (ou se rattache à une branche existante que vous nommez) et renvoie une `editorUrl` que vous pouvez ouvrir pour suivre l'évolution dans l'éditeur du tableau de bord.
 
-    Appelez `list_branches` avant `checkout` si vous avez besoin de découvrir ou de filtrer les branches existantes du dépôt.
+    Appelez `list_branches` avant `checkout` si vous avez besoin de découvrir ou de filtrer les branches existantes du dépôt d'un déploiement.
   </Step>
   <Step title="Lire, rechercher et modifier">
     L'IA utilise des outils tels que `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` et `update_config` pour effectuer des modifications. Toutes les modifications sont mises en mémoire tampon sur la branche de session en temps réel — rien ne touche encore votre branche de déploiement.
@@ -105,7 +132,9 @@ Chaque session Admin MCP est liée à une seule branche Git. Le flux est le suiv
 </Steps>
 
 <Tip>
-  Appeler `checkout` à nouveau pendant une session active fait basculer la session sur la nouvelle branche. Utilisez cela pour abandonner un brouillon en cours et repartir à zéro sans mettre fin à la conversation.
+  Si votre connexion a accès à plusieurs déploiements, chaque déploiement dont vous faites le checkout conserve sa propre session et sa propre branche en mémoire simultanément.
+
+  Appeler `checkout` à nouveau avec un `subdomain` ou une branche différente change la session active. Cela ne supprime pas les autres. Pour abandonner un brouillon en cours plutôt que de simplement en changer, appelez `discard_session`.
 </Tip>
 
 <div id="what-the-admin-mcp-can-do">
@@ -141,8 +170,9 @@ Chaque session Admin MCP est liée à une seule branche Git. Le flux est le suiv
   ### Session
 </div>
 
-- **`checkout`** — Lie la session à une branche.
-- **`list_branches`** — Liste les branches Git disponibles pour le projet, avec un filtrage `query` optionnel. Renvoie les noms de branches, le nombre total et la branche de déploiement. Appelez ceci avant `checkout` pour vous rattacher à une branche existante par son nom.
+- **`list_deployments`** — Liste les déploiements auxquels votre connexion peut accéder, en renvoyant chaque `{subdomain, name}`. Appelez ceci pour découvrir quel `subdomain` transmettre à `checkout`.
+- **`checkout`** — Lie une session à une branche pour un `subdomain` de déploiement donné, ou change quelle session de déploiement est active.
+- **`list_branches`** — Liste les branches Git disponibles pour le projet d'un déploiement, avec un filtrage `query` optionnel. Renvoie les noms de branches, le nombre total et la branche de déploiement. Appelez ceci avant `checkout` pour vous rattacher à une branche existante par son nom.
 - **`get_session_state`** — Inspecte la branche en cours, les fichiers modifiés et le diff de navigation en attente.
 - **`diff`** — Liste toutes les modifications entre la session et `main`.
 - **`save`** — Ouvre une pull request ou pousse un commit sur la branche de session.
@@ -183,3 +213,18 @@ Une fois l'Admin MCP connecté, vous pouvez le piloter avec des prompts en langa
 <Note>
   Les sessions conservent une branche en mémoire côté Mintlify. Si vous abandonnez une session sans l'enregistrer ou la supprimer, la branche persiste jusqu'à ce que votre prochain checkout l'écrase. Évitez de laisser des branches `mintlify-mcp/*` obsolètes dans votre dépôt. Nettoyez-les périodiquement.
 </Note>
+
+<div id="disconnect-or-revoke-access">
+  ## Se déconnecter ou révoquer l'accès
+</div>
+
+Déconnectez l'Admin MCP lorsque vous ne souhaitez plus qu'un outil d'IA modifie votre projet, ou lorsque vous souhaitez forcer une nouvelle connexion OAuth.
+
+- **Révoquer l'autorisation OAuth** : Dans votre tableau de bord Mintlify, accédez à **Settings → Security & access → Connected apps** et révoquez l'entrée pour l'outil d'IA que vous avez connecté. La révocation invalide immédiatement tout jeton de session actif, donc les appels d'outils en cours échouent et l'outil doit compléter une nouvelle connexion OAuth lors du prochain appel.
+- **Supprimer le connecteur dans le client** :
+  - Claude : **Settings → Connectors**, puis supprimez l'entrée Admin MCP.
+  - Claude Code : `claude mcp remove mintlify`.
+  - Cursor : supprimez l'entrée `mintlify` de `mcp.json` et rechargez.
+  - Codex : supprimez le bloc `[mcp_servers.mintlify]` de `~/.codex/config.toml`.
+
+La révocation de l'autorisation OAuth n'affecte pas les pull requests que le MCP a déjà ouvertes. Fermez ou annulez ces PR dans votre fournisseur Git si vous souhaitez annuler les modifications en attente.
