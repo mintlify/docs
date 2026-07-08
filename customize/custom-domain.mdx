@@ -141,3 +141,78 @@ Replace `https://www.your-custom-domain-here.com` with your actual custom domain
     }
 }
 ```
+
+## Lifecycle and troubleshooting
+
+Once your custom domain is live, most issues fall into a few recurring categories. Use this section when TLS renewal fails, when both your custom domain and default `mintlify.site` subdomain remain indexable, when you need to serve more than one docs project on a single apex domain, or when your site starts returning `Disallowed origin host`.
+
+### Rotate the `_acme-challenge` TXT record
+
+Mintlify uses Let's Encrypt to issue and renew TLS certificates for your custom domain. Renewal reuses the `_acme-challenge` `TXT` record you added during setup. If the record was removed, changed, or its value drifted from what your dashboard shows, renewal fails and browsers eventually surface certificate errors.
+
+Rotate the record when:
+
+- Your dashboard shows the `_acme-challenge` `TXT` record as unverified after previously verifying.
+- You migrate the domain to a new DNS provider and copied records incompletely.
+- You move a domain from one Mintlify deployment to another and the previous record's value no longer matches the value shown in the new deployment's dashboard.
+- TLS provisioning has been stuck for more than 24 hours after DNS otherwise resolves correctly.
+
+To rotate the record:
+
+1. Navigate to the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard and copy the current `_acme-challenge` value.
+2. At your DNS provider, delete any stale `_acme-challenge.<your-domain>` `TXT` records that don't match the value shown in your dashboard. Multiple conflicting `TXT` records at the same name can prevent validation.
+3. Add a `TXT` record for `_acme-challenge.<your-domain>` with the value from your dashboard.
+4. Wait for propagation, then confirm the record resolves with `dig TXT _acme-challenge.<your-domain>` or [DNSChecker](https://dnschecker.org).
+5. Return to the dashboard and click **Retry validation**.
+
+<Tip>
+  If your DNS provider is Cloudflare and the record is proxied, set the `_acme-challenge` `TXT` record to **DNS only**. `TXT` records are not proxied, but confirming the proxy status rules out related configuration issues.
+</Tip>
+
+### Disable or hide the default `mintlify.site` subdomain
+
+Every deployment keeps a default `<your-subdomain>.mintlify.site` URL available. Once you configure a custom domain, both URLs serve the same content and both can be indexed by search engines, which splits SEO signal and causes duplicate results.
+
+You cannot fully disable the default subdomain, but you can prevent it from appearing in public search results:
+
+- **Set a canonical URL.** Configure the [`canonical` meta tag](#set-a-canonical-url) to your custom domain. Search engines then treat your custom domain as the primary URL and consolidate ranking signals there.
+- **Restrict indexing to your custom domain.** If duplicate results persist, enable **Don't index project** on the [Add-ons](https://app.mintlify.com/settings/deployment/addons) page in your dashboard while you request removal of the `mintlify.site` URLs from search engines, then disable the setting once the custom domain is fully indexed. See [Disable indexing](/optimize/seo#disable-indexing) for behavior details.
+- **Require authentication.** For [private deployments](/deploy/authentication-setup), authentication applies to both the custom domain and the default subdomain, so the `mintlify.site` URL is not publicly reachable.
+
+<Note>
+  The default subdomain remains active because Mintlify uses it as the origin behind your custom domain and for [reverse proxy](/deploy/reverse-proxy) configurations. Removing it would break your deployment.
+</Note>
+
+### Serve multiple docs projects under one domain
+
+If you maintain several Mintlify projects and want them to share an apex domain (for example `example.com/product-a` and `example.com/product-b`), the supported options depend on your plan:
+
+- **Any plan — separate subdomains.** Add each project as its own custom domain: `product-a.example.com`, `product-b.example.com`. This is the recommended pattern because each deployment gets its own certificate and canonical URL without any additional infrastructure on your side.
+- **Any plan — one project with tabs or versions.** Consolidate the projects into a single deployment and use [tabs, versions, or navigation groups](/organize/navigation) to separate the content. All content then lives under one custom domain (`docs.example.com`).
+- **Any plan — `/docs` subpath.** A single project can be served at `<your-domain>/docs` using the [Host at `/docs` subpath](/deploy/reverse-proxy#host-at-docs-subpath) configuration. Only one Mintlify deployment can occupy the `/docs` path on a given domain.
+- **Enterprise plan — custom subpaths per project.** To serve multiple projects at arbitrary subpaths of a single apex (for example `example.com/product-a` and `example.com/product-b`), you must run your own reverse proxy in front of each deployment. This routing is only supported on [Enterprise plans](https://mintlify.com/pricing?ref=custom-domain). See [Custom subpath](/deploy/reverse-proxy#custom-subpath) for the required routes and headers.
+
+<Warning>
+  Mintlify does not natively route different subpaths of one custom domain to different deployments. Attempting to point the same custom domain at multiple projects in the dashboard fails verification, because only one deployment can own a hostname at a time.
+</Warning>
+
+### `Disallowed origin host` error
+
+If your site returns a 502 response with the body `Disallowed origin host`, your custom domain is still routing to Mintlify's edge, but the underlying deployment's origin no longer matches what the edge is willing to serve. This typically happens after a project or domain rename.
+
+Common causes:
+
+- You renamed your project (subdomain) in the dashboard and the custom domain is still bound to the old deployment name.
+- You removed and re-added the custom domain on a different project without deleting the previous binding.
+- You migrated between deployments and the DNS `CNAME` points to `cname.mintlify.builders` but no deployment currently claims the hostname.
+
+To resolve:
+
+1. Navigate to the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page for the project that should own the domain.
+2. Confirm the domain is listed and shows as verified. If it is missing, add it and complete DNS verification again.
+3. If the domain is listed on a different project, remove it there first. A hostname can only be bound to one deployment at a time.
+4. After the domain is bound to the correct project, wait a few minutes for the edge configuration to propagate, then reload.
+
+<Tip>
+  If you renamed a project recently, also check any [reverse proxy](/deploy/reverse-proxy) or [Vercel rewrite](/deploy/vercel) configuration you own. Update the target from the old `<old-subdomain>.mintlify.site` to the new `<your-subdomain>.mintlify.site`.
+</Tip>
