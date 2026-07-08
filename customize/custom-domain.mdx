@@ -118,6 +118,113 @@ If your domain is still pending validation after adding the verification `TXT` r
 
 Only retry validation after you confirm that your DNS records are correct. Repeated retries with incorrect records do not speed up validation.
 
+## Lifecycle and ongoing maintenance
+
+### `_acme-challenge` TXT values change over time
+
+The value shown for the `_acme-challenge.<your-domain>` `TXT` record is not permanent. Let's Encrypt issues a new certificate before each renewal, and every issuance requires a fresh validation token. When Mintlify rotates the certificate, the dashboard updates the `_acme-challenge` value your DNS provider needs to serve.
+
+This is expected behavior, not a misconfiguration:
+
+- Keep the `_acme-challenge` record in place. Do not delete it after the initial validation.
+- Whenever the dashboard shows a new value for `_acme-challenge`, update the `TXT` record at your DNS provider to match. The domain continues to work on the existing certificate until it expires, so you have time to update the record.
+- If the value drifts and you do not update DNS, the next renewal fails and HTTPS eventually breaks. Retry validation from the dashboard after you save the new value.
+
+The `_cf-custom-hostname` value, in contrast, is stable for the lifetime of the custom hostname.
+
+### The default `<subdomain>.mintlify.app` URL
+
+Every deployment keeps a default URL at `<subdomain>.mintlify.app` even after you add a custom domain. This URL is used internally for previews, dashboard links, integrations that reference the deployment by its subdomain, and as a fallback during custom-domain provisioning. It cannot be disabled.
+
+If you want end users to always land on your custom domain:
+
+- Set a [canonical URL](#set-a-canonical-url) so search engines index the custom domain instead of `<subdomain>.mintlify.app`.
+- Redirect the `<subdomain>.mintlify.app` URL to your custom domain from your own layer if needed. Mintlify does not add this redirect automatically.
+
+### Rename a deployment subdomain
+
+Renaming the deployment subdomain in the dashboard changes the `<subdomain>.mintlify.app` URL and the internal origin that your custom domain rewrites to. After a rename:
+
+- Existing custom domains stay attached, but their KV configuration needs to be refreshed so the proxy points at the new origin. Save the custom domain again from the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page to trigger the refresh.
+- Any external service that references the old `<old-subdomain>.mintlify.app` URL (webhooks, OAuth redirect URIs, analytics allowlists, CSP rules, reverse-proxy rewrites) must be updated to the new subdomain.
+- Update any hardcoded links or canonical URLs in `docs.json` that referenced the old subdomain.
+
+If your custom domain returns a `502` with `Disallowed origin host` after a rename, see [Troubleshooting](#troubleshooting).
+
+### Release a custom domain held by another organization
+
+A custom domain can only be attached to one Mintlify deployment at a time. If you try to add a domain that is already claimed by another organization or a previous project, the dashboard blocks the add and reports that the domain is in use.
+
+To move the domain to a new organization or deployment:
+
+1. From the organization that currently owns the domain, navigate to the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page and remove the custom domain from the existing deployment.
+2. In the new organization, add the domain on the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page and complete the DNS verification steps again.
+
+If you no longer have access to the organization that holds the domain, contact [Mintlify support](mailto:support@mintlify.com) from the email address associated with the domain's DNS or ownership so we can release it. Include the domain and, if possible, the previous organization or deployment name.
+
+### Remove a custom domain
+
+To detach a custom domain from a deployment:
+
+1. Navigate to the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard.
+2. Remove the domain.
+3. Delete the `CNAME` and verification `TXT` records at your DNS provider once the domain is no longer needed. Leaving stale records in place is safe but can be confusing later.
+
+After removal, the domain is immediately available to be added to another deployment or organization.
+
+## Advanced routing scenarios
+
+### Multiple projects under one custom domain
+
+To serve multiple Mintlify deployments from a single custom domain, use subpaths and a reverse proxy or edge worker. Each deployment keeps its own `docs.json`, subdomain, and dashboard, and your proxy decides which deployment serves each path.
+
+Example layout on `example.com`:
+
+- `example.com/product-a` &rarr; deployment `product-a`
+- `example.com/product-b` &rarr; deployment `product-b`
+- `example.com/api` &rarr; deployment `api-docs`
+
+To set this up:
+
+1. For each deployment, configure a [`/docs` subpath](/deploy/docs-subpath) using [Cloudflare](/deploy/cloudflare), [Route 53 and CloudFront](/deploy/route53-cloudfront), [Vercel](/deploy/vercel), or a [custom reverse proxy](/deploy/reverse-proxy). Set a different base path for each deployment.
+2. In each deployment's `docs.json`, set the `canonical` URL to the fully-qualified subpath (for example, `https://example.com/product-a`) so search engines index the correct URL.
+3. Point a single `CNAME` for the shared domain at your proxy or edge worker, not directly at `cname.mintlify.builders`. The proxy is responsible for forwarding each subpath to the correct Mintlify origin.
+
+Adding the same custom domain to more than one deployment directly in the Mintlify dashboard is not supported. The subpath routing must happen at your own proxy layer.
+
+### Redirecting multiple domains to one deployment
+
+Attaching more than one custom domain to a single deployment as an automatic redirect is not currently supported. Each deployment has one primary custom domain.
+
+If you need `docs.old-brand.com` and `docs.new-brand.com` to both resolve to the same content, choose one of these workarounds:
+
+- Set the domain you want as the canonical destination as the deployment's custom domain, then configure a redirect from the other domain to it at your DNS provider or CDN (for example, a Cloudflare page rule, a Vercel redirect, or an AWS CloudFront function).
+- Redirect at the registrar level if your registrar offers domain forwarding.
+
+Set a [canonical URL](#set-a-canonical-url) that matches the primary domain so search engines consolidate ranking on a single hostname.
+
+## Troubleshooting
+
+### `502 Disallowed origin host`
+
+This error is returned by the Mintlify edge proxy when a custom domain's stored origin no longer matches an allowed Mintlify hostname. It most often appears after:
+
+- The deployment's subdomain was renamed and the custom domain's cached rewrite still points at the old `<subdomain>.mintlify.app` origin.
+- A custom domain was moved between deployments or organizations without refreshing the configuration.
+
+To resolve:
+
+1. Navigate to the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard.
+2. Remove and re-add the custom domain, or click **Retry validation** to force the origin to be re-written.
+3. If the error persists after a few minutes, contact [Mintlify support](mailto:support@mintlify.com) with the affected custom domain and current deployment subdomain so we can refresh the edge configuration.
+
+### Validation stays pending after DNS is correct
+
+- Confirm both `_acme-challenge` and `_cf-custom-hostname` `TXT` records resolve with the expected values using [DNSChecker](https://dnschecker.org) or `dig`.
+- If the `_acme-challenge` value in your dashboard changed since you first saved the record, update DNS with the new value (see [`_acme-challenge` TXT values change over time](#_acme-challenge-txt-values-change-over-time)).
+- For Cloudflare-proxied domains, see [Cloudflare-proxied domains](#cloudflare-proxied-domains). The verification cannot complete until traffic routes through Mintlify.
+- Only click **Retry validation** after DNS is confirmed correct.
+
 ## Set a canonical URL
 
 After configuring your DNS, set a canonical URL to ensure search engines index your preferred domain. A canonical URL tells search engines which version of your documentation is the primary one. This improves SEO when your documentation is accessible from multiple URLs and prevents issues with duplicate content.
