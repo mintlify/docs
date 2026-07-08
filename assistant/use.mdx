@@ -123,3 +123,58 @@ Limits:
   Submit a false positive report to [EasyList](https://github.com/easylist/easylist) to request removal of the rule. This resolves the issue for all users once the filter list updates.
 
 </Accordion>
+
+<Accordion title="Assistant fails to respond and shows a Request ID">
+  If the assistant returns an error like `Something went wrong. Request ID: ...`, the request reached Mintlify but failed on its way back to the browser, or a network layer between the browser and Mintlify blocked it. The `Request ID` is an opaque identifier the Mintlify support team can use to look up server-side logs for that specific request. Copy it into your support message so the team can trace the failure.
+
+  Before contacting support, try each of the following:
+
+  - Reload the page and retry the request from a fresh session.
+  - Retry from another network (for example, a personal hotspot) to isolate whether a corporate proxy, VPN, or firewall is interfering.
+  - Retry in a different browser or a private window with extensions disabled.
+  - If you use Brave, lower **Shields** for the docs site. Aggressive **Trackers & ads blocking** and **Block scripts** settings can cancel the assistant's streaming request.
+  - Disable ad-blockers and privacy extensions (for example, uBlock Origin, AdGuard, Ghostery) for the docs site. Filter lists occasionally flag legitimate Mintlify or analytics hostnames.
+
+  If the failure is reproducible on multiple networks and in a clean browser, share the `Request ID`, the docs URL, and the approximate time of the failure with support so they can locate the corresponding server-side log.
+</Accordion>
+
+<Accordion title="Assistant, search, or MCP blocked by a corporate network">
+  The assistant, search, and the docs [MCP server](/ai/model-context-protocol) all rely on outbound requests from the browser to Mintlify. Corporate proxies, VPNs, Zscaler-style secure web gateways, and SSE-inspecting firewalls sometimes break these requests, most often by:
+
+  - Terminating long-lived streaming responses (the assistant uses server-sent events for token-by-token replies).
+  - Stripping or rewriting response headers required for streaming.
+  - Blocking requests to Mintlify or CDN hostnames outright.
+  - Injecting a Content Security Policy that removes required domains. See [CSP configuration](/deploy/csp-configuration) for the full list.
+
+  Ask your network administrator to allow the following hostnames from end-user browsers on the docs site:
+
+  | Hostname | Purpose |
+  |:---------|:--------|
+  | Your docs domain (for example, `docs.example.com` and `*.mintlify.app`) | Serves the docs site and proxies assistant, search, and MCP requests |
+  | `leaves.mintlify.com` | Mintlify Assistant API |
+  | `*.mintlify.com` | Dashboard, API, and analytics proxy |
+  | `*.mintlify.site` | Preview and published docs content |
+  | `mintcdn.com`, `*.mintcdn.com` | Images, favicons, and other static assets |
+  | `d1ctpt7j8wusba.cloudfront.net` | Mint version and release metadata |
+  | `d3gk2c5xim1je2.cloudfront.net` | Icons, images, and logos |
+  | `d4tuoctqmanu0.cloudfront.net` | KaTeX CSS and fonts |
+  | `hcaptcha.com`, `*.hcaptcha.com` | hCaptcha verification for assistant requests |
+
+  In addition, the connection must allow streaming responses (`text/event-stream`) to pass through without buffering. Some inspection proxies buffer streaming responses until the connection closes, which makes the assistant appear to hang and eventually fail.
+</Accordion>
+
+<Accordion title="Self-check for blocked assistant requests">
+  If the assistant, search, or MCP is failing and you suspect the visitor's network is at fault, run this quick check from the same browser and network where the failure occurred:
+
+  1. Open the docs site and open your browser's developer tools (**Network** tab).
+  2. Trigger the failing action (open the assistant, run a search, or hit the MCP endpoint).
+  3. Look for requests to `/_mintlify/api-public/assistant/...`, `/_mintlify/api/assistant/...`, `/mcp`, or `leaves.mintlify.com`.
+  4. Note the status code and response headers:
+      - `200` with no streamed body suggests a proxy is buffering server-sent events.
+      - `403`, `407`, or `502` typically indicates a corporate proxy or filter is blocking the request.
+      - `blocked:csp` or a CSP violation in the console means a custom [CSP header](/deploy/csp-configuration) is missing a required domain.
+      - `blocked:other` usually means a browser extension or ad-blocker cancelled the request.
+  5. Retry from a personal network or hotspot with all extensions disabled. If the failure disappears, the issue is on the visitor's network or browser, not on Mintlify.
+
+  Share the request URL, status code, response headers, and any `Request ID` from the assistant error with your network administrator or with Mintlify support.
+</Accordion>
