@@ -1,23 +1,40 @@
 ---
 title: "Custom domain"
-description: "Host your documentation on a custom domain with DNS configuration, automatic TLS certificates, and subdomain or subpath routing options."
-keywords: ["custom domain setup", "DNS configuration", "CNAME records", "TLS certificates"]
+description: "Host your documentation at your own domain, subdomain, or subpath with DNS configuration and automatic TLS certificates."
+keywords: ["custom domain setup", "DNS configuration", "CNAME records", "TLS certificates", "subpath hosting", "base path"]
 ---
 
+Host your documentation at your own domain, like `docs.example.com`, or at a subpath on your domain, like `example.com/docs`.
+
 To host your documentation on a custom domain:
+
 1. Add your domain in your dashboard.
 2. Configure DNS settings on your domain provider.
 3. Allow time for DNS to propagate and TLS certificates to be automatically provisioned.
 
-<Info>
-  Looking to set up a subpath like `example.com/docs`? See [/docs subpath](/deploy/docs-subpath).
-</Info>
+## Choose a hosting mode
+
+The [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page has two hosting modes:
+
+- **Domain or subdomain**: Host your documentation at a domain like `example.com` or a subdomain like `docs.example.com`. Mintlify serves all traffic for the domain.
+- **Subpath**: Host your documentation at a path on your domain, like `example.com/docs`.
+
+When you host at a subpath, choose how traffic reaches Mintlify:
+
+- **Send all domain traffic to Mintlify**: Your domain's DNS points to Mintlify and Mintlify serves your documentation at your subpath. Only use this option if Mintlify can receive all paths on the domain, meaning your domain hosts nothing else.
+- **Proxy only your subpath**: Your app or CDN keeps receiving traffic for the domain and proxies only your subpath to Mintlify. Use this option when another site runs on your domain. See [/docs subpath](/deploy/docs-subpath) for proxy setup guides.
+
+<Note>
+  Subpath hosting is not supported for documentation with [authentication](/deploy/authentication-setup) enabled.
+</Note>
 
 ## Add your custom domain
 
 1. Navigate to the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard.
-2. Enter your domain name. For example, `docs.example.com` or `www.example.com`.
-3. Click **Add domain**.
+2. Select your hosting mode: **Domain or subdomain** or **Subpath**.
+3. If you selected **Subpath**, enter your base path, like `/docs`, and choose a traffic routing option.
+4. Enter your domain name. For example, `docs.example.com` or `example.com`.
+5. Click **Add domain**.
 
 <Frame>
   <img
@@ -32,37 +49,46 @@ To host your documentation on a custom domain:
   />
 </Frame>
 
+If your domain traffic routes to Mintlify, the dashboard displays the DNS records to add at your domain provider. If you proxy only your subpath to Mintlify, the dashboard displays reverse proxy setup guides instead. Follow the guide for your provider and see [/docs subpath](/deploy/docs-subpath) for more information.
+
+### Base path requirements
+
+Your base path can be any path that meets these requirements:
+
+- Starts with `/` and contains no spaces, query strings, or hashes.
+- Is at most 128 characters.
+- Is not a path that Mintlify reserves: `/_next`, `/_mintlify`, `/_sites`, `/_live-preview`, `/api`, `/login`, `/logout`, `/mcp`, `/feedback`, `/openapi-specs.download`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`, `/skill.md`, and `/.well-known`.
+
+### Change your base path
+
+When you change your base path or switch between hosting modes, Mintlify rebuilds and redeploys your documentation. Your documentation stays live at the current path until the deployment finishes, then traffic switches to the new path. If the deployment fails, your documentation continues serving from the current path and you can retry the change from your dashboard.
+
 ## Configure your DNS
 
 1. On your domain provider's website, navigate to your domain's DNS settings.
-2. Create a new DNS record with the following values:
+2. Create the DNS records shown in your dashboard.
+
+The dashboard displays verification `TXT` records and a `CNAME` record:
 
 ```text
-CNAME | docs | cname.mintlify.builders
+TXT | _acme-challenge.<your-domain> | <value shown in your dashboard>
+TXT | _cf-custom-hostname.<your-domain> | <value shown in your dashboard>
+CNAME | <your-domain> | cname.mintlify.builders
 ```
+
+The `_acme-challenge` record authorizes Let's Encrypt to issue a TLS certificate for your domain, and the `_cf-custom-hostname` record verifies that you control the domain.
 
 <Tip>
   Each domain provider has different ways to add DNS records. Refer to your domain provider's documentation for specific instructions.
 </Tip>
 
 <Warning>
-  Do not add or change your `CNAME` until both verification `TXT` records show as verified in your dashboard. Each appears with a green check when DNS is correct. The dashboard verifies `TXT` records before certificate provisioning can complete. Switching `CNAME` too early commonly breaks HTTPS until provisioning finishes.
+  Add your `TXT` records first. Do not add or change your `CNAME` until both verification `TXT` records show as verified in your dashboard. Each appears with a green check when DNS is correct. The dashboard verifies `TXT` records before certificate provisioning can complete. Switching `CNAME` too early commonly breaks HTTPS until provisioning finishes.
 
   If you migrate an existing domain and want zero downtime, publish the verification `TXT` records first and wait until they show verified and TLS has pre-provisioned before pointing `CNAME` at Mintlify.
 
   This pre-validation flow does not work for domains proxied through Cloudflare. See [Cloudflare-proxied domains](#cloudflare-proxied-domains).
 </Warning>
-
-### Verification TXT records
-
-After you add a custom domain, the dashboard displays two `TXT` records that you must add at your DNS provider:
-
-```text
-TXT | _acme-challenge.<your-domain> | <value shown in your dashboard>
-TXT | _cf-custom-hostname.<your-domain> | <value shown in your dashboard>
-```
-
-The `_acme-challenge` record authorizes Let's Encrypt to issue a TLS certificate for your domain, and the `_cf-custom-hostname` record verifies that you control the domain.
 
 The dashboard polls DNS in the background and marks each record with a green check once it verifies the expected value. After saving records at your DNS provider, allow a short time for propagation before status updates appear.
 
@@ -110,13 +136,17 @@ If you need zero downtime during migration, set the `CNAME` record's proxy statu
 
 ### Retry validation
 
-If your domain is still pending validation after adding the verification `TXT` record, you can retry validation manually from your dashboard.
+`TXT` records are typically validated within 5 minutes. If your domain is still pending validation after adding the verification `TXT` records, you can retry validation manually from your dashboard.
 
 1. Navigate to the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard.
 2. Find your pending custom domain.
 3. Click **Retry validation**.
 
 Only retry validation after you confirm that your DNS records are correct. Repeated retries with incorrect records do not speed up validation.
+
+## Remove a custom domain
+
+To remove a custom domain, click the remove icon next to your domain on the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page and confirm the removal. Existing links to the domain may break, and re-adding the domain may require reconfiguring your DNS records.
 
 ## Set a canonical URL
 
