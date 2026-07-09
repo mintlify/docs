@@ -10,12 +10,9 @@ When you implement a reverse proxy, monitor for potential issues with domain ver
 
 ## Choose your deployment approach
 
-Mintlify supports two reverse proxy configurations depending on your subpath requirements.
+Set your base path on the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard, then configure your reverse proxy to route that path to Mintlify. The default base path is `/docs`, but you can use any base path you choose, like `/help` or `/resources`.
 
-- **Host at `/docs`**: Set your base path to `/docs` on the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard. This is a simpler configuration with fewer routes.
-- **Custom subpath**: Use any subpath you choose. This approach requires additional routing rules.
-
-In both configurations, use `mintlify.site` as the proxy target.
+In all configurations, use `mintlify.site` as the proxy target.
 
 ## Host at `/docs` subpath
 
@@ -29,7 +26,7 @@ Before configuring your reverse proxy:
 4. Enter your domain and click **Add domain**.
 
 <Warning>
-  When you enable **Host at `/docs`**, your canonical docs URL becomes `<your-subdomain>.mintlify.site/docs`. Proxy to `<your-subdomain>.mintlify.site` so cache invalidation and updates take effect.
+  When you host at a subpath, your canonical docs URL becomes `<your-subdomain>.mintlify.site/docs`. Proxy to `<your-subdomain>.mintlify.site` so cache invalidation and updates take effect.
 </Warning>
 
 ### Routing configuration
@@ -173,210 +170,16 @@ server {
   Reverse proxy configurations for custom subpaths are only supported for [Enterprise plans](https://mintlify.com/pricing?ref=reverse-proxy).
 </Note>
 
-When you need a subpath other than `/docs` (such as `/help` or `/resources`), use the following routing configuration.
+To use a subpath other than `/docs` (such as `/help` or `/resources`):
 
-Proxy these paths to your Mintlify subdomain with the specified caching policies:
+1. Navigate to [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) in your dashboard.
+2. Select the **Subpath** hosting mode and enter your base path.
+3. Choose **Proxy only** for traffic routing.
+4. Enter your domain and click **Add domain**.
 
-| Path                              | Destination                     | Caching       |
-| --------------------------------- | ------------------------------- | ------------- |
-| `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site` | No cache      |
-| `/.well-known/skills/*`           | `<your-subdomain>.mintlify.site` | No cache      |
-| `/.well-known/agent-skills/*`     | `<your-subdomain>.mintlify.site` | No cache      |
-| `/skill.md`                       | `<your-subdomain>.mintlify.site` | No cache      |
-| `/llms.txt`                       | `<your-subdomain>.mintlify.site` | No cache      |
-| `/llms-full.txt`                  | `<your-subdomain>.mintlify.site` | No cache      |
-| `/mintlify-assets/_next/static/*` | `<your-subdomain>.mintlify.site` | Cache enabled |
-| `/_mintlify/*`                    | `<your-subdomain>.mintlify.site` | No cache      |
-| `/*`                              | `<your-subdomain>.mintlify.site` | No cache      |
-| `/`                               | `<your-subdomain>.mintlify.site` | No cache      |
+Mintlify rebuilds your documentation to serve at your base path, so `<your-subdomain>.mintlify.site<your-base-path>` serves your content. Your documentation files do not need to be in a directory that matches your subpath.
 
-<Note>
-  Mintlify serves `llms.txt`, `llms-full.txt`, and `skill.md` at the root path. If your docs live under a subpath (such as `/help`), you can also serve these files under that subpath (for example, `/help/llms.txt`). To do this, add location blocks that rewrite the subpath to the root path. See the nginx example below for both patterns.
-</Note>
-
-### Required header configuration
-
-Configure your reverse proxy with these header requirements:
-
-- **Origin**: Contains the target subdomain `<your-subdomain>.mintlify.site`
-- **X-Forwarded-For**: Preserves client IP information
-- **X-Forwarded-Proto**: Preserves original protocol (HTTP/HTTPS)
-- **X-Real-IP**: Forwards the real client IP address
-- **User-Agent**: Forwards the user agent
-
-<Warning>
-  Ensure that the `Host` header is not forwarded
-</Warning>
-
-### Example nginx configuration
-
-```nginx
-server {
-    listen 80;
-    server_name <your-domain>.com;
-
-    # Vercel verification paths
-    location ~ ^/\.well-known/vercel/ {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for verification paths
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    # AI skills paths
-    location ^~ /.well-known/skills/ {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for verification paths
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    # Agent-skills discovery paths
-    location ^~ /.well-known/agent-skills/ {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for agent-skills paths
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    # Skill manifest
-    location = /skill.md {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for skill manifest
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    # LLM index files
-    location = /llms.txt {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    location = /llms-full.txt {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    # Optional: Serve AI files under your subpath with path rewriting.
-    # Replace "/help" with your subpath. These blocks rewrite the
-    # subpath so Mintlify receives the root path it expects.
-    #
-    # location = /help/llms.txt {
-    #     proxy_pass https://<your-subdomain>.mintlify.site/llms.txt;
-    #     proxy_set_header Origin <your-subdomain>.mintlify.site;
-    #     proxy_set_header X-Real-IP $remote_addr;
-    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    #     proxy_set_header X-Forwarded-Proto $scheme;
-    #     proxy_set_header User-Agent $http_user_agent;
-    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
-    # }
-    #
-    # location = /help/llms-full.txt {
-    #     proxy_pass https://<your-subdomain>.mintlify.site/llms-full.txt;
-    #     proxy_set_header Origin <your-subdomain>.mintlify.site;
-    #     proxy_set_header X-Real-IP $remote_addr;
-    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    #     proxy_set_header X-Forwarded-Proto $scheme;
-    #     proxy_set_header User-Agent $http_user_agent;
-    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
-    # }
-    #
-    # location = /help/skill.md {
-    #     proxy_pass https://<your-subdomain>.mintlify.site/skill.md;
-    #     proxy_set_header Origin <your-subdomain>.mintlify.site;
-    #     proxy_set_header X-Real-IP $remote_addr;
-    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    #     proxy_set_header X-Forwarded-Proto $scheme;
-    #     proxy_set_header User-Agent $http_user_agent;
-    #     add_header Cache-Control "no-cache, no-store, must-revalidate";
-    # }
-
-    # Static assets with caching
-    location ~ ^/mintlify-assets/_next/static/ {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Enable caching for static assets
-        add_header Cache-Control "public, max-age=86400";
-    }
-
-    # Mintlify-specific paths
-    location ~ ^/_mintlify/ {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for Mintlify paths
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    # Root path
-    location = / {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for dynamic content
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-
-    # All other documentation paths
-    location / {
-        proxy_pass https://<your-subdomain>.mintlify.site;
-        proxy_set_header Origin <your-subdomain>.mintlify.site;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header User-Agent $http_user_agent;
-
-        # Disable caching for dynamic content
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-    }
-}
-```
+Configure your reverse proxy using the same [routing configuration](#routing-configuration), [header requirements](#required-header-configuration), and nginx patterns as the `/docs` subpath, replacing `/docs` with your base path.
 
 ## Troubleshooting
 
@@ -405,4 +208,4 @@ server {
 
 **Cause**: Incorrect caching configuration.
 
-**Solution**: For custom subpath configurations, enable caching only for `/mintlify-assets/_next/static/*` paths. The `/docs` subpath configuration handles caching automatically.
+**Solution**: Disable caching for documentation paths. If you proxy `/mintlify-assets/_next/static/*` paths, enable caching only for those static assets.
