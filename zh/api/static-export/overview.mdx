@@ -1,0 +1,148 @@
+---
+title: "静态导出"
+description: "通过 Mintlify REST API 生成自包含的文档静态导出，并以单个包的形式下载。"
+keywords: ["static export", "static site", "bundle", "self-host", "enterprise"]
+---
+
+<Info>
+  静态导出需要 [Enterprise 套餐](https://mintlify.com/pricing?ref=static-export)。
+</Info>
+
+使用静态导出 API 以编程方式将站点预渲染为一组自包含的静态文件，并将结果作为单个包下载。导出的包为纯 HTML、CSS 和 JavaScript，没有运行时依赖，因此你可以将其托管在任何静态文件存储或 CDN 上。
+
+<div id="how-static-export-works">
+  ## 静态导出的工作原理
+</div>
+
+静态导出以异步作业的形式运行。你启动作业、轮询其状态，然后在作业完成后生成可下载的包。
+
+<Steps>
+  <Step title="启动静态导出作业">
+    使用要导出的域名调用 [启动静态导出作业](/zh/api/static-export/start-job)。API 将作业加入队列并返回 `jobId`。
+  </Step>
+  <Step title="查询作业状态">
+    使用 `jobId` 轮询 [获取静态导出作业状态](/zh/api/static-export/get-job-status)，直到 `status` 为 `completed`。在作业运行时，响应会包含实时的 `progress` 和 `pageCount`。
+  </Step>
+  <Step title="生成包">
+    使用 `jobId` 调用 [生成导出包](/zh/api/static-export/generate-bundle)。API 会将导出打包为单个归档文件，并返回 `bundleUrl`（即静态导出包的预签名 S3 链接）以及 `expiresAt` 时间戳。请在 `expiresAt` 之前下载该包——过期后，可再次调用 [生成导出包](/zh/api/static-export/generate-bundle) 获取新的链接。底层作业及其文件仍可复用；仅链接有时限。
+  </Step>
+</Steps>
+
+<div id="feature-support-by-deployment">
+  ## 按部署方式的功能支持
+</div>
+
+可用功能取决于你的部署托管方式。气隙（air-gapped）部署没有出站网络访问权限，因此任何依赖 Mintlify 云服务的功能均不可用。标记为 **Configurable** 的功能会根据你的环境配置有所不同。
+
+| 功能 | Cloud | Client-hosted | Air-gapped |
+| --- | :---: | :---: | :---: |
+| 文档搜索 | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
+| AI 助手 | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
+| 网页分析 | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
+| API playground（"Try it"） | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | Configurable |
+| 静态导出包 | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> |
+
+<div id="endpoints">
+  ## 端点
+</div>
+
+- [启动静态导出作业](/zh/api/static-export/start-job)：为部署启动一个静态导出作业。
+- [获取静态导出作业状态](/zh/api/static-export/get-job-status)：轮询正在运行作业的状态和进度。
+- [生成导出包](/zh/api/static-export/generate-bundle)：打包已完成的作业，并返回该包的单个 S3 链接。
+
+<div id="authentication">
+  ## 身份认证
+</div>
+
+使用你的 admin API 密钥对请求进行身份认证。你可以在控制台的 [API keys 页面](https://app.mintlify.com/settings/organization/api-keys) 生成 admin API 密钥。Admin API 密钥以 `mint_` 前缀开头，属于服务端机密——切勿在客户端代码中暴露。
+
+<div id="deploy-the-bundle-to-your-enterprise-helm-chart">
+  ## 将包部署到你的 Enterprise Helm chart
+</div>
+
+自托管的 Mintlify 通过 [`mintlify/enterprise`](https://github.com/mintlify/enterprise) 仓库中的 Helm chart 部署。当静态导出作业生成包后，将 chart 指向该包，部署环境便会从你自己的基础设施提供服务。
+
+<Steps>
+  <Step title="将包引用添加到 values 文件">
+    将 `values.yaml` 中的静态导出字段设置为 [生成导出包](/zh/api/static-export/generate-bundle) 返回的 `bundleUrl`。chart 会在启动时获取该包并将其作为当前版本提供服务。
+
+    ```yaml values.yaml
+    staticExport:
+      enabled: true
+      # Presigned S3 link returned by the Generate export bundle endpoint.
+      bundleUrl: "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz"
+      # Optional: pin to a specific export version for reproducible rollouts.
+      version: "2024-06-01"
+    ```
+  </Step>
+  <Step title="发布 chart">
+    使用 `helm upgrade` 应用更新后的 values。部署环境会下载该包，将其切换为当前站点，并从你的集群中提供服务。
+
+    ```bash
+    helm upgrade --install mintlify mintlify/enterprise \
+      --namespace mintlify \
+      --create-namespace \
+      -f values.yaml
+    ```
+  </Step>
+</Steps>
+
+由于预签名链接会过期，每当你发布新内容时，都需要重新生成包并再次执行升级，或使用 GitHub Actions 自动化整个流程。
+
+<div id="automate-with-a-github-action">
+  ## 使用 GitHub Action 自动化
+</div>
+
+以下模板工作流按计划或按需运行完整的导出流程。它会启动作业、轮询直至导出完成、生成包，并将新的 `bundleUrl` 应用到 Helm chart。
+
+```yaml .github/workflows/static-export.yml
+name: Publish static export
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 06:00 UTC
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start static export job
+        id: start
+        run: |
+          JOB_ID=$(curl -s -X POST https://api.mintlify.com/v1/static-export/jobs \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"domain": "docs.example.com"}' | jq -r '.jobId')
+          echo "job_id=$JOB_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the job to complete
+        run: |
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }} \
+              -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.status')
+            echo "status=$STATUS"
+            [ "$STATUS" = "completed" ] && exit 0
+            [ "$STATUS" = "failed" ] && exit 1
+            sleep 10
+          done
+          echo "Timed out waiting for the export job to complete." >&2
+          exit 1
+
+      - name: Generate the bundle
+        id: bundle
+        run: |
+          BUNDLE_URL=$(curl -s -X POST \
+            https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }}/bundle \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.bundleUrl')
+          echo "bundle_url=$BUNDLE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to the Helm chart
+        run: |
+          helm upgrade --install mintlify mintlify/enterprise \
+            --namespace mintlify \
+            --set staticExport.enabled=true \
+            --set staticExport.bundleUrl="${{ steps.bundle.outputs.bundle_url }}"
+```
+
+将你的 admin API 密钥保存为 `MINTLIFY_ADMIN_KEY` 仓库机密，并在部署步骤之前配置集群凭据（例如，使用 `azure/setup-helm` 和你的 kubeconfig）。

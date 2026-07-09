@@ -1,0 +1,213 @@
+---
+title: "Multi-repository deployments"
+description: "Combine multiple Git repositories into one Mintlify site, with a dedicated URL path for each source repo's content and navigation."
+keywords: ["multi-repo", "multiple repositories", "git sources", "URL path"]
+---
+
+<Info>
+  Multi-repository deployments are available on [Enterprise plans](https://mintlify.com/pricing?ref=multi-repo).
+</Info>
+
+Use a multi-repository deployment when one site needs content from more than one Git repository. When you configure multiple repositories as sources for the same Mintlify project, content from each repository has its own URL path.
+
+For example, you can combine separate repositories for product documentation, API reference, and SDK guides into one site:
+
+```text
+docs.example.com/product
+docs.example.com/api
+docs.example.com/sdks
+```
+
+## How multi-repository deployments work
+
+Each repository in a multi-repository deployment has its own:
+
+- Git provider connection
+- Branch
+- Optional content directory
+- URL path
+- `docs.json`
+
+During deployment, Mintlify reads each repository and combines the configured sources into one site. Each source appears under its configured URL path.
+
+One repository acts as the **base source** for the deployment. Its `docs.json` is the root `docs.json` and controls site-level configuration, including theme, colors, logo, site name, top-level navigation, integrations, SEO, and other top-level fields. Every other source contributes only its own navigation and content under its configured URL path. The first repository you configure is the base source by default, and you can [change which source is the base](#change-the-base-source) at any time.
+
+<Note>
+  Multi-repository deployments are different from a [monorepo setup](/deploy/monorepo). Use a monorepo setup when you store all content in a subdirectory alongside source code in a single repository. Use multi-repository deployments when you store content across separate repositories.
+</Note>
+
+## Requirements
+
+- An Enterprise plan
+- Admin access to your Mintlify project
+- A `docs.json` file in each repository source
+- All repository sources must use the same Git provider (all GitHub or all GitLab). Adding a source from a different provider removes all existing sources of the other type
+
+<Warning>
+  URL paths must be unique and cannot overlap. For example, do not configure one source at `/docs` and another source at `/docs/api`.
+</Warning>
+
+## Configure multiple repositories
+
+<Steps>
+  <Step title="Open Git settings">
+    Navigate to [Git settings](https://app.mintlify.com/settings/deployment/git-settings) in your dashboard.
+
+    <Frame>
+    <img src="/images/deployments/add-repository-light.png" alt="The Git settings page in the Mintlify dashboard. The Add repository button is visible at the bottom." className="block dark:hidden" />
+    <img src="/images/deployments/add-repository-dark.png" alt="The Git settings page in the Mintlify dashboard. The Add repository button is visible at the bottom." className="hidden dark:block" />
+    </Frame>
+  </Step>
+
+  <Step title="Add another repository">
+    Click **Add repository**.
+  </Step>
+
+  <Step title="Configure the repository source">
+    Select the repository, branch, and any required Git provider-specific fields (GitHub or GitLab).
+    
+    <Frame>
+    <img src="/images/deployments/repo-configuration-light.png" alt="The repository configuration panel in the Git settings page. The repository, branch, and GitHub-specific fields are visible." className="block dark:hidden" />
+    <img src="/images/deployments/repo-configuration-dark.png" alt="The repository configuration panel in the Git settings page. The repository, branch, and GitHub-specific fields are visible." className="hidden dark:block" />
+    </Frame>
+
+    For GitHub sources, the Mintlify GitHub App must have access to the repository. For GitLab sources, provide the project ID and a deploy token with `read_repository` scope.
+
+    If the repository's `docs.json` is in a subdirectory rather than the root, enable **docs.json is in a subdirectory** and enter the path to that directory.
+  </Step>
+
+  <Step title="Set the URL path">
+    Enter a **URL path** for the repository source.
+
+    The URL path determines where the content from that repository appears on your docs site. For example, a URL path of `api` serves the content under `docs.example.com/api`.
+
+    <Note>
+      You can enter the path with or without leading slashes. Mintlify normalizes the value when you save.
+    </Note>
+  </Step>
+
+  <Step title="Save changes">
+    Click **Save changes**. Mintlify saves the configuration and queues a deployment of the combined site.
+  </Step>
+</Steps>
+
+## Change the base source
+
+The base source provides the site-wide configuration for your multi-repository deployment. Change the base source when you want a different repository's `docs.json` to control settings like theme, colors, site name, and top-level navigation.
+
+<Steps>
+  <Step title="Open Git settings">
+    Navigate to [Git settings](https://app.mintlify.com/settings/deployment/git-settings) in your dashboard.
+
+    The current base source shows a **Base** badge next to the repository name.
+  </Step>
+
+  <Step title="Set a new base source">
+    On the repository you want to use as the base, click **Set as base**.
+
+    Mintlify updates the base source immediately and queues a deployment using the new base repository's `docs.json` for site-level configuration.
+  </Step>
+</Steps>
+
+<Warning>
+  Changing the base source replaces site-level settings such as theme, colors, logo, site name, and top-level navigation with the values from the new base repository's `docs.json`. This change doesn't affect URL paths or content from other sources.
+</Warning>
+
+## Example repository layout
+
+In this example, each source has its own repository and its own `docs.json`.
+
+```text
+acme/product-docs
+├── docs.json
+├── overview.mdx
+└── guides/
+
+acme/api-docs
+├── docs.json
+├── introduction.mdx
+└── reference/
+
+acme/sdk-docs
+├── docs.json
+├── quickstart.mdx
+└── javascript/
+```
+
+Configure each repository with a URL path:
+
+| Repository | URL path | Published path |
+| --- | --- | --- |
+| `acme/product-docs` | `product` | `/product` |
+| `acme/api-docs` | `api` | `/api` |
+| `acme/sdk-docs` | `sdks` | `/sdks` |
+
+## Navigation behavior
+
+Mintlify combines the navigation from each repository into one site navigation. Each repository source becomes a top-level product section under the configured URL path.
+
+The name of each product section comes from the `name` field in the corresponding repository's `docs.json`. For example, if a repository's `docs.json` sets `"name": "API Reference"`, its product section appears as "API Reference" in the combined navigation.
+
+Keep each source's navigation scoped to that repository. For example, pages in the API repository should reference only files that live in the API repository, and pages in the SDK repository should reference only files that live in the SDK repository.
+
+Nested `navigation.products` configurations are not supported inside individual source repositories.
+
+### Link between sources
+
+Relative Markdown links can't resolve across repositories because each source only sees its own files at build time. To link from one source to a page in another source, use a root-relative URL path that includes the destination source's URL path:
+
+```mdx
+See the [API reference](/api/reference/authentication) for details.
+```
+
+{/* vale Vale.Terms = NO */}
+In this example, `/api` is the URL path configured for the API repository source. The link resolves at the published site level to `docs.example.com/api/reference/authentication`.
+{/* vale Vale.Terms = YES */}
+
+Do not use full `https://` URLs for internal cross-source links. Root-relative paths keep previews and custom domains working correctly.
+
+## Reference navigation from another source
+
+Use `sourceRef` to place another repository's navigation at a specific location in the base source's `docs.json`. If you don't use `sourceRef`, Mintlify adds each repository as a separate top-level product section.
+
+### Requirements
+
+- Configure the referenced repository as a source in the same multi-repository deployment.
+- `sourceRef` values must use `owner/repo` format. Mount paths and repository names by themselves are not supported.
+- The referenced source must define a similar navigation pattern as the main source. For example, a `sourceRef` inside `anchors` requires the referenced source to define `navigation.anchors`.
+- `sourceRef` entries cannot form a cycle. A source cannot reference itself, and two sources cannot reference each other.
+- `sourceRef` must appear inside a navigation array. It is not valid at the top level of `navigation`.
+
+### Usage
+
+Add a `sourceRef` entry to a navigation array in the base source's `docs.json`. The value must be the repository's `owner/repo` identifier.
+
+```json
+{ "sourceRef": "acme/api-docs" }
+```
+
+Mintlify supports `sourceRef` inside `anchors`, `tabs`, `groups`, `pages`, `products`, and arrays under `navigation.global`.
+
+For example, to combine anchors from multiple repositories into a single anchor navigation:
+
+```json
+{
+  "navigation": {
+    "anchors": [
+      {
+        "anchor": "Guides",
+        "pages": ["quickstart"]
+      },
+      {
+        "sourceRef": "acme/api-docs"
+      }
+    ]
+  }
+}
+```
+
+If `acme/api-docs` defines its own `navigation.anchors`, Mintlify replaces the `sourceRef` entry with those anchors and prefixes their paths with the referenced source's URL path.
+
+## Removing a repository source
+
+You can remove a repository source from the [Git settings page](https://app.mintlify.com/settings/deployment/git-settings) in your dashboard. When only one repository source remains, Mintlify removes the source URL path and treats the remaining repository as the root source for the deployment.

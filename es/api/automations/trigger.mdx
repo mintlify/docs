@@ -1,0 +1,53 @@
+---
+title: "Activar automatización"
+openapi: "/es/openapi.json POST /workflow/{projectId}/{workflowSchemaId}/trigger"
+keywords: ["automation", "workflow", "trigger", "webhook", "schedule", "CI"]
+---
+
+Usa este endpoint para activar bajo demanda una automatización programada, en lugar de esperar a su próxima ejecución programada. La automatización se comporta de forma idéntica a una ejecución programada normal: recoge todo lo que ha cambiado desde la última ejecución completada.
+
+Este endpoint solo admite automatizaciones configuradas con un activador de **Programación personalizada**. Las solicitudes para automatizaciones con otros activadores, como **Cambio de código** o **Actualización de contenido**, devuelven un error `400`.
+
+<div id="use-cases">
+## Casos de uso
+</div>
+
+- **Pipelines CI/CD**: Ejecuta la automatización **Update from code changes** en cada fusión a `main`, para que la documentación se actualice según tu cadencia de versiones en lugar de hacerlo según una programación fija.
+- **Eventos de versión**: Ejecuta la automatización **Draft changelog** cuando creas una etiqueta de versión, para que el changelog se redacte al mismo tiempo que se publica la versión.
+- **Herramientas personalizadas**: Activa automatizaciones desde herramientas internas, comandos de Slack o tareas programadas que ya ejecutas.
+
+<div id="find-the-automation-id">
+## Encuentra el ID de la automatización
+</div>
+
+Copia el ID de la automatización desde el panel de configuración de la automatización en la página [Automatizaciones](https://app.mintlify.com/products/automations) de tu dashboard.
+
+<div id="example">
+## Ejemplo
+</div>
+
+Activa una automatización desde una GitHub Action cada vez que se fusiona código a `main`:
+
+```yaml .github/workflows/trigger-docs.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v1/workflow/$PROJECT_ID/$WORKFLOW_ID/trigger" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          WORKFLOW_ID: ${{ vars.MINTLIFY_WORKFLOW_ID }}
+```
+
+<div id="rate-limits">
+## Límites de tasa
+</div>
+
+Este endpoint comparte un límite de tasa con [Trigger update](/es/api/update/trigger): hasta 10 solicitudes cada 10 segundos por organización. Las ejecuciones activadas consumen créditos al mismo ritmo que las ejecuciones programadas.

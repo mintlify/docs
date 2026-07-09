@@ -37,12 +37,13 @@ Cuando una aplicación de IA se conecta a tu servidor Search MCP, puede buscar e
   ### Herramientas MCP
 </div>
 
-Tu servidor Search MCP proporciona dos herramientas que los agentes pueden usar:
+Tu servidor Search MCP proporciona tres herramientas que los agentes pueden usar:
 
 - **Search**: Busca en tu sitio para encontrar contenido relevante, devolviendo fragmentos con títulos y enlaces. Úsala para descubrir información o encontrar páginas que coincidan con una consulta.
 - **Query docs filesystem**: Lee y navega el sistema de archivos virtual de tu sitio usando comandos de estilo shell. Úsala para explorar y recuperar contenido, o extraer secciones específicas, incluyendo lecturas de múltiples páginas en una sola llamada.
+- **Submit feedback**: Reporta a tu equipo un problema en la documentación cuando un agente encuentra una página incorrecta, desactualizada, confusa o incompleta. El agente proporciona la ruta de la página y una descripción del problema, que Mintlify registra como comentario no útil en tu dashboard de analytics.
 
-Los agentes determinan cuándo usar cada herramienta según el contexto de la conversación. Por ejemplo, un agente podría primero buscar en tu sitio para encontrar páginas relevantes y luego usar la herramienta query docs filesystem para leer el contenido completo de los resultados más relevantes.
+Los agentes determinan cuándo usar cada herramienta según el contexto de la conversación. Por ejemplo, un agente podría primero buscar en tu sitio para encontrar páginas relevantes, luego usar la herramienta query docs filesystem para leer el contenido completo de los resultados más relevantes y llamar a submit feedback si detecta un problema con la página durante el proceso.
 
 <div id="mcp-resources">
   ### Recursos MCP
@@ -83,16 +84,14 @@ Mintlify genera un servidor Search MCP para tu sitio y lo aloja en la ruta `/mcp
 * Para contenido con autenticación parcial, donde algunas páginas son públicas y otras requieren iniciar sesión, debes habilitar tu servidor Search MCP antes de que los usuarios puedan acceder a él. Los usuarios no autenticados pueden buscar en el contenido público. Los usuarios que se autentican pueden buscar en todo el contenido al que tienen permiso de acceso según sus [grupos de usuarios](/es/deploy/authentication-setup).
 * Para contenido en el que todas las páginas requieren autenticación, debes habilitar tu servidor Search MCP antes de que esté disponible para los usuarios. Los usuarios deben autenticarse antes de conectarse a tu servidor Search MCP. Tu servidor Search MCP busca solo en el contenido al que cada usuario tiene acceso según sus [grupos de usuarios](/es/deploy/authentication-setup).
 
-Puedes ver y copiar la URL de tu servidor Search MCP en la [página del servidor MCP](https://dashboard.mintlify.com/products/mcp) de tu dashboard.
-
-<Frame>
-  <img src="/images/mcp/mcp-server-page-light.png" alt="Página del servidor MCP en el dashboard." className="block dark:hidden" />
-
-  <img src="/images/mcp/mcp-server-page-dark.png" alt="Página del servidor MCP en el dashboard." className="hidden dark:block" />
-</Frame>
+Si tu sitio usa autenticación, configura tu servidor Search MCP alojado desde **Settings → Security & access → MCP** en tu dashboard. El servidor Search MCP autenticado está disponible en la ruta `/authed/mcp` de la URL de tu sitio.
 
 <Note>
-  Los servidores Search MCP utilizan las rutas `/mcp` y `/authed/mcp`. Otros elementos de navegación no pueden utilizar estas rutas.
+  La página de configuración **MCP** solo aparece cuando habilitas la [autenticación](/es/deploy/authentication-setup) en tu sitio. Si tu sitio no requiere autenticación, tu servidor Search MCP sigue siendo accesible en la ruta `/mcp` de la URL de tu sitio.
+</Note>
+
+<Note>
+  Mintlify reserva las rutas `/mcp` y `/authed/mcp` para los servidores Search MCP. No puedes usarlas para otros elementos de navegación.
 </Note>
 
 <div id="discovery-endpoint">
@@ -130,17 +129,17 @@ Mintlify aloja un documento de descubrimiento en `/.well-known/mcp` para que los
 | `version` | La versión del servidor MCP. |
 | `transport` | El protocolo de transporte. Siempre es `http`. |
 | `url` | La URL pública predeterminada del servidor MCP. |
-| `servers` | Servidores MCP disponibles. Siempre incluye una entrada `public`. Cuando la autenticación está habilitada en tu sitio, también incluye una entrada `authenticated`. |
+| `servers` | Servidores MCP disponibles. Siempre incluye una entrada `public`. Cuando tu sitio usa autenticación, también incluye una entrada `authenticated`. |
 | `servers[].name` | Identificador de la entrada del servidor. |
 | `servers[].authentication` | Método de autenticación de la entrada del servidor. |
 
-Para la compatibilidad con agentes, el mismo documento de descubrimiento también está disponible en `/.well-known/mcp.json`. Mintlify además expone una tarjeta de servidor MCP en `/.well-known/mcp/server-card.json` y una lista de tarjetas de servidor en `/.well-known/mcp/server-cards.json`. Todos los endpoints de descubrimiento se sirven automáticamente y no requieren configuración.
+Para la compatibilidad con agentes, el mismo documento de descubrimiento también está disponible en `/.well-known/mcp.json`. Mintlify además expone una tarjeta de servidor MCP en `/.well-known/mcp/server-card.json` y una lista de tarjetas de servidor en `/.well-known/mcp/server-cards.json`. Mintlify sirve todos los endpoints de descubrimiento automáticamente y no requieren configuración.
 
 <div id="server-card-endpoints">
   #### Endpoints de la tarjeta de servidor
 </div>
 
-`GET /.well-known/mcp/server-card.json` devuelve una única tarjeta de servidor que describe tu servidor MCP. `GET /.well-known/mcp/server-cards.json` devuelve un arreglo `servers` con una tarjeta por cada endpoint disponible (siempre incluye una tarjeta de servidor pública y una tarjeta de servidor autenticada cuando la autenticación está habilitada).
+`GET /.well-known/mcp/server-card.json` devuelve una única tarjeta de servidor que describe tu servidor MCP. `GET /.well-known/mcp/server-cards.json` devuelve un arreglo `servers` con una tarjeta por cada endpoint disponible (siempre incluye una tarjeta de servidor pública, además de una tarjeta de servidor autenticada cuando tu sitio usa autenticación).
 
 Cada tarjeta de servidor incluye los campos de descubrimiento estándar y un arreglo `tools` que describe las herramientas MCP que el servidor anuncia. Úsalo para precargar los metadatos de las herramientas en los clientes MCP sin tener que realizar una llamada `initialize` al servidor.
 
@@ -187,7 +186,7 @@ Cada tarjeta de servidor incluye los campos de descubrimiento estándar y un arr
 | `tools[].inputSchema` | JSON Schema de los parámetros de entrada de la herramienta. |
 | `tools[].annotations` | [Anotaciones de herramientas MCP](https://modelcontextprotocol.io/specification/2025-06-18/server/tools#tool-annotations) opcionales que describen el comportamiento de la herramienta. |
 
-Las herramientas integradas de búsqueda y de consulta del sistema de archivos de la documentación se anuncian como de solo lectura y no destructivas con las siguientes anotaciones:
+Las herramientas integradas de búsqueda y de consulta del sistema de archivos de la documentación se mantienen de solo lectura y no destructivas, con las siguientes anotaciones:
 
 - `readOnlyHint: true`: la herramienta no modifica ningún estado.
 - `destructiveHint: false`: la herramienta no tiene efectos secundarios destructivos.
@@ -209,16 +208,19 @@ Si tu sitio tiene autenticación parcial con páginas públicas y protegidas, di
 
 El endpoint `/authed/mcp` utiliza su propio flujo OAuth en `/authed/mcp/oauth/*`. Los dominios de redirección configurados para tu servidor MCP se aplican tanto a `/mcp` como a `/authed/mcp`.
 
-De forma predeterminada, tu servidor MCP solo está disponible para herramientas en localhost. Para permitir que se conecten herramientas basadas en la web, agrega los dominios de redirección de las herramientas de IA. Un dominio de redirección es el nombre de host que usa una herramienta de IA después de que un usuario completa la autenticación, como `claude.ai` o `app.cursor.ai`. Las herramientas de IA de tus usuarios no pueden completar la autenticación a menos que su dominio de redirección esté en esta lista.
+Los clientes MCP populares como Claude, ChatGPT, Cursor y Devin siempre están permitidos para completar la autenticación contra tu servidor MCP. No necesitas agregar estos clientes a ninguna lista de permitidos.
+
+Para permitir que otras herramientas basadas en la web se conecten, agrega sus dominios de redirección en tu dashboard. Un dominio de redirección es el nombre de host que usa una herramienta de IA después de que un usuario completa la autenticación. Las herramientas de IA de tus usuarios no pueden completar la autenticación a menos que su dominio de redirección esté en esta lista o la herramienta sea uno de los clientes siempre permitidos.
+
+Mintlify habilita tu servidor MCP alojado automáticamente cuando tu sitio tiene [autenticación](/es/deploy/authentication-setup) configurada.
 
 <Steps>
-  <Step title="Habilitar MCP autenticado en tu dashboard">
-    1. Ve a la [página del servidor MCP](https://dashboard.mintlify.com/products/mcp) en tu dashboard.
-    2. Haz clic en el interruptor **Enable MCP Server**.
+  <Step title="Abrir la configuración del MCP alojado">
+    En tu dashboard, ve a **Settings → Security & access → MCP**.
   </Step>
 
-  <Step title="Agregar dominios de redirección">
-    Agrega los dominios de redirección de las herramientas de IA a las que quieres dar acceso a tus usuarios. Las herramientas de IA de tus usuarios no pueden completar la autenticación a menos que su dominio de redirección esté en esta lista. Entre los dominios de redirección más comunes están `claude.ai` y `vscode.dev/redirect`.
+  <Step title="Agregar dominios de redirección personalizados">
+    En **Allowed OAuth redirect URIs**, agrega los dominios de redirección de las herramientas de IA adicionales a las que quieres dar acceso a tus usuarios. Solo necesitas agregar dominios para clientes que no estén ya en la lista de siempre permitidos.
 
     De forma predeterminada, los dominios de redirección utilizan `https://`. Para permitir un esquema de protocolo personalizado, incluye el protocolo completo en la entrada del dominio. Por ejemplo, un callback de aplicación nativa como `myapp://callback`. Mintlify siempre bloquea protocolos peligrosos como `javascript:`, `data:` y `file:`.
 
@@ -235,15 +237,15 @@ Las credenciales de cliente te permiten conectarte a tu servidor MCP autenticado
 Las credenciales de cliente se autentican contra el endpoint `/authed/mcp` y devuelven todo el contenido de las páginas públicas y de las páginas autenticadas que no estén restringidas a grupos específicos.
 
 <Note>
-  Las credenciales de cliente de MCP son distintas de las [claves de API de Mintlify](/es/api/introduction). Las claves de API de administración y del asistente autentican solicitudes a la API REST de Mintlify y no pueden usarse para autenticarse en tu servidor MCP. Para llamar a tu servidor MCP de forma programática, crea una credencial de cliente en la [página del servidor MCP](https://dashboard.mintlify.com/products/mcp) e intercámbiala por un token de acceso siguiendo los pasos a continuación.
+  Las credenciales de cliente de MCP son distintas de las [claves de API de Mintlify](/es/api/introduction). Las claves de API de administración y del asistente autentican solicitudes a la API REST de Mintlify y no pueden usarse para autenticarse en tu servidor MCP. Para llamar a tu servidor MCP de forma programática, crea una credencial de cliente desde **Settings → Security & access → MCP** en tu dashboard e intercámbiala por un token de acceso siguiendo los pasos a continuación.
 </Note>
 
 <Steps>
   <Step title="Crear una credencial de cliente">
-    1. Ve a la [página del servidor MCP](https://dashboard.mintlify.com/products/mcp) en tu dashboard.
-    2. En la sección **Client Credentials**, selecciona **Create credential**.
-    3. Ingresa una etiqueta para la credencial para identificar su propósito.
-    4. Copia el **client ID** y el **client secret**. El client secret solo se muestra una vez. No podrás recuperarlo después.
+    1. En tu dashboard, ve a **Settings → Security & access → MCP**.
+    2. En la sección **Client credentials**, selecciona **Generate**.
+    3. Ingresa una etiqueta para identificar el propósito de la credencial y confírmala.
+    4. Copia el **client ID** y el **client secret** desde el diálogo **Secret generated**. El client secret solo se muestra una vez. No podrás recuperarlo después.
   </Step>
   <Step title="Intercambiar credenciales por un token de acceso">
     Envía una solicitud POST al endpoint de token de tu servidor MCP con tu client ID y secret. Tu endpoint de token se encuentra en la ruta `/authed/mcp/oauth/token` de la URL de tu sitio.
@@ -311,9 +313,10 @@ Las credenciales de cliente se autentican contra el endpoint `/authed/mcp` y dev
   #### Gestión de credenciales de cliente
 </div>
 
-Puedes gestionar tus credenciales de cliente desde la [página del servidor MCP](https://dashboard.mintlify.com/products/mcp) en tu dashboard.
+Puedes gestionar tus credenciales de cliente desde **Settings → Security & access → MCP** en tu dashboard.
 
 - **Eliminar una credencial** para revocar el acceso de forma permanente. Esta acción no se puede deshacer.
+- **Rotar una credencial** creando una nueva credencial, actualizando las integraciones que usan la antigua con el nuevo client ID y secret, y luego eliminando la credencial antigua. Cada credencial tiene un secret único, por lo que crear una nueva no afecta a las credenciales existentes hasta que las elimines.
 
 <Warning>
   Trata los client secrets como contraseñas. No los incluyas en el control de código fuente ni los expongas en código del lado del cliente. Usa variables de entorno o un administrador de secretos para almacenarlos.
@@ -332,6 +335,10 @@ Para proteger la disponibilidad, Mintlify aplica límites de uso a los servidore
 | Query docs filesystem por sitio (domain) | 10.000 solicitudes por hora | Limita el total de llamadas a la herramienta query docs filesystem entre todos los usuarios de tu servidor MCP. |
 | Search autenticado por sitio (domain) | 5.000 solicitudes por hora | Limita el total de llamadas autenticadas a la herramienta de búsqueda entre todos los usuarios de tu servidor MCP. |
 | Query docs filesystem autenticado por sitio (domain) | 5.000 solicitudes por hora | Limita el total de llamadas autenticadas a la herramienta query docs filesystem entre todos los usuarios de tu servidor MCP. |
+
+Si superas un límite, el servidor MCP devuelve una respuesta HTTP `429 Too Many Requests`. Los clientes MCP deberían aplicar backoff y reintentar tras un breve retraso. Los límites se restablecen en una ventana horaria móvil, por lo que la mayoría de las llamadas se recuperan automáticamente en el plazo de una hora.
+
+Si tu sitio alcanza estos límites de forma constante, contacta con [support@mintlify.com](mailto:support@mintlify.com) para solicitar límites más altos.
 
 <div id="content-filtering-and-indexing">
   ## Filtrado de contenido e indexación
@@ -400,7 +407,7 @@ Estas son algunas formas en que puedes ayudar a tus usuarios a conectarse a tu s
   <Tab title="Claude">
     <Steps>
       <Step title="Obtén la URL de tu servidor MCP">
-        Ve a tu [dashboard](https://dashboard.mintlify.com/products/mcp) y encuentra la URL de tu servidor MCP.
+        La URL de tu servidor MCP es la ruta `/mcp` de la URL de tu sitio. Por ejemplo, `https://your-docs.com/mcp`. Si tu sitio requiere autenticación, usa la ruta `/authed/mcp` en su lugar.
       </Step>
 
       <Step title="Publica la URL de tu servidor MCP para tus usuarios">
@@ -421,7 +428,7 @@ Estas son algunas formas en que puedes ayudar a tus usuarios a conectarse a tu s
   <Tab title="Claude Code">
     <Steps>
       <Step title="Obtén la URL de tu servidor MCP">
-        Ve a tu [dashboard](https://dashboard.mintlify.com/products/mcp) y encuentra la URL de tu servidor MCP.
+        La URL de tu servidor MCP es la ruta `/mcp` de la URL de tu sitio. Por ejemplo, `https://your-docs.com/mcp`. Si tu sitio requiere autenticación, usa la ruta `/authed/mcp` en su lugar.
       </Step>
 
       <Step title="Publica la URL de tu servidor MCP para tus usuarios">
@@ -436,10 +443,31 @@ Estas son algunas formas en que puedes ayudar a tus usuarios a conectarse a tu s
     Consulta la [documentación de Claude Code](https://docs.anthropic.com/en/docs/claude-code/mcp#installing-mcp-servers) para más detalles.
   </Tab>
 
+  <Tab title="Codex">
+    <Steps>
+      <Step title="Obtén la URL de tu servidor MCP">
+        La URL de tu servidor MCP es la ruta `/mcp` de la URL de tu sitio. Por ejemplo, `https://your-docs.com/mcp`. Si tu sitio requiere autenticación, usa la ruta `/authed/mcp` en su lugar.
+      </Step>
+
+      <Step title="Publica la URL de tu servidor MCP para tus usuarios">
+        Crea una guía para tus usuarios que incluya la URL de tu servidor MCP y los pasos para conectarlo a la CLI de Codex.
+
+        En `~/.codex/config.toml`, añade:
+
+        ```toml
+        [mcp_servers.<your-mcp-server-name>]
+        url = "<your-mcp-server-url>"
+        ```
+      </Step>
+    </Steps>
+
+    Consulta la [Codex MCP documentation](https://developers.openai.com/codex/mcp) para más detalles.
+  </Tab>
+
   <Tab title="Cursor">
     <Steps>
       <Step title="Obtén la URL de tu servidor MCP">
-        Ve a tu [dashboard](https://dashboard.mintlify.com/products/mcp) y encuentra la URL de tu servidor MCP.
+        La URL de tu servidor MCP es la ruta `/mcp` de la URL de tu sitio. Por ejemplo, `https://your-docs.com/mcp`. Si tu sitio requiere autenticación, usa la ruta `/authed/mcp` en su lugar.
       </Step>
 
       <Step title="Publica la URL de tu servidor MCP para tus usuarios">
@@ -468,7 +496,7 @@ Estas son algunas formas en que puedes ayudar a tus usuarios a conectarse a tu s
   <Tab title="VS Code">
     <Steps>
       <Step title="Obtén la URL de tu servidor MCP">
-        Ve a tu [dashboard](https://dashboard.mintlify.com/products/mcp) y encuentra la URL de tu servidor MCP.
+        La URL de tu servidor MCP es la ruta `/mcp` de la URL de tu sitio. Por ejemplo, `https://your-docs.com/mcp`. Si tu sitio requiere autenticación, usa la ruta `/authed/mcp` en su lugar.
       </Step>
 
       <Step title="Publica la URL de tu servidor MCP para tus usuarios">
@@ -544,6 +572,25 @@ Conéctate al servidor MCP de Mintlify para buscar en este sitio de documentaci�
     ```
 
     Consulta la [documentación de Claude Code](https://docs.anthropic.com/en/docs/claude-code/mcp#installing-mcp-servers) para más detalles.
+  </Tab>
+
+  <Tab title="Codex">
+    Para conectar el servidor MCP de Mintlify a la CLI de Codex, añádelo a tu archivo de configuración en `~/.codex/config.toml`:
+
+    ```toml
+    [mcp_servers.mintlify]
+    url = "https://mintlify.com/docs/mcp"
+    ```
+
+    Prueba la conexión iniciando una sesión de Codex y preguntando:
+
+    ```text
+    What tools do you have available?
+    ```
+
+    Codex debería listar el servidor MCP de Mintlify como una herramienta disponible.
+
+    Consulta la [Codex MCP documentation](https://developers.openai.com/codex/mcp) para más detalles.
   </Tab>
 
   <Tab title="Cursor">

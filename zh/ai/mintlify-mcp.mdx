@@ -1,0 +1,230 @@
+---
+title: "管理员 Model Context Protocol (MCP) 服务器"
+sidebarTitle: "管理员 MCP"
+description: "让 Claude 和 Cursor 等 AI 工具获得对你的 Mintlify 内容和控制台的写入权限，从而编辑页面、更新设置并提交 PR。"
+keywords: ["MCP", "写入权限", "AI", "编辑", "Claude", "Cursor", "branch", "pull request"]
+---
+
+<div id="about-the-admin-mcp">
+  ## 关于管理员 MCP
+</div>
+
+管理员 MCP 服务器赋予 AI 工具对你的 Mintlify 内容和设置的写入权限。可使用它来更新内容并访问你的控制台。借助管理员 MCP，你可以使用你常用的 AI 工具来编辑页面、调整导航结构、更新 `docs.json`、提交拉取请求、修改设置、创建工作流等等。
+
+将任意 MCP 客户端 (例如 Claude、Claude Code 或 Cursor) 连接到管理员 MCP 服务器，即可使用与编写代码相同的工具协同处理你的 Mintlify 内容和设置。使用管理员 MCP 服务器时，所有更改都会发生在某个 branch 上，并需要通过拉取请求合并。如果你的组织有多个部署，单个管理员 MCP 连接即可访问所有这些部署并在它们之间切换。
+
+<Note>
+  管理员 MCP 服务器允许 AI 工具访问你的 Mintlify 控制台。请将其视为拥有写入权限的同事。仅从受信任的 AI 工具连接它，并在合并前审查每一个拉取请求。
+</Note>
+
+管理员 MCP 是由 Mintlify 托管的服务，地址为 `https://mcp.mintlify.com`。没有自托管版本——每个客户端都连接到同一个端点，并使用你的 Mintlify 账户进行身份认证。
+
+<div id="how-the-admin-mcp-differs-from-the-search-mcp">
+  ### 管理员 MCP 与搜索 MCP 的区别
+</div>
+
+|  | 管理员 MCP | 搜索 MCP |
+| :-- | :-- | :-- |
+| **受众** | 你的团队 | 你的终端用户 |
+| **权限** | 读取、编辑、调整结构、保存、创建工作流、管理设置 | 读取并搜索已发布的页面 |
+| **端点** | 由 Mintlify 托管，仅限于你的项目 | 位于你的站点域名上的 `/mcp` |
+| **输出** | 内容编辑、导航更改、拉取请求、工作流运行 | 搜索结果和页面内容 |
+
+<div id="prerequisites">
+  ## 前置条件
+</div>
+
+在连接管理员 MCP 之前，请确认以下事项：
+
+- **Mintlify 账户**：你需要一个 Mintlify 账户，并具有对你想要编辑的项目的访问权限。OAuth 会话会继承你的控制台权限，因此仅限管理员的操作 (例如对受保护设置执行 `update_config`) 需要该项目上的管理员角色。
+- **Git 提供方访问权限**：为该项目安装的 Mintlify GitHub App 或 GitLab 连接必须对部署 branch 所在的仓库具有写入权限。`save` 会通过与常规部署相同的集成打开 PR。
+- **MCP 客户端**：一款支持 MCP 的 AI 工具，例如 Claude、Claude Code、Cursor 或 Codex。
+
+<div id="connect-to-the-admin-mcp">
+  ## 连接到管理员 MCP
+</div>
+
+你必须通过 Mintlify 账户完成交互式 OAuth 登录才能连接到管理员 MCP。AI 工具会将该登录会话兑换为一个会话令牌，其作用域为一个或多个部署，具体取决于你授予访问权限的方式。限定到特定部署的连接只能对这些部署执行 checkout，而组织范围的连接可以对你组织中的任意部署执行 checkout。
+
+<Tabs>
+  <Tab title="Claude">
+    <Steps>
+      <Step title="Add the admin MCP as a custom connector">
+        1. 前往 Claude 设置中的 [Connectors](https://claude.ai/settings/connectors) 页面。
+        2. 点击 **Add custom connector**。
+        3. 添加连接器
+           - 名称：Admin MCP
+           - URL：`https://mcp.mintlify.com`
+        4. 点击 **Add** 并完成 OAuth 登录。
+      </Step>
+      <Step title="Use the MCP in a chat">
+        点击附件按钮 (加号图标)，然后选择你的管理员 MCP 服务器。Claude 现在可以在回答你的提示时调用 Mintlify 管理员 MCP 工具。
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Claude Code">
+    使用 Claude Code CLI 添加管理员 MCP 服务器：
+
+    ```bash
+    claude mcp add --transport http mintlify https://mcp.mintlify.com
+    ```
+
+    首次使用时，Claude Code 会打开一个浏览器窗口以完成 OAuth 登录。完成认证后，后续调用会复用该会话。
+  </Tab>
+  <Tab title="Cursor">
+    1. 使用 <kbd>Command</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd> (Windows 上为 <kbd>Ctrl</kbd> \+ <kbd>Shift</kbd> \+ <kbd>P</kbd>) 打开命令面板。
+    2. 搜索 **Open MCP settings** 并点击 **Add custom MCP**。
+    3. 在 `mcp.json` 中添加管理员 MCP：
+
+    ```json
+    {
+      "mcpServers": {
+        "mintlify": {
+          "url": "https://mcp.mintlify.com"
+        }
+      }
+    }
+    ```
+
+    4. 重新加载 Cursor，并在出现提示时完成 OAuth 登录。
+  </Tab>
+  <Tab title="Codex">
+    在 `~/.codex/config.toml` 中的 Codex CLI 配置里添加管理员 MCP 服务器：
+
+    ```toml
+    [mcp_servers.mintlify]
+    url = "https://mcp.mintlify.com"
+    ```
+
+    首次使用时，Codex 会打开一个浏览器窗口以完成 OAuth 登录。完成认证后，后续调用会复用该会话。
+
+    详情请参见 [Codex MCP 文档](https://developers.openai.com/codex/mcp)。
+  </Tab>
+</Tabs>
+
+<div id="how-a-session-works">
+  ## 会话的工作方式
+</div>
+
+每个管理员 MCP 会话都绑定到单个 Git branch。流程如下：
+
+<Steps>
+  <Step title="Discover deployments (optional)">
+    如果你的连接可以访问多个部署，请调用 `list_deployments` 以查看可用于 checkout 的 `subdomain` 值。如果你的连接仅覆盖单个部署，请跳过此步骤。
+  </Step>
+  <Step title="Check out a branch">
+    第一次必需的调用是 `checkout {subdomain}`。它会从该部署的部署 branch 基础上创建一个全新的 `mintlify-mcp/<slug>-<sha>` branch (或附加到你指定的现有 branch)，并返回一个 `editorUrl`，你可以打开它在控制台编辑器中实时跟进。
+
+    如果你需要发现或筛选某个部署仓库中现有的 branch，请在 `checkout` 之前调用 `list_branches`。
+  </Step>
+  <Step title="Read, search, and edit">
+    AI 使用 `search`、`read`、`list_nodes`、`edit_page`、`write_page`、`create_node` 和 `update_config` 等工具进行更改。所有编辑都会实时缓冲在会话 branch 上——目前还不会影响你的部署 branch。
+  </Step>
+  <Step title="Review the diff">
+    随时调用 `diff` 查看与 `main` 相比发生了哪些更改。在控制台中打开 `editorUrl`，可以看到相同更改的渲染效果。
+  </Step>
+  <Step title="Save">
+    调用 `save` 将 branch 推送到 Git。使用 `mode: "pr"` (默认值) 创建拉取请求，或使用 `mode: "commit"` 直接推送到现有的 PR branch。
+  </Step>
+  <Step title="Discard if needed">
+    调用 `discard_session` 丢弃所有会话内更改并释放该 branch。
+  </Step>
+</Steps>
+
+<Tip>
+  如果你的连接可以访问多个部署，每个已 checkout 的部署都会同时在内存中保留其各自的会话和 branch。
+
+  使用不同的 `subdomain` 或 branch 再次调用 `checkout` 会切换当前活动的会话，而不会丢弃其他会话。若要放弃进行中的草稿而不仅仅是切换离开它，请调用 `discard_session`。
+</Tip>
+
+<div id="what-the-admin-mcp-can-do">
+  ## 管理员 MCP 可以做什么
+</div>
+
+<div id="content">
+  ### 内容
+</div>
+
+- **`read`** — 获取会话 branch 上任意页面的完整 MDX。
+- **`search`** — 在所有页面中查找匹配子字符串或正则表达式的行。
+- **`edit_page`** — 对页面进行有针对性的编辑。
+- **`write_page`** — 覆盖页面的完整 MDX 内容。
+
+<div id="navigation">
+  ### 导航
+</div>
+
+- **`list_nodes`** — 遍历导航树，可使用可选筛选条件。按 `parentId` 筛选 (使用 `recursive: true` 包含所有后代)、按一个或多个节点类型筛选，或按任意分区范围筛选：`language`、`version`、`tab`、`dropdown`、`anchor`、`product` 或 `item`。结果通过不透明的 `cursor` 分页。
+- **`create_node`** — 添加新的页面、组、tab、anchor、版本、语言、产品或 dropdown。
+- **`update_node`** — 就地更新节点属性 (重命名组、更改图标、设置默认版本)。
+- **`move_node`** — 移动节点，包括重命名页面的路径。
+- **`delete_node`** — 从导航中移除节点。
+
+<div id="configuration">
+  ### 配置
+</div>
+
+- **`update_config`** — 修改 `docs.json` (主题、导航根节点、集成、SEO 设置)。
+
+<div id="session">
+  ### 会话
+</div>
+
+- **`list_deployments`** — 列出你的连接可以访问的部署，返回每个 `{subdomain, name}`。调用此项以了解要传递给 `checkout` 的 `subdomain`。
+- **`checkout`** — 将某个会话绑定到给定部署 `subdomain` 对应的 branch，或切换当前活动的部署会话。
+- **`list_branches`** — 列出某个部署项目可用的 Git branch，可选用 `query` 进行筛选。返回 branch 名称、总数以及部署 branch。在 `checkout` 之前调用此项，可按名称附加到现有 branch。
+- **`get_session_state`** — 查看当前 branch、已编辑的文件和待处理的导航差异。
+- **`diff`** — 列出会话与 `main` 之间的所有更改。
+- **`save`** — 打开拉取请求或提交到会话 branch。
+- **`discard_session`** — 丢弃会话及其进行中的更改。
+
+<div id="example-prompts">
+  ## 示例提示词
+</div>
+
+连接管理员 MCP 后，你可以使用自然语言提示词来驱动它。例如：
+
+- _“检出一个名为 `add-billing-faq` 的 branch，并在 FAQ 组下创建一个名为 'Billing' 的新页面。为这个 Linear 工单中的五个问题草拟答案。”_
+- _“找出每一个提到已废弃的 `legacy_token` 字段的页面，并将示例更新为使用 `api_key`。保存为一个标题为 'docs: replace legacy\_token references' 的 PR。”_
+- _“重新组织 API 参考：将 webhooks 页面移入名为 'Webhooks' 的新组，并更新图标以与该部分其他内容保持一致。”_
+
+<div id="best-practices">
+  ## 最佳实践
+</div>
+
+<AccordionGroup>
+  <Accordion title="打开编辑器 URL">
+    每次 `checkout` 都会返回一个 `editorUrl`。在单独的标签页中打开它，这样你就可以在提示时实时观察 AI 的更改在控制台编辑器中渲染。
+  </Accordion>
+
+  <Accordion title="审查每一个 PR">
+    管理员 MCP 强大到足以在一次会话中重写数百个页面。在合并之前，请阅读 PR 差异并大致浏览渲染预览。不要对大量更改做盲目通过。
+  </Accordion>
+
+  <Accordion title="使用 slug 作为 branch 名称">
+    向 `checkout` 传入 `slug` (例如 `add-quickstart`)，使自动生成的 branch 易于阅读。如果不传入，branch 名称会基于会话令牌生成，在你的仓库中很难辨识。
+  </Accordion>
+
+  <Accordion title="保持会话聚焦">
+    让每个会话专注于一项更改。更小的会话能生成更易审查的拉取请求，并能节省代理的上下文窗口。使用 `discard_session` 后再次 `checkout` 以切换到无关的工作。
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  会话在 Mintlify 端会持有一个内存中的 branch。如果你在没有保存或丢弃的情况下放弃会话，该 branch 会一直保留到你下一次 checkout 覆盖它为止。请避免在你的仓库中留下陈旧的 `mintlify-mcp/*` branch，并定期清理它们。
+</Note>
+
+<div id="disconnect-or-revoke-access">
+  ## 断开或撤销访问权限
+</div>
+
+当你不再希望某个 AI 工具编辑你的项目，或想要强制重新完成 OAuth 登录时，请断开管理员 MCP。
+
+- **撤销 OAuth 授权**：在你的 Mintlify 控制台中，前往 **Settings → Security & access → Connected apps**，然后撤销你所连接的 AI 工具对应的条目。撤销会立即使所有活动的会话令牌失效，进行中的工具调用会失败，工具在下次调用时必须完成新的 OAuth 登录。
+- **在客户端中移除连接器**：
+  - Claude：**Settings → Connectors**，然后移除管理员 MCP 条目。
+  - Claude Code：`claude mcp remove mintlify`。
+  - Cursor：从 `mcp.json` 中删除 `mintlify` 条目并重新加载。
+  - Codex：从 `~/.codex/config.toml` 中删除 `[mcp_servers.mintlify]` 代码块。
+
+撤销 OAuth 授权不会影响 MCP 已经打开的拉取请求。若要撤销待处理的更改，请在你的 Git 提供方中关闭或还原这些 PR。

@@ -1,0 +1,122 @@
+---
+title: "OAuth GitLab auto-hébergé"
+description: "Connectez une instance GitLab auto-hébergée à Mintlify via OAuth pour cloner des dépôts, pousser des commits et ouvrir des merge requests automatisés."
+keywords: ["GitLab", "auto-hébergé", "OAuth", "automatisations", "entreprise"]
+---
+
+Mintlify prend en charge l'autorisation basée sur OAuth pour les instances GitLab auto-hébergées, en plus de gitlab.com. OAuth permet à l'agent Mintlify d'agir comme un utilisateur GitLab pendant les exécutions d'automatisation : cloner des référentiels, pousser des commits, ouvrir des merge requests et enregistrer des webhooks de projet.
+
+Vous devez configurer l'autorisation OAuth pour les instances GitLab auto-hébergées afin de prendre en charge les [automatisations](/fr/automations).
+
+Contrairement à gitlab.com, où Mintlify fournit une seule application OAuth contre laquelle chaque client s'autorise, chaque instance auto-hébergée doit enregistrer sa propre application OAuth. Créez l'application sur votre instance GitLab, partagez ses identifiants avec Mintlify, puis effectuez une autorisation OAuth pour connecter un utilisateur.
+
+<Note>
+  Ce guide concerne uniquement l'intégration **OAuth** qui alimente les automatisations. Vous devez configurer la connexion côté déploiement (utilisée pour la synchronisation du contenu et les prévisualisations) séparément avec un jeton de déploiement, voir le [guide GitLab](/fr/deploy/gitlab). L'intégration OAuth dépend de la connexion côté déploiement.
+</Note>
+
+<div id="prerequisites">
+  ## Prérequis
+</div>
+
+- Accès administrateur à votre instance GitLab auto-hébergée.
+- Votre instance GitLab doit être accessible depuis `https://app.mintlify.com`. Les instances derrière un VPN ou derrière un pare-feu qui bloque l'entrée publique ne fonctionnent pas.
+- Une organisation Mintlify pour laquelle la fonctionnalité GitLab auto-hébergé est activée. Contactez le support si vous ne voyez pas la section **Self-hosted GitLab** dans la page de votre tableau de bord [Git settings](https://app.mintlify.com/settings/deployment/git-settings).
+
+<div id="set-up-the-connection">
+  ## Configurer la connexion
+</div>
+
+<Steps>
+  <Step title="Register an OAuth application on your GitLab instance">
+    Dans votre GitLab auto-hébergé, connectez-vous en tant qu'administrateur et accédez à **Admin Area** \> **Applications** \> **Add new application**.
+
+    Configurez l'application avec ces valeurs :
+
+    - **Name** : `Mintlify`
+    - **Redirect URI** : `https://app.mintlify.com/api/gitlab-oauth/callback`
+    - **Trusted** : laissez **décoché**. Marquer l'application comme approuvée saute l'écran de consentement pour chaque utilisateur ; le laisser décoché affiche une invite d'autorisation normale la première fois que chaque utilisateur se connecte.
+    - **Confidential** : **coché**. Mintlify est un client côté serveur et garde le secret confidentiel.
+    - **Scopes** : sélectionnez `api`, `read_repository` et `write_repository`. L'agent les utilise pour lire les métadonnées du projet, cloner des référentiels et pousser des commits.
+
+    Cliquez sur **Save application**.
+
+    <Tip>
+      Modifier une application OAuth sur GitLab peut faire tourner le secret client silencieusement. Si vous apportez des modifications par la suite, cliquez sur **Renew secret** et mettez à jour la nouvelle valeur dans Mintlify.
+    </Tip>
+  </Step>
+  <Step title="Copy the application credentials">
+    Après l'enregistrement, GitLab affiche l'**Application ID** et le **Secret** de l'application. Gardez cette page ouverte — le secret n'est affiché qu'une seule fois.
+  </Step>
+  <Step title="Register the instance in Mintlify">
+    Dans votre tableau de bord Mintlify, ouvrez **Settings** \> **Git settings** et trouvez la section **Self-hosted GitLab** sous **GitLab OAuth**.
+
+    Cliquez sur **Connect Self-Hosted GitLab** et saisissez :
+
+    - **GitLab instance URL** : l'URL publique de votre instance GitLab, par exemple `https://gitlab.your-company.com`. Mintlify accède à votre instance via cette URL lors de l'échange de jetons et des appels à l'API GitLab.
+    - **OAuth application client ID** : l'**Application ID** de l'étape précédente.
+    - **OAuth application client secret** : le **Secret** de l'étape précédente.
+
+    Cliquez sur **Save instance**. Mintlify chiffre le secret au repos et ne le renvoie jamais au navigateur après l'enregistrement.
+  </Step>
+  <Step title="Authorize">
+    Cliquez sur **Authorize self-hosted GitLab**. GitLab vous redirige vers votre instance, vous invite à vous connecter si nécessaire, et affiche un écran de consentement listant les portées demandées.
+
+    Après avoir cliqué sur **Authorize** sur GitLab, vous serez redirigé vers Mintlify et la nouvelle connexion apparaîtra dans la liste des installations, étiquetée avec le nom d'hôte de votre instance.
+  </Step>
+  <Step title="Choose projects">
+    Développez la connexion dans le tableau de bord. Mintlify liste chaque groupe auquel votre utilisateur autorisant a un accès Maintainer ou supérieur, ainsi qu'une entrée **Personal projects** pour les projets dans l'espace de noms personnel de l'utilisateur.
+
+    Cochez la case à côté de chaque projet qui doit participer aux automatisations. Mintlify enregistre un webhook sur le projet, génère un jeton secret et le stocke chiffré. À partir de ce moment, Mintlify reçoit les événements push et merge-request de votre instance pour ce projet.
+
+    <Note>
+      L'utilisateur qui se connecte doit avoir le rôle **Maintainer** sur un projet pour que Mintlify puisse émettre des jetons d'accès de projet à courte durée pendant les exécutions d'automatisation. Sans Maintainer, l'agent peut lire mais ne peut pas pousser de commits ni ouvrir de merge requests.
+    </Note>
+  </Step>
+</Steps>
+
+<div id="rotate-credentials">
+  ## Faire tourner les identifiants
+</div>
+
+Si vous devez modifier le secret client de l'application enregistrée — par exemple après l'avoir renouvelé sur GitLab — supprimez l'instance enregistrée dans Mintlify et ajoutez-la à nouveau avec les nouvelles valeurs. Vous devez d'abord révoquer les connexions OAuth actives. Sinon, Mintlify bloque la suppression.
+
+<Steps>
+  <Step title="Revoke each connection">
+    Cliquez sur **Revoke** sur chaque installation listée sous l'instance auto-hébergée. Cela supprime le webhook sur chaque projet connecté et révoque le jeton OAuth sur GitLab.
+  </Step>
+  <Step title="Remove the instance">
+    Dans la carte **Self-hosted GitLab**, cliquez sur **Remove instance**.
+  </Step>
+  <Step title="Re-add with new credentials">
+    Suivez les étapes **Set up the connection** décrites précédemment avec le nouveau secret client.
+  </Step>
+</Steps>
+
+<div id="troubleshooting">
+  ## Dépannage
+</div>
+
+<div id="invalid_client-after-authorizing">
+  ### L'autorisation échoue avec `invalid_client`
+</div>
+
+GitLab a rejeté l'étape d'échange de jeton car le secret client envoyé par Mintlify ne correspond pas à celui enregistré sur l'application. La cause la plus fréquente est qu'un secret a été modifié sur GitLab — par un **Renew secret** explicite, ou silencieusement lorsque quelqu'un a modifié l'application — et que la valeur dans Mintlify est obsolète.
+
+Solution : faites tourner les identifiants en suivant les étapes [Faire tourner les identifiants](#rotate-credentials) avec le secret actuel.
+
+<div id="webhook-registration-failed-invalid-url-given">
+  ### Échec de l'enregistrement du webhook : `Invalid url given`
+</div>
+
+GitLab a refusé d'enregistrer le webhook car sa liste d'autorisation des requêtes sortantes a rejeté l'URL envoyée par Mintlify (`https://app.mintlify.com/gitlab-oauth-webhook`). Les instances auto-hébergées rejettent les URL « locales » sauf si l'administrateur les autorise explicitement.
+
+Solution : dans la zone d'administration de votre GitLab, accédez à **Settings** \> **Network** \> **Outbound requests** et activez **Allow requests to the local network from webhooks and integrations**. Si votre politique réseau bloque `app.mintlify.com`, contactez votre administrateur réseau pour autoriser le HTTPS sortant vers cet hôte.
+
+<div id="no-consent-screen-on-authorize">
+  ### Aucun écran de consentement lors de l'autorisation
+</div>
+
+Si vous ne voyez pas la boîte de dialogue de consentement de GitLab lors de l'autorisation, soit :
+
+- L'application porte le drapeau **Trusted** sur GitLab. Les applications approuvées sautent le consentement pour tous les utilisateurs. Décochez **Trusted** dans les paramètres de l'application si vous souhaitez que les utilisateurs voient et confirment les portées.
+- Votre utilisateur GitLab a déjà autorisé l'application avec les mêmes portées. GitLab se souvient des autorisations précédentes et saute le consentement lors des autorisations suivantes. Révoquez l'autorisation de l'application dans **User settings** \> **Applications** \> **Authorized applications** pour revoir le consentement.

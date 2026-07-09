@@ -1,0 +1,53 @@
+---
+title: "触发自动化"
+openapi: "/zh/openapi.json POST /workflow/{projectId}/{workflowSchemaId}/trigger"
+keywords: ["automation", "workflow", "trigger", "webhook", "schedule", "CI"]
+---
+
+使用此端点可按需触发计划自动化，而无需等待其下一次预定运行。该自动化的行为与常规计划运行完全相同：会处理自上次完成运行以来发生的所有变更。
+
+此端点仅支持配置为 **Custom schedule** 触发器的自动化。对于使用其他触发器（如 **Code change** 或 **Content update**）的自动化，请求会返回 `400` 错误。
+
+<div id="use-cases">
+  ## 用例
+</div>
+
+- **CI/CD 流水线**：在每次合并到 `main` 时运行 **Update from code changes** 自动化，使文档按发布节奏更新，而不是按固定计划。
+- **发布事件**：在你打出发布标签时运行 **Draft changelog** 自动化，使变更日志与发布同时起草。
+- **自定义工具**：从内部工具、Slack 命令或已有的计划任务中触发自动化。
+
+<div id="find-the-automation-id">
+  ## 查找自动化 ID
+</div>
+
+在控制台的 [Automations](https://app.mintlify.com/products/automations) 页面，从自动化的设置面板中复制自动化 ID。
+
+<div id="example">
+  ## 示例
+</div>
+
+每当代码合并到 `main` 时，从 GitHub Action 触发自动化：
+
+```yaml .github/workflows/trigger-docs.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v1/workflow/$PROJECT_ID/$WORKFLOW_ID/trigger" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          WORKFLOW_ID: ${{ vars.MINTLIFY_WORKFLOW_ID }}
+```
+
+<div id="rate-limits">
+  ## 速率限制
+</div>
+
+此端点与 [Trigger update](/zh/api/update/trigger) 共享速率限制：每个组织每 10 秒最多 10 个请求。触发的运行与计划运行按相同速率消耗积分。
