@@ -139,66 +139,7 @@
                       "type": "array",
                       "description": "La liste fusionnée des résultats, classée par pertinence. Les résultats avec `source: \"mintlify\"` proviennent de la documentation hébergée par Mintlify ; les résultats avec `source: \"web\"` proviennent du web.",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "url",
-                          "title",
-                          "text",
-                          "score",
-                          "source",
-                          "siteName",
-                          "breadcrumbs",
-                          "publishedDate"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "description": "Un identifiant stable pour le résultat. Pour les résultats Mintlify, il s'agit de l'ID de groupe de la page ; pour les résultats web, il s'agit de l'URL."
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri",
-                            "description": "L'URL canonique du résultat."
-                          },
-                          "title": {
-                            "type": "string",
-                            "description": "Le titre de la page."
-                          },
-                          "text": {
-                            "type": "string",
-                            "description": "Le contenu de la page. Vide lorsque `text` est omis ou défini sur `false`. Tronqué lorsque `text.maxCharacters` est fourni."
-                          },
-                          "score": {
-                            "type": "number",
-                            "description": "Le score de pertinence de ce résultat."
-                          },
-                          "source": {
-                            "type": "string",
-                            "enum": [
-                              "mintlify",
-                              "web"
-                            ],
-                            "description": "D'où provient le résultat."
-                          },
-                          "siteName": {
-                            "type": "string",
-                            "description": "Le nom du site d'où provient le résultat. Pour les résultats Mintlify, il s'agit du sous-domaine du déploiement ; pour les résultats web, il s'agit du nom d'hôte."
-                          },
-                          "breadcrumbs": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "Le fil d'Ariane de navigation de la page. Renseigné uniquement pour les résultats Mintlify."
-                          },
-                          "publishedDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "nullable": true,
-                            "description": "La date de publication indiquée par la source, lorsque disponible."
-                          }
-                        }
+                        "$ref": "#/components/schemas/Result"
                       }
                     }
                   }
@@ -248,6 +189,201 @@
           }
         }
       }
+    },
+    "/contents": {
+      "post": {
+        "summary": "Récupérer le contenu d'une page par URL ou ID",
+        "description": "Résout des URL ou des ID en pages de documentation hébergées par Mintlify et renvoie le contenu assemblé de chaque page. Chaque entrée reçoit un statut individuel afin que la réponse puisse signaler un succès partiel sans faire échouer l'ensemble de la requête.\n\nAuthentifiez-vous avec une clé d'API de recherche universelle.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Au moins un des champs `urls` ou `ids` est requis. Une seule requête peut référencer au maximum 20 éléments au total entre les deux champs.",
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "description": "URL canoniques des pages hébergées par Mintlify à récupérer. Les variantes `www` et sans `www` sont toutes deux prises en compte."
+                  },
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "ID des pages à récupérer. Utilisez l'`id` renvoyé par [Rechercher dans la documentation et sur le web](/fr/api/universal-search/search)."
+                  },
+                  "maxCharacters": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Nombre maximum de caractères du contenu de la page renvoyé par résultat. La troncature préserve un Markdown valide en fermant les blocs de code ouverts."
+                  }
+                }
+              },
+              "examples": {
+                "byIds": {
+                  "summary": "Récupérer des pages par ID",
+                  "value": {
+                    "ids": [
+                      "stripe-charges-guide",
+                      "stripe-webhooks-guide"
+                    ],
+                    "maxCharacters": 4000
+                  }
+                },
+                "byUrls": {
+                  "summary": "Récupérer des pages par URL canonique",
+                  "value": {
+                    "urls": [
+                      "https://docs.stripe.com/charges",
+                      "https://docs.stripe.com/webhooks"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recherche de contenu terminée. Consultez `statuses` pour connaître le résultat de chaque entrée ; la réponse peut contenir des résultats partiels.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results",
+                    "statuses"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "Un identifiant unique pour cette requête. Incluez-le lorsque vous contactez le support."
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "Pages résolues avec succès, dans le même format que les résultats de recherche. Seules les entrées dont l'entrée correspondante dans `statuses` indique `success` apparaissent ici.",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    },
+                    "statuses": {
+                      "type": "array",
+                      "description": "Une entrée par élément fourni dans la requête, dans l'ordre où les entrées ont été fournies. Chaque entrée indique si l'élément a été résolu avec succès ou, dans le cas contraire, un `tag` d'erreur.",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "L'URL ou l'ID d'entrée auquel ce statut correspond."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "success"
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status",
+                              "error"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "L'URL ou l'ID d'entrée auquel ce statut correspond."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "error"
+                                ]
+                              },
+                              "error": {
+                                "type": "object",
+                                "required": [
+                                  "tag",
+                                  "httpStatusCode"
+                                ],
+                                "properties": {
+                                  "tag": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not_found",
+                                      "not_synced",
+                                      "invalid_id",
+                                      "fetch_error"
+                                    ],
+                                    "description": "Tag d'erreur lisible par machine. `not_found` signifie que l'URL ou l'ID ne correspond à aucune page. `not_synced` signifie que le déploiement source n'a pas été indexé pour la recherche universelle. `invalid_id` signifie que l'ID était mal formé. `fetch_error` signifie que la recherche a échoué de manière inattendue."
+                                  },
+                                  "httpStatusCode": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "description": "Un code de statut HTTP décrivant au mieux l'erreur, ou `null` lorsqu'aucun code unique ne s'applique."
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps de requête invalide.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Clé d'API manquante ou invalide.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de débit dépassée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -268,6 +404,68 @@
           "error": {
             "type": "string",
             "description": "Description lisible de l'erreur."
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "title",
+          "text",
+          "score",
+          "source",
+          "siteName",
+          "breadcrumbs",
+          "publishedDate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Un identifiant stable pour le résultat. Pour les résultats Mintlify, il s'agit de l'ID de groupe de la page ; pour les résultats web, il s'agit de l'URL."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "L'URL canonique du résultat."
+          },
+          "title": {
+            "type": "string",
+            "description": "Le titre de la page."
+          },
+          "text": {
+            "type": "string",
+            "description": "Le contenu de la page. Vide lorsque `text` est omis ou défini sur `false`. Tronqué lorsque `text.maxCharacters` est fourni."
+          },
+          "score": {
+            "type": "number",
+            "description": "Le score de pertinence de ce résultat."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "mintlify",
+              "web"
+            ],
+            "description": "D'où provient le résultat."
+          },
+          "siteName": {
+            "type": "string",
+            "description": "Le nom du site d'où provient le résultat. Pour les résultats Mintlify, il s'agit du sous-domaine du déploiement ; pour les résultats web, il s'agit du nom d'hôte."
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Le fil d'Ariane de navigation de la page. Renseigné uniquement pour les résultats Mintlify."
+          },
+          "publishedDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "La date de publication indiquée par la source, lorsque disponible."
           }
         }
       }

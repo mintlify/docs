@@ -139,66 +139,7 @@
                       "type": "array",
                       "description": "La lista combinada de resultados, ordenada por relevancia. Los resultados con `source: \"mintlify\"` provienen de documentación alojada en Mintlify; los resultados con `source: \"web\"` provienen de la web abierta.",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "url",
-                          "title",
-                          "text",
-                          "score",
-                          "source",
-                          "siteName",
-                          "breadcrumbs",
-                          "publishedDate"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "description": "Un identificador estable para el resultado. Para los resultados de Mintlify, es el ID del grupo de páginas; para los resultados web, es la URL."
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri",
-                            "description": "La URL canónica del resultado."
-                          },
-                          "title": {
-                            "type": "string",
-                            "description": "El título de la página."
-                          },
-                          "text": {
-                            "type": "string",
-                            "description": "El contenido de la página. Vacío cuando `text` se omite o se establece en `false`. Truncado cuando se proporciona `text.maxCharacters`."
-                          },
-                          "score": {
-                            "type": "number",
-                            "description": "La puntuación de relevancia de este resultado."
-                          },
-                          "source": {
-                            "type": "string",
-                            "enum": [
-                              "mintlify",
-                              "web"
-                            ],
-                            "description": "De dónde proviene el resultado."
-                          },
-                          "siteName": {
-                            "type": "string",
-                            "description": "El nombre del sitio del que proviene el resultado. Para los resultados de Mintlify, es el subdominio de la implementación; para los resultados web, es el nombre de host."
-                          },
-                          "breadcrumbs": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "Las migas de pan de navegación de la página. Solo se rellenan para los resultados de Mintlify."
-                          },
-                          "publishedDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "nullable": true,
-                            "description": "La fecha de publicación informada por la fuente, cuando esté disponible."
-                          }
-                        }
+                        "$ref": "#/components/schemas/Result"
                       }
                     }
                   }
@@ -248,6 +189,201 @@
           }
         }
       }
+    },
+    "/contents": {
+      "post": {
+        "summary": "Obtener el contenido de una página por URL o ID",
+        "description": "Resuelve URLs o IDs a páginas de documentación alojadas en Mintlify y devuelve el contenido unificado de la página para cada una. Cada entrada recibe un estado por elemento, de modo que la respuesta puede informar de un éxito parcial sin fallar toda la solicitud.\n\nAutentícate con una clave API de búsqueda universal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Se requiere al menos uno de `urls` o `ids`. Una única solicitud puede referenciar como máximo 20 elementos en total entre ambos campos combinados.",
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "description": "URLs canónicas de páginas alojadas en Mintlify que se van a obtener. Se emparejan tanto las variantes con `www` como sin `www`."
+                  },
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "IDs de páginas que se van a obtener. Usa el `id` devuelto por [Buscar en la documentación y en la web](/es/api/universal-search/search)."
+                  },
+                  "maxCharacters": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Número máximo de caracteres del contenido de la página que se devuelve por resultado. El truncado preserva Markdown válido cerrando los bloques de código abiertos."
+                  }
+                }
+              },
+              "examples": {
+                "byIds": {
+                  "summary": "Obtener páginas por ID",
+                  "value": {
+                    "ids": [
+                      "stripe-charges-guide",
+                      "stripe-webhooks-guide"
+                    ],
+                    "maxCharacters": 4000
+                  }
+                },
+                "byUrls": {
+                  "summary": "Obtener páginas por URL canónica",
+                  "value": {
+                    "urls": [
+                      "https://docs.stripe.com/charges",
+                      "https://docs.stripe.com/webhooks"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Se completó la consulta de contenido. Revisa `statuses` para ver el resultado por entrada; la respuesta puede incluir resultados parciales.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results",
+                    "statuses"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "Un identificador único para esta solicitud. Inclúyelo cuando contactes con soporte."
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "Páginas resueltas con éxito, con la misma forma que los resultados de búsqueda. Solo aparecen aquí las entradas cuya entrada correspondiente en `statuses` informa `success`.",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    },
+                    "statuses": {
+                      "type": "array",
+                      "description": "Una entrada por cada entrada de la solicitud, en el orden en que se proporcionaron las entradas. Cada entrada informa si la entrada se resolvió con éxito o, en caso contrario, un `tag` de error.",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "La URL o el ID de entrada al que corresponde este estado."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "success"
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status",
+                              "error"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "La URL o el ID de entrada al que corresponde este estado."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "error"
+                                ]
+                              },
+                              "error": {
+                                "type": "object",
+                                "required": [
+                                  "tag",
+                                  "httpStatusCode"
+                                ],
+                                "properties": {
+                                  "tag": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not_found",
+                                      "not_synced",
+                                      "invalid_id",
+                                      "fetch_error"
+                                    ],
+                                    "description": "Etiqueta de error legible por máquina. `not_found` significa que la URL o el ID no coincidió con ninguna página. `not_synced` significa que la implementación de origen no ha sido indexada para la búsqueda universal. `invalid_id` significa que el ID tenía un formato incorrecto. `fetch_error` significa que la consulta falló inesperadamente."
+                                  },
+                                  "httpStatusCode": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "description": "Un código de estado HTTP que describe mejor el error, o `null` cuando no se aplica un único código."
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo de la solicitud no válido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Clave API ausente o no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se superó el límite de tasa.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -268,6 +404,68 @@
           "error": {
             "type": "string",
             "description": "Descripción legible por humanos del error."
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "title",
+          "text",
+          "score",
+          "source",
+          "siteName",
+          "breadcrumbs",
+          "publishedDate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Un identificador estable para el resultado. Para los resultados de Mintlify, es el ID del grupo de páginas; para los resultados web, es la URL."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "La URL canónica del resultado."
+          },
+          "title": {
+            "type": "string",
+            "description": "El título de la página."
+          },
+          "text": {
+            "type": "string",
+            "description": "El contenido de la página. Vacío cuando `text` se omite o se establece en `false`. Truncado cuando se proporciona `text.maxCharacters`."
+          },
+          "score": {
+            "type": "number",
+            "description": "La puntuación de relevancia de este resultado."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "mintlify",
+              "web"
+            ],
+            "description": "De dónde proviene el resultado."
+          },
+          "siteName": {
+            "type": "string",
+            "description": "El nombre del sitio del que proviene el resultado. Para los resultados de Mintlify, es el subdominio de la implementación; para los resultados web, es el nombre de host."
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Las migas de pan de navegación de la página. Solo se rellenan para los resultados de Mintlify."
+          },
+          "publishedDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "La fecha de publicación informada por la fuente, cuando esté disponible."
           }
         }
       }

@@ -139,66 +139,7 @@
                       "type": "array",
                       "description": "The merged list of results, ranked by relevance. Results with `source: \"mintlify\"` come from Mintlify-hosted documentation; results with `source: \"web\"` come from the wider web.",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "url",
-                          "title",
-                          "text",
-                          "score",
-                          "source",
-                          "siteName",
-                          "breadcrumbs",
-                          "publishedDate"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "description": "A stable identifier for the result. For Mintlify results this is the page group ID; for web results this is the URL."
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri",
-                            "description": "The canonical URL of the result."
-                          },
-                          "title": {
-                            "type": "string",
-                            "description": "The title of the page."
-                          },
-                          "text": {
-                            "type": "string",
-                            "description": "The page content. Empty when `text` was omitted or set to `false`. Truncated when `text.maxCharacters` was provided."
-                          },
-                          "score": {
-                            "type": "number",
-                            "description": "The relevance score for this result."
-                          },
-                          "source": {
-                            "type": "string",
-                            "enum": [
-                              "mintlify",
-                              "web"
-                            ],
-                            "description": "Where the result came from."
-                          },
-                          "siteName": {
-                            "type": "string",
-                            "description": "The name of the site the result came from. For Mintlify results this is the deployment subdomain; for web results this is the hostname."
-                          },
-                          "breadcrumbs": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "The navigation breadcrumbs for the page. Only populated for Mintlify results."
-                          },
-                          "publishedDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "nullable": true,
-                            "description": "The publication date reported by the source, when available."
-                          }
-                        }
+                        "$ref": "#/components/schemas/Result"
                       }
                     }
                   }
@@ -248,6 +189,201 @@
           }
         }
       }
+    },
+    "/contents": {
+      "post": {
+        "summary": "Fetch page content by URL or ID",
+        "description": "Resolves URLs or IDs to Mintlify-hosted documentation pages and returns the stitched page content for each. Each input receives a per-item status so the response can report partial success without failing the whole request.\n\nAuthenticate with a universal search API key.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "At least one of `urls` or `ids` is required. A single request can reference at most 20 items across both fields combined.",
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "description": "Canonical URLs of Mintlify-hosted pages to fetch. `www` and non-`www` variants are both matched."
+                  },
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Page IDs to fetch. Use the `id` returned by [Search across documentation and the web](/api/universal-search/search)."
+                  },
+                  "maxCharacters": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum number of characters of page content to return per result. Truncation preserves valid Markdown by closing open code fences."
+                  }
+                }
+              },
+              "examples": {
+                "byIds": {
+                  "summary": "Fetch pages by ID",
+                  "value": {
+                    "ids": [
+                      "stripe-charges-guide",
+                      "stripe-webhooks-guide"
+                    ],
+                    "maxCharacters": 4000
+                  }
+                },
+                "byUrls": {
+                  "summary": "Fetch pages by canonical URL",
+                  "value": {
+                    "urls": [
+                      "https://docs.stripe.com/charges",
+                      "https://docs.stripe.com/webhooks"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Content lookup completed. Check `statuses` for per-input outcomes; the response can include partial results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results",
+                    "statuses"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "A unique identifier for this request. Include when contacting support."
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "Successfully resolved pages, in the same shape as search results. Only inputs whose corresponding entry in `statuses` reports `success` appear here.",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    },
+                    "statuses": {
+                      "type": "array",
+                      "description": "One entry per input in the request, in the order the inputs were provided. Each entry reports whether the input resolved successfully or, if not, an error `tag`.",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "The input URL or ID this status corresponds to."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "success"
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status",
+                              "error"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "The input URL or ID this status corresponds to."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "error"
+                                ]
+                              },
+                              "error": {
+                                "type": "object",
+                                "required": [
+                                  "tag",
+                                  "httpStatusCode"
+                                ],
+                                "properties": {
+                                  "tag": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not_found",
+                                      "not_synced",
+                                      "invalid_id",
+                                      "fetch_error"
+                                    ],
+                                    "description": "Machine-readable error tag. `not_found` means the URL or ID did not match any page. `not_synced` means the source deployment has not been indexed for universal search. `invalid_id` means the ID was malformed. `fetch_error` means the lookup failed unexpectedly."
+                                  },
+                                  "httpStatusCode": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "description": "An HTTP status code that best describes the error, or `null` when no single code applies."
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -268,6 +404,68 @@
           "error": {
             "type": "string",
             "description": "A human-readable description of the error."
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "title",
+          "text",
+          "score",
+          "source",
+          "siteName",
+          "breadcrumbs",
+          "publishedDate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "A stable identifier for the result. For Mintlify results this is the page group ID; for web results this is the URL."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The canonical URL of the result."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the page."
+          },
+          "text": {
+            "type": "string",
+            "description": "The page content. Empty when `text` was omitted or set to `false`. Truncated when `text.maxCharacters` was provided."
+          },
+          "score": {
+            "type": "number",
+            "description": "The relevance score for this result."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "mintlify",
+              "web"
+            ],
+            "description": "Where the result came from."
+          },
+          "siteName": {
+            "type": "string",
+            "description": "The name of the site the result came from. For Mintlify results this is the deployment subdomain; for web results this is the hostname."
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The navigation breadcrumbs for the page. Only populated for Mintlify results."
+          },
+          "publishedDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "The publication date reported by the source, when available."
           }
         }
       }

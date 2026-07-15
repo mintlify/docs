@@ -139,66 +139,7 @@
                       "type": "array",
                       "description": "合并后的结果列表，按相关性排序。`source: \"mintlify\"` 的结果来自 Mintlify 托管的文档；`source: \"web\"` 的结果来自互联网。",
                       "items": {
-                        "type": "object",
-                        "required": [
-                          "id",
-                          "url",
-                          "title",
-                          "text",
-                          "score",
-                          "source",
-                          "siteName",
-                          "breadcrumbs",
-                          "publishedDate"
-                        ],
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "description": "结果的稳定标识符。对于 Mintlify 结果，此值为页面分组 ID；对于网络结果，此值为 URL。"
-                          },
-                          "url": {
-                            "type": "string",
-                            "format": "uri",
-                            "description": "结果的规范 URL。"
-                          },
-                          "title": {
-                            "type": "string",
-                            "description": "页面的标题。"
-                          },
-                          "text": {
-                            "type": "string",
-                            "description": "页面内容。当 `text` 被省略或设置为 `false` 时为空。当提供 `text.maxCharacters` 时会被截断。"
-                          },
-                          "score": {
-                            "type": "number",
-                            "description": "此结果的相关性得分。"
-                          },
-                          "source": {
-                            "type": "string",
-                            "enum": [
-                              "mintlify",
-                              "web"
-                            ],
-                            "description": "结果的来源。"
-                          },
-                          "siteName": {
-                            "type": "string",
-                            "description": "结果所属站点的名称。对于 Mintlify 结果，此值为部署子域名；对于网络结果，此值为主机名。"
-                          },
-                          "breadcrumbs": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "页面的导航面包屑。仅针对 Mintlify 结果填充。"
-                          },
-                          "publishedDate": {
-                            "type": "string",
-                            "format": "date-time",
-                            "nullable": true,
-                            "description": "来源报告的发布日期（如果可用）。"
-                          }
-                        }
+                        "$ref": "#/components/schemas/Result"
                       }
                     }
                   }
@@ -248,6 +189,201 @@
           }
         }
       }
+    },
+    "/contents": {
+      "post": {
+        "summary": "按 URL 或 ID 获取页面内容",
+        "description": "将 URL 或 ID 解析为 Mintlify 托管的文档页面，并返回每个页面拼接后的内容。每个输入都有独立的状态项，使响应能够报告部分成功而不会导致整个请求失败。\n\n使用通用搜索 API key 进行身份验证。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "`urls` 或 `ids` 至少需要提供其中一个。单次请求最多可以引用 20 个项目（两个字段合计）。",
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "description": "要获取的 Mintlify 托管页面的规范 URL。`www` 和非 `www` 的变体都会被匹配。"
+                  },
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "要获取的页面 ID。使用[在文档和网络中搜索](/zh/api/universal-search/search)返回的 `id`。"
+                  },
+                  "maxCharacters": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "每个结果返回的页面内容的最大字符数。截断会闭合未关闭的代码块，保持 Markdown 有效。"
+                  }
+                }
+              },
+              "examples": {
+                "byIds": {
+                  "summary": "按 ID 获取页面",
+                  "value": {
+                    "ids": [
+                      "stripe-charges-guide",
+                      "stripe-webhooks-guide"
+                    ],
+                    "maxCharacters": 4000
+                  }
+                },
+                "byUrls": {
+                  "summary": "按规范 URL 获取页面",
+                  "value": {
+                    "urls": [
+                      "https://docs.stripe.com/charges",
+                      "https://docs.stripe.com/webhooks"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "内容查询已完成。请检查 `statuses` 以了解每个输入的结果；响应可能包含部分结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results",
+                    "statuses"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "此请求的唯一标识符。联系支持时请附带此值。"
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "已成功解析的页面，结构与搜索结果相同。仅当输入在 `statuses` 中对应条目报告为 `success` 时，才会出现在此处。",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    },
+                    "statuses": {
+                      "type": "array",
+                      "description": "请求中每个输入对应一个条目，顺序与输入的提供顺序一致。每个条目报告该输入是否解析成功；若未成功，则包含一个错误 `tag`。",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "此状态对应的输入 URL 或 ID。"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "success"
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status",
+                              "error"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "此状态对应的输入 URL 或 ID。"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "error"
+                                ]
+                              },
+                              "error": {
+                                "type": "object",
+                                "required": [
+                                  "tag",
+                                  "httpStatusCode"
+                                ],
+                                "properties": {
+                                  "tag": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not_found",
+                                      "not_synced",
+                                      "invalid_id",
+                                      "fetch_error"
+                                    ],
+                                    "description": "机器可读的错误标签。`not_found` 表示 URL 或 ID 未匹配到任何页面。`not_synced` 表示源部署尚未为通用搜索建立索引。`invalid_id` 表示 ID 格式不正确。`fetch_error` 表示查询意外失败。"
+                                  },
+                                  "httpStatusCode": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "description": "最能描述该错误的 HTTP 状态码；当没有合适的单一状态码时为 `null`。"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求体无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或无效的 API key。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -268,6 +404,68 @@
           "error": {
             "type": "string",
             "description": "错误的可读描述。"
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "title",
+          "text",
+          "score",
+          "source",
+          "siteName",
+          "breadcrumbs",
+          "publishedDate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "结果的稳定标识符。对于 Mintlify 结果，此值为页面分组 ID；对于网络结果，此值为 URL。"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "结果的规范 URL。"
+          },
+          "title": {
+            "type": "string",
+            "description": "页面的标题。"
+          },
+          "text": {
+            "type": "string",
+            "description": "页面内容。当 `text` 被省略或设置为 `false` 时为空。当提供 `text.maxCharacters` 时会被截断。"
+          },
+          "score": {
+            "type": "number",
+            "description": "此结果的相关性得分。"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "mintlify",
+              "web"
+            ],
+            "description": "结果的来源。"
+          },
+          "siteName": {
+            "type": "string",
+            "description": "结果所属站点的名称。对于 Mintlify 结果，此值为部署子域名；对于网络结果，此值为主机名。"
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "页面的导航面包屑。仅针对 Mintlify 结果填充。"
+          },
+          "publishedDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "来源报告的发布日期（如果可用）。"
           }
         }
       }
