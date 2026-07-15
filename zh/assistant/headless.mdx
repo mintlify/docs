@@ -1,0 +1,219 @@
+---
+title: "无头 AI 助手客户端"
+sidebarTitle: "无头客户端"
+description: "使用与框架无关的 @mintlify/assistant-core SDK，在 Node.js 和浏览器环境中构建自定义 AI 助手界面。"
+keywords: ["headless", "SDK", "assistant-core", "custom UI", "npm", "workflow"]
+---
+
+<Info>
+  无头 AI 助手客户端在 [Pro 及更高方案](https://mintlify.com/pricing?ref=assistant)中提供。使用量会计入你在助手、代理和自动化之间共享的积分。
+</Info>
+
+当你想将 AI 助手嵌入到自己构建并控制的界面中，或者在非浏览器工作流中运行时，请使用 [`@mintlify/assistant-core`](https://www.npmjs.com/package/@mintlify/assistant-core) 包。该包提供与官方维护的小组件相同的状态、流式、线程和反馈语义，但不会引入任何浏览器、DOM 或 React API。
+
+在以下情况下使用无头客户端：
+
+- 你拥有渲染层，并希望使用 AI 助手的状态机，而不使用官方维护的小组件 UI。
+- 你需要在 Node.js 服务、脚本或自动化中运行 AI 助手。
+- 你想注入自定义传输层，例如通过你自己的后端代理请求，或使用模拟的助手响应进行测试。
+
+如果你只需要在产品上使用一个浮动的聊天小组件，请改用[应用内 AI 助手教程](/zh/guides/assistant-embed)。
+
+<div id="install">
+  ## 安装
+</div>
+
+```bash
+npm install @mintlify/assistant-core
+```
+
+该包没有运行时依赖，可在 Node.js 18+ 和现代浏览器中运行。
+
+<div id="create-a-client">
+  ## 创建客户端
+</div>
+
+调用 `createAssistantCore`，并传入一个传输层和标识你集成的元数据。传输层负责向 AI 助手 API 发起网络请求并产生流式事件。
+
+```ts
+import { createAssistantCore, type AssistantTransport } from '@mintlify/assistant-core';
+
+const transport: AssistantTransport = createYourTransport();
+
+const assistant = createAssistantCore({
+  transport,
+  metadata: {
+    surface: 'headless',
+    entryPoint: 'support-workflow',
+  },
+  onEvent(event) {
+    recordAssistantEvent(event);
+  },
+});
+
+const unsubscribe = assistant.subscribe((snapshot) => {
+  renderYourUI(snapshot);
+});
+
+await assistant.send({ content: 'How do I configure authentication?' });
+
+unsubscribe();
+assistant.destroy();
+```
+
+`metadata.surface` 字段必须是 `floating-widget`、`custom-trigger` 或 `headless` 之一。使用 `entryPoint` 来区分消息的来源，例如 `'support-workflow'` 或 `'in-app-chat'`。客户端会将这些归属信息附加到每个发送、重试和反馈请求。
+
+<div id="client-operations">
+  ## 客户端操作
+</div>
+
+`createAssistantCore` 返回的客户端暴露了一个精简、稳定的 API：
+
+| Operation | Behavior |
+| --- | --- |
+| `getSnapshot()` | 返回当前状态快照，包括消息、状态和线程延续。 |
+| `subscribe(listener)` | 观察快照变化。返回一个取消订阅函数。 |
+| `send(input)` | 添加一条用户消息，并在传输层完成、中止或失败后 resolve。 |
+| `abort()` | 取消待处理的传输工作，并将任何部分响应保留为 `aborted`。 |
+| `retry()` | 使用最后一条用户消息原始的 surface 和 entry point 重新生成响应。 |
+| `submitFeedback(input)` | 为服务端下发的消息 ID 提交正面或负面反馈。 |
+| `newThread()` | 中止待处理的工作，清除延续状态，并保留当前上下文。 |
+| `setContext(context)` | 替换后续发送所使用的默认上下文。 |
+| `destroy()` | 中止待处理的工作，移除订阅，并调用传输层可选的 `destroy`。 |
+
+`destroy()` 是幂等的。销毁之后，所有其他变更类操作都会抛出代码为 `destroyed` 的 `AssistantError`。请检查 `error.code`、`error.retryable` 和 `assistant.getSnapshot().unavailable`，而不是解析错误消息。
+
+<div id="context-and-attribution">
+  ## 上下文与归属
+</div>
+
+默认的 `metadata` 标识该集成。当同一个客户端为多个交互提供服务（例如浮动输入框和自定义触发按钮）时，`send` 调用可以覆盖 `surface` 和 `entryPoint`。重试、反馈和生命周期事件会保留原始消息所解析出的归属信息。
+
+上下文支持选中项和代码项，以及 `currentPath`、`version`、`language` 和 `product`：
+
+```ts
+assistant.setContext({
+  currentPath: '/quickstart',
+  language: 'en',
+  version: 'v2',
+  product: 'billing',
+  items: [
+    { type: 'textSelection', value: 'selected paragraph text', path: '/quickstart' },
+  ],
+});
+```
+
+<Warning>
+  不要在上下文中放置机密信息、原始身份令牌或任意个人数据。
+</Warning>
+
+<div id="persist-threads">
+  ## 持久化线程
+</div>
+
+传入一个 `AssistantStorageAdapter`，以便在会话之间持久化 `threadId` 和 `threadKey`。调用 `newThread()` 会将它们清除。
+
+```ts
+const assistant = createAssistantCore({
+  transport,
+  metadata: { surface: 'headless', entryPoint: 'support-workflow' },
+  storage: {
+    loadContinuation: () => readFromYourStore(),
+    saveContinuation: (continuation) => writeToYourStore(continuation),
+    clearContinuation: () => clearYourStore(),
+  },
+});
+```
+
+根据你的运行环境选择存储方式。Node.js 工作流可以将延续状态保存在内存中或加密的服务端存储中。浏览器集成可以持久化到会话存储。切勿记录或暴露线程密钥。
+
+你的应用需要自行处理登出和账号切换。请在另一个用户可以从同一实例发送消息之前，先调用 `newThread()` 或销毁客户端。
+
+<div id="lifecycle-events">
+  ## 生命周期事件
+</div>
+
+传入 `onEvent` 回调，以接收关于完成、错误、反馈和新线程事件的遥测数据。事件包含解析后的 surface、entry point 和 core 兼容版本，但绝不会包含消息正文、上下文或线程密钥。
+
+```ts
+onEvent(event) {
+  switch (event.type) {
+    case 'completed':
+      logSuccess(event.messageId, event.metadata);
+      break;
+    case 'errored':
+      logError(event.error, event.metadata);
+      break;
+    case 'feedback-submitted':
+      logFeedback(event.messageId, event.feedback);
+      break;
+    case 'new-thread':
+      logNewThread(event.metadata);
+      break;
+  }
+}
+```
+
+<div id="run-in-a-workflow">
+  ## 在工作流中运行
+</div>
+
+对于非交互式工作流，请将一次 send 调用包装在一个始终会销毁客户端的函数中，以避免订阅和待处理的传输资源泄漏。
+
+```ts
+import { createAssistantCore } from '@mintlify/assistant-core';
+
+export async function askAssistant({ transport, question, context }) {
+  const assistant = createAssistantCore({
+    transport,
+    context,
+    metadata: {
+      surface: 'headless',
+      entryPoint: 'automated-workflow',
+    },
+  });
+
+  try {
+    const snapshot = await assistant.send({ content: question });
+    return snapshot.messages.findLast((message) => message.role === 'assistant');
+  } finally {
+    assistant.destroy();
+  }
+}
+```
+
+<div id="provide-a-transport">
+  ## 提供传输层
+</div>
+
+传输层是唯一必需的适配器。它接收一个规范化的请求和一个取消信号，并产生流式事件。你可以针对自己的后端实现它，或者直接调用 AI 助手 API。
+
+```ts
+import type { AssistantTransport } from '@mintlify/assistant-core';
+
+const transport: AssistantTransport = {
+  async *send(request, signal) {
+    const response = await fetch('/api/assistant', {
+      method: 'POST',
+      body: JSON.stringify(request),
+      signal: toAbortSignal(signal),
+    });
+
+    for await (const event of parseAssistantStream(response.body)) {
+      if (signal.aborted) return;
+      yield event;
+    }
+  },
+  async submitFeedback(request) {
+    await fetch('/api/assistant/feedback', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
+  destroy() {
+    // Release any long-lived resources here.
+  },
+};
+```
+
+请将你的 AI 助手 API 密钥保存在服务端。无头客户端不管理凭据，因此你的传输层应在将请求转发到 AI 助手 API 之前对其进行身份验证。请参阅[构建应用内 AI 助手](/zh/guides/assistant-embed)，了解一种可供参考的代理模式。

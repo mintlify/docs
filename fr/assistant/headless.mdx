@@ -1,0 +1,219 @@
+---
+title: "Client d'assistant headless"
+sidebarTitle: "Client headless"
+description: "Créez des interfaces d'assistant IA personnalisées avec le SDK @mintlify/assistant-core, indépendant du framework, pour Node.js et navigateur."
+keywords: ["headless", "SDK", "assistant-core", "custom UI", "npm", "workflow"]
+---
+
+<Info>
+  Le client d'assistant headless est disponible sur le [forfait Pro et supérieurs](https://mintlify.com/pricing?ref=assistant). L'utilisation est décomptée de vos crédits partagés entre l'assistant, l'agent et les automatisations.
+</Info>
+
+Utilisez le package [`@mintlify/assistant-core`](https://www.npmjs.com/package/@mintlify/assistant-core) lorsque vous souhaitez intégrer l'assistant dans une interface que vous construisez et contrôlez, ou l'exécuter dans un workflow non navigateur. Le package fournit les mêmes sémantiques d'état, de streaming, de threads et de feedback que le widget maintenu, sans importer aucune API navigateur, DOM ou React.
+
+Optez pour le client headless lorsque :
+
+- Vous possédez la couche de rendu et souhaitez la machine à états de l'assistant sans l'interface du widget maintenu.
+- Vous devez exécuter l'assistant dans un service, un script ou une automatisation Node.js.
+- Vous voulez injecter un transport personnalisé, par exemple pour relayer les requêtes via votre propre backend ou pour tester avec une réponse d'assistant simulée.
+
+Si vous avez seulement besoin d'un widget de chat flottant sur votre produit, utilisez plutôt le [tutoriel d'assistant intégré à l'application](/fr/guides/assistant-embed).
+
+<div id="install">
+  ## Installation
+</div>
+
+```bash
+npm install @mintlify/assistant-core
+```
+
+Le package n'a aucune dépendance d'exécution et fonctionne sous Node.js 18+ et les navigateurs modernes.
+
+<div id="create-a-client">
+  ## Créer un client
+</div>
+
+Appelez `createAssistantCore` avec un transport et des métadonnées identifiant votre intégration. Le transport est responsable d'effectuer la requête réseau vers l'API de l'assistant et d'émettre les événements de streaming.
+
+```ts
+import { createAssistantCore, type AssistantTransport } from '@mintlify/assistant-core';
+
+const transport: AssistantTransport = createYourTransport();
+
+const assistant = createAssistantCore({
+  transport,
+  metadata: {
+    surface: 'headless',
+    entryPoint: 'support-workflow',
+  },
+  onEvent(event) {
+    recordAssistantEvent(event);
+  },
+});
+
+const unsubscribe = assistant.subscribe((snapshot) => {
+  renderYourUI(snapshot);
+});
+
+await assistant.send({ content: 'How do I configure authentication?' });
+
+unsubscribe();
+assistant.destroy();
+```
+
+Le champ `metadata.surface` doit être l'un des suivants : `floating-widget`, `custom-trigger` ou `headless`. Utilisez `entryPoint` pour distinguer l'origine d'un message, par exemple `'support-workflow'` ou `'in-app-chat'`. Le client attache cette attribution à chaque requête d'envoi, de nouvelle tentative et de feedback.
+
+<div id="client-operations">
+  ## Opérations du client
+</div>
+
+Le client renvoyé par `createAssistantCore` expose une API compacte et stable :
+
+| Operation | Comportement |
+| --- | --- |
+| `getSnapshot()` | Retourne le snapshot d'état actuel, incluant les messages, le statut et la continuation du thread. |
+| `subscribe(listener)` | Observe les changements de snapshot. Retourne une fonction de désabonnement. |
+| `send(input)` | Ajoute un message utilisateur et se résout lorsque le transport se termine, est interrompu ou échoue. |
+| `abort()` | Annule le travail en attente du transport et conserve toute réponse partielle comme `aborted`. |
+| `retry()` | Régénère le dernier message utilisateur avec sa surface et son point d'entrée d'origine. |
+| `submitFeedback(input)` | Envoie un feedback positif ou négatif pour un identifiant de message émis par le serveur. |
+| `newThread()` | Interrompt le travail en attente, efface l'état de continuation et conserve le contexte actuel. |
+| `setContext(context)` | Remplace le contexte par défaut utilisé par les envois ultérieurs. |
+| `destroy()` | Interrompt le travail en attente, supprime les abonnements et appelle le `destroy` optionnel du transport. |
+
+`destroy()` est idempotent. Après destroy, toutes les autres opérations mutantes lèvent une `AssistantError` avec le code `destroyed`. Inspectez `error.code`, `error.retryable` et `assistant.getSnapshot().unavailable` plutôt que d'analyser les messages d'erreur.
+
+<div id="context-and-attribution">
+  ## Contexte et attribution
+</div>
+
+Les `metadata` par défaut identifient l'intégration. Un appel `send` peut remplacer `surface` et `entryPoint` lorsqu'un même client sert plusieurs interactions, comme un composeur flottant et un bouton déclencheur personnalisé. Les événements de nouvelle tentative, de feedback et de cycle de vie conservent l'attribution résolue du message d'origine.
+
+Le contexte prend en charge les éléments de sélection et de code ainsi que `currentPath`, `version`, `language` et `product` :
+
+```ts
+assistant.setContext({
+  currentPath: '/quickstart',
+  language: 'en',
+  version: 'v2',
+  product: 'billing',
+  items: [
+    { type: 'textSelection', value: 'selected paragraph text', path: '/quickstart' },
+  ],
+});
+```
+
+<Warning>
+  Ne placez pas de secrets, de jetons d'identité bruts ou de données personnelles arbitraires dans le contexte.
+</Warning>
+
+<div id="persist-threads">
+  ## Persister les threads
+</div>
+
+Passez un `AssistantStorageAdapter` pour persister `threadId` et `threadKey` entre les sessions. Appeler `newThread()` les efface.
+
+```ts
+const assistant = createAssistantCore({
+  transport,
+  metadata: { surface: 'headless', entryPoint: 'support-workflow' },
+  storage: {
+    loadContinuation: () => readFromYourStore(),
+    saveContinuation: (continuation) => writeToYourStore(continuation),
+    clearContinuation: () => clearYourStore(),
+  },
+});
+```
+
+Choisissez le stockage en fonction de votre environnement. Un workflow Node.js peut conserver la continuation en mémoire ou dans un magasin côté serveur chiffré. Une intégration navigateur peut la persister dans le session storage. Ne journalisez jamais et n'exposez jamais les clés de thread.
+
+Votre application gère elle-même la déconnexion et le changement de compte. Appelez `newThread()` ou détruisez le client avant qu'un autre utilisateur puisse envoyer des messages depuis la même instance.
+
+<div id="lifecycle-events">
+  ## Événements de cycle de vie
+</div>
+
+Passez un rappel `onEvent` pour recevoir la télémétrie des événements de complétion, d'erreur, de feedback et de nouveau thread. Les événements incluent la surface résolue, le point d'entrée et la version de compatibilité du noyau. Ils n'incluent jamais le corps des messages, le contexte ou les clés de thread.
+
+```ts
+onEvent(event) {
+  switch (event.type) {
+    case 'completed':
+      logSuccess(event.messageId, event.metadata);
+      break;
+    case 'errored':
+      logError(event.error, event.metadata);
+      break;
+    case 'feedback-submitted':
+      logFeedback(event.messageId, event.feedback);
+      break;
+    case 'new-thread':
+      logNewThread(event.metadata);
+      break;
+  }
+}
+```
+
+<div id="run-in-a-workflow">
+  ## Exécuter dans un workflow
+</div>
+
+Pour les workflows non interactifs, encapsulez un envoi unique dans une fonction qui détruit toujours le client afin que les abonnements et les ressources de transport en attente ne puissent pas fuiter.
+
+```ts
+import { createAssistantCore } from '@mintlify/assistant-core';
+
+export async function askAssistant({ transport, question, context }) {
+  const assistant = createAssistantCore({
+    transport,
+    context,
+    metadata: {
+      surface: 'headless',
+      entryPoint: 'automated-workflow',
+    },
+  });
+
+  try {
+    const snapshot = await assistant.send({ content: question });
+    return snapshot.messages.findLast((message) => message.role === 'assistant');
+  } finally {
+    assistant.destroy();
+  }
+}
+```
+
+<div id="provide-a-transport">
+  ## Fournir un transport
+</div>
+
+Le transport est le seul adaptateur requis. Il reçoit une requête normalisée et un signal d'annulation, et émet des événements de streaming. Implémentez-le contre votre propre backend ou par un appel direct à l'API de l'assistant.
+
+```ts
+import type { AssistantTransport } from '@mintlify/assistant-core';
+
+const transport: AssistantTransport = {
+  async *send(request, signal) {
+    const response = await fetch('/api/assistant', {
+      method: 'POST',
+      body: JSON.stringify(request),
+      signal: toAbortSignal(signal),
+    });
+
+    for await (const event of parseAssistantStream(response.body)) {
+      if (signal.aborted) return;
+      yield event;
+    }
+  },
+  async submitFeedback(request) {
+    await fetch('/api/assistant/feedback', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
+  destroy() {
+    // Release any long-lived resources here.
+  },
+};
+```
+
+Gardez votre clé d'API d'assistant sur le serveur. Le client headless ne gère pas les identifiants, votre transport doit donc authentifier les requêtes avant de les transmettre à l'API de l'assistant. Consultez [Créer un assistant intégré à l'application](/fr/guides/assistant-embed) pour un modèle de proxy que vous pouvez adapter.
