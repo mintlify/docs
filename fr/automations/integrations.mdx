@@ -33,7 +33,7 @@ Les administrateurs et les éditeurs peuvent connecter les intégrations partag�
 3. Cliquez sur **Connect**.
 4. Suivez les invites OAuth pour autoriser Mintlify à accéder à votre compte.
 
-Certaines intégrations ouvrent une étape de configuration supplémentaire avant que la connexion ne se termine. Jira, Confluence et Salesforce demandent l'URL ou le sous-domaine de votre espace de travail avant le démarrage du flux OAuth, et les fournisseurs reposant sur une clé API, comme Plain, vous invitent à coller une clé API.
+Certaines intégrations ouvrent une étape de configuration supplémentaire avant que la connexion ne se termine. Jira, Confluence et Salesforce demandent l'URL ou le sous-domaine de votre espace de travail avant le démarrage du flux OAuth. Les fournisseurs reposant sur une clé API, comme Plain, vous invitent à coller une clé API.
 
 <div id="supported-integrations">
   ## Intégrations prises en charge
@@ -94,6 +94,56 @@ L'agent hérite des accès du compte qui a autorisé la connexion. Il ne peut li
 | Slack | Canaux publics auxquels l'espace de travail donne accès, ainsi que les canaux privés auxquels vous ajoutez l'app Mintlify |
 
 Pour limiter ce que l'agent peut voir, restreignez les autorisations du compte connecté dans l'application source. Par exemple, invitez l'app Slack de Mintlify uniquement dans des canaux spécifiques, ou partagez uniquement les pages Notion sélectionnées avec l'intégration.
+
+### Approuver l'app Mintlify dans Atlassian (Jira et Confluence)
+
+Si votre organisation Atlassian restreint les apps du marketplace ou personnalisées, votre administrateur Atlassian doit approuver l'app Mintlify avant que quiconque puisse connecter Jira ou Confluence. Les utilisateurs qui tentent de se connecter sans approbation voient une erreur d'autorisation sur l'écran de consentement OAuth.
+
+**Identité de l'app :**
+
+* **Nom de l'app :** Mintlify
+* **ID de l'app :** `872a4b8e-9e83-474d-99f9-dc79112da145`
+
+**Étapes pour l'administrateur :**
+
+1. Accédez à [admin.atlassian.com](https://admin.atlassian.com) et ouvrez votre organisation.
+2. Accédez à **Security** > **Data protection** > **Data security policy**.
+3. Vérifiez le paramètre **Marketplace and custom app access control**. S'il affiche **Blocked** ou **Custom**, l'app Mintlify doit être autorisée.
+4. Modifiez la politique et définissez le contrôle sur **Allowed**, ou ajoutez une exception pour l'app Mintlify en utilisant l'ID de l'app ci-dessus.
+5. Cliquez sur **Activate** pour appliquer la politique.
+
+Une fois la politique active, un administrateur ou un éditeur peut finaliser la connexion Jira ou Confluence depuis la page [Intégrations](https://app.mintlify.com/settings/organization/integrations).
+
+#### Scopes OAuth demandés par Mintlify
+
+Mintlify utilise le flux OAuth 2.0 (3LO) d'Atlassian et demande des scopes en lecture seule afin que l'agent d'automatisation puisse rechercher et lire les tickets ou pages nécessaires pour étayer ses mises à jour. Mintlify ne demande pas de scopes d'écriture, de suppression ni d'administration.
+
+**Scopes Jira :**
+
+| Scope                       | Pourquoi Mintlify en a besoin                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `read:jira-user`            | Résoudre les auteurs, personnes assignées et commentateurs de tickets en noms lisibles     |
+| `read:jira-work`            | Lire les tickets, commentaires, projets et résultats de recherche JQL que voit le compte connecté |
+| `offline_access`            | Rafraîchir le jeton d'accès OAuth pour que la connexion continue à fonctionner sans nouveau consentement |
+
+**Scopes Confluence :**
+
+| Scope                            | Pourquoi Mintlify en a besoin                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------ |
+| `read:confluence-content.all`    | Lire le corps des pages et les pièces jointes dans les espaces auxquels le compte connecté a accès |
+| `read:confluence-content.summary`| Rechercher et prévisualiser des pages avant de récupérer leur contenu complet              |
+| `read:confluence-space.summary`  | Lister et résoudre les espaces auxquels le compte connecté a accès                         |
+| `read:confluence-user`           | Résoudre les auteurs et éditeurs de pages en noms lisibles                                 |
+| `offline_access`                 | Rafraîchir le jeton d'accès OAuth pour que la connexion continue à fonctionner sans nouveau consentement |
+
+La liste complète des scopes accordés à la connexion s'affiche sur l'écran de consentement OAuth d'Atlassian lorsqu'un utilisateur autorise l'intégration pour la première fois, et peut être consultée à tout moment dans votre console d'administration Atlassian sous **Connected apps**.
+
+#### Ce que Mintlify fait avec les données
+
+* **L'accès est en lecture seule.** Mintlify ne crée, ne modifie, ne fait pas transitionner et ne supprime jamais de tickets, commentaires, pages ou pièces jointes.
+* **L'accès est hérité de l'utilisateur autorisant.** L'agent ne peut voir que les projets et espaces auxquels le compte Atlassian connecté a déjà accès. Pour restreindre la visibilité, limitez les autorisations de projet et d'espace du compte connecté dans Atlassian.
+* **L'accès est à la demande.** L'agent ne lit depuis Atlassian que lorsqu'une exécution d'automatisation nécessite ce contexte. Mintlify ne parcourt pas et ne réplique pas Jira ou Confluence dans une copie durable.
+* **La révocation est immédiate.** Déconnecter l'intégration dans le tableau de bord Mintlify, ou révoquer l'app dans l'administration Atlassian, coupe immédiatement tout accès futur.
 
 <div id="data-retention-after-disconnect">
   ## Conservation des données après déconnexion
