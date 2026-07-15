@@ -1,0 +1,276 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Mintlify Universal Search API",
+    "description": "Search across Mintlify-hosted documentation and the wider web with a single query.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/universal-search/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/search": {
+      "post": {
+        "summary": "Search across documentation and the web",
+        "description": "Runs a single query against Mintlify-hosted documentation and web search providers, merges the results, and returns them ranked by relevance. Optionally returns the full stitched page content for each result.\n\nAuthenticate with a universal search API key.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query",
+                  "numResults"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "The search query to run. Must be a non-empty string."
+                  },
+                  "numResults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "description": "The maximum number of results to return. Must be between 1 and 20."
+                  },
+                  "text": {
+                    "description": "Controls whether page content is returned with each result. Omit or set to `false` to return only metadata. Set to `true` to return the full stitched page content. Pass an object with `maxCharacters` to return content truncated to a character limit. Truncation preserves valid Markdown by closing open code fences.",
+                    "oneOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "maxCharacters"
+                        ],
+                        "properties": {
+                          "maxCharacters": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "The maximum number of characters of page content to return per result."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "includeDomains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Restrict web results to these domains. Mintlify-hosted results are unaffected."
+                  },
+                  "excludeDomains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Exclude web results from these domains. Mintlify-hosted results are unaffected."
+                  }
+                }
+              },
+              "examples": {
+                "basic": {
+                  "summary": "Basic search with truncated page content",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "numResults": 10,
+                    "text": {
+                      "maxCharacters": 4000
+                    }
+                  }
+                },
+                "filtered": {
+                  "summary": "Filter web results by domain",
+                  "value": {
+                    "query": "authentication setup",
+                    "numResults": 10,
+                    "text": {
+                      "maxCharacters": 4000
+                    },
+                    "includeDomains": [
+                      "docs.stripe.com"
+                    ],
+                    "excludeDomains": [
+                      "example.com"
+                    ]
+                  }
+                },
+                "fullText": {
+                  "summary": "Return complete page content",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "numResults": 10,
+                    "text": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "A unique identifier for this request. Include when contacting support."
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "The merged list of results, ranked by relevance. Results with `source: \"mintlify\"` come from Mintlify-hosted documentation; results with `source: \"web\"` come from the wider web.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "url",
+                          "title",
+                          "text",
+                          "score",
+                          "source",
+                          "siteName",
+                          "breadcrumbs",
+                          "publishedDate"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "A stable identifier for the result. For Mintlify results this is the page group ID; for web results this is the URL."
+                          },
+                          "url": {
+                            "type": "string",
+                            "format": "uri",
+                            "description": "The canonical URL of the result."
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "The title of the page."
+                          },
+                          "text": {
+                            "type": "string",
+                            "description": "The page content. Empty when `text` was omitted or set to `false`. Truncated when `text.maxCharacters` was provided."
+                          },
+                          "score": {
+                            "type": "number",
+                            "description": "The relevance score for this result."
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "mintlify",
+                              "web"
+                            ],
+                            "description": "Where the result came from."
+                          },
+                          "siteName": {
+                            "type": "string",
+                            "description": "The name of the site the result came from. For Mintlify results this is the deployment subdomain; for web results this is the hostname."
+                          },
+                          "breadcrumbs": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "The navigation breadcrumbs for the page. Only populated for Mintlify results."
+                          },
+                          "publishedDate": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true,
+                            "description": "The publication date reported by the source, when available."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Search failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The Authorization header expects a Bearer token. Use a universal search API key. Generate one on the [API keys page](https://app.mintlify.com/settings/organization/api-keys) in your dashboard."
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A human-readable description of the error."
+          }
+        }
+      }
+    }
+  }
+}
