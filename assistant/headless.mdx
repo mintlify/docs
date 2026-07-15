@@ -1,0 +1,203 @@
+---
+title: "Headless assistant client"
+sidebarTitle: "Headless client"
+description: "Build custom AI assistant interfaces with the framework-independent @mintlify/assistant-core SDK for Node.js and browser environments."
+keywords: ["headless", "SDK", "assistant-core", "custom UI", "npm", "workflow"]
+---
+
+<Info>
+  The headless assistant client is available on the [Pro plan and above](https://mintlify.com/pricing?ref=assistant). Usage counts against your shared assistant, agent, and automation credits.
+</Info>
+
+Use the [`@mintlify/assistant-core`](https://www.npmjs.com/package/@mintlify/assistant-core) package when you want to embed the assistant in an interface you build and control, or run it inside a non-browser workflow. The package ships the same state, streaming, thread, and feedback semantics as the maintained widget, without importing any browser, DOM, or React APIs.
+
+Reach for the headless client when:
+
+- You own the rendering layer and want the assistant's state machine without the maintained widget UI.
+- You need to run the assistant in a Node.js service, script, or automation.
+- You want to inject a custom transport, for example to proxy requests through your own backend or to test against a mocked assistant response.
+
+If you only need a floating chat widget on your product, use the [in-app assistant tutorial](/guides/assistant-embed) instead.
+
+## Install
+
+```bash
+npm install @mintlify/assistant-core
+```
+
+The package has no runtime dependencies and works in Node.js 18+ and modern browsers.
+
+## Create a client
+
+Call `createAssistantCore` with a transport and metadata that identifies your integration. The transport is responsible for making the network request to the assistant API and yielding streaming events.
+
+```ts
+import { createAssistantCore, type AssistantTransport } from '@mintlify/assistant-core';
+
+const transport: AssistantTransport = createYourTransport();
+
+const assistant = createAssistantCore({
+  transport,
+  metadata: {
+    surface: 'headless',
+    entryPoint: 'support-workflow',
+  },
+  onEvent(event) {
+    recordAssistantEvent(event);
+  },
+});
+
+const unsubscribe = assistant.subscribe((snapshot) => {
+  renderYourUI(snapshot);
+});
+
+await assistant.send({ content: 'How do I configure authentication?' });
+
+unsubscribe();
+assistant.destroy();
+```
+
+The `metadata.surface` field must be one of `floating-widget`, `custom-trigger`, or `headless`. Use `entryPoint` to distinguish where a message originated, for example `'support-workflow'` or `'in-app-chat'`. The client attaches this attribution to every send, retry, and feedback request.
+
+## Client operations
+
+The client returned by `createAssistantCore` exposes a small, stable API:
+
+| Operation | Behavior |
+| --- | --- |
+| `getSnapshot()` | Returns the current state snapshot, including messages, status, and thread continuation. |
+| `subscribe(listener)` | Observes snapshot changes. Returns an unsubscribe function. |
+| `send(input)` | Adds a user message and resolves after the transport finishes, aborts, or fails. |
+| `abort()` | Cancels pending transport work and retains any partial response as `aborted`. |
+| `retry()` | Regenerates the last user message with its original surface and entry point. |
+| `submitFeedback(input)` | Sends positive or negative feedback for a server-issued message ID. |
+| `newThread()` | Aborts pending work, clears continuation state, and keeps the current context. |
+| `setContext(context)` | Replaces the default context used by later sends. |
+| `destroy()` | Aborts pending work, removes subscriptions, and calls the transport's optional `destroy`. |
+
+`destroy()` is idempotent. After destroy, all other mutating operations throw an `AssistantError` with code `destroyed`. Inspect `error.code`, `error.retryable`, and `assistant.getSnapshot().unavailable` instead of parsing error messages.
+
+## Context and attribution
+
+The default `metadata` identifies the integration. A `send` call can override `surface` and `entryPoint` when one client serves more than one interaction, such as a floating composer and a custom trigger button. Retry, feedback, and lifecycle events retain the resolved attribution for the original message.
+
+Context supports selection and code items plus `currentPath`, `version`, `language`, and `product`:
+
+```ts
+assistant.setContext({
+  currentPath: '/quickstart',
+  language: 'en',
+  version: 'v2',
+  product: 'billing',
+  items: [
+    { type: 'textSelection', value: 'selected paragraph text', path: '/quickstart' },
+  ],
+});
+```
+
+<Warning>
+  Do not place secrets, raw identity tokens, or arbitrary personal data in context.
+</Warning>
+
+## Persist threads
+
+Pass an `AssistantStorageAdapter` to persist `threadId` and `threadKey` between sessions. Calling `newThread()` clears them.
+
+```ts
+const assistant = createAssistantCore({
+  transport,
+  metadata: { surface: 'headless', entryPoint: 'support-workflow' },
+  storage: {
+    loadContinuation: () => readFromYourStore(),
+    saveContinuation: (continuation) => writeToYourStore(continuation),
+    clearContinuation: () => clearYourStore(),
+  },
+});
+```
+
+Choose storage based on your environment. A Node.js workflow can keep continuation in memory or in an encrypted server-side store. A browser integration can persist to session storage. Never log or expose thread keys.
+
+Your application owns sign-out and account-switch handling. Call `newThread()` or destroy the client before another user can send messages from the same instance.
+
+## Lifecycle events
+
+Pass an `onEvent` callback to receive telemetry for completion, error, feedback, and new-thread events. Events include the resolved surface, entry point, and core compatibility version. They never include message bodies, context, or thread keys.
+
+```ts
+onEvent(event) {
+  switch (event.type) {
+    case 'completed':
+      logSuccess(event.messageId, event.metadata);
+      break;
+    case 'errored':
+      logError(event.error, event.metadata);
+      break;
+    case 'feedback-submitted':
+      logFeedback(event.messageId, event.feedback);
+      break;
+    case 'new-thread':
+      logNewThread(event.metadata);
+      break;
+  }
+}
+```
+
+## Run in a workflow
+
+For non-interactive workflows, wrap a single send in a function that always destroys the client so subscriptions and pending transport resources cannot leak.
+
+```ts
+import { createAssistantCore } from '@mintlify/assistant-core';
+
+export async function askAssistant({ transport, question, context }) {
+  const assistant = createAssistantCore({
+    transport,
+    context,
+    metadata: {
+      surface: 'headless',
+      entryPoint: 'automated-workflow',
+    },
+  });
+
+  try {
+    const snapshot = await assistant.send({ content: question });
+    return snapshot.messages.findLast((message) => message.role === 'assistant');
+  } finally {
+    assistant.destroy();
+  }
+}
+```
+
+## Provide a transport
+
+The transport is the only required adapter. It receives a normalized request and a cancellation signal, and yields streaming events. Implement it against your own backend or a direct call to the assistant API.
+
+```ts
+import type { AssistantTransport } from '@mintlify/assistant-core';
+
+const transport: AssistantTransport = {
+  async *send(request, signal) {
+    const response = await fetch('/api/assistant', {
+      method: 'POST',
+      body: JSON.stringify(request),
+      signal: toAbortSignal(signal),
+    });
+
+    for await (const event of parseAssistantStream(response.body)) {
+      if (signal.aborted) return;
+      yield event;
+    }
+  },
+  async submitFeedback(request) {
+    await fetch('/api/assistant/feedback', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
+  destroy() {
+    // Release any long-lived resources here.
+  },
+};
+```
+
+Keep your assistant API key on the server. The headless client does not manage credentials, so your transport should authenticate requests before forwarding them to the assistant API. See [Build an in-app assistant](/guides/assistant-embed) for a proxy pattern you can adapt.
