@@ -190,6 +190,144 @@
         }
       }
     },
+    "/context": {
+      "post": {
+        "summary": "为检索增强生成组装上下文负载",
+        "description": "运行按相关性排序的通用搜索，并根据排名靠前的 Mintlify 结果和网络结果，返回符合 token 预算的上下文负载。使用此端点可以为检索增强生成（RAG）流水线提供输入，而无需自行拼接结果。选择 `txt` 可获得直接传入 LLM 的纯文本上下文；选择 `json` 可获得应用可渲染的结构化列表。\n\n使用通用搜索 API key 进行身份验证。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query",
+                  "format"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "要为其构建上下文的用户问题或意图。"
+                  },
+                  "product": {
+                    "type": "string",
+                    "description": "可选的产品或主题，用于让检索偏向该方向。设置后，它会被前置到检索查询中。"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "txt",
+                      "json"
+                    ],
+                    "description": "`response` 字段的形式。`txt` 返回带来源 URL 的单个纯文本负载；`json` 返回形如 `{\"results\":[...]}` 的 JSON 编码字符串，每个片段对应一个条目。"
+                  }
+                }
+              },
+              "examples": {
+                "text": {
+                  "summary": "组装纯文本上下文",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "format": "txt"
+                  }
+                },
+                "json": {
+                  "summary": "组装偏向某个产品的结构化 JSON 上下文",
+                  "value": {
+                    "query": "authentication setup",
+                    "product": "Stripe",
+                    "format": "json"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已组装的上下文。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "query",
+                    "response",
+                    "resultsCount",
+                    "outputTokens"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "此请求的唯一标识符。联系支持时请附带此值。"
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "原始 `query` 的回显（不包含在检索期间应用的任何 `product` 前缀）。"
+                    },
+                    "response": {
+                      "type": "string",
+                      "description": "已组装的上下文。当 `format` 为 `txt` 时，为带来源 URL 的纯文本负载。当 `format` 为 `json` 时，为形如 `{\"results\":[...]}` 的 JSON 编码字符串，其中每个结果包含片段的 URL、标题和 Markdown。"
+                    },
+                    "resultsCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "在应用 token 预算后包含在 `response` 中的片段数量。"
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "`response` 的近似 token 数。此端点将其上限设置为 10,000 个 token。"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求体无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或无效的 API key。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "上下文组装失败。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/contents": {
       "post": {
         "summary": "按 URL 或 ID 获取页面内容",

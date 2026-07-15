@@ -190,6 +190,144 @@
         }
       }
     },
+    "/context": {
+      "post": {
+        "summary": "Assemble a context payload for retrieval-augmented generation",
+        "description": "Runs a ranked universal search and returns a token-budgeted context payload assembled from the top Mintlify and web results. Use this endpoint to feed a retrieval-augmented generation (RAG) pipeline without stitching results yourself. Choose `txt` for a plain-text context ready to pass to an LLM, or `json` for a structured list your application can render.\n\nAuthenticate with a universal search API key.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query",
+                  "format"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "The user question or intent to build context for."
+                  },
+                  "product": {
+                    "type": "string",
+                    "description": "Optional product or subject to bias retrieval toward. When set, it is prepended to the retrieval query."
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "txt",
+                      "json"
+                    ],
+                    "description": "Shape of the `response` field. `txt` returns a single plain-text payload with source URLs; `json` returns a JSON-encoded string of the form `{\"results\":[...]}` with one entry per snippet."
+                  }
+                }
+              },
+              "examples": {
+                "text": {
+                  "summary": "Assemble a plain-text context",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "format": "txt"
+                  }
+                },
+                "json": {
+                  "summary": "Assemble a structured JSON context biased toward a product",
+                  "value": {
+                    "query": "authentication setup",
+                    "product": "Stripe",
+                    "format": "json"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The assembled context.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "query",
+                    "response",
+                    "resultsCount",
+                    "outputTokens"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "A unique identifier for this request. Include when contacting support."
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "Echo of the original `query` (without any `product` prefix that was applied during retrieval)."
+                    },
+                    "response": {
+                      "type": "string",
+                      "description": "The assembled context. When `format` is `txt`, this is a plain-text payload with source URLs. When `format` is `json`, this is a JSON-encoded string of the form `{\"results\":[...]}` where each result contains the snippet's URL, title, and Markdown."
+                    },
+                    "resultsCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "The number of snippets included in `response` after the token budget was applied."
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "The approximate token count of `response`. The endpoint caps this at 10,000 tokens."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Context assembly failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/contents": {
       "post": {
         "summary": "Fetch page content by URL or ID",
