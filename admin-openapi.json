@@ -358,6 +358,202 @@
         }
       }
     },
+    "/v1/deslop/{projectId}": {
+      "post": {
+        "summary": "Check page for AI-sounding prose",
+        "description": "Scan an MDX page for AI-sounding prose and return line-mapped flagged passages with optional human-style rewrite suggestions. Pages under 50 words are skipped for free. Each checked page charges 1 AI credit from the shared AI credits pool used by the assistant.\n\nAuthenticate with an admin API key.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Can be copied from the [API keys](https://app.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["path", "content"],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Identifier for the page being checked. Echoed back in the response and used to key results when checking multiple pages."
+                  },
+                  "content": {
+                    "type": "string",
+                    "maxLength": 1000000,
+                    "description": "Raw MDX or Markdown content of the page. Frontmatter, code blocks, and inline code are stripped before scoring so only prose is analyzed."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Page checked successfully. `skipped` is `null` for scored pages, or a reason string (for example, `too_short`) when the page was not scored. Scored pages include the AI-written fractions, per-window flagged passages with line ranges, and any rewrite suggestions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "description": "Echo of the `path` from the request."
+                        },
+                        "skipped": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "Reason the page was skipped without scoring, such as `too_short` when the page is under 50 words. `null` when the page was scored."
+                        },
+                        "predictionShort": {
+                          "type": "string",
+                          "description": "Short label for the overall verdict. One of `Human`, `AI-Assisted`, `Mixed`, or `AI`.",
+                          "enum": ["Human", "AI-Assisted", "Mixed", "AI"]
+                        },
+                        "fractionAi": {
+                          "type": "number",
+                          "description": "Fraction of prose (0-1) that reads as fully AI-written."
+                        },
+                        "fractionAiAssisted": {
+                          "type": "number",
+                          "description": "Fraction of prose (0-1) that reads as AI-assisted."
+                        },
+                        "fractionHuman": {
+                          "type": "number",
+                          "description": "Fraction of prose (0-1) that reads as human-written."
+                        },
+                        "windows": {
+                          "type": "array",
+                          "description": "Flagged passages with line ranges from the original page and optional rewrite suggestions.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "type": "string",
+                                "description": "The flagged passage as it appears in the page."
+                              },
+                              "label": {
+                                "type": "string",
+                                "description": "Passage-level verdict (for example, `AI` or `AI-Assisted`)."
+                              },
+                              "aiAssistanceScore": {
+                                "type": "number",
+                                "description": "Score (0-1) indicating how AI-written the passage is."
+                              },
+                              "confidence": {
+                                "oneOf": [
+                                  { "type": "string" },
+                                  { "type": "number" }
+                                ],
+                                "description": "Detector confidence for this passage."
+                              },
+                              "startLine": {
+                                "type": "integer",
+                                "description": "1-indexed start line of the passage in the original page."
+                              },
+                              "endLine": {
+                                "type": "integer",
+                                "description": "1-indexed end line of the passage in the original page."
+                              },
+                              "rewrites": {
+                                "type": "array",
+                                "description": "Optional human-style rewrite candidates.",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "text": {
+                                      "type": "string",
+                                      "description": "Suggested replacement prose."
+                                    },
+                                    "rationale": {
+                                      "type": "string",
+                                      "description": "Short explanation of why the rewrite reads as more human."
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "creditsCharged": {
+                          "type": "integer",
+                          "description": "AI credits charged for this request. `1` for scored pages, `0` for skipped pages."
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "description": "Response shape when the page was skipped without scoring.",
+                      "properties": {
+                        "path": { "type": "string" },
+                        "skipped": {
+                          "type": "string",
+                          "description": "Reason the page was skipped (for example, `too_short`)."
+                        },
+                        "creditsCharged": {
+                          "type": "integer",
+                          "description": "Always `0` for skipped pages."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body. The `path` and `content` fields are required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Your organization is out of AI credits. Top up credits or upgrade your plan and retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The AI-prose detection service or quota service is temporarily unavailable. No credits are charged. Retry with backoff.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/agent/{projectId}/job": {
       "post": {
         "summary": "Create agent job",
