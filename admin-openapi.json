@@ -16,6 +16,76 @@
     }
   ],
   "paths": {
+    "/v1/deslop/{projectId}": {
+      "post": {
+        "summary": "Detect AI-sounding prose in a page",
+        "description": "Analyzes a documentation page for AI-generated prose and returns flagged passages with suggested human rewrites. Consumes one AI credit per checked page. Pages under 50 words are skipped and not charged.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Your project ID. Can be copied from the [API keys](https://app.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["path", "content"],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Repo-relative path of the page, used for reporting only."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The raw MDX or Markdown content of the page to check."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The page was checked, or skipped because it was too short.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/DeslopResult" } }
+            }
+          },
+          "400": {
+            "description": "Invalid request body.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "402": {
+            "description": "Insufficient AI credits.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "503": {
+            "description": "Detection is temporarily unavailable. No credit is charged.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
     "/v1/agent/{projectId}/job": {
       "post": {
         "summary": "Create agent job (v1)",
@@ -562,6 +632,57 @@
   },
   "components": {
     "schemas": {
+      "DeslopResult": {
+        "type": "object",
+        "required": ["path", "skipped", "creditsCharged"],
+        "properties": {
+          "path": { "type": "string", "description": "The path from the request." },
+          "skipped": {
+            "type": "string",
+            "nullable": true,
+            "enum": ["too_short", null],
+            "description": "Reason the page was skipped, or null when the page was checked. `too_short` means the page had fewer than 50 words of prose and was not charged."
+          },
+          "predictionShort": {
+            "type": "string",
+            "enum": ["AI", "AI-Assisted", "Human", "Mixed"],
+            "description": "Overall verdict for the page. Present only when the page was checked."
+          },
+          "fractionAi": { "type": "number", "description": "Fraction of the page detected as AI-generated (0-1)." },
+          "fractionAiAssisted": { "type": "number", "description": "Fraction detected as AI-assisted (0-1)." },
+          "fractionHuman": { "type": "number", "description": "Fraction detected as human-written (0-1)." },
+          "windows": {
+            "type": "array",
+            "description": "Flagged (non-human) passages. Present only when the page was checked.",
+            "items": { "$ref": "#/components/schemas/DeslopWindow" }
+          },
+          "creditsCharged": { "type": "integer", "description": "AI credits charged for this request (0 when skipped)." }
+        }
+      },
+      "DeslopWindow": {
+        "type": "object",
+        "required": ["text", "label", "aiAssistanceScore", "startLine", "endLine"],
+        "properties": {
+          "text": { "type": "string", "description": "The flagged passage text." },
+          "label": { "type": "string", "description": "Detection label for the passage, for example `AI-Generated`." },
+          "aiAssistanceScore": { "type": "number", "description": "AI-assistance score for the passage (0-1)." },
+          "confidence": { "type": "string", "description": "Detection confidence, for example `High`." },
+          "startLine": { "type": "integer", "description": "1-based start line of the passage in the original content." },
+          "endLine": { "type": "integer", "description": "1-based end line of the passage in the original content." },
+          "rewrites": {
+            "type": "array",
+            "description": "Suggested human rewrites of the passage.",
+            "items": {
+              "type": "object",
+              "required": ["text", "rationale"],
+              "properties": {
+                "text": { "type": "string", "description": "The rewritten passage." },
+                "rationale": { "type": "string", "description": "Why the rewrite reads more human." }
+              }
+            }
+          }
+        }
+      },
       "AgentJob": {
         "type": "object",
         "properties": {
