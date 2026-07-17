@@ -1,0 +1,157 @@
+---
+title: "Recover from editor issues"
+description: "Restore lost pages, clear phantom file changes, and recover an out-of-sync workspace in the Mintlify web editor using Git history, backup zips, and Reset editor."
+keywords: ["editor", "recovery", "restore", "backup", "git", "force push", "reset editor", "cascade delete", "phantom file changes", "danger zone"]
+---
+
+Your Git repository is always the source of truth. If the editor gets into a bad state — pages disappearing after a session, phantom diffs on files you didn't touch, or a workspace that looks empty — you can recover by restoring from Git and resyncing the editor with your repository.
+
+This page covers the most common recovery paths. If you can't get back to a good state after following these steps, [contact support](https://mintlify.com/community) and include your `docs.json`, the branch name, and the approximate time your last known-good state was on Git.
+
+## Before you start
+
+- **Don't publish or save from the editor** while it's showing unexpected changes. Publishing commits the bad state to Git and can overwrite your real content.
+- Identify the last known-good commit on your deployment branch (usually `main`) in your Git provider. You'll restore to this commit.
+- If you have a local clone of your repository, work from a terminal. Editor recovery for cascade deletes and force-push restores happens in Git, not in the editor.
+
+## Many pages disappeared after an editor session
+
+A single editor session can occasionally cascade-delete a large batch of pages — sometimes 100 or more — when a navigation change or bulk action goes wrong. Because the deletions are already committed to Git, the fix is to restore your repository to the last good commit.
+
+<Steps>
+  <Step title="Find the last good commit">
+    In your Git provider, open the commit history for your deployment branch. Identify the commit hash from immediately before the cascade delete.
+  </Step>
+  <Step title="Restore the branch">
+    Choose one of the following:
+
+    - **Force-push from a local clone**: Reset your local `main` to the good commit and force-push it back.
+
+      ```bash
+      git fetch origin
+      git checkout main
+      git reset --hard <good-commit-sha>
+      git push --force-with-lease origin main
+      ```
+
+      Force-pushing rewrites history on the deployment branch. Coordinate with your team first if others have pushed since the bad commit.
+
+    - **Revert with a new commit**: If you can't force-push, revert the bad commit or range of commits and push a new commit that undoes them.
+
+      ```bash
+      git revert --no-commit <bad-commit-sha>..HEAD
+      git commit -m "Revert cascade delete"
+      git push origin main
+      ```
+  </Step>
+  <Step title="Reset the editor">
+    After the branch is restored on Git, [reset the editor](#reset-the-editor) so its internal copy of the branch picks up the restored state.
+  </Step>
+</Steps>
+
+<Warning>
+  If your repository is a Mintlify-hosted repository (for example, one created by Mintlify's community setup that isn't connected to your own GitHub or GitLab account), force-pushing from a local clone doesn't reset production. Contact support and share a zip of your last known-good state so support can restore the repository for you.
+</Warning>
+
+## Restore from a backup zip
+
+If you don't have usable Git history — for example, the bad commits go too far back, or the repository itself is in a broken state — restore from a local backup of your docs.
+
+<Steps>
+  <Step title="Prepare the backup">
+    Unzip your backup locally and confirm it contains the files you expect: `docs.json`, your `.mdx` pages, `images/`, `snippets/`, and any other assets.
+  </Step>
+  <Step title="Replace the branch contents">
+    In a local clone of your repository:
+
+    ```bash
+    git checkout main
+    # Remove everything tracked, then copy the backup in
+    git rm -rf .
+    cp -R /path/to/backup/. .
+    git add -A
+    git commit -m "Restore from backup"
+    git push --force-with-lease origin main
+    ```
+  </Step>
+  <Step title="Reset the editor">
+    [Reset the editor](#reset-the-editor) so it re-reads the restored branch.
+  </Step>
+</Steps>
+
+## Phantom "File Changes" for files you didn't edit
+
+Sometimes the publish menu lists files under **File Changes** that you never touched, or shows a huge diff after a single-line edit. There are two different causes with different fixes.
+
+### Stale editor state on a non-deployment branch
+
+The editor keeps an internal copy of each branch. It refreshes automatically for the deployment branch, but direct Git pushes to a feature branch don't always sync into the editor's copy. When you then open the editor on that branch, it can misinterpret regenerated internal navigation IDs as file changes.
+
+Symptoms:
+
+- Files appear in **File Changes** even though you didn't edit them.
+- The diff shows changes to files you last touched from outside the editor.
+- The issue is limited to one branch, usually one you pushed to directly from Git.
+
+To fix:
+
+1. **Do not publish**. Publishing these phantom changes overwrites the real content on the branch.
+2. Discard the pending changes in the publish menu, or switch away from the branch and back.
+3. If the phantom changes persist, [reset the editor](#reset-the-editor) so it re-reads the branch from Git.
+4. If they still persist, [contact support](https://mintlify.com/community) with the branch name and a copy of `docs.json` so support can reset the editor's server-side copy of that branch.
+
+### Formatting normalization on save
+
+The editor normalizes formatting when it saves a page so the source matches what the visual editor renders. Expected normalizations include:
+
+- Single quotes in frontmatter converted to double quotes.
+- Escaped characters in URLs unescaped where safe (for example, `\(` and `\)` in Wikipedia links).
+- Bullet list spacing tightened.
+- Markdown headings rendered from HTML equivalents when a page used raw HTML.
+
+These changes are intentional and one-time — after a page has been saved once through the editor, subsequent edits produce clean diffs. If you want to avoid the initial reformat on a page, edit it outside the editor and commit the result yourself.
+
+## Workspace looks empty or destroyed
+
+If the editor loads with an empty file tree, shows `Unable to find docs.json` even though your Git branch has one, or otherwise looks like the workspace is gone, the editor's local state is out of sync with Git. Your repository content is not affected.
+
+1. Confirm the branch on Git still has your content. Open your repository in your Git provider and check that `docs.json` and your pages are present on the branch you're editing.
+2. If Git looks correct, [reset the editor](#reset-the-editor).
+3. If Git is also missing content, follow [Many pages disappeared after an editor session](#many-pages-disappeared-after-an-editor-session) first, then reset the editor.
+
+## Reset the editor
+
+**Reset editor** forces the editor to discard its local state and resync with Git. Use it after you've restored your branch on Git, or when the editor is stuck out of sync even though Git looks correct.
+
+<Warning>
+  Reset editor discards any unpublished changes that haven't been committed to Git. If you have pending edits you want to keep, publish or export them first.
+</Warning>
+
+<Steps>
+  <Step title="Open settings">
+    Click the <Icon icon="settings" /> settings icon in the editor toolbar.
+  </Step>
+  <Step title="Scroll to Danger zone">
+    Scroll to the **Danger zone** section at the bottom of the settings panel.
+  </Step>
+  <Step title="Reset editor">
+    Click **Reset editor** and confirm. The editor reloads and pulls the latest state from your repository.
+  </Step>
+</Steps>
+
+For more on the Danger zone, see [Editor settings](/editor/settings#danger-zone).
+
+## When to contact support
+
+Reach out to [support](https://mintlify.com/community) if:
+
+- Force-push from a local clone doesn't reset your live site — this usually means your repository is Mintlify-hosted and needs a server-side restore.
+- Phantom file changes persist across resets on the same branch.
+- The editor still won't load your branch after a reset and Git looks correct.
+
+When you contact support, share:
+
+- Your `docs.json` from the affected branch.
+- The affected branch name.
+- The commit SHA or timestamp of the last known-good state.
+- If restoring from backup, a zip of the files you want restored.
