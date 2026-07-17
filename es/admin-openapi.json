@@ -16,6 +16,76 @@
     }
   ],
   "paths": {
+    "/v1/deslop/{projectId}": {
+      "post": {
+        "summary": "Detectar prosa que suena a IA en una página",
+        "description": "Analiza una página de documentación en busca de prosa generada por IA y devuelve los pasajes marcados con reescrituras humanas sugeridas. Consume un crédito de IA por página comprobada. Las páginas con menos de 50 palabras se omiten y no se cobran.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "El ID de tu proyecto. Se puede copiar desde la página de [claves de API](https://app.mintlify.com/settings/organization/api-keys) en tu panel de control."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["path", "content"],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Ruta de la página relativa al repositorio, utilizada solo para informes."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "El contenido MDX o Markdown sin procesar de la página que se va a comprobar."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La página se comprobó, o se omitió porque era demasiado corta.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/DeslopResult" } }
+            }
+          },
+          "400": {
+            "description": "Cuerpo de la solicitud no válido.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "402": {
+            "description": "Créditos de IA insuficientes.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "429": {
+            "description": "Se ha superado el límite de tasa.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "503": {
+            "description": "La detección no está disponible temporalmente. No se cobra ningún crédito.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
     "/v1/agent/{projectId}/job": {
       "post": {
         "summary": "Crear trabajo del agente (v1)",
@@ -603,6 +673,57 @@
   },
   "components": {
     "schemas": {
+      "DeslopResult": {
+        "type": "object",
+        "required": ["path", "skipped", "creditsCharged"],
+        "properties": {
+          "path": { "type": "string", "description": "La ruta proveniente de la solicitud." },
+          "skipped": {
+            "type": "string",
+            "nullable": true,
+            "enum": ["too_short", null],
+            "description": "Motivo por el que se omitió la página, o null cuando la página se comprobó. `too_short` significa que la página tenía menos de 50 palabras de prosa y no se cobró."
+          },
+          "predictionShort": {
+            "type": "string",
+            "enum": ["AI", "AI-Assisted", "Human", "Mixed"],
+            "description": "Veredicto general de la página. Presente solo cuando la página se comprobó."
+          },
+          "fractionAi": { "type": "number", "description": "Fracción de la página detectada como generada por IA (0-1)." },
+          "fractionAiAssisted": { "type": "number", "description": "Fracción detectada como asistida por IA (0-1)." },
+          "fractionHuman": { "type": "number", "description": "Fracción detectada como escrita por humanos (0-1)." },
+          "windows": {
+            "type": "array",
+            "description": "Pasajes marcados (no humanos). Presente solo cuando la página se comprobó.",
+            "items": { "$ref": "#/components/schemas/DeslopWindow" }
+          },
+          "creditsCharged": { "type": "integer", "description": "Créditos de IA cobrados por esta solicitud (0 cuando se omite)." }
+        }
+      },
+      "DeslopWindow": {
+        "type": "object",
+        "required": ["text", "label", "aiAssistanceScore", "startLine", "endLine"],
+        "properties": {
+          "text": { "type": "string", "description": "El texto del pasaje marcado." },
+          "label": { "type": "string", "description": "Etiqueta de detección para el pasaje, por ejemplo `AI-Generated`." },
+          "aiAssistanceScore": { "type": "number", "description": "Puntuación de asistencia por IA para el pasaje (0-1)." },
+          "confidence": { "type": "string", "description": "Confianza de la detección, por ejemplo `High`." },
+          "startLine": { "type": "integer", "description": "Línea de inicio del pasaje en el contenido original (índice basado en 1)." },
+          "endLine": { "type": "integer", "description": "Línea final del pasaje en el contenido original (índice basado en 1)." },
+          "rewrites": {
+            "type": "array",
+            "description": "Reescrituras humanas sugeridas del pasaje.",
+            "items": {
+              "type": "object",
+              "required": ["text", "rationale"],
+              "properties": {
+                "text": { "type": "string", "description": "El pasaje reescrito." },
+                "rationale": { "type": "string", "description": "Por qué la reescritura suena más humana." }
+              }
+            }
+          }
+        }
+      },
       "AgentJob": {
         "type": "object",
         "properties": {
