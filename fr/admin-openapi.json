@@ -16,6 +16,76 @@
     }
   ],
   "paths": {
+    "/v1/deslop/{projectId}": {
+      "post": {
+        "summary": "Détecter la prose qui sonne comme de l'IA dans une page",
+        "description": "Analyse une page de documentation à la recherche de prose générée par IA et renvoie les passages signalés ainsi que des suggestions de réécriture au style humain. Consomme un crédit IA par page vérifiée. Les pages de moins de 50 mots sont ignorées et non facturées.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "L'identifiant de votre projet. Il peut être copié depuis la page [Clés d'API](https://app.mintlify.com/settings/organization/api-keys) de votre tableau de bord."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["path", "content"],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Chemin de la page relatif au dépôt, utilisé uniquement pour le rapport."
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Le contenu MDX ou Markdown brut de la page à vérifier."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La page a été vérifiée, ou ignorée parce qu'elle était trop courte.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/DeslopResult" } }
+            }
+          },
+          "400": {
+            "description": "Corps de requête invalide.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "402": {
+            "description": "Crédits IA insuffisants.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "429": {
+            "description": "Limite de débit dépassée.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          },
+          "503": {
+            "description": "La détection est temporairement indisponible. Aucun crédit n'est facturé.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
     "/v1/agent/{projectId}/job": {
       "post": {
         "summary": "Créer une tâche d’agent (v1)",
@@ -603,6 +673,57 @@
   },
   "components": {
     "schemas": {
+      "DeslopResult": {
+        "type": "object",
+        "required": ["path", "skipped", "creditsCharged"],
+        "properties": {
+          "path": { "type": "string", "description": "Le chemin fourni dans la requête." },
+          "skipped": {
+            "type": "string",
+            "nullable": true,
+            "enum": ["too_short", null],
+            "description": "Raison pour laquelle la page a été ignorée, ou null lorsque la page a été vérifiée. `too_short` signifie que la page contenait moins de 50 mots de prose et n'a pas été facturée."
+          },
+          "predictionShort": {
+            "type": "string",
+            "enum": ["AI", "AI-Assisted", "Human", "Mixed"],
+            "description": "Verdict global pour la page. Présent uniquement lorsque la page a été vérifiée."
+          },
+          "fractionAi": { "type": "number", "description": "Fraction de la page détectée comme générée par IA (0-1)." },
+          "fractionAiAssisted": { "type": "number", "description": "Fraction détectée comme assistée par IA (0-1)." },
+          "fractionHuman": { "type": "number", "description": "Fraction détectée comme rédigée par un humain (0-1)." },
+          "windows": {
+            "type": "array",
+            "description": "Passages signalés (non humains). Présent uniquement lorsque la page a été vérifiée.",
+            "items": { "$ref": "#/components/schemas/DeslopWindow" }
+          },
+          "creditsCharged": { "type": "integer", "description": "Crédits IA facturés pour cette requête (0 lorsque la page est ignorée)." }
+        }
+      },
+      "DeslopWindow": {
+        "type": "object",
+        "required": ["text", "label", "aiAssistanceScore", "startLine", "endLine"],
+        "properties": {
+          "text": { "type": "string", "description": "Le texte du passage signalé." },
+          "label": { "type": "string", "description": "Étiquette de détection pour le passage, par exemple `AI-Generated`." },
+          "aiAssistanceScore": { "type": "number", "description": "Score d'assistance par IA pour le passage (0-1)." },
+          "confidence": { "type": "string", "description": "Confiance de la détection, par exemple `High`." },
+          "startLine": { "type": "integer", "description": "Ligne de début du passage dans le contenu d'origine (indexée à partir de 1)." },
+          "endLine": { "type": "integer", "description": "Ligne de fin du passage dans le contenu d'origine (indexée à partir de 1)." },
+          "rewrites": {
+            "type": "array",
+            "description": "Suggestions de réécriture au style humain du passage.",
+            "items": {
+              "type": "object",
+              "required": ["text", "rationale"],
+              "properties": {
+                "text": { "type": "string", "description": "Le passage réécrit." },
+                "rationale": { "type": "string", "description": "Pourquoi la réécriture se lit de manière plus humaine." }
+              }
+            }
+          }
+        }
+      },
       "AgentJob": {
         "type": "object",
         "properties": {
