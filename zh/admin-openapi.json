@@ -395,6 +395,202 @@
         }
       }
     },
+    "/v1/deslop/{projectId}": {
+      "post": {
+        "summary": "检查页面中类 AI 语气的文本",
+        "description": "扫描 MDX 页面中类 AI 语气的文本，并返回带行号映射的被标记段落，以及可选的更贴近人类风格的改写建议。少于 50 词的页面将被免费跳过。每次检查一个页面会从助手所使用的共享 AI 额度池中扣除 1 个 AI 额度。\n\n使用管理员 API 密钥进行身份验证。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "你的项目 ID。可从你的控制台中的 [API keys](https://app.mintlify.com/settings/organization/api-keys) 页面复制。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["path", "content"],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "被检查页面的标识符。会在响应中原样返回，并在检查多个页面时用作结果的键。"
+                  },
+                  "content": {
+                    "type": "string",
+                    "maxLength": 1000000,
+                    "description": "页面的原始 MDX 或 Markdown 内容。在评分之前会移除 frontmatter、代码块和内联代码，因此仅分析正文文本。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "页面检查成功。对于已评分的页面，`skipped` 为 `null`；当页面未被评分时，则为一个原因字符串（例如 `too_short`）。已评分的页面包含 AI 撰写的比例、带行号范围的每个窗口的被标记段落，以及任何改写建议。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "description": "原样回显请求中的 `path`。"
+                        },
+                        "skipped": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "页面未被评分而跳过的原因，例如页面少于 50 词时为 `too_short`。当页面已被评分时为 `null`。"
+                        },
+                        "predictionShort": {
+                          "type": "string",
+                          "description": "整体判定的简短标签。为 `Human`、`AI-Assisted`、`Mixed` 或 `AI` 之一。",
+                          "enum": ["Human", "AI-Assisted", "Mixed", "AI"]
+                        },
+                        "fractionAi": {
+                          "type": "number",
+                          "description": "读起来完全由 AI 撰写的正文比例（0-1）。"
+                        },
+                        "fractionAiAssisted": {
+                          "type": "number",
+                          "description": "读起来由 AI 辅助撰写的正文比例（0-1）。"
+                        },
+                        "fractionHuman": {
+                          "type": "number",
+                          "description": "读起来由人类撰写的正文比例（0-1）。"
+                        },
+                        "windows": {
+                          "type": "array",
+                          "description": "带原始页面行号范围的被标记段落，以及可选的改写建议。",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "type": "string",
+                                "description": "被标记段落在页面中的原文。"
+                              },
+                              "label": {
+                                "type": "string",
+                                "description": "段落级别的判定（例如 `AI` 或 `AI-Assisted`）。"
+                              },
+                              "aiAssistanceScore": {
+                                "type": "number",
+                                "description": "表示该段落 AI 撰写程度的评分（0-1）。"
+                              },
+                              "confidence": {
+                                "oneOf": [
+                                  { "type": "string" },
+                                  { "type": "number" }
+                                ],
+                                "description": "检测器对该段落的置信度。"
+                              },
+                              "startLine": {
+                                "type": "integer",
+                                "description": "段落在原始页面中的起始行号（从 1 开始）。"
+                              },
+                              "endLine": {
+                                "type": "integer",
+                                "description": "段落在原始页面中的结束行号（从 1 开始）。"
+                              },
+                              "rewrites": {
+                                "type": "array",
+                                "description": "可选的人类风格改写候选。",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "text": {
+                                      "type": "string",
+                                      "description": "建议的替换文本。"
+                                    },
+                                    "rationale": {
+                                      "type": "string",
+                                      "description": "对为何该改写更像人类风格的简短说明。"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "creditsCharged": {
+                          "type": "integer",
+                          "description": "本次请求扣除的 AI 额度。已评分的页面为 `1`，被跳过的页面为 `0`。"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "description": "当页面未评分而被跳过时的响应结构。",
+                      "properties": {
+                        "path": { "type": "string" },
+                        "skipped": {
+                          "type": "string",
+                          "description": "页面被跳过的原因（例如 `too_short`）。"
+                        },
+                        "creditsCharged": {
+                          "type": "integer",
+                          "description": "对于被跳过的页面始终为 `0`。"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求体无效。`path` 和 `content` 字段为必填项。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "你的组织 AI 额度已用尽。请充值额度或升级套餐后重试。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "类 AI 文本检测服务或额度服务暂时不可用。不会扣除任何额度。请使用退避策略重试。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/agent/{projectId}/job": {
       "post": {
         "summary": "创建代理任务",

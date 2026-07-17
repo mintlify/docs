@@ -395,6 +395,202 @@
         }
       }
     },
+    "/v1/deslop/{projectId}": {
+      "post": {
+        "summary": "Vérifier la présence de prose au style IA sur une page",
+        "description": "Analyse une page MDX pour détecter la prose au style IA et renvoie les passages signalés avec leur plage de lignes, ainsi que des suggestions optionnelles de réécriture au style humain. Les pages de moins de 50 mots sont ignorées gratuitement. Chaque page vérifiée débite 1 crédit IA du pool de crédits IA partagé utilisé par l’assistant.\n\nAuthentifiez-vous avec une clé d'API administrateur.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "L’ID de votre projet. Vous pouvez le copier depuis la page [API keys](https://app.mintlify.com/settings/organization/api-keys) de votre Dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["path", "content"],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Identifiant de la page en cours de vérification. Il est renvoyé tel quel dans la réponse et sert de clé pour les résultats lors de la vérification de plusieurs pages."
+                  },
+                  "content": {
+                    "type": "string",
+                    "maxLength": 1000000,
+                    "description": "Contenu MDX ou Markdown brut de la page. Le frontmatter, les blocs de code et le code en ligne sont supprimés avant l’analyse afin que seule la prose soit évaluée."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Page vérifiée avec succès. `skipped` vaut `null` pour les pages évaluées, ou une chaîne indiquant la raison (par exemple, `too_short`) lorsque la page n’a pas été évaluée. Les pages évaluées incluent les fractions de texte rédigées par IA, les passages signalés par fenêtre avec leurs plages de lignes, ainsi que d’éventuelles suggestions de réécriture.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "description": "Reprise du champ `path` de la requête."
+                        },
+                        "skipped": {
+                          "type": "string",
+                          "nullable": true,
+                          "description": "Raison pour laquelle la page a été ignorée sans être évaluée, comme `too_short` lorsque la page fait moins de 50 mots. `null` lorsque la page a été évaluée."
+                        },
+                        "predictionShort": {
+                          "type": "string",
+                          "description": "Libellé court du verdict global. L’une des valeurs suivantes : `Human`, `AI-Assisted`, `Mixed` ou `AI`.",
+                          "enum": ["Human", "AI-Assisted", "Mixed", "AI"]
+                        },
+                        "fractionAi": {
+                          "type": "number",
+                          "description": "Fraction de la prose (0-1) qui semble entièrement rédigée par IA."
+                        },
+                        "fractionAiAssisted": {
+                          "type": "number",
+                          "description": "Fraction de la prose (0-1) qui semble assistée par IA."
+                        },
+                        "fractionHuman": {
+                          "type": "number",
+                          "description": "Fraction de la prose (0-1) qui semble rédigée par un humain."
+                        },
+                        "windows": {
+                          "type": "array",
+                          "description": "Passages signalés avec leurs plages de lignes dans la page d’origine et suggestions optionnelles de réécriture.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "type": "string",
+                                "description": "Le passage signalé tel qu’il apparaît dans la page."
+                              },
+                              "label": {
+                                "type": "string",
+                                "description": "Verdict au niveau du passage (par exemple, `AI` ou `AI-Assisted`)."
+                              },
+                              "aiAssistanceScore": {
+                                "type": "number",
+                                "description": "Score (0-1) indiquant à quel point le passage semble rédigé par IA."
+                              },
+                              "confidence": {
+                                "oneOf": [
+                                  { "type": "string" },
+                                  { "type": "number" }
+                                ],
+                                "description": "Confiance du détecteur pour ce passage."
+                              },
+                              "startLine": {
+                                "type": "integer",
+                                "description": "Ligne de début du passage dans la page d’origine (indexée à partir de 1)."
+                              },
+                              "endLine": {
+                                "type": "integer",
+                                "description": "Ligne de fin du passage dans la page d’origine (indexée à partir de 1)."
+                              },
+                              "rewrites": {
+                                "type": "array",
+                                "description": "Candidats optionnels de réécriture au style humain.",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "text": {
+                                      "type": "string",
+                                      "description": "Prose de remplacement suggérée."
+                                    },
+                                    "rationale": {
+                                      "type": "string",
+                                      "description": "Courte explication de la raison pour laquelle la réécriture semble plus humaine."
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "creditsCharged": {
+                          "type": "integer",
+                          "description": "Crédits IA débités pour cette requête. `1` pour les pages évaluées, `0` pour les pages ignorées."
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "description": "Structure de la réponse lorsque la page a été ignorée sans être évaluée.",
+                      "properties": {
+                        "path": { "type": "string" },
+                        "skipped": {
+                          "type": "string",
+                          "description": "Raison pour laquelle la page a été ignorée (par exemple, `too_short`)."
+                        },
+                        "creditsCharged": {
+                          "type": "integer",
+                          "description": "Toujours `0` pour les pages ignorées."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps de requête invalide. Les champs `path` et `content` sont obligatoires.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Votre organisation n’a plus de crédits IA. Rechargez vos crédits ou passez à un forfait supérieur, puis réessayez.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de débit dépassée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Le service de détection de prose IA ou le service de quotas est temporairement indisponible. Aucun crédit n’est débité. Réessayez avec un backoff.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/agent/{projectId}/job": {
       "post": {
         "summary": "Créer une tâche d’agent",
