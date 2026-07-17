@@ -324,6 +324,64 @@ The overall score uses weighted scoring, so higher-impact checks contribute more
 
 ---
 
+## `mint deslop`
+
+Detect AI-sounding prose in documentation pages and get humanization suggestions. Requires authentication with `mint login`.
+
+```bash
+mint deslop [files..] [flags]
+```
+
+With no arguments, the command checks git-changed `.md` and `.mdx` pages (staged, unstaged, and untracked). In a docs repo with a `docs.json`, changed files are automatically filtered to the pages referenced in your navigation, so `.mintignore`d and unpublished pages are skipped. You can also pass explicit file paths or globs.
+
+Each page is scored on the fraction of prose that reads as AI-written. Pages that meet or exceed `--threshold` fail, and the command exits with status `1` if any page is flagged or errors. Fully-human pages never fail, even at `--threshold 0`.
+
+| Argument | Description |
+| --- | --- |
+| `files` | Optional. One or more file paths or globs to check. Defaults to git-changed pages. |
+
+| Flag | Description |
+| --- | --- |
+| `--subdomain` | Documentation subdomain. Defaults to the value set with `mint config set subdomain`. |
+| `--format` | Output format: `table` (default, colored), `plain` (pipeable), or `json` (agent-friendly). |
+| `--threshold` | Fail a page when its AI-written fraction meets this value. Number between `0` and `1`. Defaults to `0.5`. |
+| `--fix-whitespace` | Normalize prose whitespace in the checked files before scoring. Rewrites files locally with no server call. |
+
+For each flagged page, the output shows the AI-written percentage, the flagged line ranges, the offending prose, and suggested rewrites you can apply.
+
+<Note>
+  Checking pages consumes AI credits. `--fix-whitespace` runs locally and does not charge credits. If the batch hits a credits or availability error, the remaining pages are skipped instead of retried.
+</Note>
+
+### Examples
+
+```bash
+# Check git-changed pages
+mint deslop
+
+# Check a specific page
+mint deslop docs/guide.mdx
+
+# Check pages by glob with agent-friendly output
+mint deslop "docs/**/*.mdx" --format json
+
+# Fail only on the most confidently AI-written pages
+mint deslop --threshold 0.8
+
+# Normalize prose whitespace and re-check in one pass
+mint deslop --fix-whitespace
+```
+
+### Fixing whitespace
+
+`--fix-whitespace` deterministically cleans prose whitespace in each checked file: trailing spaces, runs of blank lines, unicode and zero-width spaces, and internal double-spaces. Fenced code blocks, inline code, and frontmatter are left untouched. Because it runs locally, it is safe to include in pre-commit hooks or CI.
+
+### JSON output
+
+`--format json` writes a single JSON object to stdout with a `results` array (one entry per file, keyed by `path`) and a `summary` block. Errors are reported per file and counted in `summary.errors`. This shape is designed for agents that loop: check, rewrite flagged passages, then re-run until the command exits `0`.
+
+---
+
 ## `mint new`
 
 Create a new documentation project by picking a theme or cloning a pre-defined template from the [mintlify/templates](https://github.com/mintlify/templates) repository.
