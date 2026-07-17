@@ -362,6 +362,72 @@ mint score docs.example.com
 
 ---
 
+<div id="mint-deslop">
+  ## `mint deslop`
+</div>
+
+检测文档页面中读起来像 AI 生成的文字，并给出人性化改写建议。需要使用 `mint login` 进行身份验证。
+
+```bash
+mint deslop [files..] [flags]
+```
+
+在没有参数的情况下，该命令会检查 git 中有变更的 `.md` 和 `.mdx` 页面（已暂存、未暂存和未跟踪的）。在包含 `docs.json` 的文档仓库中，变更文件会自动过滤为你的导航中引用的页面，因此会跳过 `.mintignore` 掉的页面以及未发布的页面。你也可以显式传入文件路径或通配符。
+
+每个页面会根据其读起来像 AI 撰写的文字所占比例进行评分。达到或超过 `--threshold` 的页面会失败，如果有任何页面被标记或出错，命令会以状态码 `1` 退出。完全由人类撰写的页面永远不会失败，即使在 `--threshold 0` 下也是如此。
+
+| 参数 | 描述 |
+| --- | --- |
+| `files` | 可选。要检查的一个或多个文件路径或通配符。默认为 git 中有变更的页面。 |
+
+| 选项 | 描述 |
+| --- | --- |
+| `--subdomain` | 文档子域名。默认为通过 `mint config set subdomain` 设置的值。 |
+| `--format` | 输出格式：`table`（默认，带颜色）、`plain`（可管道传输）或 `json`（对代理友好）。 |
+| `--threshold` | 当页面 AI 撰写文字的比例达到该值时判为失败。介于 `0` 和 `1` 之间的数字。默认为 `0.5`。 |
+| `--fix-whitespace` | 在评分前规范化所检查文件中的正文空白。仅在本地重写文件，不调用服务器。 |
+
+对于每个被标记的页面，输出会显示 AI 撰写的百分比、被标记的行范围、有问题的文字，以及可以应用的改写建议。
+
+<Note>
+  检查页面会消耗 AI 额度。`--fix-whitespace` 在本地运行，不会消耗额度。如果批处理遇到额度或可用性错误，剩余页面会被跳过而不会重试。
+</Note>
+
+<div id="examples-mint-deslop">
+  ### 示例
+</div>
+
+```bash
+# 检查 git 中有变更的页面
+mint deslop
+
+# 检查特定页面
+mint deslop docs/guide.mdx
+
+# 通过通配符检查页面，并使用对代理友好的输出
+mint deslop "docs/**/*.mdx" --format json
+
+# 仅对最确信为 AI 撰写的页面判为失败
+mint deslop --threshold 0.8
+
+# 一次性规范化正文空白并重新检查
+mint deslop --fix-whitespace
+```
+
+<div id="fixing-whitespace">
+  ### 修复空白
+</div>
+
+`--fix-whitespace` 会以确定性方式清理每个所检查文件中的正文空白：行尾空格、连续的空行、unicode 空格和零宽空格，以及内部的双空格。围栏代码块、行内代码和 frontmatter 不会被改动。因为它在本地运行，所以可以安全地纳入预提交钩子或 CI。
+
+<div id="json-output">
+  ### JSON 输出
+</div>
+
+`--format json` 会向 stdout 写入一个 JSON 对象，其中包含一个 `results` 数组（每个文件一个条目，以 `path` 为键）和一个 `summary` 块。错误会按文件分别报告，并计入 `summary.errors`。这种结构专为循环运行的代理设计：检查、改写被标记的段落，然后重新运行，直到该命令以 `0` 退出。
+
+---
+
 <div id="mint-new">
   ## `mint new`
 </div>

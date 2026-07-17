@@ -362,6 +362,72 @@ La puntuación general utiliza puntuación ponderada, por lo que las verificacio
 
 ---
 
+<div id="mint-deslop">
+  ## `mint deslop`
+</div>
+
+Detecta prosa con apariencia de IA en las páginas de documentación y obtén sugerencias de humanización. Requiere autenticación con `mint login`.
+
+```bash
+mint deslop [files..] [flags]
+```
+
+Sin argumentos, el comando verifica las páginas `.md` y `.mdx` modificadas en git (en staging, sin staging y sin seguimiento). En un repositorio de documentación con un `docs.json`, los archivos modificados se filtran automáticamente a las páginas referenciadas en tu navegación, por lo que se omiten las páginas en `.mintignore` y las no publicadas. También puedes pasar rutas de archivo o globs explícitos.
+
+Cada página recibe una puntuación según la fracción de prosa que se lee como escrita por IA. Las páginas que alcanzan o superan `--threshold` fallan, y el comando termina con estado `1` si alguna página es marcada o presenta errores. Las páginas totalmente humanas nunca fallan, incluso con `--threshold 0`.
+
+| Argumento | Descripción |
+| --- | --- |
+| `files` | Opcional. Una o más rutas de archivo o globs a verificar. Por defecto, las páginas modificadas en git. |
+
+| Flag | Descripción |
+| --- | --- |
+| `--subdomain` | Subdominio de la documentación. Por defecto, el valor establecido con `mint config set subdomain`. |
+| `--format` | Formato de salida: `table` (predeterminado, con colores), `plain` (redirigible) o `json` (apto para agentes). |
+| `--threshold` | Marca una página como fallida cuando su fracción de contenido escrito por IA alcanza este valor. Número entre `0` y `1`. Por defecto `0.5`. |
+| `--fix-whitespace` | Normaliza los espacios en blanco de la prosa en los archivos verificados antes de puntuar. Reescribe los archivos localmente sin llamada al servidor. |
+
+Para cada página marcada, la salida muestra el porcentaje escrito por IA, los rangos de líneas señalados, la prosa problemática y las reescrituras sugeridas que puedes aplicar.
+
+<Note>
+  Verificar páginas consume créditos de IA. `--fix-whitespace` se ejecuta localmente y no consume créditos. Si el lote encuentra un error de créditos o de disponibilidad, las páginas restantes se omiten en lugar de reintentarse.
+</Note>
+
+<div id="examples-mint-deslop">
+  ### Ejemplos
+</div>
+
+```bash
+# Verificar las páginas modificadas en git
+mint deslop
+
+# Verificar una página específica
+mint deslop docs/guide.mdx
+
+# Verificar páginas por glob con salida apta para agentes
+mint deslop "docs/**/*.mdx" --format json
+
+# Fallar solo en las páginas escritas por IA con mayor certeza
+mint deslop --threshold 0.8
+
+# Normalizar los espacios en blanco de la prosa y volver a verificar en una sola pasada
+mint deslop --fix-whitespace
+```
+
+<div id="fixing-whitespace">
+  ### Corrección de espacios en blanco
+</div>
+
+`--fix-whitespace` limpia de forma determinista los espacios en blanco de la prosa en cada archivo verificado: espacios finales, secuencias de líneas en blanco, espacios unicode y de ancho cero, y espacios dobles internos. Los bloques de código delimitados, el código en línea y el frontmatter no se modifican. Como se ejecuta localmente, es seguro incluirlo en hooks de pre-commit o en CI.
+
+<div id="json-output">
+  ### Salida JSON
+</div>
+
+`--format json` escribe un único objeto JSON en stdout con un arreglo `results` (una entrada por archivo, indexada por `path`) y un bloque `summary`. Los errores se reportan por archivo y se cuentan en `summary.errors`. Esta forma está diseñada para agentes que iteran: verifican, reescriben los pasajes marcados y vuelven a ejecutar hasta que el comando termine con `0`.
+
+---
+
 <div id="mint-new">
   ## `mint new`
 </div>
