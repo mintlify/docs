@@ -19,7 +19,7 @@
     "/v1/deslop/{projectId}": {
       "post": {
         "summary": "Détecter la prose qui sonne comme de l'IA dans une page",
-        "description": "Analyse une page de documentation à la recherche de prose générée par IA et renvoie les passages signalés ainsi que des suggestions de réécriture au style humain. Consomme un crédit IA par page vérifiée. Les pages de moins de 50 mots sont ignorées et non facturées.",
+        "description": "Analyse une page à la recherche de prose générée par IA et renvoie les passages signalés ainsi que des suggestions de réécriture. Consomme un crédit IA par page vérifiée. Ignore les pages de moins de 50 mots. Limité à 30 requêtes par minute par adresse IP client.",
         "parameters": [
           {
             "name": "projectId",
@@ -44,7 +44,7 @@
                   },
                   "content": {
                     "type": "string",
-                    "minLength": 1,
+                    "maxLength": 1000000,
                     "description": "Le contenu MDX ou Markdown brut de la page à vérifier."
                   }
                 }
@@ -74,7 +74,12 @@
           "429": {
             "description": "Limite de débit dépassée.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Trop de requêtes, veuillez réessayer plus tard."
+                }
+              }
             }
           },
           "503": {
@@ -82,6 +87,9 @@
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
             }
+          },
+          "500": {
+            "description": "Une erreur inattendue s'est produite lors du traitement de la page."
           }
         }
       }
@@ -707,7 +715,13 @@
           "text": { "type": "string", "description": "Le texte du passage signalé." },
           "label": { "type": "string", "description": "Étiquette de détection pour le passage, par exemple `AI-Generated`." },
           "aiAssistanceScore": { "type": "number", "description": "Score d'assistance par IA pour le passage (0-1)." },
-          "confidence": { "type": "string", "description": "Confiance de la détection, par exemple `High`." },
+          "confidence": {
+            "description": "Confiance de la détection, renvoyée sous forme d'étiquette telle que `High` ou de score numérique.",
+            "oneOf": [
+              { "type": "string" },
+              { "type": "number" }
+            ]
+          },
           "startLine": { "type": "integer", "description": "Ligne de début du passage dans le contenu d'origine (indexée à partir de 1)." },
           "endLine": { "type": "integer", "description": "Ligne de fin du passage dans le contenu d'origine (indexée à partir de 1)." },
           "rewrites": {

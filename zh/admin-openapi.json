@@ -19,7 +19,7 @@
     "/v1/deslop/{projectId}": {
       "post": {
         "summary": "检测页面中 AI 风格的文本",
-        "description": "分析文档页面中是否存在 AI 生成的文本，并返回被标记的段落以及建议的人类风格改写。每检查一个页面消耗 1 个 AI 积分。少于 50 个词的页面会被跳过，不计费。",
+        "description": "分析页面中是否存在 AI 生成的文本，并返回被标记的段落以及建议的改写。每检查一个页面消耗 1 个 AI 积分。少于 50 个词的页面会被跳过。针对每个客户端 IP 地址每分钟最多 30 个请求。",
         "parameters": [
           {
             "name": "projectId",
@@ -44,7 +44,7 @@
                   },
                   "content": {
                     "type": "string",
-                    "minLength": 1,
+                    "maxLength": 1000000,
                     "description": "要检查的页面的原始 MDX 或 Markdown 内容。"
                   }
                 }
@@ -74,7 +74,12 @@
           "429": {
             "description": "超出速率限制。",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "请求过多，请稍后再试。"
+                }
+              }
             }
           },
           "503": {
@@ -82,6 +87,9 @@
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
             }
+          },
+          "500": {
+            "description": "处理页面时发生了意外错误。"
           }
         }
       }
@@ -707,7 +715,13 @@
           "text": { "type": "string", "description": "被标记的段落文本。" },
           "label": { "type": "string", "description": "段落的检测标签，例如 `AI-Generated`。" },
           "aiAssistanceScore": { "type": "number", "description": "段落的 AI 辅助评分（0-1）。" },
-          "confidence": { "type": "string", "description": "检测置信度，例如 `High`。" },
+          "confidence": {
+            "description": "检测置信度，返回值可能为 `High` 之类的标签或数值。",
+            "oneOf": [
+              { "type": "string" },
+              { "type": "number" }
+            ]
+          },
           "startLine": { "type": "integer", "description": "段落在原始内容中的起始行号（从 1 开始）。" },
           "endLine": { "type": "integer", "description": "段落在原始内容中的结束行号（从 1 开始）。" },
           "rewrites": {
