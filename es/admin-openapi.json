@@ -19,7 +19,7 @@
     "/v1/deslop/{projectId}": {
       "post": {
         "summary": "Detectar prosa que suena a IA en una página",
-        "description": "Analiza una página de documentación en busca de prosa generada por IA y devuelve los pasajes marcados con reescrituras humanas sugeridas. Consume un crédito de IA por página comprobada. Las páginas con menos de 50 palabras se omiten y no se cobran.",
+        "description": "Analiza una página en busca de prosa generada por IA y devuelve los pasajes marcados con reescrituras sugeridas. Consume un crédito de IA por página comprobada. Omite las páginas con menos de 50 palabras. Limitado a 30 solicitudes por minuto por dirección IP del cliente.",
         "parameters": [
           {
             "name": "projectId",
@@ -44,7 +44,7 @@
                   },
                   "content": {
                     "type": "string",
-                    "minLength": 1,
+                    "maxLength": 1000000,
                     "description": "El contenido MDX o Markdown sin procesar de la página que se va a comprobar."
                   }
                 }
@@ -74,7 +74,12 @@
           "429": {
             "description": "Se ha superado el límite de tasa.",
             "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Demasiadas solicitudes, inténtalo de nuevo más tarde."
+                }
+              }
             }
           },
           "503": {
@@ -82,6 +87,9 @@
             "content": {
               "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
             }
+          },
+          "500": {
+            "description": "Se produjo un error inesperado al procesar la página."
           }
         }
       }
@@ -707,7 +715,13 @@
           "text": { "type": "string", "description": "El texto del pasaje marcado." },
           "label": { "type": "string", "description": "Etiqueta de detección para el pasaje, por ejemplo `AI-Generated`." },
           "aiAssistanceScore": { "type": "number", "description": "Puntuación de asistencia por IA para el pasaje (0-1)." },
-          "confidence": { "type": "string", "description": "Confianza de la detección, por ejemplo `High`." },
+          "confidence": {
+            "description": "Confianza de la detección, devuelta como una etiqueta como `High` o un valor numérico.",
+            "oneOf": [
+              { "type": "string" },
+              { "type": "number" }
+            ]
+          },
           "startLine": { "type": "integer", "description": "Línea de inicio del pasaje en el contenido original (índice basado en 1)." },
           "endLine": { "type": "integer", "description": "Línea final del pasaje en el contenido original (índice basado en 1)." },
           "rewrites": {
