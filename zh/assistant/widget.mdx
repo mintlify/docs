@@ -1,0 +1,266 @@
+---
+title: "嵌入 assistant 小组件"
+description: "通过一个 script 标签和显式的 init 调用，将托管的 Mintlify Assistant 小组件安装到任何网站，并从你自己的 UI 中控制它。"
+keywords: ["assistant 小组件", "嵌入", "MintlifyAssistant", "init", "自定义触发器"]
+---
+
+托管的 Assistant 小组件让你可以在 Mintlify 托管的文档站点之外的任何网页上添加 Mintlify assistant。加载浏览器 bundle，调用 `window.MintlifyAssistant.init(settings)`，小组件就会挂载一个浮动触发按钮来打开 assistant 面板。你也可以通过自己的按钮或键盘快捷键来驱动这个小组件。
+
+<Info>
+  该 assistant 小组件使用 jsDelivr CDN 上托管的 `@mintlify/assistant-widget` 浏览器 bundle。当你希望使用维护良好的 Mintlify UI 时，请使用该小组件。若要基于 assistant API 构建完全自定义的 UI，请参见 [构建应用内 assistant](/zh/guides/assistant-embed)。
+</Info>
+
+<div id="prerequisites">
+  ## 前提条件
+</div>
+
+- 已为你的项目启用 [assistant](/zh/assistant/index)。
+- 从仪表板中的 [Assistant 小组件](https://app.mintlify.com/products/assistant) 页面获取的小组件 ID。小组件 ID 以 `mint_widget_` 开头。
+- 具备将 `<script>` 标签添加到你希望小组件出现的页面的能力。
+
+<div id="get-the-installation-snippet">
+  ## 获取安装代码片段
+</div>
+
+1. 在你的仪表板中打开 [Assistant 小组件](https://app.mintlify.com/products/assistant) 页面。
+2. 在 **Install widget** 部分，复制生成的代码片段。它包含你的小组件 ID。
+3. 将该代码片段粘贴到你希望小组件出现的页面中，理想的位置是靠近 `<body>` 的末尾。
+
+该代码片段以 ES 模块的形式加载托管的 bundle，然后使用你的小组件 ID 调用 `init`：
+
+```html
+<script
+  type="module"
+  nonce="YOUR_CSP_NONCE"
+  src="https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js"
+></script>
+
+<script type="module" nonce="YOUR_CSP_NONCE">
+  void window.MintlifyAssistant.init({
+    widgetId: 'mint_widget_example',
+  });
+</script>
+```
+
+将 `mint_widget_example` 替换为你的小组件 ID。根据你的 [内容安全策略](#content-security-policy) 替换或移除 `nonce="YOUR_CSP_NONCE"`。
+
+<Note>
+  `@0.0` 通道会跟随最新兼容的 `0.0.x` 补丁版本。破坏性变更会发布到新的次版本通道，因此现有安装不会跨破坏性版本更新。
+</Note>
+
+<div id="how-initialization-works">
+  ## 初始化的工作原理
+</div>
+
+加载 `embed.js` 会以空闲状态在 `window.MintlifyAssistant` 上安装小组件。在你调用 `init(settings)` 之前，小组件不会挂载或发起任何网络请求。`window.MintlifyAssistant` 上的每个方法都返回一个 promise。在初始化之前或初始化期间发起的调用会按调用顺序排队，并在运行时加载完成后被回放。
+
+将 settings 直接传递给 `init` 可以保留像 `onError` 和 `onEvent` 这样的回调函数——你无需通过全局对象序列化配置。
+
+重复加载脚本以及使用相同小组件 ID 重复调用 `init` 都是幂等的。在初始化不同的小组件之前，请先调用 `destroy()`。
+
+<div id="configure-init-settings">
+  ## 配置 init 设置
+</div>
+
+向 `init` 传递一个 settings 对象。只有 `widgetId` 是必填项。
+
+| 设置 | 类型 | 描述 |
+| --- | --- | --- |
+| `widgetId` | `string` | 必填。来自你仪表板的小组件 ID。 |
+| `baseUrl` | `string` | 覆盖小组件 API 的基础 URL。默认为 `https://api.mintlify.com/api/assistant-widget`。仅在通过代理、区域端点、自托管部署或本地开发服务器路由时才设置此项。 |
+| `identityToken` | `string` | 可选的身份令牌，用于换取短时有效的 assistant 会话。保存在内存中。 |
+| `theme` | `'light' \| 'dark'` | 可选的主题覆盖。 |
+| `styleNonce` | `string` | 应用到小组件隔离的内联基础样式的 CSP nonce。当 `style-src` 需要 nonce 时是必需的。 |
+| `scriptNonce` | `string` | 传播给动态加载的 captcha 脚本的 CSP nonce。 |
+| `onError` | `(error) => void` | 当初始化或运行时操作失败时调用。错误包含稳定的 `code`、`retryable` 标志和可选的 HTTP `status`。 |
+| `onEvent` | `(event) => void` | 在小组件生命周期事件时调用，包括 `initialized`、`opened`、`asked`、`closed`、`focused`、`updated`、`new-thread` 和 `destroyed`。 |
+
+```html
+<script type="module" nonce="YOUR_CSP_NONCE">
+  await window.MintlifyAssistant.init({
+    widgetId: 'mint_widget_example',
+    theme: 'dark',
+    styleNonce: 'YOUR_CSP_NONCE',
+    scriptNonce: 'YOUR_CSP_NONCE',
+    onError(error) {
+      console.error('Mintlify Assistant failed to initialize', error);
+    },
+    onEvent(event) {
+      if (event.type === 'asked') {
+        console.log('Assistant question sent from', event.entryPoint);
+      }
+    },
+  });
+</script>
+```
+
+<div id="control-the-widget-from-your-ui">
+  ## 从你的 UI 控制小组件
+</div>
+
+在 `init` 之后，使用 `window.MintlifyAssistant` 上的方法从你自己的按钮或键盘快捷键中打开面板、提问、更新设置或重置对话。
+
+```js
+await window.MintlifyAssistant.ready;
+await window.MintlifyAssistant.open({ entryPoint: 'docs-header' });
+await window.MintlifyAssistant.ask('How do I authenticate?', {
+  entryPoint: 'authentication-button',
+});
+await window.MintlifyAssistant.update({ theme: 'dark' });
+await window.MintlifyAssistant.newThread();
+await window.MintlifyAssistant.destroy();
+```
+
+入口点是长度在 1 到 100 个字符之间、经过修剪的字符串。自定义触发器默认为 `custom-trigger`；维护的触发器默认为 `floating-trigger`。
+
+`update({ identityToken })` 会开启一个新的线程。主题更新会保留当前线程。
+
+<div id="framework-examples">
+  ## 框架示例
+</div>
+
+<div id="plain-html-with-a-custom-trigger">
+  ### 使用自定义触发器的纯 HTML
+</div>
+
+如果你需要绑定可能在 `embed.js` 加载之前就运行的事件处理程序，请在托管的 bundle 之前安装一个小型的预加载桩代码。已排队的 `init`、`open`、`close`、`focus`、`ask`、`update`、`newThread` 和 `destroy` 调用会在加载器初始化后被采纳。
+
+```html
+<button id="ask-assistant" type="button">Ask Assistant</button>
+
+<script nonce="YOUR_CSP_NONCE" data-mintlify-assistant-preload>
+  (() => {
+    if (window.MintlifyAssistant) return;
+    const queue = [];
+    const enqueue = (method, args) =>
+      new Promise((resolve, reject) => queue.push({ method, args, resolve, reject }));
+    const preload = { q: queue, ready: enqueue('ready', []) };
+    for (const method of [
+      'init',
+      'open',
+      'close',
+      'focus',
+      'ask',
+      'update',
+      'newThread',
+      'destroy',
+    ]) {
+      preload[method] = (...args) => enqueue(method, args);
+    }
+    window.MintlifyAssistant = preload;
+  })();
+
+  document.querySelector('#ask-assistant').addEventListener('click', () => {
+    void window.MintlifyAssistant.open({ entryPoint: 'plain-html-button' });
+  });
+</script>
+
+<script
+  type="module"
+  nonce="YOUR_CSP_NONCE"
+  src="https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js"
+></script>
+<script type="module" nonce="YOUR_CSP_NONCE">
+  await window.MintlifyAssistant.init({
+    widgetId: 'mint_widget_example',
+    styleNonce: 'YOUR_CSP_NONCE',
+    scriptNonce: 'YOUR_CSP_NONCE',
+    onError(error) {
+      console.error('Mintlify Assistant failed to initialize', error);
+    },
+  });
+</script>
+```
+
+<div id="next-js">
+  ### Next.js
+</div>
+
+使用 `next/script` 加载 bundle，并在 `onReady` 中调用 `init`：
+
+```jsx
+'use client';
+
+import Script from 'next/script';
+
+const ASSISTANT_EMBED_URL =
+  'https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js';
+
+const SETTINGS = {
+  widgetId: 'mint_widget_example',
+  onError(error) {
+    console.error('Mintlify Assistant failed to initialize', error);
+  },
+};
+
+export const AssistantWidget = () => (
+  <Script
+    type="module"
+    src={ASSISTANT_EMBED_URL}
+    strategy="afterInteractive"
+    onReady={() => {
+      void window.MintlifyAssistant.init(SETTINGS);
+    }}
+  />
+);
+```
+
+<div id="vite">
+  ### Vite
+</div>
+
+动态导入托管的 bundle，然后调用 `init`：
+
+```js
+const ASSISTANT_EMBED_URL =
+  'https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js';
+
+const settings = {
+  widgetId: 'mint_widget_example',
+  onError(error) {
+    console.error('Mintlify Assistant failed to initialize', error);
+  },
+};
+
+await import(/* @vite-ignore */ ASSISTANT_EMBED_URL);
+await window.MintlifyAssistant.init(settings);
+```
+
+<div id="content-security-policy">
+  ## 内容安全策略
+</div>
+
+如果你的站点发送内容安全策略，请允许以下来源：
+
+- `script-src`：`https://cdn.jsdelivr.net`、`https://challenges.cloudflare.com`、`https://js.hcaptcha.com`
+- `connect-src`：`https://api.mintlify.com`、`https://challenges.cloudflare.com`、`https://*.hcaptcha.com`
+- `frame-src`：`https://challenges.cloudflare.com`、`https://*.hcaptcha.com`
+- `style-src`：`https://cdn.jsdelivr.net`，以及你作为 `styleNonce` 传入的用于小组件隔离内联基础样式的 nonce
+
+请将上面示例中的 `YOUR_CSP_NONCE` 替换为该请求的 nonce。严格的 `script-src` 策略必须通过 `<script nonce>` 属性授权内联的 `init` 和预加载代码块本身。`scriptNonce` 只将该值传播给动态加载的 captcha 脚本。静态外部加载器可以通过其 host 或 nonce 进行授权，而动态 `import()` 必须由 `script-src` 允许。
+
+当你设置 `baseUrl` 时，请在 `connect-src` 中允许该源，而不是 `https://api.mintlify.com`。
+
+<div id="handle-errors">
+  ## 处理错误
+</div>
+
+传递给 `onError` 的运行时错误包括：
+
+- `code`：稳定的标识符，例如 `INVALID_CONFIGURATION`、`RUNTIME_LOAD_FAILED`、`SESSION_FAILED`、`WIDGET_DISABLED` 或 `WIDGET_UNAVAILABLE`。
+- `retryable`：该操作是否可以重试。
+- `status`：当错误源自网络请求时的 HTTP 状态码。
+
+使用这些字段将 CSP 配置错误、被阻止的资源或已禁用的小组件呈现到你自己的日志或 UI 中。
+
+<div id="migrate-from-window-mintlifyassistantsettings">
+  ## 从 `window.MintlifyAssistantSettings` 迁移
+</div>
+
+早期的 `0.0.x` 版本会在你于加载 `embed.js` 之前设置 `window.MintlifyAssistantSettings` 时自动初始化。该全局变量在当前的兼容窗口内仍然有效，但显式的 `init(settings)` 调用现在是主要的集成方式：
+
+- 像 `onError` 和 `onEvent` 这样的回调设置可以直接传递，无需 JSON 序列化。
+- 你可以先加载 bundle，等设置准备好后再进行初始化。
+- 预加载队列让你可以在运行时加载之前接入自定义触发器。
+
+请将现有安装更新为在托管的 bundle 加载后调用 `window.MintlifyAssistant.init(settings)`。

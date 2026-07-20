@@ -1,0 +1,266 @@
+---
+title: "Intégrer le widget de l'assistant"
+description: "Installez le widget hébergé de l'assistant Mintlify sur tout site via une balise script et un appel explicite à init, puis pilotez-le depuis votre UI."
+keywords: ["widget de l'assistant", "intégration", "MintlifyAssistant", "init", "déclencheur personnalisé"]
+---
+
+Le widget hébergé de l'assistant vous permet d'ajouter l'assistant Mintlify à n'importe quelle page web en dehors de votre site de documentation hébergé par Mintlify. Chargez le bundle navigateur, appelez `window.MintlifyAssistant.init(settings)`, et le widget monte un déclencheur flottant qui ouvre le panneau de l'assistant. Vous pouvez également piloter le widget depuis vos propres boutons ou raccourcis clavier.
+
+<Info>
+  Le widget de l'assistant utilise le bundle navigateur hébergé `@mintlify/assistant-widget` depuis le CDN jsDelivr. Utilisez ce widget lorsque vous souhaitez l'interface Mintlify maintenue. Pour construire une interface entièrement personnalisée à partir de l'API de l'assistant, consultez [Créer un assistant intégré à l'application](/fr/guides/assistant-embed).
+</Info>
+
+<div id="prerequisites">
+  ## Prérequis
+</div>
+
+- L'[assistant](/fr/assistant/index) activé pour votre projet.
+- Un ID de widget depuis la page [Widget de l'assistant](https://app.mintlify.com/products/assistant) dans votre tableau de bord. Les ID de widget commencent par `mint_widget_`.
+- La possibilité d'ajouter des balises `<script>` aux pages où vous souhaitez que le widget apparaisse.
+
+<div id="get-the-installation-snippet">
+  ## Récupérer l'extrait d'installation
+</div>
+
+1. Ouvrez la page [Widget de l'assistant](https://app.mintlify.com/products/assistant) dans votre tableau de bord.
+2. Dans la section **Install widget**, copiez l'extrait généré. Il inclut votre ID de widget.
+3. Collez l'extrait dans les pages où vous souhaitez que le widget apparaisse, idéalement vers la fin de `<body>`.
+
+L'extrait charge le bundle hébergé sous forme de module ES puis appelle `init` avec votre ID de widget :
+
+```html
+<script
+  type="module"
+  nonce="YOUR_CSP_NONCE"
+  src="https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js"
+></script>
+
+<script type="module" nonce="YOUR_CSP_NONCE">
+  void window.MintlifyAssistant.init({
+    widgetId: 'mint_widget_example',
+  });
+</script>
+```
+
+Remplacez `mint_widget_example` par votre ID de widget. Remplacez ou supprimez `nonce="YOUR_CSP_NONCE"` en fonction de votre [Content Security Policy](#content-security-policy).
+
+<Note>
+  Le canal `@0.0` suit la dernière version de correctif `0.0.x` compatible. Les changements incompatibles sont publiés sur un nouveau canal mineur, afin que les installations existantes ne se mettent pas à jour à travers des versions incompatibles.
+</Note>
+
+<div id="how-initialization-works">
+  ## Fonctionnement de l'initialisation
+</div>
+
+Le chargement de `embed.js` installe `window.MintlifyAssistant` dans un état inactif. Le widget ne monte pas et n'effectue aucune requête réseau tant que vous n'appelez pas `init(settings)`. Chaque méthode de `window.MintlifyAssistant` renvoie une promesse. Les appels effectués avant ou pendant l'initialisation sont mis en file d'attente dans l'ordre d'invocation et rejoués une fois le runtime chargé.
+
+Passer les paramètres directement à `init` préserve les fonctions de rappel telles que `onError` et `onEvent` — vous n'avez pas besoin de sérialiser la configuration via un objet global.
+
+Les chargements de script répétés et les appels `init` répétés avec le même ID de widget sont idempotents. Appelez `destroy()` avant d'initialiser un widget différent.
+
+<div id="configure-init-settings">
+  ## Configurer les paramètres d'initialisation
+</div>
+
+Passez un objet de paramètres à `init`. Seul `widgetId` est obligatoire.
+
+| Paramètre | Type | Description |
+| --- | --- | --- |
+| `widgetId` | `string` | Obligatoire. L'ID de widget depuis votre tableau de bord. |
+| `baseUrl` | `string` | Remplace l'URL de base de l'API du widget. Par défaut `https://api.mintlify.com/api/assistant-widget`. Définissez ceci uniquement lorsque vous routez à travers un proxy, un point de terminaison régional, un déploiement auto-hébergé ou un serveur de développement local. |
+| `identityToken` | `string` | Jeton d'identité optionnel échangé contre une session d'assistant de courte durée. Conservé en mémoire. |
+| `theme` | `'light' \| 'dark'` | Remplacement optionnel du thème. |
+| `styleNonce` | `string` | Nonce CSP appliqué aux styles de base intégrés isolés du widget. Obligatoire lorsque `style-src` requiert un nonce. |
+| `scriptNonce` | `string` | Nonce CSP propagé aux scripts captcha chargés dynamiquement. |
+| `onError` | `(error) => void` | Appelé lorsque l'initialisation ou les opérations d'exécution échouent. Les erreurs incluent un `code` stable, un indicateur `retryable` et un `status` HTTP optionnel. |
+| `onEvent` | `(event) => void` | Appelé lors des événements du cycle de vie du widget, notamment `initialized`, `opened`, `asked`, `closed`, `focused`, `updated`, `new-thread` et `destroyed`. |
+
+```html
+<script type="module" nonce="YOUR_CSP_NONCE">
+  await window.MintlifyAssistant.init({
+    widgetId: 'mint_widget_example',
+    theme: 'dark',
+    styleNonce: 'YOUR_CSP_NONCE',
+    scriptNonce: 'YOUR_CSP_NONCE',
+    onError(error) {
+      console.error('Mintlify Assistant failed to initialize', error);
+    },
+    onEvent(event) {
+      if (event.type === 'asked') {
+        console.log('Assistant question sent from', event.entryPoint);
+      }
+    },
+  });
+</script>
+```
+
+<div id="control-the-widget-from-your-ui">
+  ## Piloter le widget depuis votre interface utilisateur
+</div>
+
+Après `init`, utilisez les méthodes de `window.MintlifyAssistant` pour ouvrir le panneau, poser une question, mettre à jour les paramètres ou réinitialiser la conversation depuis vos propres boutons ou raccourcis clavier.
+
+```js
+await window.MintlifyAssistant.ready;
+await window.MintlifyAssistant.open({ entryPoint: 'docs-header' });
+await window.MintlifyAssistant.ask('How do I authenticate?', {
+  entryPoint: 'authentication-button',
+});
+await window.MintlifyAssistant.update({ theme: 'dark' });
+await window.MintlifyAssistant.newThread();
+await window.MintlifyAssistant.destroy();
+```
+
+Les points d'entrée sont des chaînes rognées comprises entre 1 et 100 caractères. Les déclencheurs personnalisés utilisent par défaut `custom-trigger` ; le déclencheur maintenu utilise par défaut `floating-trigger`.
+
+`update({ identityToken })` démarre un nouveau fil de discussion. Les mises à jour de thème préservent le fil de discussion en cours.
+
+<div id="framework-examples">
+  ## Exemples de frameworks
+</div>
+
+<div id="plain-html-with-a-custom-trigger">
+  ### HTML pur avec un déclencheur personnalisé
+</div>
+
+Installez un petit stub de préchargement avant le bundle hébergé si vous avez besoin de lier des gestionnaires d'événements susceptibles de s'exécuter avant le chargement de `embed.js`. Les appels `init`, `open`, `close`, `focus`, `ask`, `update`, `newThread` et `destroy` mis en file d'attente sont adoptés par le chargeur une fois qu'il s'initialise.
+
+```html
+<button id="ask-assistant" type="button">Ask Assistant</button>
+
+<script nonce="YOUR_CSP_NONCE" data-mintlify-assistant-preload>
+  (() => {
+    if (window.MintlifyAssistant) return;
+    const queue = [];
+    const enqueue = (method, args) =>
+      new Promise((resolve, reject) => queue.push({ method, args, resolve, reject }));
+    const preload = { q: queue, ready: enqueue('ready', []) };
+    for (const method of [
+      'init',
+      'open',
+      'close',
+      'focus',
+      'ask',
+      'update',
+      'newThread',
+      'destroy',
+    ]) {
+      preload[method] = (...args) => enqueue(method, args);
+    }
+    window.MintlifyAssistant = preload;
+  })();
+
+  document.querySelector('#ask-assistant').addEventListener('click', () => {
+    void window.MintlifyAssistant.open({ entryPoint: 'plain-html-button' });
+  });
+</script>
+
+<script
+  type="module"
+  nonce="YOUR_CSP_NONCE"
+  src="https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js"
+></script>
+<script type="module" nonce="YOUR_CSP_NONCE">
+  await window.MintlifyAssistant.init({
+    widgetId: 'mint_widget_example',
+    styleNonce: 'YOUR_CSP_NONCE',
+    scriptNonce: 'YOUR_CSP_NONCE',
+    onError(error) {
+      console.error('Mintlify Assistant failed to initialize', error);
+    },
+  });
+</script>
+```
+
+<div id="next-js">
+  ### Next.js
+</div>
+
+Chargez le bundle avec `next/script` et appelez `init` depuis `onReady` :
+
+```jsx
+'use client';
+
+import Script from 'next/script';
+
+const ASSISTANT_EMBED_URL =
+  'https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js';
+
+const SETTINGS = {
+  widgetId: 'mint_widget_example',
+  onError(error) {
+    console.error('Mintlify Assistant failed to initialize', error);
+  },
+};
+
+export const AssistantWidget = () => (
+  <Script
+    type="module"
+    src={ASSISTANT_EMBED_URL}
+    strategy="afterInteractive"
+    onReady={() => {
+      void window.MintlifyAssistant.init(SETTINGS);
+    }}
+  />
+);
+```
+
+<div id="vite">
+  ### Vite
+</div>
+
+Importez dynamiquement le bundle hébergé, puis appelez `init` :
+
+```js
+const ASSISTANT_EMBED_URL =
+  'https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js';
+
+const settings = {
+  widgetId: 'mint_widget_example',
+  onError(error) {
+    console.error('Mintlify Assistant failed to initialize', error);
+  },
+};
+
+await import(/* @vite-ignore */ ASSISTANT_EMBED_URL);
+await window.MintlifyAssistant.init(settings);
+```
+
+<div id="content-security-policy">
+  ## Content Security Policy
+</div>
+
+Si votre site envoie une Content Security Policy, autorisez les origines suivantes :
+
+- `script-src` : `https://cdn.jsdelivr.net`, `https://challenges.cloudflare.com`, `https://js.hcaptcha.com`
+- `connect-src` : `https://api.mintlify.com`, `https://challenges.cloudflare.com`, `https://*.hcaptcha.com`
+- `frame-src` : `https://challenges.cloudflare.com`, `https://*.hcaptcha.com`
+- `style-src` : `https://cdn.jsdelivr.net` ainsi que le nonce que vous passez comme `styleNonce` pour les styles de base intégrés isolés du widget
+
+Remplacez `YOUR_CSP_NONCE` dans les exemples ci-dessus par le nonce de la requête. Une politique `script-src` stricte doit autoriser les blocs `init` et de préchargement intégrés eux-mêmes avec un attribut `<script nonce>`. `scriptNonce` propage uniquement cette valeur aux scripts captcha chargés dynamiquement. Un chargeur externe statique peut être autorisé par son hôte ou un nonce, tandis qu'un `import()` dynamique doit être autorisé par `script-src`.
+
+Lorsque vous définissez `baseUrl`, autorisez cette origine dans `connect-src` au lieu de `https://api.mintlify.com`.
+
+<div id="handle-errors">
+  ## Gérer les erreurs
+</div>
+
+Les erreurs d'exécution transmises à `onError` comprennent :
+
+- `code` : Un identifiant stable tel que `INVALID_CONFIGURATION`, `RUNTIME_LOAD_FAILED`, `SESSION_FAILED`, `WIDGET_DISABLED` ou `WIDGET_UNAVAILABLE`.
+- `retryable` : Indique si l'opération peut être réessayée.
+- `status` : Le code de statut HTTP, lorsque l'erreur provient d'une requête réseau.
+
+Utilisez ces champs pour signaler une mauvaise configuration CSP, des ressources bloquées ou un widget désactivé à votre propre journalisation ou interface utilisateur.
+
+<div id="migrate-from-window-mintlifyassistantsettings">
+  ## Migrer depuis `window.MintlifyAssistantSettings`
+</div>
+
+Les versions antérieures `0.0.x` s'auto-initialisaient lorsque vous définissiez `window.MintlifyAssistantSettings` avant de charger `embed.js`. Cette variable globale fonctionne toujours pendant la fenêtre de compatibilité actuelle, mais l'appel explicite `init(settings)` est désormais l'intégration principale :
+
+- Les paramètres de rappel comme `onError` et `onEvent` sont transmis sans sérialisation JSON.
+- Vous pouvez charger le bundle en premier et l'initialiser plus tard, une fois vos paramètres prêts.
+- Les files d'attente de préchargement vous permettent de câbler des déclencheurs personnalisés avant le chargement du runtime.
+
+Mettez à jour les installations existantes pour appeler `window.MintlifyAssistant.init(settings)` après le chargement du bundle hébergé.
