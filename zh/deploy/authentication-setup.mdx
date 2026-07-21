@@ -107,7 +107,7 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
     ### OAuth 2.0 前提条件
 
     * 支持 Authorization Code Flow (授权码流程) 的 OAuth 或 OIDC 服务器。
-    * 能够创建可通过 OAuth 访问令牌访问的 API 端点 (可选，用于启用基于用户组的访问控制) 。
+    * 对于基于用户组的访问控制，需要一个能在 `id_token` 或 `access_token` 中返回 groups 的 OAuth 或 OIDC 服务器，或者能够创建可通过 OAuth 访问令牌访问的 API 端点。
 
     ### OAuth 2.0 设置
 
@@ -125,7 +125,8 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
         * **Scopes** (可选) ：要请求的权限。复制 **完整的** scope 字符串 (例如，对于 `provider.users.docs` 这样的 scope，复制完整的 `provider.users.docs`) 。如果需要不同的访问级别，可以使用多个 scope。
         * **Additional authorization parameters** (可选) ：要添加到初始授权请求中的其他 query 参数。
         * **Token URL**：你的 OAuth 令牌交换端点。
-        * **Info API URL** (可选) ：你服务器上的一个端点，Mintlify 会调用它来获取用户信息。对于基于用户组的访问控制是必填项。如果省略，OAuth 流程只会验证身份。
+        * **Token claims** (可选) ：直接从你的 token 端点返回的 JWT 中派生用户组，而无需再单独托管一个用户信息端点。参见[从 token claims 派生 groups](#derive-groups-from-token-claims)。
+        * **Info API URL** (可选) ：你服务器上的一个端点，Mintlify 会调用它来获取用户信息。如果你的提供方不在 `id_token` 或 `access_token` 中返回 groups，可将此端点用于基于用户组的访问控制。如果同时省略 **Token claims** 和 **Info API URL**，OAuth 流程只会验证身份。
         * **Logout URL** (可选) ：你的 OAuth 提供方自带的登出 URL。用户登出时，Mintlify 会将登出重定向与该配置的 URL 进行校验，以确保安全性。只有当重定向地址与配置的 `logoutUrl` 完全匹配时，重定向才会成功。如果你未配置登出 URL，用户会被重定向到 `/login`。Mintlify 会使用 `GET` 请求重定向用户，并且不会追加任何 query 参数，因此请将所有参数 (例如 `returnTo`) 直接包含在 URL 中。
         * **Redirect URL** (可选) ：在认证完成后重定向用户的 URL。
 
@@ -151,6 +152,51 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
         将此端点 URL 填入你[认证设置](https://dashboard.mintlify.com/products/authentication)中的 **Info API URL** 字段。
       </Step>
     </Steps>
+
+    ### 从 token claims 派生 groups
+
+    如果你的 OAuth 或 OIDC 提供方已经在 `id_token` 或 `access_token` 中返回用户组信息，你可以省去托管用户信息端点的步骤，让 Mintlify 直接从你的 token 端点返回的 token 中读取 groups。
+
+    当你配置 **Token claims** 时，Mintlify 会：
+
+    * 从 token 端点响应中解码所配置的 token。
+    * 提取所配置的 claim，并将其规范化为一个 groups 列表。
+    * 使用这些 groups 来执行[基于用户组的访问控制](#control-access-with-groups)。
+    * 跳过对 **Info API URL** 的任何 groups 数据请求。
+
+    在 **Token claims** 下配置以下字段：
+
+    * **Source**：读取 groups 的目标 token。选择 `id_token` (默认) 或 `access_token`。如果使用 `id_token`，请在你的 OAuth **Scopes** 中包含 `openid`。
+    * **Groups claim**：用于读取 groups 的 claim。你可以使用顶层 claim 名称、带命名空间的 URI claim，或指向嵌套 claim 的点号路径。例如：
+      * `groups` 表示顶层数组 claim。
+      * `https://your-domain.example.com/groups` 表示 Auth0 命名空间 claim。
+      * `realm_access.roles` 表示 Keycloak realm role claim。
+
+    Mintlify 接受的 claim 值可以是字符串的 JSON 数组，也可以是单个字符串。
+
+    <Warning>
+      从 token claims 派生 groups 采用 fail-closed 策略。如果在 token 响应中缺少所配置的 token (例如，在未包含 `openid` scope 的情况下请求 `id_token`) ，Mintlify 会阻止登录，而不是让用户以无任何 groups 的状态登录。
+    </Warning>
+
+    #### Token claims 示例
+
+    对于返回包含 `groups` claim 的 `access_token` 的提供方：
+
+    ```json
+    {
+      "source": "access_token",
+      "groupsClaim": "groups"
+    }
+    ```
+
+    对于在嵌套 claim 中返回 roles 的 Keycloak 提供方：
+
+    ```json
+    {
+      "source": "id_token",
+      "groupsClaim": "realm_access.roles"
+    }
+    ```
 
     ### OAuth 2.0 示例
 

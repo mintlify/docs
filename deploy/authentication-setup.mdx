@@ -99,7 +99,7 @@ You host your documentation at `docs.foo.com` and your entire team has access to
 ### OAuth 2.0 prerequisites
 
 * An OAuth or OIDC server that supports the Authorization Code Flow.
-* Ability to create an API endpoint accessible by OAuth access tokens (optional, to enable group-based access control).
+* For group-based access control, either an OAuth or OIDC server that returns groups in the `id_token` or `access_token`, or the ability to create an API endpoint accessible by OAuth access tokens.
 
 ### OAuth 2.0 setup
 
@@ -116,7 +116,8 @@ You host your documentation at `docs.foo.com` and your entire team has access to
       * **Scopes** (optional): Permissions to request. Copy the **entire** scope string (for example, for a scope like `provider.users.docs`, copy the complete `provider.users.docs`). Use multiple scopes if you need different access levels.
       * **Additional authorization parameters** (optional): Additional query parameters to add to the initial authorization request.
       * **Token URL**: Your OAuth token exchange endpoint.
-      * **Info API URL** (optional): Endpoint on your server that Mintlify calls to retrieve user info. Required for group-based access control. If omitted, the OAuth flow only verifies identity.
+      * **Token claims** (optional): Derive user groups directly from the JWT returned by your token endpoint, instead of hosting a separate user info endpoint. See [Derive groups from token claims](#derive-groups-from-token-claims).
+      * **Info API URL** (optional): Endpoint on your server that Mintlify calls to retrieve user info. Use this for group-based access control if your provider does not return groups in the `id_token` or `access_token`. If you omit both **Token claims** and **Info API URL**, the OAuth flow only verifies identity.
       * **Logout URL** (optional): The native logout URL for your OAuth provider. When users log out, Mintlify validates the logout redirect against this configured URL for security. The redirect only succeeds if it exactly matches the configured `logoutUrl`. If you do not configure a logout URL, users redirect to `/login`. Mintlify redirects users with a `GET` request and does not append query parameters, so include any parameters (for example, `returnTo`) directly in the URL.
       * **Redirect URL** (optional): The URL to redirect users to after authentication.
     6. Click **Save changes**.
@@ -138,6 +139,51 @@ You host your documentation at `docs.foo.com` and your entire team has access to
     Add this endpoint URL to the **Info API URL** field in your [authentication settings](https://app.mintlify.com/products/authentication).
   </Step>
 </Steps>
+
+### Derive groups from token claims
+
+If your OAuth or OIDC provider already returns group membership in the `id_token` or `access_token`, you can skip hosting a user info endpoint and let Mintlify read groups directly from the token that your token endpoint returns.
+
+When you configure **Token claims**, Mintlify:
+
+* Decodes the configured token from the token endpoint response.
+* Extracts the configured claim and normalizes it into a list of groups.
+* Uses those groups to enforce [group-based access control](#control-access-with-groups).
+* Skips any request to your **Info API URL** for group data.
+
+Configure these fields under **Token claims**:
+
+* **Source**: The token to read groups from. Choose `id_token` (the default) or `access_token`. If you use `id_token`, include `openid` in your OAuth **Scopes**.
+* **Groups claim**: The claim to read groups from. You can use a top-level claim name, a namespaced URI claim, or a dotted path into nested claims. For example:
+  * `groups` for a top-level array claim.
+  * `https://your-domain.example.com/groups` for an Auth0 namespaced claim.
+  * `realm_access.roles` for a Keycloak realm role claim.
+
+Mintlify accepts the claim value as either a JSON array of strings or a single string.
+
+<Warning>
+  Group derivation from token claims is fail-closed. If the configured token is missing from the token response (for example, requesting `id_token` without the `openid` scope), Mintlify blocks the sign-in instead of logging the user in with no groups.
+</Warning>
+
+#### Token claims example
+
+For a provider that returns an `access_token` containing a `groups` claim:
+
+```json
+{
+  "source": "access_token",
+  "groupsClaim": "groups"
+}
+```
+
+For a Keycloak provider that returns roles in a nested claim:
+
+```json
+{
+  "source": "id_token",
+  "groupsClaim": "realm_access.roles"
+}
+```
 
 ### OAuth 2.0 example
 
