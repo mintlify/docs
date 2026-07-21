@@ -107,7 +107,7 @@ Usa esta comparación para elegir el método que se adapte a tu caso de uso. Con
     ### Requisitos previos de OAuth 2.0
 
     * Un servidor OAuth u OIDC que admita el flujo de código de autorización (Authorization Code Flow).
-    * Capacidad para crear un endpoint de API accesible mediante tokens de acceso OAuth (opcional, para habilitar el control de acceso basado en grupos).
+    * Para el control de acceso basado en grupos, un servidor OAuth u OIDC que devuelva los grupos en el `id_token` o el `access_token`, o la capacidad para crear un endpoint de API accesible mediante tokens de acceso OAuth.
 
     ### Configuración de OAuth 2.0
 
@@ -125,7 +125,8 @@ Usa esta comparación para elegir el método que se adapte a tu caso de uso. Con
         * **Scopes** (opcional): Permisos que se van a solicitar. Copia la cadena de scope **completa** (por ejemplo, para un scope como `provider.users.docs`, copia el `provider.users.docs` completo). Usa varios scopes si necesitas diferentes niveles de acceso.
         * **Additional authorization parameters** (opcional): Parámetros de consulta adicionales que se agregarán a la solicitud de autorización inicial.
         * **Token URL**: Tu endpoint de intercambio de tokens de OAuth.
-        * **Info API URL** (opcional): Endpoint en tu servidor al que Mintlify llama para obtener información del usuario. Obligatorio para el control de acceso basado en grupos. Si se omite, el flujo de OAuth solo verifica la identidad.
+        * **Token claims** (opcional): Deriva los grupos de usuario directamente del JWT que devuelve tu endpoint de tokens, en lugar de alojar un endpoint independiente de información de usuario. Consulta [Derivar grupos a partir de claims del token](#derive-groups-from-token-claims).
+        * **Info API URL** (opcional): Endpoint en tu servidor al que Mintlify llama para obtener la información del usuario. Usa esta opción para el control de acceso basado en grupos si tu proveedor no devuelve los grupos en el `id_token` o el `access_token`. Si se omiten tanto **Token claims** como **Info API URL**, el flujo de OAuth solo verifica la identidad.
         * **Logout URL** (opcional): La URL de cierre de sesión nativa de tu proveedor de OAuth. Cuando los usuarios cierran sesión, Mintlify valida la redirección de cierre de sesión frente a esta URL configurada por motivos de seguridad. La redirección solo se completa si coincide exactamente con el `logoutUrl` configurado. Si no configuras una Logout URL, los usuarios se redirigen a `/login`. Mintlify redirige a los usuarios con una solicitud `GET` y no agrega parámetros de consulta, por lo que debes incluir cualquier parámetro (por ejemplo, `returnTo`) directamente en la URL.
         * **Redirect URL** (opcional): La URL a la que se redirigirá a los usuarios después de la autenticación.
 
@@ -151,6 +152,51 @@ Usa esta comparación para elegir el método que se adapte a tu caso de uso. Con
         Agrega la URL de este endpoint al campo **Info API URL** en tus [ajustes de autenticación](https://dashboard.mintlify.com/products/authentication).
       </Step>
     </Steps>
+
+    ### Derivar grupos a partir de claims del token
+
+    Si tu proveedor de OAuth u OIDC ya devuelve la pertenencia a grupos en el `id_token` o el `access_token`, puedes evitar alojar un endpoint de información de usuario y dejar que Mintlify lea los grupos directamente del token que devuelve tu endpoint de tokens.
+
+    Cuando configuras **Token claims**, Mintlify:
+
+    * Decodifica el token configurado a partir de la respuesta del endpoint de tokens.
+    * Extrae el claim configurado y lo normaliza en una lista de grupos.
+    * Usa esos grupos para aplicar el [control de acceso basado en grupos](#control-access-with-groups).
+    * Omite cualquier solicitud a tu **Info API URL** para obtener datos de grupos.
+
+    Configura estos campos en **Token claims**:
+
+    * **Source**: El token del que se leerán los grupos. Elige `id_token` (el valor predeterminado) o `access_token`. Si usas `id_token`, incluye `openid` en los **Scopes** de OAuth.
+    * **Groups claim**: El claim del que se leerán los grupos. Puedes usar el nombre de un claim de nivel superior, un claim con URI con espacio de nombres o una ruta con puntos hacia claims anidados. Por ejemplo:
+      * `groups` para un claim de arreglo de nivel superior.
+      * `https://your-domain.example.com/groups` para un claim con espacio de nombres de Auth0.
+      * `realm_access.roles` para un claim de rol de realm de Keycloak.
+
+    Mintlify acepta el valor del claim como un arreglo JSON de cadenas o como una única cadena.
+
+    <Warning>
+      La derivación de grupos a partir de claims del token es fail-closed. Si el token configurado no está presente en la respuesta del token (por ejemplo, si se solicita `id_token` sin el scope `openid`), Mintlify bloquea el inicio de sesión en lugar de iniciar sesión al usuario sin grupos.
+    </Warning>
+
+    #### Ejemplo de Token claims
+
+    Para un proveedor que devuelve un `access_token` que contiene un claim `groups`:
+
+    ```json
+    {
+      "source": "access_token",
+      "groupsClaim": "groups"
+    }
+    ```
+
+    Para un proveedor Keycloak que devuelve roles en un claim anidado:
+
+    ```json
+    {
+      "source": "id_token",
+      "groupsClaim": "realm_access.roles"
+    }
+    ```
 
     ### Ejemplo de OAuth 2.0
 
