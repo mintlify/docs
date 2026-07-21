@@ -1,0 +1,612 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Mintlify 通用搜索 API",
+    "description": "使用单个查询同时搜索 Mintlify 托管的文档和整个网络。",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/universal-search/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/search": {
+      "post": {
+        "summary": "在文档和网络中搜索",
+        "description": "使用单个查询同时搜索 Mintlify 托管的文档和网络搜索提供商，合并结果并按相关性排序返回。可选择返回每个结果的完整页面内容。\n\n使用通用搜索 API key 进行身份验证。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query",
+                  "numResults"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "要运行的搜索查询。必须为非空字符串。"
+                  },
+                  "numResults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "description": "返回的最大结果数。必须在 1 到 20 之间。"
+                  },
+                  "text": {
+                    "description": "控制是否随每个结果返回页面内容。省略或设置为 `false` 时仅返回元数据。设置为 `true` 时返回完整的页面内容。传递带 `maxCharacters` 的对象可将内容截断到字符上限。截断会闭合未关闭的代码块，保持 Markdown 有效。",
+                    "oneOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "maxCharacters"
+                        ],
+                        "properties": {
+                          "maxCharacters": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "每个结果返回的页面内容的最大字符数。"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "includeDomains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "将网络结果限制在这些域名内。Mintlify 托管的结果不受影响。"
+                  },
+                  "excludeDomains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "排除这些域名的网络结果。Mintlify 托管的结果不受影响。"
+                  }
+                }
+              },
+              "examples": {
+                "basic": {
+                  "summary": "带截断页面内容的基本搜索",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "numResults": 10,
+                    "text": {
+                      "maxCharacters": 4000
+                    }
+                  }
+                },
+                "filtered": {
+                  "summary": "按域名过滤网络结果",
+                  "value": {
+                    "query": "authentication setup",
+                    "numResults": 10,
+                    "text": {
+                      "maxCharacters": 4000
+                    },
+                    "includeDomains": [
+                      "docs.stripe.com"
+                    ],
+                    "excludeDomains": [
+                      "example.com"
+                    ]
+                  }
+                },
+                "fullText": {
+                  "summary": "返回完整的页面内容",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "numResults": 10,
+                    "text": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "此请求的唯一标识符。联系支持时请附带此值。"
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "合并后的结果列表，按相关性排序。`source: \"mintlify\"` 的结果来自 Mintlify 托管的文档；`source: \"web\"` 的结果来自互联网。",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求体无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或无效的 API key。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "搜索失败。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/context": {
+      "post": {
+        "summary": "为检索增强生成组装上下文负载",
+        "description": "运行按相关性排序的通用搜索，并根据排名靠前的 Mintlify 结果和网络结果，返回符合 token 预算的上下文负载。使用此端点可以为检索增强生成（RAG）流水线提供输入，而无需自行拼接结果。选择 `txt` 可获得直接传入 LLM 的纯文本上下文；选择 `json` 可获得应用可渲染的结构化列表。\n\n使用通用搜索 API key 进行身份验证。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query",
+                  "format"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "要为其构建上下文的用户问题或意图。"
+                  },
+                  "product": {
+                    "type": "string",
+                    "description": "可选的产品或主题，用于让检索偏向该方向。设置后，它会被前置到检索查询中。"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "txt",
+                      "json"
+                    ],
+                    "description": "`response` 字段的形式。`txt` 返回带来源 URL 的单个纯文本负载；`json` 返回形如 `{\"results\":[...]}` 的 JSON 编码字符串，每个片段对应一个条目。"
+                  }
+                }
+              },
+              "examples": {
+                "text": {
+                  "summary": "组装纯文本上下文",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "format": "txt"
+                  }
+                },
+                "json": {
+                  "summary": "组装偏向某个产品的结构化 JSON 上下文",
+                  "value": {
+                    "query": "authentication setup",
+                    "product": "Stripe",
+                    "format": "json"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已组装的上下文。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "query",
+                    "response",
+                    "resultsCount",
+                    "outputTokens"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "此请求的唯一标识符。联系支持时请附带此值。"
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "原始 `query` 的回显（不包含在检索期间应用的任何 `product` 前缀）。"
+                    },
+                    "response": {
+                      "type": "string",
+                      "description": "已组装的上下文。当 `format` 为 `txt` 时，为带来源 URL 的纯文本负载。当 `format` 为 `json` 时，为形如 `{\"results\":[...]}` 的 JSON 编码字符串，其中每个结果包含片段的 URL、标题和 Markdown。"
+                    },
+                    "resultsCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "在应用 token 预算后包含在 `response` 中的片段数量。"
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "`response` 的近似 token 数。此端点将其上限设置为 10,000 个 token。"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求体无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或无效的 API key。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "上下文组装失败。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contents": {
+      "post": {
+        "summary": "按 URL 或 ID 获取页面内容",
+        "description": "将 URL 或 ID 解析为 Mintlify 托管的文档页面，并返回每个页面拼接后的内容。每个输入都有独立的状态项，使响应能够报告部分成功而不会导致整个请求失败。\n\n使用通用搜索 API key 进行身份验证。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "`urls` 或 `ids` 至少需要提供其中一个。单次请求最多可以引用 20 个项目（两个字段合计）。",
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "description": "要获取的 Mintlify 托管页面的规范 URL。`www` 和非 `www` 的变体都会被匹配。"
+                  },
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "要获取的页面 ID。使用[在文档和网络中搜索](/zh/api/universal-search/search)返回的 `id`。"
+                  },
+                  "maxCharacters": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "每个结果返回的页面内容的最大字符数。截断会闭合未关闭的代码块，保持 Markdown 有效。"
+                  }
+                }
+              },
+              "examples": {
+                "byIds": {
+                  "summary": "按 ID 获取页面",
+                  "value": {
+                    "ids": [
+                      "stripe-charges-guide",
+                      "stripe-webhooks-guide"
+                    ],
+                    "maxCharacters": 4000
+                  }
+                },
+                "byUrls": {
+                  "summary": "按规范 URL 获取页面",
+                  "value": {
+                    "urls": [
+                      "https://docs.stripe.com/charges",
+                      "https://docs.stripe.com/webhooks"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "内容查询已完成。请检查 `statuses` 以了解每个输入的结果；响应可能包含部分结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results",
+                    "statuses"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "此请求的唯一标识符。联系支持时请附带此值。"
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "已成功解析的页面，结构与搜索结果相同。仅当输入在 `statuses` 中对应条目报告为 `success` 时，才会出现在此处。",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    },
+                    "statuses": {
+                      "type": "array",
+                      "description": "请求中每个输入对应一个条目，顺序与输入的提供顺序一致。每个条目报告该输入是否解析成功；若未成功，则包含一个错误 `tag`。",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "此状态对应的输入 URL 或 ID。"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "success"
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status",
+                              "error"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "此状态对应的输入 URL 或 ID。"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "error"
+                                ]
+                              },
+                              "error": {
+                                "type": "object",
+                                "required": [
+                                  "tag",
+                                  "httpStatusCode"
+                                ],
+                                "properties": {
+                                  "tag": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not_found",
+                                      "not_synced",
+                                      "invalid_id",
+                                      "fetch_error"
+                                    ],
+                                    "description": "机器可读的错误标签。`not_found` 表示 URL 或 ID 未匹配到任何页面。`not_synced` 表示源部署尚未为通用搜索建立索引。`invalid_id` 表示 ID 格式不正确。`fetch_error` 表示查询意外失败。"
+                                  },
+                                  "httpStatusCode": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "description": "最能描述该错误的 HTTP 状态码；当没有合适的单一状态码时为 `null`。"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求体无效。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或无效的 API key。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "超出速率限制。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Authorization 请求头需要 Bearer token。请使用通用搜索 API key。在仪表板的 [API 密钥页面](https://app.mintlify.com/settings/organization/api-keys) 生成一个。"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "错误的可读描述。"
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "title",
+          "text",
+          "score",
+          "source",
+          "siteName",
+          "breadcrumbs",
+          "publishedDate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "结果的稳定标识符。对于 Mintlify 结果，此值为页面分组 ID；对于网络结果，此值为 URL。"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "结果的规范 URL。"
+          },
+          "title": {
+            "type": "string",
+            "description": "页面的标题。"
+          },
+          "text": {
+            "type": "string",
+            "description": "页面内容。当 `text` 被省略或设置为 `false` 时为空。当提供 `text.maxCharacters` 时会被截断。"
+          },
+          "score": {
+            "type": "number",
+            "description": "此结果的相关性得分。"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "mintlify",
+              "web"
+            ],
+            "description": "结果的来源。"
+          },
+          "siteName": {
+            "type": "string",
+            "description": "结果所属站点的名称。对于 Mintlify 结果，此值为部署子域名；对于网络结果，此值为主机名。"
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "页面的导航面包屑。仅针对 Mintlify 结果填充。"
+          },
+          "publishedDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "来源报告的发布日期（如果可用）。"
+          }
+        }
+      }
+    }
+  }
+}

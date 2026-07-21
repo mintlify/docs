@@ -1,0 +1,612 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "API de búsqueda universal de Mintlify",
+    "description": "Busca en la documentación alojada en Mintlify y en la web abierta con una única consulta.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/universal-search/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/search": {
+      "post": {
+        "summary": "Buscar en la documentación y en la web",
+        "description": "Ejecuta una única consulta contra la documentación alojada en Mintlify y proveedores de búsqueda web, combina los resultados y los devuelve ordenados por relevancia. Opcionalmente devuelve el contenido completo de la página para cada resultado.\n\nAutentícate con una clave API de búsqueda universal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query",
+                  "numResults"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "La consulta de búsqueda que se va a ejecutar. Debe ser una cadena no vacía."
+                  },
+                  "numResults": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "description": "Número máximo de resultados que se van a devolver. Debe estar entre 1 y 20."
+                  },
+                  "text": {
+                    "description": "Controla si se devuelve el contenido de la página con cada resultado. Omítelo o establécelo en `false` para devolver solo metadatos. Establécelo en `true` para devolver el contenido completo de la página. Pasa un objeto con `maxCharacters` para devolver el contenido truncado a un límite de caracteres. El truncado preserva Markdown válido cerrando los bloques de código abiertos.",
+                    "oneOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "maxCharacters"
+                        ],
+                        "properties": {
+                          "maxCharacters": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Número máximo de caracteres del contenido de la página que se devuelve por resultado."
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "includeDomains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Restringe los resultados web a estos dominios. Los resultados alojados en Mintlify no se ven afectados."
+                  },
+                  "excludeDomains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Excluye los resultados web de estos dominios. Los resultados alojados en Mintlify no se ven afectados."
+                  }
+                }
+              },
+              "examples": {
+                "basic": {
+                  "summary": "Búsqueda básica con contenido de página truncado",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "numResults": 10,
+                    "text": {
+                      "maxCharacters": 4000
+                    }
+                  }
+                },
+                "filtered": {
+                  "summary": "Filtrar resultados web por dominio",
+                  "value": {
+                    "query": "authentication setup",
+                    "numResults": 10,
+                    "text": {
+                      "maxCharacters": 4000
+                    },
+                    "includeDomains": [
+                      "docs.stripe.com"
+                    ],
+                    "excludeDomains": [
+                      "example.com"
+                    ]
+                  }
+                },
+                "fullText": {
+                  "summary": "Devolver el contenido completo de la página",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "numResults": 10,
+                    "text": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultados de la búsqueda.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "Un identificador único para esta solicitud. Inclúyelo cuando contactes con soporte."
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "La lista combinada de resultados, ordenada por relevancia. Los resultados con `source: \"mintlify\"` provienen de documentación alojada en Mintlify; los resultados con `source: \"web\"` provienen de la web abierta.",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo de la solicitud no válido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Clave API ausente o no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se superó el límite de tasa.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "La búsqueda falló.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/context": {
+      "post": {
+        "summary": "Ensamblar un payload de contexto para generación aumentada por recuperación",
+        "description": "Ejecuta una búsqueda universal ordenada y devuelve un payload de contexto ajustado a un presupuesto de tokens, ensamblado a partir de los mejores resultados de Mintlify y de la web. Usa este endpoint para alimentar un pipeline de generación aumentada por recuperación (RAG) sin tener que unir los resultados por tu cuenta. Elige `txt` para obtener un contexto en texto plano listo para pasar a un LLM, o `json` para una lista estructurada que tu aplicación pueda mostrar.\n\nAutentícate con una clave API de búsqueda universal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query",
+                  "format"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "La pregunta o intención del usuario para la que se va a construir el contexto."
+                  },
+                  "product": {
+                    "type": "string",
+                    "description": "Producto o tema opcional para inclinar la recuperación. Cuando se establece, se antepone a la consulta de recuperación."
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "txt",
+                      "json"
+                    ],
+                    "description": "Forma del campo `response`. `txt` devuelve un único payload de texto plano con las URLs de origen; `json` devuelve una cadena codificada en JSON con la forma `{\"results\":[...]}`, con una entrada por fragmento."
+                  }
+                }
+              },
+              "examples": {
+                "text": {
+                  "summary": "Ensamblar un contexto en texto plano",
+                  "value": {
+                    "query": "How do I create a Stripe charge?",
+                    "format": "txt"
+                  }
+                },
+                "json": {
+                  "summary": "Ensamblar un contexto JSON estructurado inclinado hacia un producto",
+                  "value": {
+                    "query": "authentication setup",
+                    "product": "Stripe",
+                    "format": "json"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "El contexto ensamblado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "query",
+                    "response",
+                    "resultsCount",
+                    "outputTokens"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "Un identificador único para esta solicitud. Inclúyelo cuando contactes con soporte."
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "Eco de la `query` original (sin ningún prefijo `product` que se haya aplicado durante la recuperación)."
+                    },
+                    "response": {
+                      "type": "string",
+                      "description": "El contexto ensamblado. Cuando `format` es `txt`, es un payload de texto plano con las URLs de origen. Cuando `format` es `json`, es una cadena codificada en JSON con la forma `{\"results\":[...]}` en la que cada resultado contiene la URL, el título y el Markdown del fragmento."
+                    },
+                    "resultsCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "El número de fragmentos incluidos en `response` después de aplicar el presupuesto de tokens."
+                    },
+                    "outputTokens": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "El recuento aproximado de tokens de `response`. El endpoint lo limita a 10.000 tokens."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo de la solicitud no válido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Clave API ausente o no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se superó el límite de tasa.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Falló el ensamblado del contexto.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contents": {
+      "post": {
+        "summary": "Obtener el contenido de una página por URL o ID",
+        "description": "Resuelve URLs o IDs a páginas de documentación alojadas en Mintlify y devuelve el contenido unificado de la página para cada una. Cada entrada recibe un estado por elemento, de modo que la respuesta puede informar de un éxito parcial sin fallar toda la solicitud.\n\nAutentícate con una clave API de búsqueda universal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Se requiere al menos uno de `urls` o `ids`. Una única solicitud puede referenciar como máximo 20 elementos en total entre ambos campos combinados.",
+                "properties": {
+                  "urls": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "description": "URLs canónicas de páginas alojadas en Mintlify que se van a obtener. Se emparejan tanto las variantes con `www` como sin `www`."
+                  },
+                  "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "IDs de páginas que se van a obtener. Usa el `id` devuelto por [Buscar en la documentación y en la web](/es/api/universal-search/search)."
+                  },
+                  "maxCharacters": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Número máximo de caracteres del contenido de la página que se devuelve por resultado. El truncado preserva Markdown válido cerrando los bloques de código abiertos."
+                  }
+                }
+              },
+              "examples": {
+                "byIds": {
+                  "summary": "Obtener páginas por ID",
+                  "value": {
+                    "ids": [
+                      "stripe-charges-guide",
+                      "stripe-webhooks-guide"
+                    ],
+                    "maxCharacters": 4000
+                  }
+                },
+                "byUrls": {
+                  "summary": "Obtener páginas por URL canónica",
+                  "value": {
+                    "urls": [
+                      "https://docs.stripe.com/charges",
+                      "https://docs.stripe.com/webhooks"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Se completó la consulta de contenido. Revisa `statuses` para ver el resultado por entrada; la respuesta puede incluir resultados parciales.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "requestId",
+                    "results",
+                    "statuses"
+                  ],
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "description": "Un identificador único para esta solicitud. Inclúyelo cuando contactes con soporte."
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "Páginas resueltas con éxito, con la misma forma que los resultados de búsqueda. Solo aparecen aquí las entradas cuya entrada correspondiente en `statuses` informa `success`.",
+                      "items": {
+                        "$ref": "#/components/schemas/Result"
+                      }
+                    },
+                    "statuses": {
+                      "type": "array",
+                      "description": "Una entrada por cada entrada de la solicitud, en el orden en que se proporcionaron las entradas. Cada entrada informa si la entrada se resolvió con éxito o, en caso contrario, un `tag` de error.",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "La URL o el ID de entrada al que corresponde este estado."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "success"
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "status",
+                              "error"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "description": "La URL o el ID de entrada al que corresponde este estado."
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "error"
+                                ]
+                              },
+                              "error": {
+                                "type": "object",
+                                "required": [
+                                  "tag",
+                                  "httpStatusCode"
+                                ],
+                                "properties": {
+                                  "tag": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not_found",
+                                      "not_synced",
+                                      "invalid_id",
+                                      "fetch_error"
+                                    ],
+                                    "description": "Etiqueta de error legible por máquina. `not_found` significa que la URL o el ID no coincidió con ninguna página. `not_synced` significa que la implementación de origen no ha sido indexada para la búsqueda universal. `invalid_id` significa que el ID tenía un formato incorrecto. `fetch_error` significa que la consulta falló inesperadamente."
+                                  },
+                                  "httpStatusCode": {
+                                    "type": "integer",
+                                    "nullable": true,
+                                    "description": "Un código de estado HTTP que describe mejor el error, o `null` cuando no se aplica un único código."
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cuerpo de la solicitud no válido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Clave API ausente o no válida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Se superó el límite de tasa.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "El encabezado Authorization espera un token Bearer. Usa una clave API de búsqueda universal. Genera una en la [página de claves API](https://app.mintlify.com/settings/organization/api-keys) de tu panel."
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Descripción legible por humanos del error."
+          }
+        }
+      },
+      "Result": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "title",
+          "text",
+          "score",
+          "source",
+          "siteName",
+          "breadcrumbs",
+          "publishedDate"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Un identificador estable para el resultado. Para los resultados de Mintlify, es el ID del grupo de páginas; para los resultados web, es la URL."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "La URL canónica del resultado."
+          },
+          "title": {
+            "type": "string",
+            "description": "El título de la página."
+          },
+          "text": {
+            "type": "string",
+            "description": "El contenido de la página. Vacío cuando `text` se omite o se establece en `false`. Truncado cuando se proporciona `text.maxCharacters`."
+          },
+          "score": {
+            "type": "number",
+            "description": "La puntuación de relevancia de este resultado."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "mintlify",
+              "web"
+            ],
+            "description": "De dónde proviene el resultado."
+          },
+          "siteName": {
+            "type": "string",
+            "description": "El nombre del sitio del que proviene el resultado. Para los resultados de Mintlify, es el subdominio de la implementación; para los resultados web, es el nombre de host."
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Las migas de pan de navegación de la página. Solo se rellenan para los resultados de Mintlify."
+          },
+          "publishedDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "La fecha de publicación informada por la fuente, cuando esté disponible."
+          }
+        }
+      }
+    }
+  }
+}
