@@ -1,0 +1,128 @@
+---
+title: "Configuration de la référence SDK"
+description: "Générez des pages de référence SDK à partir d’artefacts TypeDoc, DocFX, Javadoc, Sphinx ou phpDocumentor, afin que toute la documentation de vos SDK par langage vive dans votre site Mintlify."
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdoc"]
+---
+
+Utilisez la propriété de navigation `sdk` pour publier des pages de référence SDK à partir d’artefacts produits par des générateurs de documentation courants. Mintlify lit l’artefact au moment de la build et développe l’onglet en un ensemble de pages MDX générées avec une navigation regroupée.
+
+<div id="supported-formats">
+  ## Formats pris en charge
+</div>
+
+| Format    | Générateur        | Artefact attendu                                    |
+| --------- | ----------------- | --------------------------------------------------- |
+| `typedoc` | [TypeDoc](https://typedoc.org/) | Export JSON (`typedoc --json out.json`) |
+| `docfx`   | [DocFX](https://dotnet.github.io/docfx/) | Répertoire de sortie YAML `ManagedReference` |
+| `javadoc` | [Javadoc](https://docs.oracle.com/javase/8/docs/technotes/tools/windows/javadoc.html) | Répertoire de sortie HTML du doclet standard (ou `.jar`) |
+| `sphinx`  | [Sphinx](https://www.sphinx-doc.org/) | Sortie du builder JSON (`sphinx-build -b json`) |
+| `phpdoc`  | [phpDocumentor](https://www.phpdoc.org/) | Fichier `structure.xml` |
+
+<div id="add-an-sdk-reference">
+  ## Ajouter une référence SDK
+</div>
+
+Ajoutez une propriété `sdk` à un [onglet](/fr/organize/navigation#tabs) dans votre `docs.json`. Mintlify génère une page par classe, module, fonction ou type présent dans l’artefact, organisées en groupes.
+
+<CodeGroup>
+
+```json Local directory
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SPA JS",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/spa-js/typedoc.json"
+      }
+    }
+  ]
+}
+```
+
+```json Remote URL
+"navigation": {
+  "tabs": [
+    {
+      "tab": "Java SDK",
+      "sdk": {
+        "format": "javadoc",
+        "source": "https://repo1.maven.org/maven2/com/example/sdk/1.0.0/sdk-1.0.0-javadoc.jar"
+      }
+    }
+  ]
+}
+```
+
+```json Custom directory
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SPA JS",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/spa-js/typedoc.json",
+        "directory": "libraries/auth0-spa-js"
+      }
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+<Note>
+  Vous devez déclarer `sdk` sur un onglet. Un onglet avec `sdk` peut inclure `groups`, mais aucune autre structure de navigation, telle que `pages`, `versions` ou `languages`. Il ne peut pas non plus inclure de propriété `openapi`, `asyncapi` ou `graphql`.
+</Note>
+
+<ParamField path="format" type="string" required>
+  Le générateur de documentation qui a produit l’artefact. L’une des valeurs suivantes : `typedoc`, `docfx`, `javadoc`, `sphinx` ou `phpdoc`.
+</ParamField>
+
+<ParamField path="source" type="string" required>
+  Un chemin local vers l’artefact dans votre dépôt de documentation ou une URL HTTPS vers un artefact hébergé. Les URL HTTP ne sont pas acceptées.
+
+  Pour les formats à fichier unique (`typedoc`, `phpdoc`), pointez vers le fichier. Pour les formats sous forme de répertoire (`docfx`, `javadoc`, `sphinx`), pointez vers le répertoire en local, ou vers une archive `.zip` ou `.jar` lorsqu’elle est distante.
+</ParamField>
+
+<ParamField path="directory" type="string">
+  Le répertoire dans lequel les pages générées sont stockées. Par défaut, `sdk-reference`.
+</ParamField>
+
+<div id="exclude-artifacts-from-your-build">
+  ## Exclure les artefacts de votre build
+</div>
+
+Ajoutez votre répertoire d’artefacts à [`.mintignore`](/fr/organize/mintignore) afin que la sortie brute du générateur soit traitée comme une entrée de build, et non publiée en tant que fichiers statiques :
+
+```text .mintignore
+sdk-artifacts/
+```
+
+<div id="remote-sources">
+  ## Sources distantes
+</div>
+
+Lorsque `source` est une URL HTTPS, Mintlify récupère l’artefact au moment de la build. Pour les formats sous forme de répertoire, utilisez une archive `.zip` ; pour Javadoc, un `.jar` provenant d’un registre de paquets comme Maven Central fonctionne également.
+
+Les artefacts distants sont limités à 50&nbsp;Mo compressés et 200&nbsp;Mo extraits, respectent un délai d’expiration de 30 secondes, et sont protégés contre les redirections vers des adresses privées ainsi que contre le zip-slip lors de l’extraction.
+
+<div id="generated-pages">
+  ## Pages générées
+</div>
+
+Chaque convertisseur produit :
+
+- Une navigation regroupée (par exemple, par module, package ou namespace) que Mintlify ajoute aux `groups` de l’onglet.
+- Une page MDX par classe, fonction, type ou membre documenté dans l’artefact.
+- Des liens croisés entre les pages générées, afin que les lecteurs puissent naviguer entre les types associés.
+
+Si l’artefact contient des éléments qui n’appartiennent à aucun groupe, Mintlify les regroupe sous un groupe `Reference`.
+
+Vous pouvez ajouter vos propres `groups` rédigés à la main au même onglet. Ils s’affichent aux côtés des groupes générés.
+
+<div id="update-your-documentation">
+  ## Mettre à jour votre documentation
+</div>
+
+Mintlify régénère les pages de référence SDK lorsque vous exécutez `mint dev` ou lorsque vous poussez des modifications vers votre dépôt de documentation. Si l’artefact est hébergé à une URL HTTPS, les mises à jour de l’artefact sont régénérées lors de la prochaine build.

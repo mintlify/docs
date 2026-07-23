@@ -1,0 +1,128 @@
+---
+title: "SDK 参考设置"
+description: "从 TypeDoc、DocFX、Javadoc、Sphinx 或 phpDocumentor 产物生成 SDK 参考页面，让所有语言 SDK 文档都汇集在你的 Mintlify 站点内。"
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdoc"]
+---
+
+使用 `sdk` 导航属性，可以从常见文档生成器产出的产物中发布 SDK 参考页面。Mintlify 会在构建时读取产物，并将该 tab 扩展为一组带有分组导航的、自动生成的 MDX 页面。
+
+<div id="supported-formats">
+  ## 支持的格式
+</div>
+
+| 格式        | 生成器            | 预期产物                                            |
+| ---------- | ----------------- | -------------------------------------------------- |
+| `typedoc` | [TypeDoc](https://typedoc.org/) | JSON 导出文件 (`typedoc --json out.json`) |
+| `docfx`   | [DocFX](https://dotnet.github.io/docfx/) | `ManagedReference` YAML 输出目录 |
+| `javadoc` | [Javadoc](https://docs.oracle.com/javase/8/docs/technotes/tools/windows/javadoc.html) | 标准 doclet 生成的 HTML 输出目录 (或 `.jar`) |
+| `sphinx`  | [Sphinx](https://www.sphinx-doc.org/) | JSON builder 输出 (`sphinx-build -b json`) |
+| `phpdoc`  | [phpDocumentor](https://www.phpdoc.org/) | `structure.xml` 文件 |
+
+<div id="add-an-sdk-reference">
+  ## 添加 SDK 参考
+</div>
+
+在 `docs.json` 中的某个 [tab](/zh/organize/navigation#tabs) 上添加 `sdk` 属性。Mintlify 会为产物中的每个 class、module、function 或 type 生成一个页面，并组织到相应的分组中。
+
+<CodeGroup>
+
+```json Local directory
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SPA JS",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/spa-js/typedoc.json"
+      }
+    }
+  ]
+}
+```
+
+```json Remote URL
+"navigation": {
+  "tabs": [
+    {
+      "tab": "Java SDK",
+      "sdk": {
+        "format": "javadoc",
+        "source": "https://repo1.maven.org/maven2/com/example/sdk/1.0.0/sdk-1.0.0-javadoc.jar"
+      }
+    }
+  ]
+}
+```
+
+```json Custom directory
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SPA JS",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/spa-js/typedoc.json",
+        "directory": "libraries/auth0-spa-js"
+      }
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+<Note>
+  你必须在某个 tab 上声明 `sdk`。带有 `sdk` 的 tab 可以包含 `groups`，但不能包含其他导航结构，例如 `pages`、`versions` 或 `languages`。它也不能同时包含 `openapi`、`asyncapi` 或 `graphql` 属性。
+</Note>
+
+<ParamField path="format" type="string" required>
+  产出该产物的文档生成器。可选值为 `typedoc`、`docfx`、`javadoc`、`sphinx` 或 `phpdoc` 之一。
+</ParamField>
+
+<ParamField path="source" type="string" required>
+  指向文档仓库中产物的本地路径，或指向已托管产物的 HTTPS URL。不接受 HTTP URL。
+
+  对于单文件格式 (`typedoc`、`phpdoc`) ，请指向该文件。对于目录形式的格式 (`docfx`、`javadoc`、`sphinx`) ，本地请指向目录；远程时请指向 `.zip` 或 `.jar` 归档文件。
+</ParamField>
+
+<ParamField path="directory" type="string">
+  生成页面所存放的目录。默认值为 `sdk-reference`。
+</ParamField>
+
+<div id="exclude-artifacts-from-your-build">
+  ## 从构建中排除产物
+</div>
+
+将你的产物目录添加到 [`.mintignore`](/zh/organize/mintignore) 中，这样生成器的原始输出会作为构建输入被使用，而不会被作为静态文件发布：
+
+```text .mintignore
+sdk-artifacts/
+```
+
+<div id="remote-sources">
+  ## 远程源
+</div>
+
+当 `source` 是 HTTPS URL 时，Mintlify 会在构建时获取该产物。对于目录形式的格式，请使用 `.zip` 归档；对于 Javadoc，也可以使用来自 Maven Central 等包注册中心的 `.jar` 文件。
+
+远程产物的压缩体积上限为 50&nbsp;MB，解压后上限为 200&nbsp;MB，请求超时为 30 秒，并且会防止重定向到私有地址，以及在解压过程中防止 zip-slip 攻击。
+
+<div id="generated-pages">
+  ## 生成的页面
+</div>
+
+每个转换器都会产出：
+
+- 分组导航 (例如按 module、package 或 namespace 分组) ，Mintlify 会将其追加到该 tab 的 `groups` 中。
+- 为产物中记录的每个 class、function、type 或成员生成一个 MDX 页面。
+- 生成页面之间的相互链接，方便读者在相关类型之间跳转。
+
+如果产物中包含不属于任何分组的项目，Mintlify 会将它们归入 `Reference` 分组。
+
+你也可以在同一个 tab 中添加自己手写的 `groups`。它们会与自动生成的分组并排渲染。
+
+<div id="update-your-documentation">
+  ## 更新你的文档
+</div>
+
+当你运行 `mint dev` 或将更改推送到文档仓库时，Mintlify 会重新生成 SDK 参考页面。如果产物托管在 HTTPS URL 上，产物的更新会在下一次构建时被采纳。
