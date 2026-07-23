@@ -1,0 +1,116 @@
+---
+title: "SDK reference setup"
+description: "Generate SDK reference pages from TypeDoc, DocFX, Javadoc, Sphinx, or phpDocumentor artifacts, so all your language SDK docs live inside your Mintlify site."
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdoc"]
+---
+
+Use the `sdk` navigation property to publish SDK reference pages from artifacts produced by common documentation generators. Mintlify reads the artifact at build time and expands the tab into a set of generated MDX pages with grouped navigation.
+
+## Supported formats
+
+| Format   | Generator         | Expected artifact                          |
+| -------- | ----------------- | ------------------------------------------ |
+| `typedoc` | [TypeDoc](https://typedoc.org/) | JSON export (`typedoc --json out.json`) |
+| `docfx`   | [DocFX](https://dotnet.github.io/docfx/) | `ManagedReference` YAML output directory |
+| `javadoc` | [Javadoc](https://docs.oracle.com/javase/8/docs/technotes/tools/windows/javadoc.html) | Standard doclet HTML output directory (or `.jar`) |
+| `sphinx`  | [Sphinx](https://www.sphinx-doc.org/) | JSON builder output (`sphinx-build -b json`) |
+| `phpdoc`  | [phpDocumentor](https://www.phpdoc.org/) | `structure.xml` file |
+
+## Add an SDK reference
+
+Add an `sdk` property to a [tab](/organize/navigation#tabs) in your `docs.json`. Mintlify generates one page per class, module, function, or type in the artifact, organized into groups.
+
+<CodeGroup>
+
+```json Local directory
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SPA JS",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/spa-js/typedoc.json"
+      }
+    }
+  ]
+}
+```
+
+```json Remote URL
+"navigation": {
+  "tabs": [
+    {
+      "tab": "Java SDK",
+      "sdk": {
+        "format": "javadoc",
+        "source": "https://repo1.maven.org/maven2/com/example/sdk/1.0.0/sdk-1.0.0-javadoc.jar"
+      }
+    }
+  ]
+}
+```
+
+```json Custom directory
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SPA JS",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/spa-js/typedoc.json",
+        "directory": "libraries/auth0-spa-js"
+      }
+    }
+  ]
+}
+```
+
+</CodeGroup>
+
+<Note>
+  You must declare `sdk` on a tab. A tab with `sdk` may include `groups`, but no other navigation structures, such as `pages`, `versions`, or `languages`. It also cannot include an `openapi`, `asyncapi`, or `graphql` property.
+</Note>
+
+<ParamField path="format" type="string" required>
+  The documentation generator that produced the artifact. One of `typedoc`, `docfx`, `javadoc`, `sphinx`, or `phpdoc`.
+</ParamField>
+
+<ParamField path="source" type="string" required>
+  A local path to the artifact in your documentation repository or an HTTPS URL to a hosted artifact. Does not accept HTTP URLs.
+
+  For single-file formats (`typedoc`, `phpdoc`), point to the file. For directory-shaped formats (`docfx`, `javadoc`, `sphinx`), point to the directory locally, or to a `.zip` or `.jar` archive when remote.
+</ParamField>
+
+<ParamField path="directory" type="string">
+  The directory to store generated pages under. Defaults to `sdk-reference`.
+</ParamField>
+
+## Exclude artifacts from your build
+
+Add your artifact directory to [`.mintignore`](/organize/mintignore) so raw generator output is treated as a build input, not published as static files:
+
+```text .mintignore
+sdk-artifacts/
+```
+
+## Remote sources
+
+When `source` is an HTTPS URL, Mintlify fetches the artifact at build time. For directory-shaped formats, use a `.zip` archive; for Javadoc, a `.jar` from a package registry like Maven Central also works.
+
+Remote artifacts are capped at 50&nbsp;MB compressed and 200&nbsp;MB extracted, follow a 30-second timeout, and are protected against redirects to private addresses and against zip-slip during extraction.
+
+## Generated pages
+
+Each converter produces:
+
+- Grouped navigation (for example, by module, package, or namespace) that Mintlify appends to the tab's `groups`.
+- One MDX page per class, function, type, or member documented in the artifact.
+- Cross-links between generated pages, so readers can navigate between related types.
+
+If the artifact contains items that don't belong to any group, Mintlify collects them under a `Reference` group.
+
+You can add your own hand-written `groups` to the same tab. They render alongside the generated groups.
+
+## Update your documentation
+
+Mintlify regenerates SDK reference pages when you run `mint dev` or when you push changes to your documentation repository. If the artifact is hosted at an HTTPS URL, updates to the artifact regenerate on the next build.
