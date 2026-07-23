@@ -148,6 +148,14 @@ Export analytics categories to CSV for deeper analysis, reporting, or archival. 
 
 Assistant exports include the queries, responses, sources, and a `resolutionStatus` column that indicates whether the assistant successfully answered each question (`answered` or `unanswered`). Use the `resolutionStatus` column to identify documentation gaps surfaced by questions the assistant could not resolve.
 
+<Tip>
+  Sample analysis prompts for assistant exports:
+
+  - List any queries that had no sources cited.
+  - Find patterns in unsuccessful interactions.
+  - Group unanswered queries by topic to prioritize content updates.
+</Tip>
+
 ## Stream analytics events
 
 <Info>
@@ -163,11 +171,11 @@ Organization admins can add multiple destinations, select which event categories
 1. Navigate to the [Streaming](https://app.mintlify.com/settings/organization/streaming) page of your dashboard.
 2. In the **Analytics streaming** section, select **Configure**.
 3. Select **Add destination**.
-4. Enter an optional label to identify the destination, then provide the Amazon S3 connection details: bucket, AWS region, access key ID, and secret access key. Optionally, enter a key prefix that Mintlify prepends to every object it writes.
+4. Enter an optional label to identify the destination, then provide the Amazon S3 connection details: bucket, AWS region, access key ID, and secret access key. Optionally, enter a prefix that Mintlify adds to the beginning of every object key.
 5. Select **Add destination**.
 
 <Accordion title="Prepare Amazon S3 credentials">
-  Create an IAM user or role with programmatic access credentials whose policy allows writing to the target bucket. At minimum, grant `s3:PutObject` on the bucket and key prefix that you plan to use. For example:
+  Create an AWS Identity and Access Management (IAM) user with an access key whose policy allows writing to the target bucket. Mintlify does not support role assumption or temporary credentials that require a session token. At minimum, grant `s3:PutObject` on the bucket and key prefix that you plan to use. For example:
 
   ```json
   {
@@ -182,7 +190,7 @@ Organization admins can add multiple destinations, select which event categories
   }
   ```
 
-  Use the access key ID and secret access key from that IAM user when adding the destination. The key prefix is optional and is prepended to every object that Mintlify writes.
+  Use the access key ID and secret access key from that IAM user when adding the destination. The key prefix is optional. Mintlify adds it to the beginning of every object key.
 </Accordion>
 
 To stop streaming to a destination, open the streaming configuration and select the <Icon icon="trash-2" /> remove icon next to the destination.
@@ -193,33 +201,78 @@ To stop streaming to a destination, open the streaming configuration and select 
 2. In the **Analytics streaming** section, select **Configure**.
 3. Under **Streamed categories**, select the categories that you want to send.
 
-   | Category | Includes |
+   | Category | Examples |
    | --- | --- |
    | Page views | Page and Markdown view events. |
-   | Navigation | Nav item clicks, nav CTA clicks, and version changes. |
+   | Navigation | Navigation item clicks, navigation call-to-action clicks, and version changes. |
    | Search | Search queries, result clicks, search closes, and search comparisons. |
    | Page components | Expandable, accordion, code block, and API playground interactions. |
    | Feedback | Thumbs up, thumbs down, and detailed feedback submissions. |
    | AI Assistant | Assistant conversations, sources, suggestions, feedback, and errors. |
    | Context menu & MCP | Context menu actions, MCP link copies, MCP server installs, and MCP tool calls. |
 
+   The examples summarize each category. Use the streamed `eventType` value to identify the exact event.
+
 4. Select **Save changes**.
 
 ### Select streamed deployments
 
-Choose which of your organization's deployments send events. Each deployment is listed by subdomain, and selecting **All deployments** streams events from every current and future deployment.
+Choose which of your organization's deployments send events. The dashboard lists each deployment by subdomain. If you create new deployments, you must return to the streaming configuration and select them. New deployments do not automatically start streaming events.
 
 1. Navigate to the [Streaming](https://app.mintlify.com/settings/organization/streaming) page of your dashboard.
 2. In the **Analytics streaming** section, select **Configure**.
 3. Under **Streamed deployments**, select the deployments that you want to send events from.
 4. Select **Save changes**.
 
-No events stream until at least one category and at least one deployment are selected.
+No events stream until you select at least one category and at least one deployment.
 
-<Tip>
-  Sample analysis prompts for assistant exports:
+### Understand streamed data
 
-  - List any queries that had no sources cited.
-  - Find patterns in unsuccessful interactions.
-  - Group unanswered queries by topic to prioritize content updates.
-</Tip>
+Mintlify writes newline-delimited JSON (`.jsonl`) objects to your bucket. Mintlify generates object names from UTC timestamps. If you configure a key prefix, Mintlify writes the objects under that prefix.
+
+Each line contains an event envelope with an `eventType` and `payload`. The `eventType` is the event name, such as `docs.content.view`. The `payload` contains the analytics event as a JSON object or a JSON-encoded string. If `payload` is a string, parse it as JSON before loading it into your warehouse.
+
+<Accordion title="Example streamed event">
+  ```json
+  {
+    "eventType": "docs.content.view",
+    "payload": {
+      "event_id": "4b91fdbc-4677-4e03-b51b-5f2da41c8654",
+      "subdomain": "docs",
+      "user_id": "",
+      "anon_id": "anon_01JZ8W6QKEJ6ECG1T7QK2S5PZ2",
+      "session_id": "session_01JZ8W8CS5JC8T18HXH8ES7Z5M",
+      "created_at": "2026-07-22T23:21:41.063Z",
+      "event": "docs.content.view",
+      "path": "/quickstart",
+      "referrer": "https://www.example.com/",
+      "user_agent": "Mozilla/5.0",
+      "ip": "203.0.113.10",
+      "properties": {}
+    }
+  }
+  ```
+</Accordion>
+
+The event payload contains the following fields:
+
+| Field | Description |
+| --- | --- |
+| `event_id` | UUID that identifies the event. Use it as a deduplication key when loading data. |
+| `subdomain` | Subdomain of the deployment that generated the event. |
+| `user_id` | ID of the authenticated user, when available. |
+| `anon_id` | Anonymous visitor ID, when available. |
+| `session_id` | Visitor or assistant session ID, when available. |
+| `created_at` | ISO 8601 timestamp for when the event occurred. |
+| `event` | Event name. This matches `eventType` in the envelope. |
+| `path` | Documentation path where the event occurred. |
+| `referrer` | Referring URL, when available. |
+| `user_agent` | Browser or client user-agent string. |
+| `ip` | Visitor IP address. |
+| `properties` | Event-specific data as a JSON object or JSON-encoded string. |
+
+Configuration changes can take up to one minute to apply.
+
+<Warning>
+  Streamed events can contain personal data, including IP addresses, user and session identifiers, assistant queries and responses, and feedback comments or contact information. Apply access controls, retention policies, and other data-handling requirements appropriate for your organization.
+</Warning>
