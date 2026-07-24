@@ -5,12 +5,13 @@ Single source of truth, maintained in the Mintlify documentation repository, for
 ## Repository structure
 
 - `context/skills/mintlify/` contains canonical, client-neutral context.
-- `targets/*.json` contains the small set of intentional client differences.
+- `context/mcp-servers.json` contains canonical MCP names, URLs, and transport settings.
+- `targets/*.json` contains only client packaging differences such as MCP config file and schema names.
 - `scripts/build.mjs` renders self-contained plugin artifacts into `dist/`.
 - `scripts/sync-target.mjs` replaces only `skills/mintlify/` in a target repository.
 - `../.github/workflows/sync-agent-context.yml` opens generated sync pull requests in all three plugin repositories.
 
-Plugin manifests, MCP configuration files, assets, READMEs, and Cursor rules remain owned by their target repositories. This project generates only the context shared by the plugins.
+Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target repositories. This project generates the shared skill and each client's MCP configuration file.
 
 ## Local development
 
@@ -36,7 +37,7 @@ node scripts/sync-target.mjs codex ../../codex-plugin
 git -C ../../codex-plugin diff
 ```
 
-The sync command replaces `skills/mintlify/` and writes `.mintlify-agent-context.json` with the source commit and artifact digest. It does not change any other plugin files.
+The sync command replaces `skills/mintlify/`, writes the client-specific MCP configuration file, and writes `.mintlify-agent-context.json` with the source commit and artifact digest. It does not change any other plugin files.
 
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 
@@ -54,6 +55,6 @@ Every qualifying push to `main` validates the source and opens or updates the `a
 
 ## Editing rules
 
-Edit shared knowledge in `context/`, not in generated plugin copies. Put a value in `targets/` only when a plugin genuinely requires different wording or behavior.
+Edit shared knowledge and MCP definitions in `context/`, not in generated plugin copies. Put a value in `targets/` only when a client requires a different packaging format.
 
-The build rejects retired CLI commands and unresolved template variables. The consistency check verifies that every detailed reference file is identical across targets.
+The build rejects retired CLI commands. Tests verify that the skill, detailed references, and MCP definitions remain semantically identical across targets.

@@ -24,7 +24,7 @@ Read these files **only when your task requires them**. They are in the `referen
 
 Two Mintlify MCP servers are available. Use them alongside the reference files in this skill.
 
-### {{searchMcpName}}
+### Mintlify Search
 
 Read-only access to Mintlify's published documentation. Use it when the reference files don't cover a specific detail, when you need an up-to-date component signature, or to verify an unfamiliar config option.
 
@@ -32,9 +32,9 @@ Tools:
 - `search_mintlify` — Search the Mintlify knowledge base by query. Good for finding guides, examples, and API references.
 - `query_docs_filesystem_mintlify` — Browse the docs file tree (`ls`, `cat`, `grep`, `find`, etc.). Good for reading a specific docs page.
 
-### {{adminMcpName}}
+### Mintlify Admin
 
-Write access to a Mintlify project. Requires OAuth login on first use — {{authenticationBehavior}}
+Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
 Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. All changes happen on a branch and must be reviewed before merging.
 

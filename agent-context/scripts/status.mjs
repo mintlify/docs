@@ -2,7 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { artifactDigest, buildAll, loadTargets, repositoryRoot } from './lib.mjs';
+import {
+  buildAll,
+  generatedArtifactDigest,
+  loadTargets,
+  repositoryRoot,
+} from './lib.mjs';
 
 const workspaceRoot = path.resolve(process.argv[2] ?? path.join(repositoryRoot, '..', '..'));
 const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-status-'));
@@ -21,7 +26,7 @@ try {
     const expectedDigest = expectedByTarget.get(target.id);
 
     try {
-      const actualDigest = await artifactDigest(path.join(pluginRoot, 'skills'));
+      const actualDigest = await generatedArtifactDigest(pluginRoot, target);
       const lock = JSON.parse(
         await readFile(path.join(pluginRoot, '.mintlify-agent-context.json'), 'utf8'),
       );

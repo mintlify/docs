@@ -16,6 +16,7 @@ const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptsDirectory, '..');
 
 const contextDirectory = path.join(repositoryRoot, 'context', 'skills', 'mintlify');
+const mcpServersPath = path.join(repositoryRoot, 'context', 'mcp-servers.json');
 const targetsDirectory = path.join(repositoryRoot, 'targets');
 
 export async function loadTargets(selectedIds = []) {
@@ -28,6 +29,17 @@ export async function loadTargets(selectedIds = []) {
     ),
   );
 
+  for (const target of targets) {
+    if (
+      typeof target.id !== 'string' ||
+      typeof target.repository !== 'string' ||
+      !['.mcp.json', 'mcp.json'].includes(target.mcpConfigFile) ||
+      !['mcp_servers', 'mcpServers'].includes(target.mcpConfigKey)
+    ) {
+      throw new Error(`Invalid target configuration: ${JSON.stringify(target)}`);
+    }
+  }
+
   const ids = new Set(targets.map((target) => target.id));
   for (const id of selectedIds) {
     if (!ids.has(id)) {
@@ -38,22 +50,6 @@ export async function loadTargets(selectedIds = []) {
   return selectedIds.length === 0
     ? targets
     : targets.filter((target) => selectedIds.includes(target.id));
-}
-
-function render(template, values, fileName) {
-  const rendered = template.replace(/\{\{([A-Za-z][A-Za-z0-9]*)\}\}/g, (_, key) => {
-    if (!(key in values) || typeof values[key] !== 'string') {
-      throw new Error(`${fileName} requires a string value for ${key}`);
-    }
-    return values[key];
-  });
-
-  const unresolved = rendered.match(/\{\{[^}]+\}\}/g);
-  if (unresolved) {
-    throw new Error(`${fileName} contains unresolved variables: ${unresolved.join(', ')}`);
-  }
-
-  return rendered;
 }
 
 function markGenerated(skill) {
@@ -84,12 +80,18 @@ async function walkFiles(directory, prefix = '') {
   return files;
 }
 
-async function artifactDigest(directory) {
+export async function generatedArtifactDigest(root, target) {
+  const skillRoot = path.join(root, 'skills', 'mintlify');
+  const files = (await walkFiles(skillRoot)).map((file) =>
+    path.join('skills', 'mintlify', file),
+  );
+  files.push(target.mcpConfigFile);
+
   const hash = createHash('sha256');
-  for (const file of await walkFiles(directory)) {
+  for (const file of files.sort()) {
     hash.update(file.split(path.sep).join('/'));
     hash.update('\0');
-    hash.update(await readFile(path.join(directory, file)));
+    hash.update(await readFile(path.join(root, file)));
     hash.update('\0');
   }
   return `sha256:${hash.digest('hex')}`;
@@ -139,12 +141,19 @@ export async function buildTarget(target, outputRoot) {
   await mkdir(skillOutput, { recursive: true });
 
   const skillTemplate = await readFile(path.join(contextDirectory, 'SKILL.md'), 'utf8');
-  const skill = markGenerated(render(skillTemplate, target, 'SKILL.md'));
+  const skill = markGenerated(skillTemplate);
   validateSkill(skill, target);
   await writeFile(path.join(skillOutput, 'SKILL.md'), skill);
   await cp(path.join(contextDirectory, 'reference'), path.join(skillOutput, 'reference'), {
     recursive: true,
   });
+
+  const mcpServers = JSON.parse(await readFile(mcpServersPath, 'utf8'));
+  const mcpConfig = { [target.mcpConfigKey]: mcpServers };
+  await writeFile(
+    path.join(targetRoot, target.mcpConfigFile),
+    `${JSON.stringify(mcpConfig, null, 2)}\n`,
+  );
 
   const provenance = {
     schemaVersion: 1,
@@ -152,7 +161,7 @@ export async function buildTarget(target, outputRoot) {
     sourcePath: 'agent-context',
     sourceCommit: sourceCommit(),
     target: target.id,
-    artifactDigest: await artifactDigest(path.join(targetRoot, 'skills')),
+    artifactDigest: await generatedArtifactDigest(targetRoot, target),
   };
   await writeFile(
     path.join(targetRoot, '.mintlify-agent-context.json'),
@@ -170,6 +179,7 @@ export async function buildAll({ outputRoot, selectedIds = [] } = {}) {
 }
 
 export async function copyTargetToRepository(targetId, destination, outputRoot) {
+  const [target] = await loadTargets([targetId]);
   const sourceRoot = path.join(outputRoot, targetId);
   const sourceSkill = path.join(sourceRoot, 'skills', 'mintlify');
   const destinationSkill = path.join(destination, 'skills', 'mintlify');
@@ -179,9 +189,13 @@ export async function copyTargetToRepository(targetId, destination, outputRoot) 
   await mkdir(path.dirname(destinationSkill), { recursive: true });
   await cp(sourceSkill, destinationSkill, { recursive: true });
   await cp(
+    path.join(sourceRoot, target.mcpConfigFile),
+    path.join(destination, target.mcpConfigFile),
+  );
+  await cp(
     path.join(sourceRoot, '.mintlify-agent-context.json'),
     path.join(destination, '.mintlify-agent-context.json'),
   );
 }
 
-export { artifactDigest, walkFiles };
+export { walkFiles };

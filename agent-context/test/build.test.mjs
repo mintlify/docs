@@ -22,15 +22,32 @@ test('builds all client variants from one canonical skill', async () => {
       path.join(outputRoot, 'claude', 'skills', 'mintlify', 'SKILL.md'),
       'utf8',
     );
+    const codexMcp = JSON.parse(
+      await readFile(path.join(outputRoot, 'codex', '.mcp.json'), 'utf8'),
+    );
+    const cursorMcp = JSON.parse(
+      await readFile(path.join(outputRoot, 'cursor', 'mcp.json'), 'utf8'),
+    );
+    const claudeMcp = JSON.parse(
+      await readFile(path.join(outputRoot, 'claude', '.mcp.json'), 'utf8'),
+    );
 
-    assert.match(codex, /### Search MCP/);
-    assert.match(cursor, /### Mintlify \(docs MCP\)/);
-    assert.match(claude, /Claude Code will open a browser window/);
+    assert.equal(cursor, codex);
+    assert.equal(claude, codex);
     for (const skill of [codex, cursor, claude]) {
       assert.match(skill, /Generated from mintlify\/docs\/agent-context/);
+      assert.match(skill, /### Mintlify Search/);
+      assert.match(skill, /### Mintlify Admin/);
+      assert.match(skill, /Complete authentication in the browser when prompted/);
       assert.match(skill, /mint automations/);
       assert.doesNotMatch(skill, /mint analytics|mint workflow|\{\{/);
     }
+    assert.deepEqual(codexMcp.mcp_servers, cursorMcp.mcpServers);
+    assert.deepEqual(claudeMcp.mcpServers, cursorMcp.mcpServers);
+    assert.deepEqual(Object.keys(cursorMcp.mcpServers), [
+      'Mintlify Search',
+      'Mintlify Admin',
+    ]);
   } finally {
     await rm(outputRoot, { recursive: true, force: true });
   }
@@ -45,6 +62,7 @@ test('sync replaces only generated context paths', async () => {
     await mkdir(path.join(destination, 'skills', 'mintlify'), { recursive: true });
     await writeFile(path.join(destination, 'README.md'), 'target-owned\n');
     await writeFile(path.join(destination, 'skills', 'mintlify', 'stale.md'), 'remove me\n');
+    await writeFile(path.join(destination, '.mcp.json'), '{"stale":true}\n');
 
     await buildAll({ outputRoot, selectedIds: ['codex'] });
     await copyTargetToRepository('codex', destination, outputRoot);
@@ -53,8 +71,13 @@ test('sync replaces only generated context paths', async () => {
     await assert.rejects(readFile(path.join(destination, 'skills', 'mintlify', 'stale.md')));
     assert.match(
       await readFile(path.join(destination, 'skills', 'mintlify', 'SKILL.md'), 'utf8'),
-      /### Search MCP/,
+      /### Mintlify Search/,
     );
+    const mcpConfig = JSON.parse(await readFile(path.join(destination, '.mcp.json'), 'utf8'));
+    assert.deepEqual(Object.keys(mcpConfig.mcp_servers), [
+      'Mintlify Search',
+      'Mintlify Admin',
+    ]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
