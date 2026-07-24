@@ -1,0 +1,135 @@
+---
+title: "Run the Mintlify CLI in CI"
+sidebarTitle: "CLI in CI"
+description: "Use mint validate, mint broken-links, and mint a11y in your CI pipeline to catch documentation errors before they reach your live site."
+keywords: ["CI", "continuous integration", "GitHub Actions", "GitLab CI", "mint validate", "mint broken-links", "pre-commit"]
+---
+
+Running the [Mintlify CLI](/cli) in your continuous integration pipeline catches broken links, invalid configuration, and OpenAPI errors before they reach your live documentation. This guide covers common CI setups and which commands to run.
+
+<Note>
+  Mintlify's [hosted CI checks](/deploy/ci) run automatically on pull requests without any pipeline configuration. Use this guide when you want to run the CLI in your own pipeline, gate merges on additional checks, or run validation outside GitHub.
+</Note>
+
+## Which commands to run
+
+The CLI includes three commands well suited to CI:
+
+| Command | Checks |
+| --- | --- |
+| [`mint validate`](/cli/commands#mint-validate) | `docs.json` structure, page frontmatter, and OpenAPI specifications. |
+| [`mint broken-links`](/cli/commands#mint-broken-links) | Internal links between pages. Add `--check-external` to also fetch external URLs. |
+| [`mint a11y`](/cli/commands#mint-a11y) | Color contrast and missing alt text on images and videos. |
+
+Each command exits with a non-zero status code when it finds errors, which fails the CI job.
+
+## GitHub Actions
+
+Add a workflow file at `.github/workflows/docs-check.yml`:
+
+```yaml
+name: Docs check
+
+on:
+  pull_request:
+    paths:
+      - "**/*.mdx"
+      - "**/*.md"
+      - "docs.json"
+      - "**/openapi.{yaml,yml,json}"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Mintlify CLI
+        run: npm install -g mint
+
+      - name: Validate configuration and frontmatter
+        run: mint validate
+
+      - name: Check for broken links
+        run: mint broken-links
+```
+
+The `paths` filter skips the workflow on pull requests that don't touch documentation files, saving CI minutes.
+
+## GitLab CI
+
+Add the following to `.gitlab-ci.yml`:
+
+```yaml
+docs-check:
+  image: node:20
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "**/*.mdx"
+        - "**/*.md"
+        - "docs.json"
+        - "**/openapi.{yaml,yml,json}"
+  script:
+    - npm install -g mint
+    - mint validate
+    - mint broken-links
+```
+
+## Pre-commit hook
+
+Run the same checks locally before pushing by adding a pre-commit hook. Create `.git/hooks/pre-commit` and make it executable:
+
+```bash
+#!/usr/bin/env bash
+set -e
+
+mint validate
+mint broken-links
+```
+
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+For team-wide enforcement, use a tool like [Husky](https://typicode.github.io/husky/) to check the hook into version control.
+
+## Scope checks to changed files
+
+On large documentation sites, running the full link checker on every pull request can be slow. Pass `--files` to `mint broken-links` to scope the check to files that changed in the pull request.
+
+The following GitHub Actions step checks only pages modified in the pull request:
+
+```yaml
+- name: Get changed files
+  id: changed
+  uses: tj-actions/changed-files@v45
+  with:
+    files: |
+      **/*.mdx
+      **/*.md
+
+- name: Check broken links on changed files
+  if: steps.changed.outputs.any_changed == 'true'
+  run: mint broken-links --files ${{ steps.changed.outputs.all_changed_files }}
+```
+
+Run the full check on a schedule instead, so you still catch links that break because a page was renamed elsewhere.
+
+```yaml
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+```
+
+## Troubleshooting
+
+**`mint: command not found`**: The `npm install -g mint` step didn't install the CLI on the `PATH` used by the shell. Confirm your workflow uses `actions/setup-node` (or the equivalent) before installing, and that the install step runs in the same job as the check.
+
+**Broken link check flags valid external URLs**: External URL checks depend on the network reachability of the target site from the CI runner. Rate limits and firewalls can cause false positives. Only add `--check-external` if you accept occasional flaky runs, or run external checks on a schedule instead of on every pull request.
+
+**Validation fails only in CI**: Confirm the CI runner is checking out the same files you validated locally, including any generated OpenAPI files. If OpenAPI files are generated during the build, add that step to your workflow before running `mint validate`.
