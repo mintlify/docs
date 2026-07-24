@@ -37,7 +37,7 @@ node scripts/sync-target.mjs codex ../../codex-plugin
 git -C ../../codex-plugin diff
 ```
 
-The sync command replaces `skills/mintlify/`, writes the client-specific MCP configuration file, and writes `.mintlify-agent-context.json` with the source commit and artifact digest. It does not change any other plugin files.
+The sync command replaces `skills/mintlify/`, writes the client-specific MCP configuration file, and writes `.mintlify-agent-context.json` with the source commit. It does not change any other plugin files.
 
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 

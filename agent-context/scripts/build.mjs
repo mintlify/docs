@@ -8,5 +8,5 @@ const results = await buildAll({
 });
 
 for (const { provenance } of results) {
-  console.log(`${provenance.target}: ${provenance.artifactDigest}`);
+  console.log(`${provenance.target}: ${provenance.sourceCommit}`);
 }

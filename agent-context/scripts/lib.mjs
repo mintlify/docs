@@ -1,14 +1,6 @@
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import {
-  cp,
-  mkdir,
-  readFile,
-  readdir,
-  rm,
-  stat,
   writeFile,
-} from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -62,42 +54,7 @@ function markGenerated(skill) {
   return `${skill.slice(0, insertionPoint)}\n<!-- Generated from mintlify/docs/agent-context. Edit the canonical source, not this copy. -->\n${skill.slice(insertionPoint)}`;
 }
 
-async function walkFiles(directory, prefix = '') {
-  const entries = await readdir(directory);
-  const files = [];
-
-  for (const entry of entries.sort()) {
-    const absolutePath = path.join(directory, entry);
-    const relativePath = path.join(prefix, entry);
-    const entryStat = await stat(absolutePath);
-    if (entryStat.isDirectory()) {
-      files.push(...(await walkFiles(absolutePath, relativePath)));
-    } else if (entryStat.isFile()) {
-      files.push(relativePath);
-    }
-  }
-
-  return files;
-}
-
-export async function generatedArtifactDigest(root, target) {
-  const skillRoot = path.join(root, 'skills', 'mintlify');
-  const files = (await walkFiles(skillRoot)).map((file) =>
-    path.join('skills', 'mintlify', file),
-  );
-  files.push(target.mcpConfigFile);
-
-  const hash = createHash('sha256');
-  for (const file of files.sort()) {
-    hash.update(file.split(path.sep).join('/'));
-    hash.update('\0');
-    hash.update(await readFile(path.join(root, file)));
-    hash.update('\0');
-  }
-  return `sha256:${hash.digest('hex')}`;
-}
-
-function sourceCommit() {
+export function sourceCommit() {
   if (process.env.GITHUB_SHA) {
     return process.env.GITHUB_SHA;
   }
@@ -161,7 +118,6 @@ export async function buildTarget(target, outputRoot) {
     sourcePath: 'agent-context',
     sourceCommit: sourceCommit(),
     target: target.id,
-    artifactDigest: await generatedArtifactDigest(targetRoot, target),
   };
   await writeFile(
     path.join(targetRoot, '.mintlify-agent-context.json'),
@@ -197,5 +153,3 @@ export async function copyTargetToRepository(targetId, destination, outputRoot) 
     path.join(destination, '.mintlify-agent-context.json'),
   );
 }
-
-export { walkFiles };
