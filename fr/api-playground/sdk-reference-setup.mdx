@@ -1,0 +1,116 @@
+---
+title: "Configuration des références SDK"
+description: "Générez des pages de référence SDK à partir de votre outillage de documentation existant : TypeDoc, DocFX, Javadoc, Sphinx ou phpDocumentor."
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "reference"]
+---
+
+Utilisez la propriété de navigation `sdk` pour générer des pages de référence pour vos bibliothèques SDK à partir des outils de documentation que vous exécutez déjà. Mintlify lit l’artefact de build de chaque outil et crée une page pour chaque classe, interface, module et fonction, avec les groupes de navigation, les liens entre les pages et l’indexation pour la recherche inclus.
+
+<div id="supported-formats">
+  ## Formats pris en charge
+</div>
+
+| `format` | Tool | Artifact |
+| --- | --- | --- |
+| `typedoc` | [TypeDoc](https://typedoc.org) (TypeScript/JavaScript) | Fichier d’export JSON |
+| `docfx` | [DocFX](https://dotnet.github.io/docfx/) (.NET) | Répertoire de sortie de `docfx metadata` (YAML ManagedReference) |
+| `javadoc` | [Javadoc](https://docs.oracle.com/en/java/javase/17/javadoc/javadoc.html) (Java) | Répertoire HTML du doclet standard |
+| `sphinx` | [Sphinx](https://www.sphinx-doc.org) (Python) | Répertoire de sortie du builder JSON |
+| `phpdoc` | [phpDocumentor](https://phpdoc.org) (PHP) | Fichier `structure.xml` |
+
+<div id="generate-an-artifact">
+  ## Générer un artefact
+</div>
+
+Exécutez votre outil de documentation avec un format de sortie lisible par machine. Si vous publiez déjà des docs générées depuis votre CI, il s’agit généralement de l’ajout d’un seul flag à la même commande.
+
+<CodeGroup>
+
+```bash TypeDoc
+npx typedoc --json typedoc.json src/index.ts
+```
+
+```bash DocFX
+docfx metadata docfx.json
+```
+
+```bash Javadoc
+javadoc -d javadoc-output -sourcepath src/main/java -subpackages com.example
+# Ou téléchargez le jar javadoc publié depuis Maven Central
+```
+
+```bash Sphinx
+python -m sphinx -b json docs/source artifacts/json
+```
+
+```bash phpDocumentor
+phpdoc -d src -t artifacts --template=xml
+```
+
+</CodeGroup>
+
+<div id="auto-populate-sdk-pages">
+  ## Remplir automatiquement les pages SDK
+</div>
+
+Ajoutez une propriété `sdk` à un onglet dans votre `docs.json`. Mintlify analyse l’artefact et crée des groupes de navigation et des pages pour la bibliothèque.
+
+```json
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SDK Reference",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/typedoc.json",
+        "directory": "sdk/typescript"
+      }
+    }
+  ]
+}
+```
+
+<ResponseField name="format" type="string" required>
+  L’outil de documentation qui a produit l’artefact : `typedoc`, `docfx`, `javadoc`, `sphinx` ou `phpdoc`.
+</ResponseField>
+
+<ResponseField name="source" type="string" required>
+  Chemin relatif vers le fichier ou le répertoire de l’artefact dans votre dépôt de documentation, ou une URL HTTPS.
+</ResponseField>
+
+<ResponseField name="directory" type="string">
+  Le préfixe de chemin d’URL pour les pages générées. Par défaut, `sdk-reference`.
+</ResponseField>
+
+Ajoutez plusieurs onglets pour documenter plusieurs bibliothèques. Chaque onglet doit avoir un `directory` unique.
+
+<Tip>
+  Ajoutez le répertoire de votre artefact à [`.mintignore`](/fr/organize/mintignore) afin que Mintlify traite les artefacts comme des entrées de build plutôt que de les publier comme des ressources statiques.
+</Tip>
+
+<div id="use-remote-sources">
+  ## Utiliser des sources distantes
+</div>
+
+Définissez `source` sur une URL HTTPS pour récupérer l’artefact au moment du build au lieu de le committer dans votre dépôt de documentation.
+
+Les formats à fichier unique (`typedoc`, `phpdoc`) acceptent une URL de fichier directe. Les formats à répertoire (`docfx`, `javadoc`, `sphinx`) acceptent une archive zip. Les jars Javadoc publiés sur Maven Central fonctionnent sans reconditionnement :
+
+```json
+{
+  "tab": "Java SDK",
+  "sdk": {
+    "format": "javadoc",
+    "source": "https://repo1.maven.org/maven2/com/example/my-library/1.0.0/my-library-1.0.0-javadoc.jar",
+    "directory": "sdk/java"
+  }
+}
+```
+
+Les artefacts distants ont une limite de téléchargement de 50 Mo et une limite de taille extraite de 200 Mo.
+
+<div id="keep-references-up-to-date">
+  ## Maintenir les références à jour
+</div>
+
+Régénérez l’artefact chaque fois que votre SDK change. Un pattern courant est un job CI dans chaque dépôt de SDK qui exécute l’outil de documentation à chaque publication et, soit commite l’artefact dans votre dépôt de documentation, soit le téléverse vers une URL stable référencée par `source`.

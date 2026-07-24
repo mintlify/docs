@@ -1,0 +1,116 @@
+---
+title: "SDK 参考设置"
+description: "使用你已有的文档工具 TypeDoc、DocFX、Javadoc、Sphinx 或 phpDocumentor 生成 SDK 参考页面。"
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "reference"]
+---
+
+使用 `sdk` 导航属性，可以基于你已经在运行的文档工具，为你的 SDK 库生成参考页面。Mintlify 会读取每个工具生成的构建产物，为每个 class、interface、module 和 function 创建一个页面，并自动生成导航分组、跨页链接与搜索索引。
+
+<div id="supported-formats">
+  ## 支持的格式
+</div>
+
+| `format` | Tool | Artifact |
+| --- | --- | --- |
+| `typedoc` | [TypeDoc](https://typedoc.org) (TypeScript/JavaScript) | JSON 导出文件 |
+| `docfx` | [DocFX](https://dotnet.github.io/docfx/) (.NET) | `docfx metadata` 输出目录 (ManagedReference YAML) |
+| `javadoc` | [Javadoc](https://docs.oracle.com/en/java/javase/17/javadoc/javadoc.html) (Java) | 标准 doclet HTML 目录 |
+| `sphinx` | [Sphinx](https://www.sphinx-doc.org) (Python) | JSON builder 输出目录 |
+| `phpdoc` | [phpDocumentor](https://phpdoc.org) (PHP) | `structure.xml` 文件 |
+
+<div id="generate-an-artifact">
+  ## 生成构建产物
+</div>
+
+以机器可读的输出格式运行你的文档工具。如果你已经在 CI 中发布生成的文档，通常只需在同一条命令上加一个参数即可。
+
+<CodeGroup>
+
+```bash TypeDoc
+npx typedoc --json typedoc.json src/index.ts
+```
+
+```bash DocFX
+docfx metadata docfx.json
+```
+
+```bash Javadoc
+javadoc -d javadoc-output -sourcepath src/main/java -subpackages com.example
+# Or download the published javadoc jar from Maven Central
+```
+
+```bash Sphinx
+python -m sphinx -b json docs/source artifacts/json
+```
+
+```bash phpDocumentor
+phpdoc -d src -t artifacts --template=xml
+```
+
+</CodeGroup>
+
+<div id="auto-populate-sdk-pages">
+  ## 自动填充 SDK 页面
+</div>
+
+在 `docs.json` 中的某个 tab 上添加 `sdk` 属性。Mintlify 会解析该构建产物，并为该库创建导航分组和页面。
+
+```json
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SDK Reference",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/typedoc.json",
+        "directory": "sdk/typescript"
+      }
+    }
+  ]
+}
+```
+
+<ResponseField name="format" type="string" required>
+  生成构建产物的文档工具：`typedoc`、`docfx`、`javadoc`、`sphinx` 或 `phpdoc`。
+</ResponseField>
+
+<ResponseField name="source" type="string" required>
+  指向文档仓库中构建产物文件或目录的相对路径，或者一个 HTTPS URL。
+</ResponseField>
+
+<ResponseField name="directory" type="string">
+  生成页面的 URL 路径前缀。默认值为 `sdk-reference`。
+</ResponseField>
+
+添加多个 tab 即可为多个库生成文档。每个 tab 都需要一个唯一的 `directory`。
+
+<Tip>
+  将你的构建产物目录添加到 [`.mintignore`](/zh/organize/mintignore)，让 Mintlify 将这些产物视为构建输入，而不是作为静态资源发布。
+</Tip>
+
+<div id="use-remote-sources">
+  ## 使用远程源
+</div>
+
+将 `source` 设置为 HTTPS URL，即可在构建时获取构建产物，而无需将其提交到文档仓库中。
+
+单文件格式 (`typedoc`、`phpdoc`) 可直接接受文件 URL。目录格式 (`docfx`、`javadoc`、`sphinx`) 接受 zip 压缩包。发布到 Maven Central 的 Javadoc jar 无需重新打包即可使用：
+
+```json
+{
+  "tab": "Java SDK",
+  "sdk": {
+    "format": "javadoc",
+    "source": "https://repo1.maven.org/maven2/com/example/my-library/1.0.0/my-library-1.0.0-javadoc.jar",
+    "directory": "sdk/java"
+  }
+}
+```
+
+远程构建产物的下载大小上限为 50 MB，解压后大小上限为 200 MB。
+
+<div id="keep-references-up-to-date">
+  ## 保持参考文档最新
+</div>
+
+在你的 SDK 发生变化时，重新生成构建产物。常见做法是在每个 SDK 仓库中设置一个 CI 任务，在发布时运行文档工具，并将构建产物提交到文档仓库，或上传到 `source` 所指向的稳定 URL。
