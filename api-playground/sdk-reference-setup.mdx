@@ -1,0 +1,106 @@
+---
+title: "SDK reference setup"
+description: "Generate SDK reference pages from your existing documentation tooling: TypeDoc, DocFX, Javadoc, Sphinx, or phpDocumentor."
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "reference"]
+---
+
+Use the `sdk` navigation property to generate reference pages for your SDK libraries from the documentation tools you already run. Mintlify reads each tool's build artifact and creates a page for every class, interface, module, and function, with navigation groups, cross-page links, and search indexing included.
+
+## Supported formats
+
+| `format` | Tool | Artifact |
+| --- | --- | --- |
+| `typedoc` | [TypeDoc](https://typedoc.org) (TypeScript/JavaScript) | JSON export file |
+| `docfx` | [DocFX](https://dotnet.github.io/docfx/) (.NET) | `docfx metadata` output directory (ManagedReference YAML) |
+| `javadoc` | [Javadoc](https://docs.oracle.com/en/java/javase/17/javadoc/javadoc.html) (Java) | Standard doclet HTML directory |
+| `sphinx` | [Sphinx](https://www.sphinx-doc.org) (Python) | JSON builder output directory |
+| `phpdoc` | [phpDocumentor](https://phpdoc.org) (PHP) | `structure.xml` file |
+
+## Generate an artifact
+
+Run your documentation tool with a machine-readable output format. If you already publish generated docs from CI, this is usually a one-flag change to the same command.
+
+<CodeGroup>
+
+```bash TypeDoc
+npx typedoc --json typedoc.json src/index.ts
+```
+
+```bash DocFX
+docfx metadata docfx.json
+```
+
+```bash Javadoc
+javadoc -d javadoc-output -sourcepath src/main/java -subpackages com.example
+# Or download the published javadoc jar from Maven Central
+```
+
+```bash Sphinx
+python -m sphinx -b json docs/source artifacts/json
+```
+
+```bash phpDocumentor
+phpdoc -d src -t artifacts --template=xml
+```
+
+</CodeGroup>
+
+## Auto-populate SDK pages
+
+Add an `sdk` property to a tab in your `docs.json`. Mintlify parses the artifact and creates navigation groups and pages for the library.
+
+```json
+"navigation": {
+  "tabs": [
+    {
+      "tab": "SDK Reference",
+      "sdk": {
+        "format": "typedoc",
+        "source": "sdk-artifacts/typedoc.json",
+        "directory": "sdk/typescript"
+      }
+    }
+  ]
+}
+```
+
+<ResponseField name="format" type="string" required>
+  The documentation tool that produced the artifact: `typedoc`, `docfx`, `javadoc`, `sphinx`, or `phpdoc`.
+</ResponseField>
+
+<ResponseField name="source" type="string" required>
+  Relative path to the artifact file or directory in your docs repository, or an HTTPS URL.
+</ResponseField>
+
+<ResponseField name="directory" type="string">
+  The URL path prefix for generated pages. Defaults to `sdk-reference`.
+</ResponseField>
+
+Add multiple tabs to document multiple libraries. Each tab needs a unique `directory`.
+
+<Tip>
+  Add your artifact directory to [`.mintignore`](/organize/mintignore) so artifacts are treated as build inputs rather than published as static assets.
+</Tip>
+
+## Use remote sources
+
+Set `source` to an HTTPS URL to fetch the artifact at build time instead of committing it to your docs repository.
+
+Single-file formats (`typedoc`, `phpdoc`) accept a direct file URL. Directory formats (`docfx`, `javadoc`, `sphinx`) accept a zip archive. Javadoc jars published to Maven Central work without repackaging:
+
+```json
+{
+  "tab": "Java SDK",
+  "sdk": {
+    "format": "javadoc",
+    "source": "https://repo1.maven.org/maven2/com/example/my-library/1.0.0/my-library-1.0.0-javadoc.jar",
+    "directory": "sdk/java"
+  }
+}
+```
+
+Remote artifacts are limited to 50 MB downloaded and 200 MB extracted.
+
+## Keep references up to date
+
+Regenerate the artifact whenever your SDK changes. A common pattern is a CI job in each SDK repository that runs the documentation tool on release and either commits the artifact to your docs repository or uploads it to a stable URL that `source` points to.
