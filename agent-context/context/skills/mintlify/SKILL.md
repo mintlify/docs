@@ -18,7 +18,7 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/navigation.md` | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI in nav). |
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
 | `reference/cli.md` | Running CLI commands (dev, validate, analytics, workflow, score, broken-links, a11y, config, and all flags). |
-| `reference/site-discovery.md` | Creating a new documentation site or replacing substantial placeholder content. |
+| `reference/product-context.md` | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
 
 ## MCP servers
 
@@ -58,7 +58,7 @@ Keep each session focused on one change. Smaller sessions produce easier-to-revi
 
 ## Before you start
 
-For a new site or a broad initial generation, read `reference/site-discovery.md` before planning the content.
+Before substantial content work, read `reference/product-context.md` and check for `.mintlify/product-brief.md`.
 
 Read the project's `docs.json` file first. It defines the site's navigation, theme, colors, and configuration.
 
