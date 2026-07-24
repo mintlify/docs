@@ -50,24 +50,34 @@ Rules:
 
 ## Complete frontmatter fields
 
-The SKILL.md file lists common frontmatter fields. Here is the complete set:
+The SKILL.md file lists common frontmatter fields. Here is the complete set. All fields are optional; if `title` is omitted, Mintlify generates one from the file path (dashes and underscores become spaces, first letter capitalized).
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `title` | string | Yes | Page title in navigation and browser tabs. |
-| `description` | string | No | Brief description for SEO. Displays under the title. |
-| `sidebarTitle` | string | No | Short title for sidebar navigation. |
-| `icon` | string | No | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
-| `iconType` | string | No | Font Awesome icon style: `regular`, `solid`, `light`, `thin`, `sharp-solid`, `duotone`, `brands`. |
-| `tag` | string | No | Label next to page title in sidebar (e.g., "NEW"). |
-| `hidden` | boolean | No | Remove from sidebar. Page still accessible by URL. |
-| `noindex` | boolean | No | Prevent search engine indexing. |
-| `mode` | string | No | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
-| `keywords` | array | No | Search terms for internal search and SEO. |
-| `api` | string | No | API endpoint for interactive playground (e.g., `"POST /users"`). |
-| `openapi` | string | No | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
-| `url` | string | No | External URL. Makes the nav entry link externally. |
-| `timestamp` | boolean | No | Override global timestamp setting for this page. |
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Page title in navigation and browser tabs. Auto-generated from the path if omitted. |
+| `description` | string | Brief description for SEO. Displays under the title. |
+| `sidebarTitle` | string | Short title for sidebar navigation. |
+| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
+| `iconType` | string | Font Awesome icon style: `regular`, `solid`, `light`, `thin`, `sharp-solid`, `duotone`, `brands`. |
+| `tag` | string | Label next to page title in sidebar (e.g., "NEW"). |
+| `hidden` | boolean | Remove from sidebar. Page still accessible by URL. Do not set to `false`; remove the field entirely to make a page visible again. |
+| `noindex` | boolean | Exclude from site search, sitemaps, search engine indexing, and AI assistant context. Still visible in navigation. |
+| `searchable` | boolean | Defaults to `true`. Set `false` to exclude the page from site search and AI assistant context while keeping it indexable externally and visible in navigation. |
+| `boost` | number | Multiply the page's in-product search ranking. Values above 1 prioritize, between 0 and 1 de-prioritize. No effect when `searchable: false`. |
+| `deprecated` | boolean | Show a "deprecated" label next to the page title. |
+| `hideFooterPagination` | boolean | Hide the previous/next navigation links at the bottom of the page. |
+| `related` | array or boolean | Related pages shown in the **Related topics** section, or `false` to hide it. Requires the Related pages add-on. |
+| `hideApiMarker` | boolean | Hide the HTTP method badge next to the page title in the sidebar. |
+| `contextual` | object | Override the site-wide contextual menu (`options`, `display`) for this page. `options: []` disables it. |
+| `groups` | string[] | Restrict the page to users in specific groups. Requires authentication configured first. |
+| `mode` | string | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
+| `keywords` | array | Search terms for internal search and SEO. |
+| `api` | string | API endpoint for interactive playground (e.g., `"POST /users"`). |
+| `openapi` | string | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
+| `url` | string | External URL. Makes the nav entry link externally. |
+| `timestamp` | boolean | Override global timestamp setting for this page. |
+
+Any other key is accepted as custom frontmatter (e.g. `product: "API"`).
 
 ## Page modes
 

@@ -23,6 +23,10 @@ Custom callout with icon and color:
 </Callout>
 ```
 
+## Banner
+
+Not an MDX component. A site-wide announcement banner configured via the `banner` field in `docs.json`. See `reference/configuration.md`.
+
 ## Accordions
 
 Expandable/collapsible content sections.

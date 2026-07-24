@@ -85,7 +85,7 @@ function validateSkill(skill, target) {
   if (!/^name: mintlify$/m.test(skill) || !/^description: .+$/m.test(skill)) {
     throw new Error(`${target.id}: SKILL.md requires name and description fields`);
   }
-  if (/mint analytics|mint workflow/.test(skill)) {
+  if (/mint analytics/.test(skill)) {
     throw new Error(`${target.id}: SKILL.md contains retired CLI commands`);
   }
 }

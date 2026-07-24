@@ -31,6 +31,7 @@ Read-only access to Mintlify's published documentation. Use it when the referenc
 Tools:
 - `search_mintlify` — Search the Mintlify knowledge base by query. Good for finding guides, examples, and API references.
 - `query_docs_filesystem_mintlify` — Browse the docs file tree (`ls`, `cat`, `grep`, `find`, etc.). Good for reading a specific docs page.
+- `submit_feedback` — Report a docs page that is incorrect, outdated, confusing, or incomplete.
 
 ### Mintlify Admin
 
@@ -43,11 +44,13 @@ Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`
 Key tools:
 - **`checkout`** — Start a session on a branch (required first call). Returns an `editorUrl` to preview changes live.
 - **`list_branches`** — List existing branches; call before `checkout` to attach to one.
+- **`list_deployments`** — Discover which deployment(s) this connection can access.
 - **`read`** / **`search`** — Fetch a page's MDX or search across pages.
 - **`edit_page`** / **`write_page`** — Apply targeted edits or overwrite a page.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`diff`** — See all changes relative to `main`.
+- **`get_session_state`** — Check the current session's status.
 - **`save`** — Open a PR (`mode: "pr"`) or push to the branch (`mode: "commit"`).
 - **`discard_session`** — Drop all in-session changes.
 
@@ -102,7 +105,7 @@ Store images in an `images/` directory. Reference with root-relative paths. All 
 
 ## Page frontmatter
 
-Every page requires `title` in its frontmatter. Include `description` and `keywords` for SEO.
+Include `title`, `description`, and `keywords` in frontmatter. `title` is technically optional (Mintlify generates one from the file path if omitted), but set it explicitly for clarity and SEO.
 
 ```yaml
 ---
@@ -114,22 +117,24 @@ keywords: ["relevant", "search", "terms"]
 
 ### Common frontmatter fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `title` | string | Yes | Page title in navigation and browser tabs. |
-| `description` | string | No | Brief description for SEO. Displays under the title. |
-| `sidebarTitle` | string | No | Short title for sidebar navigation. |
-| `icon` | string | No | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
-| `tag` | string | No | Label next to page title in sidebar (e.g., "NEW"). |
-| `hidden` | boolean | No | Remove from sidebar. Page still accessible by URL. |
-| `mode` | string | No | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
-| `keywords` | array | No | Search terms for internal search and SEO. |
-| `api` | string | No | API endpoint for interactive playground (e.g., `"POST /users"`). |
-| `openapi` | string | No | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Page title in navigation and browser tabs. Auto-generated from the path if omitted. |
+| `description` | string | Brief description for SEO. Displays under the title. |
+| `sidebarTitle` | string | Short title for sidebar navigation. |
+| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
+| `tag` | string | Label next to page title in sidebar (e.g., "NEW"). |
+| `hidden` | boolean | Remove from sidebar. Page still accessible by URL. |
+| `mode` | string | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
+| `keywords` | array | Search terms for internal search and SEO. |
+| `api` | string | API endpoint for interactive playground (e.g., `"POST /users"`). |
+| `openapi` | string | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
+
+For the complete list including `searchable`, `boost`, `deprecated`, `related`, `groups`, and more, read `reference/configuration.md`.
 
 ## Quick component reference
 
-Below are the most commonly used components. For full props and all 24 components, read `reference/components.md`.
+Below are the most commonly used components. For full props and all 25 components, read `reference/components.md`.
 
 ### Callouts
 
@@ -212,7 +217,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint automations`, `mint new`. Read `reference/cli.md` for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint automations`, `mint deslop`, `mint new`, `mint signup`. Read `reference/cli.md` for full flags and subcommands.
 
 ## Writing standards
 
