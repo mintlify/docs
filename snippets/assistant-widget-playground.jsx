@@ -152,6 +152,7 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
 
   const updateMountedWidget = useCallback(() => {
     if (!window.MintlifyAssistant) return;
+    // Keep the live preview in sync with the docs while generated examples retain "system".
     const liveTheme =
       appearance.theme === "system"
         ? document.documentElement.classList.contains("dark")
