@@ -228,36 +228,16 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script>
-      // Resolve theme before first paint so the loading state matches the docs site.
-      // postMessage applyTheme() still owns later updates.
-      (() => {
-        try {
-          const parentIsDark =
-            window.parent.document.documentElement.classList.contains("dark");
-          document.documentElement.dataset.theme = parentIsDark
-            ? "dark"
-            : "light";
-        } catch {
-          document.documentElement.dataset.theme = "light";
-        }
-      })();
-    </script>
     <style>
       :root {
-        --preview-loading-background: #eeeeef;
         --preview-loading-border: #c7c7cc;
         --preview-loading-foreground: #52525b;
-        color-scheme: light;
-        background: var(--preview-loading-background);
       }
 
       :root[data-theme="dark"] {
-        --preview-loading-background: #0f0f10;
         --preview-loading-border: #3f3f46;
         --preview-loading-foreground: #b4b4bc;
         color-scheme: dark;
-        background: var(--preview-loading-background);
       }
 
       html,
@@ -266,6 +246,7 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
         height: 100%;
         margin: 0;
         overflow: hidden;
+        background: transparent;
       }
 
       [data-preview-status] {
@@ -277,7 +258,7 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
         justify-content: center;
         gap: 0.75rem;
         color: var(--preview-loading-foreground);
-        background: var(--preview-loading-background);
+        background: transparent;
         font: 400 0.875rem/1.4 ui-sans-serif, system-ui, sans-serif;
         text-align: center;
       }
@@ -430,7 +411,7 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
           id: WIDGET_ID,
           defaultOpen: true,
           appearance: {
-            theme: document.documentElement.dataset.theme || "light",
+            theme: "light",
             side: "bottom",
             align: "end",
           },
