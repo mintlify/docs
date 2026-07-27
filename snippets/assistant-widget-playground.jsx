@@ -384,10 +384,12 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
 
       // Wait until the iframe viewport has a stable non-zero size. Opening the
       // widget popover before that (common on SPA navigations into this page)
-      // lets Floating UI measure an empty trigger box and park the panel at (0, 0).
+      // lets Floating UI measure an empty trigger box and park the panel at
+      // (0, 0) — permanently, because a zero-size anchor disables Floating
+      // UI's move tracking, so nothing repositions the panel afterwards.
       const waitForPreviewLayout = () =>
         new Promise((resolve) => {
-          const startedAt = Date.now();
+          let timeoutAt = Date.now() + 2000;
           let previousHeight = -1;
           let stableFrames = 0;
 
@@ -395,7 +397,24 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
             const width = document.documentElement.clientWidth;
             const height = document.documentElement.clientHeight;
 
-            if (width > 0 && height > 0 && height === previousHeight) {
+            if (width === 0 || height === 0) {
+              // Never time out into a zero-size viewport. Park on the next
+              // resize instead of polling — rAF may not run while the iframe
+              // has no rendered box.
+              stableFrames = 0;
+              previousHeight = -1;
+              window.addEventListener(
+                "resize",
+                () => {
+                  timeoutAt = Date.now() + 2000;
+                  tick();
+                },
+                { once: true },
+              );
+              return;
+            }
+
+            if (height === previousHeight) {
               stableFrames += 1;
               if (stableFrames >= 2) {
                 resolve();
@@ -406,7 +425,9 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
               previousHeight = height;
             }
 
-            if (Date.now() - startedAt > 2000) {
+            // The timeout only breaks stabilization stalls; the viewport is
+            // known non-zero here, so opening is safe.
+            if (Date.now() > timeoutAt) {
               resolve();
               return;
             }
@@ -414,7 +435,7 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
             requestAnimationFrame(tick);
           };
 
-          requestAnimationFrame(tick);
+          tick();
         });
 
       const applyPreviewUpdate = async ({
