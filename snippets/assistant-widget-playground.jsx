@@ -672,7 +672,7 @@ export const AssistantWidget = () => (
 
       <aside className="not-prose" data-assistant-preview="">
         <div
-          className="flex h-[42rem] min-h-0 flex-col overflow-hidden rounded-xl border border-gray-950/10 bg-white dark:border-white/10 dark:bg-gray-950 lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]"
+          className="flex h-[42rem] min-h-0 flex-col overflow-hidden rounded-xl border border-gray-950/10 bg-transparent dark:border-white/10 lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]"
           data-assistant-preview-card=""
         >
           <iframe
@@ -681,7 +681,7 @@ export const AssistantWidget = () => (
             srcDoc={previewDocument}
             onLoad={updatePreview}
             scrolling="no"
-            className="min-h-0 w-full flex-1 border-0 bg-gray-50 dark:bg-gray-900"
+            className="min-h-0 w-full flex-1 border-0 bg-transparent"
           />
         </div>
       </aside>
