@@ -3,6 +3,12 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
   const EMBED_URL =
     "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
+  const SUPPORT_EMAIL = "hi@mintlify.com";
+  const STARTER_QUESTIONS = [
+    "How do I get started with Mintlify?",
+    "How do I customize my docs?",
+    "How do I deploy my docs?",
+  ];
   const PRESENTATION_OPTIONS = [
     { value: "widget", label: "Widget" },
     { value: "modal", label: "Modal" },
@@ -183,6 +189,10 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
   const configLines = [
     "{",
     `  id: '${EXAMPLE_WIDGET_ID}',`,
+    `  supportEmail: '${SUPPORT_EMAIL}',`,
+    "  starterQuestions: [",
+    ...STARTER_QUESTIONS.map((question) => `    '${question}',`),
+    "  ],",
     "  appearance: {",
     `    variant: '${variant}',`,
     `    theme: '${theme}',`,

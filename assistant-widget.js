@@ -58,17 +58,37 @@ const openAssistantWidget = async (assistant) => {
 };
 
 const initializeAssistantApi = async (assistant) => {
+  const baseConfig = {
+    id: ASSISTANT_WIDGET_ID,
+    appearance: {
+      theme: getDocsTheme(),
+      side: "bottom",
+      align: "end",
+    },
+  };
+
   try {
     await assistant.init({
-      id: ASSISTANT_WIDGET_ID,
-      appearance: {
-        theme: getDocsTheme(),
-        side: "bottom",
-        align: "end",
-      },
+      ...baseConfig,
+      supportEmail: "hi@mintlify.com",
+      starterQuestions: [
+        "How do I get started with Mintlify?",
+        "How do I customize my docs?",
+        "How do I deploy my docs?",
+      ],
     });
   } catch (error) {
     const message = error && error.message ? error.message : "";
+    const sessionOverridesUnsupported =
+      message.includes("config.supportEmail is not supported") ||
+      message.includes("config.starterQuestions is not supported");
+
+    // Keep the docs usable until the published browser package includes these overrides.
+    if (sessionOverridesUnsupported) {
+      await assistant.init(baseConfig);
+      return;
+    }
+
     if (!message.includes("requires a non-empty public Widget ID")) throw error;
 
     await assistant.init({
