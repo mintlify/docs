@@ -6,12 +6,21 @@ keywords: ["AWS 部署", "Route 53 DNS（域名系统）", "CloudFront CDN", "�
 ---
 
 import Propagating from "/snippets/zh/custom-subpath-propagating.mdx";
+import SubpathSetupSteps from "/snippets/zh/subpath-setup-steps.mdx";
 
-若要使用 AWS Route 53 和 CloudFront 将文档托管在类似 `yoursite.com/docs` 这样的子路径上，你必须将 DNS（域名系统）服务提供商配置为将其解析到你的 CloudFront 分配。
+若要使用 AWS Route 53 和 CloudFront 将文档托管在类似 `yoursite.com/docs` 这样的子路径上，你必须将 DNS 服务提供商配置为指向你的 CloudFront 分配。
+
+在配置 AWS 之前，请在控制台中设置你的基础路径：
+
+<SubpathSetupSteps />
 
 <div id="overview">
   ## 概览
 </div>
+
+<Note>
+  以下示例使用 `/docs` 基础路径。如果你使用不同的基础路径，请将 `/docs` 替换为你的基础路径。
+</Note>
 
 将流量路由到以下路径，并将缓存策略（Cache Policy）设置为 **CachingDisabled**：
 
@@ -19,13 +28,16 @@ import Propagating from "/snippets/zh/custom-subpath-propagating.mdx";
 - `/.well-known/vercel/*` - 用于域名验证
 - `/docs/*` - 用于子路径路由
 - `/docs/` - 用于子路径路由
+- `/_mintlify/*` - 用于 API playground 请求
 
 将流量路由到以下路径，并将缓存策略（Cache Policy）设置为 **CachingEnabled**：
 
-- `/mintlify-assets/_next/static/*`
+- `/mintlify-assets/*` - 用于 CSS、JavaScript 和 favicon
 - `Default (*)` - 你的网站着陆页
 
 所有 Behaviors 都必须将 **origin request policy** 设置为 `AllViewerExceptHostHeader`。
+
+你的子路径对应的 Behaviors 必须允许所有 HTTP 方法。CloudFront 默认只允许 `GET` 和 `HEAD` 请求，这会阻止 Mintlify 用于分析和其他交互功能的 `POST` 请求。
 
 ![CloudFront「Behaviors」页面，其中包含 4 个 behaviors：`/docs/*`、`/docs`、`Default` 和 `/.well-known/*`。](/images/cloudfront/all-behaviors.png)
 
@@ -51,6 +63,10 @@ import Propagating from "/snippets/zh/custom-subpath-propagating.mdx";
 <Frame>
     ![Web Application Firewall (WAF) 选项，已选择 “Enable security protections”。](/images/cloudfront/enable-security-protections.png)
   </Frame>
+
+  <Note>
+    WAF 规则可能会阻止 Mintlify 用于分析和其他交互功能的 `POST` 请求。如果启用 WAF 后仪表板中不再显示分析数据，请检查 WAF 日志中是否有指向 `/docs/_mintlify/` 下路径的被阻止请求。
+  </Note>
 
 5. 其余设置保持默认。
 6. 选择 **Create distribution**。
@@ -79,7 +95,7 @@ import Propagating from "/snippets/zh/custom-subpath-propagating.mdx";
   ![CloudFront 的 “Create origin” 页面，高亮显示 “Origin domain” 输入框。](/images/cloudfront/default-origin.png)
 </Frame>
 
-此时，你应当有两个 Origins：一个为 `[SUBDOMAIN].mintlify.site`，另一个为你的预发布 URL。
+你现在应当有两个 Origins：一个为 `[SUBDOMAIN].mintlify.site`，另一个为你的预发布 URL。
 
 <Frame>
   ![CloudFront 的 “Origins” 页面，包含两个 origins：一个用于 mintlify，另一个用于 mintlify-landing-page。](/images/cloudfront/final-origins.png)
@@ -126,9 +142,14 @@ CloudFront 中的行为用于控制子路径逻辑。总体而言，我们希望
 
 创建一个行为，将 **Path pattern** 设置为你选择的子路径，例如 `/docs`，并将 **Origin and origin groups** 指向 `.mintlify.site` 的 URL（在我们的示例中为 `acme.mintlify.site`）。
 
-- 将 "Cache policy" 设置为 **CachingOptimized**。
+- 将 "Cache policy" 设置为 **CachingDisabled**。
 - 将 "Origin request policy" 设置为 **AllViewerExceptHostHeader**。
 - 将 "Viewer Protocol Policy" 设置为 **Redirect HTTP to HTTPS**。
+- 将 "Allowed HTTP methods" 设置为 **GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE**。
+
+<Warning>
+  CloudFront 默认只允许 `GET` 和 `HEAD` 请求。如果你不允许所有 HTTP 方法，CloudFront 会拒绝 Mintlify 用于分析的 `POST` 请求，即使你的文档可以正常加载，仪表板中也不会显示任何页面浏览量。
+</Warning>
 
 <Frame>
   ![CloudFront 的 "Create behavior" 页面，其中 "Path pattern" 设置为 "/docs/*"，并且 "Origin and origin groups" 指向 `acme.mintlify.site` 的 URL。](/images/cloudfront/behavior-1.png)
@@ -142,23 +163,37 @@ CloudFront 中的行为用于控制子路径逻辑。总体而言，我们希望
 
 除 **Path pattern** 外，其余设置应与基础子路径行为完全一致。
 
-- 将 "Cache policy" 设置为 **CachingOptimized**
+- 将 "Cache policy" 设置为 **CachingDisabled**
 - 将 "Origin request policy" 设置为 **AllViewerExceptHostHeader**
 - 将 "Viewer protocol policy" 设置为 **Redirect HTTP to HTTPS**
+- 将 "Allowed HTTP methods" 设置为 **GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE**
 
-<div id="mintlify-assets_nextstatic">
-  ### `/mintlify-assets/_next/static/*`
+<div id="mintlify-assets">
+  ### `/mintlify-assets/*`
 </div>
 
-- 将“Cache policy”设置为 **CachingOptimized**
- - 将“Origin request policy”设置为 **AllViewerExceptHostHeader**
- - 将“Viewer protocol policy”设置为 **Redirect HTTP to HTTPS**
+创建一个行为，在 **Path pattern** 中填写 `/mintlify-assets/*`，并将 **Origin and origin groups** 指向 `.mintlify.site` 的 URL。此路径从你域名的根路径提供文档的 CSS、JavaScript 和 favicon。
+
+ - 将 "Cache policy" 设置为 **CachingOptimized**。
+ - 将 "Origin request policy" 设置为 **AllViewerExceptHostHeader**。
+ - 将 "Viewer protocol policy" 设置为 **Redirect HTTP to HTTPS**。
+
+<div id="_mintlify">
+  ### `/_mintlify/*`
+</div>
+
+创建一个行为，在 **Path pattern** 中填写 `/_mintlify/*`，并将 **Origin and origin groups** 指向 `.mintlify.site` 的 URL。此路径从你域名的根路径处理 API playground 请求。
+
+- 将 "Cache policy" 设置为 **CachingDisabled**。
+- 将 "Origin request policy" 设置为 **AllViewerExceptHostHeader**。
+- 将 "Viewer protocol policy" 设置为 **Redirect HTTP to HTTPS**。
+- 将 "Allowed HTTP methods" 设置为 **GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE**。
 
 <div id="default">
   ### `Default (*)`
 </div>
 
-最后，我们将编辑 `Default (*)` 行为。
+编辑 `Default (*)` 行为。
 
 <Frame>
   ![已选中“Default (*)”行为并突出显示 Edit 按钮的 CloudFront 发行版。](/images/cloudfront/default-behavior-1.png)
@@ -186,19 +221,19 @@ CloudFront 中的行为用于控制子路径逻辑。总体而言，我们希望
   ## 预览分发
 </div>
 
-你现在可以进入 “General” 标签页并访问 **Distribution domain name** 的 URL，来测试你是否已正确配置分发。
+若要测试你的分发，请进入 “General” 标签页并访问 **Distribution domain name** 的 URL。
 
 <Frame>
   ![CloudFront “General” 标签页，高亮显示 “Distribution domain name” 的 URL。](/images/cloudfront/preview-distribution.png)
 </Frame>
 
-所有页面应当指向你的主着陆页；但如果在该 URL 后追加你选择的子路径（例如 `/docs`），则应会跳转到你的 Mintlify 文档实例。
+所有页面都应路由到你的主着陆页。当你在 URL 后追加你选择的子路径（例如 `/docs`）时，该 URL 应会提供你的 Mintlify 文档。
 
 <div id="connect-with-route-53">
   ## 连接 Route 53
 </div>
 
-现在，我们将把 CloudFront 分配的功能接入到你的主域名。
+接下来，将 CloudFront 分配连接到你的主域名。
 
 <Note>
   本节你也可以参考 AWS 的官方指南：[将 Amazon Route 53 配置为将流量路由到 CloudFront 分配](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-to-cloudfront-distribution.html#routing-to-cloudfront-distribution-config)

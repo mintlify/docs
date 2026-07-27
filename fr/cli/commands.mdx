@@ -1,5 +1,6 @@
 ---
-title: "Commandes"
+title: "Référence des commandes de la CLI Mintlify"
+sidebarTitle: "Commandes"
 description: "Référence complète de toutes les commandes et options de la CLI Mintlify, y compris mint dev, mint build, mint validate, mint broken-links et plus encore."
 keywords: ["CLI", "mint", "commandes", "flags", "référence"]
 boost: 3
@@ -34,6 +35,49 @@ mint dev [flags]
 | `--groups` | Liste séparée par des virgules de groupes d'utilisateurs à simuler pour la prévisualisation. |
 | `--disable-openapi` | Ignorer le traitement des fichiers OpenAPI pour améliorer les performances. |
 | `--local-schema` | Autoriser les fichiers OpenAPI hébergés localement servis via HTTP. |
+
+---
+
+<div id="mint-signup">
+  ## `mint signup`
+</div>
+
+Créez un nouveau compte Mintlify depuis le terminal.
+
+```bash
+mint signup [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--firstName` | Votre prénom. |
+| `--lastName` | Votre nom de famille. |
+| `--company` | Le nom de votre entreprise. |
+| `--email` | Adresse e-mail du compte. |
+
+Exécutez la commande sans flags pour saisir vos informations de manière interactive. La CLI vous demandera toute valeur que vous ne passez pas comme flag.
+
+Après avoir soumis vos informations, Mintlify envoie un lien de vérification à votre adresse e-mail. La commande attend jusqu'à ce que vous cliquiez sur le lien, puis crée votre compte, vous connecte et enregistre vos identifiants. Une fois terminé, ouvrez le [tableau de bord](https://app.mintlify.com) pour connecter votre dépôt et commencer à construire.
+
+<Note>
+  `mint signup` ne se termine pas tant que vous n'avez pas cliqué sur le lien de vérification, ce qui peut prendre plusieurs minutes. Dans les scripts ou les automatisations, exécutez-le en tant que processus en arrière-plan au lieu de l'attendre de manière synchrone.
+</Note>
+
+<div id="examples">
+  ### Exemples
+</div>
+
+```bash
+# Inscription interactive
+mint signup
+
+# Inscription avec toutes les informations fournies
+mint signup \
+  --firstName Jane \
+  --lastName Doe \
+  --company Acme \
+  --email jane@acme.com
+```
 
 ---
 
@@ -73,6 +117,46 @@ Afficher les détails de votre session actuelle, y compris la version de la CLI,
 
 ```bash
 mint status
+```
+
+---
+
+<div id="mint-add-domain">
+  ## `mint add-domain`
+</div>
+
+Ajoutez un [domaine personnalisé](/fr/customize/custom-domain) à votre déploiement depuis le terminal. Nécessite une authentification avec `mint login`.
+
+```bash
+mint add-domain <domain>
+```
+
+| Argument | Description |
+| --- | --- |
+| `domain` | Le domaine personnalisé à ajouter, par exemple `docs.example.com`. Doit être un nom d'hôte simple. |
+
+La commande utilise le sous-domaine configuré via `mint config`. Si aucun n'est défini, elle utilise le premier sous-domaine de votre compte.
+
+Une fois le domaine enregistré, la CLI attend jusqu'à 10 secondes que les enregistrements DNS soient générés, puis affiche les enregistrements `TXT` et `CNAME` à ajouter chez votre fournisseur de domaine :
+
+```text
+TXT _acme-challenge → <value>
+TXT _cf-custom-hostname → <value>
+CNAME @ → cname.mintlify.builders
+```
+
+Ajoutez d'abord les enregistrements `TXT`, puis ajoutez le `CNAME` une fois les enregistrements de vérification validés. Consultez [Domaine personnalisé](/fr/customize/custom-domain) pour les instructions complètes de configuration DNS, les exigences pour les domaines apex et les détails sur le provisionnement TLS.
+
+<Note>
+  Si certains enregistrements `TXT` sont encore en cours de génération à la fin de la commande, consultez la page [Configuration du domaine personnalisé](https://app.mintlify.com/settings/deployment/custom-domain) dans votre Dashboard pour récupérer les valeurs restantes.
+</Note>
+
+<div id="example-add-domain">
+  ### Exemple
+</div>
+
+```bash
+mint add-domain docs.example.com
 ```
 
 ---
@@ -227,10 +311,24 @@ La commande exclut les fichiers correspondant aux motifs [.mintignore](/fr/organ
 
 | Flag | Description |
 | --- | --- |
+| `--files` | Un ou plusieurs chemins de fichiers ou globs à vérifier. Par défaut, vérifie l'ensemble du site. |
 | `--check-anchors` | Valider également les liens d'ancrage (par exemple, `/page#section`) par rapport aux slugs de titres. |
 | `--check-external` | Vérifier également les URLs externes pour les liens cassés. |
 | `--check-redirects` | Vérifier également que les destinations de redirection dans `docs.json` se résolvent vers des chemins valides. |
 | `--check-snippets` | Vérifier également les liens à l'intérieur des composants `<Snippet>`. |
+
+Utilisez `--files` pour limiter la vérification à des pages spécifiques. C'est utile pour valider une seule page que vous venez de modifier ou pour restreindre les vérifications à un répertoire en CI. Lorsque `--files` est combiné avec `--check-external`, seules les URLs externes des pages sélectionnées sont vérifiées.
+
+```bash
+# Vérifier une page spécifique
+mint broken-links --files introduction.mdx
+
+# Vérifier les pages correspondant à un glob
+mint broken-links --files "guides/**/*.mdx"
+
+# Passer plusieurs chemins
+mint broken-links --files introduction.mdx --files "guides/**/*.mdx"
+```
 
 ---
 
@@ -362,6 +460,71 @@ Le score global utilise une notation pondérée, de sorte que les vérifications
 
 ---
 
+<div id="mint-deslop">
+  ## `mint deslop`
+</div>
+
+Vérifier les pages de documentation à la recherche de prose qui sonne comme de l'IA et obtenir des suggestions de réécriture. Nécessite une authentification avec `mint login`.
+
+```bash
+mint deslop [files...] [flags]
+```
+
+| Argument | Description |
+| --- | --- |
+| `files` | Facultatif. Chemins ou globs à vérifier. S'ils sont omis, la commande vérifie les pages `.md` et `.mdx` qui ont changé dans votre arbre de travail (diff Git plus fichiers non suivis). |
+
+| Flag | Description |
+| --- | --- |
+| `--format` | Format de sortie : `table` (par défaut, coloré), `plain` (redirigeable) ou `json`. |
+| `--subdomain` | Sous-domaine de la documentation à utiliser pour la vérification. Par défaut, votre sous-domaine configuré. |
+| `--threshold` | Faire échouer une page lorsque la somme de ses fractions générée par IA et assistée par IA est supérieure à cette valeur, de `0` à `1`. Par défaut `0.5`. |
+| `--fix-whitespace` | Normaliser les espaces de la prose dans les fichiers vérifiés (espaces en fin de ligne, suites de lignes vides et caractères Unicode invisibles). Ignore les blocs de code et le frontmatter. |
+
+Pour chaque page signalée, la commande indique la fraction rédigée par IA, les passages spécifiques qui se lisent comme générés par IA avec leurs numéros de ligne, ainsi que des suggestions de réécriture au style humain.
+
+Chaque page vérifiée consomme un crédit IA. Les pages de moins de 50 mots sont ignorées et non facturées. Si une page atteint ou dépasse le seuil, ou si une vérification renvoie une erreur, la commande se termine avec le code `1`. Si toutes les pages sont propres, la commande se termine avec le code `0`. Cela vous permet de l'exécuter dans une boucle de réécriture ou en CI.
+
+<div id="examples">
+  ### Exemples
+</div>
+
+```bash
+# Vérifier les pages modifiées dans votre arbre de travail
+mint deslop
+
+# Vérifier une page spécifique
+mint deslop docs/guide.mdx
+
+# Vérifier toutes les pages MDX et émettre du JSON pour du scripting
+mint deslop "docs/**/*.mdx" --format json
+
+# Nettoyer également les espaces dans les fichiers vérifiés
+mint deslop docs/guide.mdx --fix-whitespace
+```
+
+---
+
+<div id="mint-format">
+  ## `mint format`
+</div>
+
+Formate chaque fichier `.mdx` du répertoire courant selon le style canonique de Mintlify. La commande analyse chaque fichier avec le même parseur MDX que celui utilisé par l'éditeur web, puis le réécrit sur place si la sortie canonique diffère.
+
+```bash
+mint format
+```
+
+Exécutez la commande depuis la racine de votre projet de documentation. Elle parcourt tous les sous-répertoires, en ignorant les chemins correspondant à `.gitignore` et à toute règle d'exclusion Mintlify. Les fichiers qui correspondent déjà à la sortie canonique restent inchangés.
+
+<Warning>
+  `mint format` réécrit les fichiers sur place. Committez ou stashez vos modifications avant de l'exécuter afin de pouvoir examiner le diff.
+</Warning>
+
+Une fois terminé, la commande affiche le nombre de fichiers MDX reformatés et le nombre de fichiers dont l'analyse a échoué. Si un fichier échoue, la commande se termine avec le code `1` et affiche le chemin du fichier ainsi que l'erreur, ce qui vous permet de l'exécuter en CI pour imposer un formatage cohérent.
+
+---
+
 <div id="mint-new">
   ## `mint new`
 </div>
@@ -415,7 +578,6 @@ Ces commandes sont disponibles mais ne sont pas encore fonctionnelles. Les exéc
 | --- | --- |
 | `mint ai` | Outils de documentation assistés par IA. |
 | `mint test` | Tests de documentation. |
-| `mint signup` | Inscription de compte depuis la CLI. |
 | `mint mcp` | Serveur MCP pour la documentation. |
 
 ---
