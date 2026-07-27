@@ -1,7 +1,7 @@
 export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   // Mintlify evaluates snippet exports independently, so shared values must stay in this scope.
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
-  const PREVIEW_WIDGET_ID = "mint_widget_b6d4fae8-946b-4a5d-9f6b-f48948ab115b";
+  const PREVIEW_WIDGET_ID = "mint_widget_bececb2f-70d4-4e52-910f-7e437db35da8";
   const EMBED_URL =
     "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
   const PREVIEW_READY_MESSAGE = "mintlify-assistant-playground:ready";
