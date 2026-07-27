@@ -228,6 +228,21 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      // Resolve theme before first paint so the loading state matches the docs site.
+      // postMessage applyTheme() still owns later updates.
+      (() => {
+        try {
+          const parentIsDark =
+            window.parent.document.documentElement.classList.contains("dark");
+          document.documentElement.dataset.theme = parentIsDark
+            ? "dark"
+            : "light";
+        } catch {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
     <style>
       :root {
         --preview-loading-background: #eeeeef;
@@ -372,6 +387,7 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
           appearance,
           hooks: createHooks(trackEvents, reportErrors),
         });
+        await assistantApi.open();
         document.documentElement.dataset.previewPlacement =
           nextPlacementKey;
         document.documentElement.dataset.previewState = "ready";
@@ -412,8 +428,9 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
       const initializePreview = async () => {
         const baseConfig = {
           id: WIDGET_ID,
+          defaultOpen: true,
           appearance: {
-            theme: "light",
+            theme: document.documentElement.dataset.theme || "light",
             side: "bottom",
             align: "end",
           },
