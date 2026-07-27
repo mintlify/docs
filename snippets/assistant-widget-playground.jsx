@@ -740,7 +740,8 @@ export const AssistantWidget = () => (
             </div>
 
             <CodeBlockComponent
-              language={installTarget === "html" ? "html" : "jsx"}
+              // always use jsx as langugae to render code highlighting correctly
+              language= "jsx"
               filename={
                 installTarget === "html" ? "index.html" : "assistant-widget.jsx"
               }
