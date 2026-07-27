@@ -49,7 +49,9 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   const [align, setAlign] = useState("end");
   const [trackEvents, setTrackEvents] = useState(false);
   const [reportErrors, setReportErrors] = useState(false);
+  const [previewHostReady, setPreviewHostReady] = useState(false);
   const previewRef = useRef(null);
+  const previewHostRef = useRef(null);
 
   useEffect(() => {
     // A deleted custom script can leave its parent-page widget mounted during local hot reloads.
@@ -68,6 +70,30 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
     rootWidgetObserver.observe(document.body, { childList: true });
 
     return () => rootWidgetObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    // SPA navigations can mount this page before the sticky/absolute preview
+    // host has a laid-out box. Delay the iframe until the host has size.
+    const host = previewHostRef.current;
+    if (!host) return undefined;
+
+    const markReady = (height) => {
+      if (height > 0) setPreviewHostReady(true);
+    };
+
+    markReady(host.getBoundingClientRect().height);
+
+    if (typeof ResizeObserver === "undefined") {
+      setPreviewHostReady(true);
+      return undefined;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      markReady(entries[0]?.contentRect.height ?? 0);
+    });
+    observer.observe(host);
+    return () => observer.disconnect();
   }, []);
 
   const classNames = (...classes) => classes.filter(Boolean).join(" ");
@@ -232,6 +258,8 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
       :root {
         --preview-loading-border: #c7c7cc;
         --preview-loading-foreground: #52525b;
+        color-scheme: light dark;
+        background: transparent;
       }
 
       :root[data-theme="dark"] {
@@ -240,13 +268,17 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
         color-scheme: dark;
       }
 
+      :root[data-theme="light"] {
+        color-scheme: light;
+      }
+
       html,
       body {
         width: 100%;
         height: 100%;
         margin: 0;
         overflow: hidden;
-        background: transparent;
+        background: transparent !important;
       }
 
       [data-preview-status] {
@@ -350,6 +382,41 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
       let assistantApi;
       let queuedPreviewUpdate;
 
+      // Wait until the iframe viewport has a stable non-zero size. Opening the
+      // widget popover before that (common on SPA navigations into this page)
+      // lets Floating UI measure an empty trigger box and park the panel at (0, 0).
+      const waitForPreviewLayout = () =>
+        new Promise((resolve) => {
+          const startedAt = Date.now();
+          let previousHeight = -1;
+          let stableFrames = 0;
+
+          const tick = () => {
+            const width = document.documentElement.clientWidth;
+            const height = document.documentElement.clientHeight;
+
+            if (width > 0 && height > 0 && height === previousHeight) {
+              stableFrames += 1;
+              if (stableFrames >= 2) {
+                resolve();
+                return;
+              }
+            } else {
+              stableFrames = 0;
+              previousHeight = height;
+            }
+
+            if (Date.now() - startedAt > 2000) {
+              resolve();
+              return;
+            }
+
+            requestAnimationFrame(tick);
+          };
+
+          requestAnimationFrame(tick);
+        });
+
       const applyPreviewUpdate = async ({
         appearance,
         reportErrors,
@@ -360,9 +427,13 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
           appearance.side,
           appearance.align,
         ].join(":");
+        const previousPlacementKey =
+          document.documentElement.dataset.previewPlacement;
+        const isInitialApply = previousPlacementKey === undefined;
+        // Skip close on the first apply — there is no prior surface to reset,
+        // and close/open before layout is what sends the panel to the origin.
         const placementChanged =
-          document.documentElement.dataset.previewPlacement !==
-          nextPlacementKey;
+          !isInitialApply && previousPlacementKey !== nextPlacementKey;
 
         applyTheme(appearance.theme);
         // Theme/token updates can apply in place. Only close before updating
@@ -375,6 +446,9 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
           appearance,
           hooks: createHooks(trackEvents, reportErrors),
         });
+        if (isInitialApply || placementChanged) {
+          await waitForPreviewLayout();
+        }
         await assistantApi.open();
         document.documentElement.dataset.previewPlacement =
           nextPlacementKey;
@@ -414,11 +488,13 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
       });
 
       const initializePreview = async () => {
+        // Keep closed until the first configured update + layout settle.
+        // defaultOpen races SPA navigations where the iframe is still 0-sized.
         const baseConfig = {
           id: WIDGET_ID,
-          defaultOpen: true,
           appearance: {
             theme: "light",
+            variant: "widget",
             side: "bottom",
             align: "end",
           },
@@ -525,7 +601,7 @@ export const AssistantWidget = () => (
   return (
     <div className="my-6 grid gap-8" data-assistant-playground-layout="">
       <div className="min-w-0">
-        <div className="not-prose overflow-hidden rounded-xl border border-gray-950/10 bg-white dark:border-white/10 dark:bg-transparent">
+        <div className="not-prose overflow-hidden rounded-xl border border-gray-950/10 dark:border-white/10">
           <div className="px-5 py-4">
             <div className="text-sm font-medium text-gray-950 dark:text-white">
               Widget playground
@@ -645,7 +721,7 @@ export const AssistantWidget = () => (
             </div>
           </div>
 
-          <div className="border-t border-gray-950/10 bg-gray-50/60 p-5 dark:border-white/10 dark:bg-white/[0.02]">
+          <div className="border-t border-gray-950/10 p-5 dark:border-white/10">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-medium text-gray-950 dark:text-white">
@@ -679,17 +755,20 @@ export const AssistantWidget = () => (
 
       <aside className="not-prose" data-assistant-preview="">
         <div
+          ref={previewHostRef}
           className="flex h-[42rem] min-h-0 flex-col overflow-hidden rounded-xl border border-gray-950/10 bg-transparent dark:border-white/10 lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]"
           data-assistant-preview-card=""
         >
-          <iframe
-            ref={previewRef}
-            title="Live Assistant Widget preview"
-            srcDoc={previewDocument}
-            onLoad={updatePreview}
-            scrolling="no"
-            className="min-h-0 w-full flex-1 border-0 bg-transparent"
-          />
+          {previewHostReady ? (
+            <iframe
+              ref={previewRef}
+              title="Live Assistant Widget preview"
+              srcDoc={previewDocument}
+              onLoad={updatePreview}
+              scrolling="no"
+              className="min-h-0 w-full flex-1 border-0 bg-transparent [color-scheme:light_dark] dark:[color-scheme:dark]"
+            />
+          ) : null}
         </div>
       </aside>
     </div>
