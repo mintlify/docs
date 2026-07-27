@@ -360,10 +360,17 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
           appearance.side,
           appearance.align,
         ].join(":");
+        const placementChanged =
+          document.documentElement.dataset.previewPlacement !==
+          nextPlacementKey;
 
         applyTheme(appearance.theme);
-        // Keep configuration changes from moving an already-open surface.
-        await assistantApi.close();
+        // Theme/token updates can apply in place. Only close before updating
+        // when placement changes — otherwise the widget popover remounts and
+        // can remeasure before the trigger has a layout box, landing at (0, 0).
+        if (placementChanged) {
+          await assistantApi.close();
+        }
         await assistantApi.update({
           appearance,
           hooks: createHooks(trackEvents, reportErrors),
