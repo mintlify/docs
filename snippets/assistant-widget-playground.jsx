@@ -49,7 +49,7 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   const [variant, setVariant] = useState("widget");
   const [theme, setTheme] = useState("system");
   const [accent, setAccent] = useState("#16a34a");
-  const [radius, setRadius] = useState(18);
+  const [radius, setRadius] = useState(16);
   const [side, setSide] = useState("bottom");
   const [align, setAlign] = useState("end");
   const [trackEvents, setTrackEvents] = useState(false);
