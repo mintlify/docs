@@ -1,5 +1,6 @@
 ---
-title: "Commands"
+title: "Mintlify CLI command reference"
+sidebarTitle: "Commands"
 description: "Complete reference for every Mintlify CLI command and flag, including mint dev, mint build, mint validate, mint broken-links, and more."
 keywords: ["CLI", "mint", "commands", "flags", "reference"]
 boost: 3
@@ -33,6 +34,45 @@ mint dev [flags]
 
 ---
 
+## `mint signup`
+
+Create a new Mintlify account from the terminal.
+
+```bash
+mint signup [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--firstName` | Your first name. |
+| `--lastName` | Your last name. |
+| `--company` | Your company name. |
+| `--email` | Email address for the account. |
+
+Run the command without flags to enter your details interactively. The CLI prompts for any value you do not pass as a flag.
+
+After you submit your details, Mintlify sends a verification link to your email. The command waits until you click the link, then creates your account, logs you in, and stores your credentials. When it finishes, open the [dashboard](https://app.mintlify.com) to connect your repository and start building.
+
+<Note>
+  `mint signup` does not return until you click the verification link, which can take several minutes. In scripts or automations, run it as a background process instead of waiting on it synchronously.
+</Note>
+
+### Examples
+
+```bash
+# Sign up interactively
+mint signup
+
+# Sign up with all details provided
+mint signup \
+  --firstName Jane \
+  --lastName Doe \
+  --company Acme \
+  --email jane@acme.com
+```
+
+---
+
 ## `mint login`
 
 Authenticate with your Mintlify account.
@@ -63,6 +103,42 @@ Display your current session details including CLI version, account email, organ
 
 ```bash
 mint status
+```
+
+---
+
+## `mint add-domain`
+
+Add a [custom domain](/customize/custom-domain) to your deployment from the terminal. Requires authentication with `mint login`.
+
+```bash
+mint add-domain <domain>
+```
+
+| Argument | Description |
+| --- | --- |
+| `domain` | The custom domain to add, like `docs.example.com`. Must be a bare hostname. |
+
+The command uses your configured subdomain from `mint config`. If you do not have a configured subdomain, it uses the first subdomain on your account.
+
+After registering the domain, the CLI waits up to 10 seconds for DNS records to generate, then prints the `TXT` and `CNAME` records to add at your domain provider:
+
+```text
+TXT _acme-challenge → <value>
+TXT _cf-custom-hostname → <value>
+CNAME @ → cname.mintlify.builders
+```
+
+Add the `TXT` records first, then add the `CNAME` once the verification records validate. See [Custom domain](/customize/custom-domain) for full DNS setup instructions, apex domain requirements, and TLS provisioning details.
+
+<Note>
+  If some `TXT` records are still generating when the command exits, check the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard for the remaining values.
+</Note>
+
+### Example
+
+```bash
+mint add-domain docs.example.com
 ```
 
 ---
@@ -201,10 +277,24 @@ The command scans `.mdx` and `.md` files for links and excludes files matching [
 
 | Flag | Description |
 | --- | --- |
+| `--files` | One or more file paths or globs to check. Defaults to the whole site. |
 | `--check-anchors` | Also validate anchor links (for example, `/page#section`) against heading slugs. |
 | `--check-external` | Also check external URLs for broken links. |
 | `--check-redirects` | Also check that redirect destinations in `docs.json` resolve to valid paths. |
 | `--check-snippets` | Also check links inside `<Snippet>` components. |
+
+Pass `--files` to limit the check to specific pages. This is useful for validating a single page you just edited or scoping checks to a directory in CI. When `--files` is set with `--check-external`, only external URLs on the selected pages are fetched.
+
+```bash
+# Check a specific page
+mint broken-links --files introduction.mdx
+
+# Check pages matching a glob
+mint broken-links --files "guides/**/*.mdx"
+
+# Pass multiple paths
+mint broken-links --files introduction.mdx "guides/**/*.mdx"
+```
 
 ---
 
@@ -324,6 +414,65 @@ The overall score uses weighted scoring, so higher-impact checks contribute more
 
 ---
 
+## `mint deslop`
+
+Check documentation pages for AI-sounding prose and get rewrite suggestions. Requires authentication with `mint login`.
+
+```bash
+mint deslop [files...] [flags]
+```
+
+| Argument | Description |
+| --- | --- |
+| `files` | Optional. Paths or globs to check. If omitted, the command checks the `.md` and `.mdx` pages that changed in your working tree (Git diff plus untracked files). |
+
+| Flag | Description |
+| --- | --- |
+| `--format` | Output format: `table` (default, colored), `plain` (pipeable), or `json`. |
+| `--subdomain` | Documentation subdomain to check against. Defaults to your configured subdomain. |
+| `--threshold` | Fail a page when the sum of its AI-generated and AI-assisted fractions is greater than this value, from `0` to `1`. Defaults to `0.5`. |
+| `--fix-whitespace` | Normalize prose whitespace in the checked files (trailing spaces, blank-line runs, and invisible Unicode characters). Skips code blocks and frontmatter. |
+
+For each flagged page, the command reports the AI-written fraction, the specific passages that read as AI-generated with their line numbers, and suggested human-style rewrites.
+
+Each checked page consumes one AI credit. The command skips pages under 50 words and does not charge for them. If any page is at or above the threshold, or if a check returns an error, the command exits with code `1`. If every page is clean, the command exits with code `0`. This lets you run the command in a rewrite loop or in CI.
+
+### Examples
+
+```bash
+# Check pages changed in your working tree
+mint deslop
+
+# Check a specific page
+mint deslop docs/guide.mdx
+
+# Check every MDX page and emit JSON for scripting
+mint deslop "docs/**/*.mdx" --format json
+
+# Also clean up whitespace in the checked files
+mint deslop docs/guide.mdx --fix-whitespace
+```
+
+---
+
+## `mint format`
+
+Format every `.mdx` file in the current directory to Mintlify's canonical style. The command parses each file with the same MDX parser the web editor uses, then rewrites it in place if the canonical output differs.
+
+```bash
+mint format
+```
+
+Run the command from the root of your docs project. It walks every subdirectory, skipping paths matched by `.gitignore` and any Mintlify ignore rules. Files that already match the canonical output are left untouched.
+
+<Warning>
+  `mint format` rewrites files in place. Commit or stash your changes before running it so you can review the diff.
+</Warning>
+
+When it finishes, the command prints how many MDX files were reformatted and how many failed to parse. If any file fails, the command exits with code `1` and prints the file path and error, so you can run it in CI to enforce consistent formatting.
+
+---
+
 ## `mint new`
 
 Create a new documentation project by picking a theme or cloning a pre-defined template from the [mintlify/templates](https://github.com/mintlify/templates) repository.
@@ -369,7 +518,6 @@ These commands are available to run but are not yet functional. Running them rec
 | --- | --- |
 | `mint ai` | AI-powered documentation tools. |
 | `mint test` | Documentation testing. |
-| `mint signup` | Account sign-up from the CLI. |
 | `mint mcp` | MCP server for documentation. |
 
 ---

@@ -1,6 +1,7 @@
 ---
-title: "命令参考"
-description: "Mintlify CLI 所有命令和选项的完整参考，包括 mint dev、mint build、mint validate、mint broken-links 等。"
+title: "Mintlify CLI 命令参考"
+sidebarTitle: "命令参考"
+description: "Mintlify CLI 所有命令和选项的完整参考，涵盖 mint dev、mint build、mint validate、mint broken-links、mint signup 等命令的用法与标志说明。"
 keywords: ["CLI", "mint", "命令", "选项", "参考"]
 boost: 3
 ---
@@ -34,6 +35,49 @@ mint dev [flags]
 | `--groups` | 以逗号分隔的用户组列表，用于模拟预览。 |
 | `--disable-openapi` | 跳过 OpenAPI 文件处理以提高性能。 |
 | `--local-schema` | 允许通过 HTTP 提供的本地托管 OpenAPI 文件。 |
+
+---
+
+<div id="mint-signup">
+  ## `mint signup`
+</div>
+
+从终端创建新的 Mintlify 账户。
+
+```bash
+mint signup [flags]
+```
+
+| Flag | 描述 |
+| --- | --- |
+| `--firstName` | 你的名字。 |
+| `--lastName` | 你的姓氏。 |
+| `--company` | 你的公司名称。 |
+| `--email` | 账户的电子邮件地址。 |
+
+不带任何 flag 运行该命令即可以交互方式输入你的信息。CLI 会提示你输入未通过 flag 传入的值。
+
+提交信息后，Mintlify 会向你的邮箱发送一封验证邮件。该命令会一直等待，直到你点击验证链接后，才会创建你的账户、为你登录并保存凭据。完成后，打开[控制台](https://app.mintlify.com)来连接你的仓库并开始构建。
+
+<Note>
+  在你点击验证链接之前，`mint signup` 不会返回，而这可能需要几分钟。在脚本或自动化流程中，请以后台进程的方式运行它，而不是同步等待其完成。
+</Note>
+
+<div id="examples">
+  ### 示例
+</div>
+
+```bash
+# 交互式注册
+mint signup
+
+# 一次性提供所有信息进行注册
+mint signup \
+  --firstName Jane \
+  --lastName Doe \
+  --company Acme \
+  --email jane@acme.com
+```
 
 ---
 
@@ -73,6 +117,46 @@ mint logout
 
 ```bash
 mint status
+```
+
+---
+
+<div id="mint-add-domain">
+  ## `mint add-domain`
+</div>
+
+从终端为你的部署添加一个[自定义域名](/zh/customize/custom-domain)。需要使用 `mint login` 进行身份验证。
+
+```bash
+mint add-domain <domain>
+```
+
+| 参数 | 描述 |
+| --- | --- |
+| `domain` | 要添加的自定义域名，例如 `docs.example.com`。必须是纯主机名。 |
+
+该命令使用通过 `mint config` 配置的子域名。如果未设置，则使用账户中的第一个子域名。
+
+域名注册后，CLI 将等待最长 10 秒以生成 DNS 记录，然后打印需要在你的域名提供商处添加的 `TXT` 和 `CNAME` 记录：
+
+```text
+TXT _acme-challenge → <value>
+TXT _cf-custom-hostname → <value>
+CNAME @ → cname.mintlify.builders
+```
+
+请先添加 `TXT` 记录，验证记录通过后再添加 `CNAME`。有关完整的 DNS 配置说明、顶级域名要求和 TLS 配置详情，请参见[自定义域名](/zh/customize/custom-domain)。
+
+<Note>
+  如果命令结束时某些 `TXT` 记录仍在生成中，请稍后前往控制台的 [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) 页面查看剩余的值。
+</Note>
+
+<div id="example-add-domain">
+  ### 示例
+</div>
+
+```bash
+mint add-domain docs.example.com
 ```
 
 ---
@@ -227,10 +311,24 @@ mint broken-links [flags]
 
 | 选项 | 描述 |
 | --- | --- |
+| `--files` | 要检查的一个或多个文件路径或 glob。默认检查整个站点。 |
 | `--check-anchors` | 同时验证锚链接（例如 `/page#section`）是否与标题 slug 匹配。 |
 | `--check-external` | 同时检查外部 URL 是否有断链。 |
 | `--check-redirects` | 同时检查 `docs.json` 中的重定向目标是否解析为有效路径。 |
 | `--check-snippets` | 同时检查 `<Snippet>` 组件内的链接。 |
+
+使用 `--files` 将检查限定为特定页面。适用于验证你刚编辑过的某个页面，或在 CI 中将检查范围缩小到某个目录。当 `--files` 与 `--check-external` 一起使用时，仅会检查所选页面上的外部 URL。
+
+```bash
+# 检查特定页面
+mint broken-links --files introduction.mdx
+
+# 检查匹配某个 glob 的页面
+mint broken-links --files "guides/**/*.mdx"
+
+# 传入多个路径
+mint broken-links --files introduction.mdx --files "guides/**/*.mdx"
+```
 
 ---
 
@@ -362,6 +460,71 @@ mint score docs.example.com
 
 ---
 
+<div id="mint-deslop">
+  ## `mint deslop`
+</div>
+
+检查文档页面中是否存在 AI 风格的文本，并获取改写建议。需要使用 `mint login` 进行身份验证。
+
+```bash
+mint deslop [files...] [flags]
+```
+
+| 参数 | 描述 |
+| --- | --- |
+| `files` | 可选。要检查的路径或通配符。如果省略，该命令将检查工作树中已更改的 `.md` 和 `.mdx` 页面（Git diff 加上未跟踪的文件）。 |
+
+| 选项 | 描述 |
+| --- | --- |
+| `--format` | 输出格式：`table`（默认，带颜色）、`plain`（可管道传输）或 `json`。 |
+| `--subdomain` | 要检查的文档子域名。默认使用你配置的子域名。 |
+| `--threshold` | 当页面的 AI 生成和 AI 辅助比例之和大于此值时判定为不通过，取值范围为 `0` 到 `1`。默认为 `0.5`。 |
+| `--fix-whitespace` | 规范化所检查文件中的正文空白（尾随空格、连续空行以及不可见的 Unicode 字符）。跳过代码块和 frontmatter。 |
+
+对于每个被标记的页面，该命令会报告 AI 撰写比例、被识别为 AI 生成的具体段落及其行号，以及建议的人类风格改写。
+
+每检查一个页面消耗 1 个 AI 积分。少于 50 个词的页面会被跳过，不计费。当任意页面达到或超过阈值，或某次检查返回错误时，命令以退出码 `1` 结束；当所有页面都通过时，命令以退出码 `0` 结束。方便你在改写循环或 CI 中运行。
+
+<div id="examples">
+  ### 示例
+</div>
+
+```bash
+# 检查工作树中已更改的页面
+mint deslop
+
+# 检查特定页面
+mint deslop docs/guide.mdx
+
+# 检查所有 MDX 页面并输出 JSON 便于脚本处理
+mint deslop "docs/**/*.mdx" --format json
+
+# 同时清理所检查文件中的空白
+mint deslop docs/guide.mdx --fix-whitespace
+```
+
+---
+
+<div id="mint-format">
+  ## `mint format`
+</div>
+
+将当前目录中的每个 `.mdx` 文件格式化为 Mintlify 的规范样式。该命令使用与 Web 编辑器相同的 MDX 解析器解析每个文件，如果规范化输出与原文不同，则就地重写文件。
+
+```bash
+mint format
+```
+
+在文档项目的根目录中运行该命令。它会遍历所有子目录，跳过 `.gitignore` 匹配的路径和任何 Mintlify 忽略规则匹配的路径。已经与规范化输出一致的文件将保持不变。
+
+<Warning>
+  `mint format` 会就地重写文件。运行前请先提交或暂存你的更改，以便审查 diff。
+</Warning>
+
+命令完成后，会打印重新格式化了多少个 MDX 文件以及有多少文件解析失败。如果有任何文件失败，命令将以退出码 `1` 结束，并打印文件路径和错误信息，这样你就可以在 CI 中运行它以强制执行一致的格式。
+
+---
+
 <div id="mint-new">
   ## `mint new`
 </div>
@@ -415,7 +578,6 @@ mint version
 | --- | --- |
 | `mint ai` | AI 驱动的文档工具。 |
 | `mint test` | 文档测试。 |
-| `mint signup` | 从 CLI 注册账户。 |
 | `mint mcp` | 文档 MCP 服务器。 |
 
 ---
