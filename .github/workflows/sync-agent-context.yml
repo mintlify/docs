@@ -1,0 +1,132 @@
+name: Sync plugin context
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - agent-context/context/**
+      - agent-context/targets/**
+      - agent-context/scripts/**
+      - agent-context/test/**
+      - agent-context/package.json
+      - .github/workflows/sync-agent-context.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-plugin-context
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm test
+        working-directory: agent-context
+      - run: npm run check
+        working-directory: agent-context
+
+  sync:
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: codex
+            repository: mintlify/codex-plugin
+            repository_name: codex-plugin
+            mcp_file: .mcp.json
+          - target: cursor
+            repository: mintlify/cursor-plugin
+            repository_name: cursor-plugin
+            mcp_file: mcp.json
+          - target: claude
+            repository: mintlify/mintlify-claude-plugin
+            repository_name: mintlify-claude-plugin
+            mcp_file: .mcp.json
+
+    steps:
+      - name: Check out context source
+        uses: actions/checkout@v6
+        with:
+          path: source
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Create target repository token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.CONTEXT_SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CONTEXT_SYNC_APP_PRIVATE_KEY }}
+          owner: mintlify
+          repositories: ${{ matrix.repository_name }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Check out target repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.repository }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: target
+
+      - name: Generate target context
+        run: node source/agent-context/scripts/sync-target.mjs "${{ matrix.target }}" target
+
+      - name: Detect changes
+        id: changes
+        working-directory: target
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push sync branch
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: target
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          BRANCH: automation/sync-agent-context
+        run: |
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add skills/mintlify .mintlify-agent-context.json "${{ matrix.mcp_file }}"
+          git commit -m "Sync Mintlify agent context"
+          git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH" || true
+          git push --force-with-lease origin "HEAD:$BRANCH"
+
+      - name: Open sync pull request
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: target
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ matrix.repository }}
+          BRANCH: automation/sync-agent-context
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          BODY="Generated from mintlify/docs at ${SOURCE_SHA} using agent-context. Do not edit generated skill files in this repository."
+          EXISTING_PR="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')"
+          if [[ -z "$EXISTING_PR" ]]; then
+            gh pr create \
+              --head "$BRANCH" \
+              --base main \
+              --title "Sync Mintlify agent context" \
+              --body "$BODY"
+          else
+            gh pr edit "$EXISTING_PR" --body "$BODY"
+          fi
