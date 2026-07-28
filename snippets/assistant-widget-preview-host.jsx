@@ -6,7 +6,7 @@ export const AssistantWidgetPreviewHost = () => {
   // stay in sync with snippets/assistant-widget-playground.jsx.
   const EMBED_URL =
     "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
-  const PREVIEW_WIDGET_ID = "mint_widget_c44d77f4-4cd3-4f99-bec9-9e6c92b12f83";
+  const PREVIEW_WIDGET_ID = "mint_widget_ce2bb750-8cc9-4057-96b3-cbd3aedd7acb";
   const PREVIEW_READY_MESSAGE = "mintlify-assistant-playground:ready";
   const PREVIEW_UPDATE_MESSAGE = "mintlify-assistant-playground:update";
   const PREVIEW_STATE_MESSAGE = "mintlify-assistant-playground:state";
