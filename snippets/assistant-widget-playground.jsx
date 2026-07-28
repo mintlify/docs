@@ -1,11 +1,16 @@
 export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   // Mintlify evaluates snippet exports independently, so shared values must stay in this scope.
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
-  const PREVIEW_WIDGET_ID = "mint_widget_ce2bb750-8cc9-4057-96b3-cbd3aedd7acb";
   const EMBED_URL =
     "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
+  // The preview loads the hidden /assistant/widget-preview page through the
+  // chromeless `/_minimal/` renderer instead of a srcdoc iframe: captcha
+  // providers reject documents without a hostname, and srcdoc documents have
+  // none. Message names must stay in sync with
+  // snippets/assistant-widget-preview-host.jsx.
   const PREVIEW_READY_MESSAGE = "mintlify-assistant-playground:ready";
   const PREVIEW_UPDATE_MESSAGE = "mintlify-assistant-playground:update";
+  const PREVIEW_STATE_MESSAGE = "mintlify-assistant-playground:state";
   const SUPPORT_EMAIL = "hi@mintlify.com";
   const STARTER_QUESTIONS = [
     "How do I get started with Mintlify?",
@@ -50,8 +55,27 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   const [trackEvents, setTrackEvents] = useState(false);
   const [reportErrors, setReportErrors] = useState(false);
   const [previewHostReady, setPreviewHostReady] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewStatus, setPreviewStatus] = useState("loading");
   const previewRef = useRef(null);
   const previewHostRef = useRef(null);
+
+  useEffect(() => {
+    // Resolve the preview page against the deployment base path (for example
+    // /docs on mintlify.com). Translated pages keep their locale segment
+    // after the /_minimal/ renderer prefix.
+    const pageMatch = window.location.pathname
+      .replace(/\/$/, "")
+      .match(/^(.*?)(\/[a-z]{2}(?:-[A-Za-z]{2,4})?)?\/assistant\/widget$/);
+    const basePath = pageMatch?.[1] ?? "";
+    const locale = pageMatch?.[2] ?? "";
+    const mode = document.documentElement.classList.contains("dark")
+      ? "dark"
+      : "light";
+    setPreviewUrl(
+      `${basePath}/_minimal${locale}/assistant/widget-preview?mode=${mode}`,
+    );
+  }, []);
 
   useEffect(() => {
     // A deleted custom script can leave its parent-page widget mounted during local hot reloads.
@@ -219,20 +243,22 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
           theme: liveTheme,
         },
       },
-      "*",
+      // The preview page is same-origin (served by this docs site).
+      window.location.origin,
     );
   }, [appearance, reportErrors, trackEvents]);
 
   useEffect(() => {
     const handlePreviewMessage = (event) => {
-      if (
-        event.source !== previewRef.current?.contentWindow ||
-        event.data?.type !== PREVIEW_READY_MESSAGE
-      ) {
+      if (event.source !== previewRef.current?.contentWindow) return;
+
+      if (event.data?.type === PREVIEW_READY_MESSAGE) {
+        updatePreview();
         return;
       }
-
-      updatePreview();
+      if (event.data?.type === PREVIEW_STATE_MESSAGE) {
+        setPreviewStatus(event.data.state === "error" ? "error" : "ready");
+      }
     };
     const themeObserver = new MutationObserver(updatePreview);
 
@@ -249,311 +275,18 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
     };
   }, [updatePreview]);
 
-  const previewDocument = `<!doctype html>
-<html lang="en" data-preview-state="loading">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      :root {
-        --preview-loading-border: #c7c7cc;
-        --preview-loading-foreground: #52525b;
-        color-scheme: light dark;
-        background: transparent;
-      }
+  useEffect(() => {
+    // Local docs previews don't serve the `/_minimal/` renderer, and a broken
+    // embed never reports readiness. Surface a hint instead of spinning.
+    if (!previewHostReady || !previewUrl || previewStatus !== "loading") {
+      return undefined;
+    }
 
-      :root[data-theme="dark"] {
-        --preview-loading-border: #3f3f46;
-        --preview-loading-foreground: #b4b4bc;
-        color-scheme: dark;
-      }
-
-      :root[data-theme="light"] {
-        color-scheme: light;
-      }
-
-      html,
-      body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden;
-        background: transparent !important;
-      }
-
-      [data-preview-status] {
-        position: fixed;
-        inset: 0;
-        z-index: 2147483647;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        color: var(--preview-loading-foreground);
-        background: transparent;
-        font: 400 0.875rem/1.4 ui-sans-serif, system-ui, sans-serif;
-        text-align: center;
-      }
-
-      :root[data-preview-state="ready"] [data-preview-status] {
-        display: none;
-      }
-
-      [data-preview-spinner] {
-        width: 1.125rem;
-        height: 1.125rem;
-        border: 1.5px solid var(--preview-loading-border);
-        border-top-color: var(--preview-loading-foreground);
-        border-radius: 9999px;
-        animation: preview-spin 700ms linear infinite;
-      }
-
-      :root[data-preview-state="error"] [data-preview-spinner] {
-        display: none;
-      }
-
-      @keyframes preview-spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        [data-preview-spinner] {
-          animation: none;
-        }
-      }
-    </style>
-    <script type="module" src="${EMBED_URL}"></script>
-    <script type="module">
-      const READY_MESSAGE = ${JSON.stringify(PREVIEW_READY_MESSAGE)};
-      const UPDATE_MESSAGE = ${JSON.stringify(PREVIEW_UPDATE_MESSAGE)};
-      const WIDGET_ID = ${JSON.stringify(PREVIEW_WIDGET_ID)};
-      const SUPPORT_EMAIL = ${JSON.stringify(SUPPORT_EMAIL)};
-      const STARTER_QUESTIONS = ${JSON.stringify(STARTER_QUESTIONS)};
-
-      const createHooks = (trackEvents, reportErrors) => ({
-        event: trackEvents
-          ? (event) => console.log("Assistant event", event)
-          : null,
-        error: reportErrors
-          ? (error) => console.error("Assistant error", error)
-          : null,
-      });
-
-      const applyTheme = (theme) => {
-        document.documentElement.dataset.theme = theme;
-      };
-
-      const reportPreviewError = (error) => {
-        console.error("Mintlify Assistant preview failed", error);
-        document.documentElement.dataset.previewError =
-          error?.message ?? String(error);
-        document.documentElement.dataset.previewState = "error";
-        const statusLabel = document.querySelector(
-          "[data-preview-status-label]",
-        );
-        if (statusLabel) {
-          statusLabel.textContent =
-            "The live preview could not load. Check the browser console for details.";
-        }
-      };
-
-      const waitForAssistantApi = () =>
-        new Promise((resolve, reject) => {
-          const timeoutAt = Date.now() + 15000;
-          const checkForAssistantApi = () => {
-            if (window.MintlifyAssistant) {
-              resolve(window.MintlifyAssistant);
-              return;
-            }
-            if (Date.now() >= timeoutAt) {
-              reject(new Error("Mintlify Assistant failed to load."));
-              return;
-            }
-            window.setTimeout(checkForAssistantApi, 50);
-          };
-
-          checkForAssistantApi();
-        });
-
-      let isPreviewInitialized = false;
-      let isApplyingPreviewUpdate = false;
-      let assistantApi;
-      let queuedPreviewUpdate;
-
-      // Wait until the iframe viewport has a stable non-zero size. Opening the
-      // widget popover before that (common on SPA navigations into this page)
-      // lets Floating UI measure an empty trigger box and park the panel at
-      // (0, 0) — permanently, because a zero-size anchor disables Floating
-      // UI's move tracking, so nothing repositions the panel afterwards.
-      const waitForPreviewLayout = () =>
-        new Promise((resolve) => {
-          let timeoutAt = Date.now() + 2000;
-          let previousHeight = -1;
-          let stableFrames = 0;
-
-          const tick = () => {
-            const width = document.documentElement.clientWidth;
-            const height = document.documentElement.clientHeight;
-
-            if (width === 0 || height === 0) {
-              // Never time out into a zero-size viewport. Park on the next
-              // resize instead of polling — rAF may not run while the iframe
-              // has no rendered box.
-              stableFrames = 0;
-              previousHeight = -1;
-              window.addEventListener(
-                "resize",
-                () => {
-                  timeoutAt = Date.now() + 2000;
-                  tick();
-                },
-                { once: true },
-              );
-              return;
-            }
-
-            if (height === previousHeight) {
-              stableFrames += 1;
-              if (stableFrames >= 2) {
-                resolve();
-                return;
-              }
-            } else {
-              stableFrames = 0;
-              previousHeight = height;
-            }
-
-            // The timeout only breaks stabilization stalls; the viewport is
-            // known non-zero here, so opening is safe.
-            if (Date.now() > timeoutAt) {
-              resolve();
-              return;
-            }
-
-            requestAnimationFrame(tick);
-          };
-
-          tick();
-        });
-
-      const applyPreviewUpdate = async ({
-        appearance,
-        reportErrors,
-        trackEvents,
-      }) => {
-        const nextPlacementKey = [
-          appearance.variant,
-          appearance.side,
-          appearance.align,
-        ].join(":");
-        const previousPlacementKey =
-          document.documentElement.dataset.previewPlacement;
-        const isInitialApply = previousPlacementKey === undefined;
-        // Skip close on the first apply — there is no prior surface to reset,
-        // and close/open before layout is what sends the panel to the origin.
-        const placementChanged =
-          !isInitialApply && previousPlacementKey !== nextPlacementKey;
-
-        applyTheme(appearance.theme);
-        // Theme/token updates can apply in place. Only close before updating
-        // when placement changes — otherwise the widget popover remounts and
-        // can remeasure before the trigger has a layout box, landing at (0, 0).
-        if (placementChanged) {
-          await assistantApi.close();
-        }
-        await assistantApi.update({
-          appearance,
-          hooks: createHooks(trackEvents, reportErrors),
-        });
-        if (isInitialApply || placementChanged) {
-          await waitForPreviewLayout();
-        }
-        await assistantApi.open();
-        document.documentElement.dataset.previewPlacement =
-          nextPlacementKey;
-        document.documentElement.dataset.previewState = "ready";
-      };
-
-      const processPreviewUpdates = async () => {
-        if (!isPreviewInitialized || isApplyingPreviewUpdate) return;
-
-        isApplyingPreviewUpdate = true;
-        try {
-          while (queuedPreviewUpdate) {
-            const nextUpdate = queuedPreviewUpdate;
-            queuedPreviewUpdate = undefined;
-            await applyPreviewUpdate(nextUpdate);
-          }
-        } finally {
-          isApplyingPreviewUpdate = false;
-        }
-      };
-
-      const queuePreviewUpdate = (payload) => {
-        queuedPreviewUpdate = payload;
-        void processPreviewUpdates().catch(reportPreviewError);
-      };
-
-      window.addEventListener("message", (event) => {
-        if (
-          event.source !== window.parent ||
-          event.data?.type !== UPDATE_MESSAGE
-        ) {
-          return;
-        }
-
-        applyTheme(event.data.appearance.theme);
-        queuePreviewUpdate(event.data);
-      });
-
-      const initializePreview = async () => {
-        // Keep closed until the first configured update + layout settle.
-        // defaultOpen races SPA navigations where the iframe is still 0-sized.
-        const baseConfig = {
-          id: WIDGET_ID,
-          appearance: {
-            theme: "light",
-            variant: "widget",
-            side: "bottom",
-            align: "end",
-          },
-        };
-
-        assistantApi = await waitForAssistantApi();
-
-        try {
-          await assistantApi.init({
-            ...baseConfig,
-            supportEmail: SUPPORT_EMAIL,
-            starterQuestions: STARTER_QUESTIONS,
-          });
-        } catch (error) {
-          const message = error?.message ?? "";
-          const sessionOverridesUnsupported =
-            message.includes("config.supportEmail is not supported") ||
-            message.includes("config.starterQuestions is not supported");
-
-          if (!sessionOverridesUnsupported) throw error;
-          await assistantApi.init(baseConfig);
-        }
-
-        isPreviewInitialized = true;
-        window.parent.postMessage({ type: READY_MESSAGE }, "*");
-        await processPreviewUpdates();
-      };
-
-      void initializePreview().catch(reportPreviewError);
-    </script>
-  </head>
-  <body>
-    <div aria-live="polite" data-preview-status role="status">
-      <span aria-hidden="true" data-preview-spinner></span>
-      <span data-preview-status-label>Loading assistant preview...</span>
-    </div>
-  </body>
-</html>`;
+    const timeout = window.setTimeout(() => {
+      setPreviewStatus((status) => (status === "loading" ? "error" : status));
+    }, 20000);
+    return () => window.clearTimeout(timeout);
+  }, [previewHostReady, previewStatus, previewUrl]);
 
   const configLines = [
     "{",
@@ -778,18 +511,37 @@ export const AssistantWidget = () => (
       <aside className="not-prose" data-assistant-preview="">
         <div
           ref={previewHostRef}
-          className="flex h-[42rem] min-h-0 flex-col overflow-hidden rounded-xl border border-gray-950/10 bg-transparent dark:border-white/10 lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]"
+          className="relative flex h-[42rem] min-h-0 flex-col overflow-hidden rounded-xl border border-gray-950/10 bg-transparent dark:border-white/10 lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]"
           data-assistant-preview-card=""
         >
-          {previewHostReady ? (
+          {previewHostReady && previewUrl ? (
             <iframe
               ref={previewRef}
               title="Live Assistant Widget preview"
-              srcDoc={previewDocument}
+              src={previewUrl}
               onLoad={updatePreview}
               scrolling="no"
               className="min-h-0 w-full flex-1 border-0 bg-transparent [color-scheme:light_dark] dark:[color-scheme:dark]"
             />
+          ) : null}
+          {previewStatus !== "ready" ? (
+            <div
+              aria-live="polite"
+              role="status"
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-3 px-6 text-center text-sm text-gray-600 dark:text-gray-400"
+            >
+              {previewStatus === "loading" ? (
+                <span
+                  aria-hidden="true"
+                  className="size-[18px] shrink-0 animate-spin rounded-full border-[1.5px] border-gray-300 border-t-gray-600 motion-reduce:animate-none dark:border-gray-600 dark:border-t-gray-300"
+                />
+              ) : null}
+              <span>
+                {previewStatus === "loading"
+                  ? "Loading assistant preview..."
+                  : "The live preview could not load. It requires a deployed docs site and the browser console may have details."}
+              </span>
+            </div>
           ) : null}
         </div>
       </aside>
