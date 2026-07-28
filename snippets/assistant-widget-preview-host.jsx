@@ -26,19 +26,8 @@ export const AssistantWidgetPreviewHost = () => {
 
     const parentOrigin = window.location.origin;
 
-    // The playground card provides the visible frame, so the host page must
-    // stay transparent and never scroll.
-    const style = document.createElement("style");
-    style.textContent = `
-      html, body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        overflow: hidden !important;
-        background: transparent !important;
-      }
-    `;
-    document.head.append(style);
+    // playground.css hides the docs chrome and keeps this page transparent;
+    // it scopes those rules to html[data-current-path$="/assistant/widget-preview"].
 
     const postPreviewState = (state, message) => {
       window.parent.postMessage(
@@ -52,8 +41,16 @@ export const AssistantWidgetPreviewHost = () => {
       postPreviewState("error", error?.message ?? String(error));
     };
 
+    // Track the visitor's open/close choice so config updates can preserve
+    // it instead of forcing the widget open on every change.
+    let isWidgetOpen = false;
+
     const createHooks = (trackEvents, reportErrors) => ({
-      event: trackEvents ? (event) => console.log("Assistant event", event) : null,
+      event: (event) => {
+        if (event?.type === "open") isWidgetOpen = true;
+        if (event?.type === "close") isWidgetOpen = false;
+        if (trackEvents) console.log("Assistant event", event);
+      },
       error: reportErrors ? (error) => console.error("Assistant error", error) : null,
     });
 
@@ -170,6 +167,9 @@ export const AssistantWidgetPreviewHost = () => {
       const placementChanged =
         !isInitialApply && previousPlacementKey !== nextPlacementKey;
 
+      // Capture the open state before the placement close below overwrites it.
+      const wasOpen = isWidgetOpen;
+
       applyTheme(appearance.theme);
       // Theme/token updates can apply in place. Only close before updating
       // when placement changes — otherwise the widget popover remounts and
@@ -184,7 +184,11 @@ export const AssistantWidgetPreviewHost = () => {
       if (isInitialApply || placementChanged) {
         await waitForPreviewLayout();
       }
-      await assistantApi.open();
+      // Open on the first apply to showcase the widget, and reopen after a
+      // placement change closed it. A widget the visitor closed stays closed.
+      if (isInitialApply || (placementChanged && wasOpen)) {
+        await assistantApi.open();
+      }
       document.documentElement.dataset.previewPlacement = nextPlacementKey;
       if (!hasReportedReady) {
         hasReportedReady = true;
