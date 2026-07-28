@@ -3,7 +3,6 @@ title: "Mintlify widget"
 sidebarTitle: "Widget"
 description: "Install and configure the Mintlify widget to embed the AI assistant trained on your content in any website or web application."
 keywords: ["assistant", "chat", "embed"]
-mode: "wide"
 ---
 
 import { AssistantWidgetPlayground } from "/snippets/assistant-widget-playground.jsx";
@@ -16,7 +15,7 @@ The [assistant](/assistant) answers questions on your Mintlify site. To embed th
 
 Add the widget to any website or web application with a hosted script. The widget owns its trigger and renders inside a closed Shadow DOM, which prevents your application styles from affecting the widget.
 
-The only required browser option is the public widget ID. Manage the enabled state, allowed origins, attachments, and bot protection in your dashboard. Set embed-specific starter questions and a support email in the browser configuration.
+The only required browser option is the public widget ID. Manage the enabled state, allowed origins, attachments, and bot protection in your dashboard. Set embed-specific starter questions, a support email, retrieval filters, and analytics preferences in the browser configuration.
 
 ## Prerequisites
 
@@ -39,7 +38,7 @@ Use the playground to configure the presentation, visual options, and observer h
 
 After you add the generated code to your site, reload the page. Confirm the trigger appears, then click it and send a test question to verify the connection.
 
-<AssistantWidgetPlayground CodeBlockComponent={WidgetCodeBlock}>
+<AssistantWidgetPlayground CodeBlockComponent={WidgetCodeBlock} />
 
 <Warning>
   Module scripts defer and run in document order. Keep the hosted loader before the initialization block when you install the widget with HTML, or the widget fails to mount.
@@ -95,7 +94,7 @@ Event metadata and requests include the `source` value, which lets you distingui
 
 ## Update a mounted widget
 
-Use `update()` to change appearance, labels, support email, starter questions, or hooks without clearing the current conversation. Only the supplied fields change.
+Use `update()` to change appearance, labels, support email, starter questions, retrieval filters, analytics, or hooks without clearing the current conversation. Only the supplied fields change.
 
 ```js
 await window.MintlifyAssistant.update({
@@ -112,6 +111,7 @@ await window.MintlifyAssistant.update({
     "How do I get started?",
     "How do I manage my account?",
   ],
+  analytics: false,
 });
 ```
 
@@ -124,6 +124,8 @@ await window.MintlifyAssistant.update({
   },
   supportEmail: null,
   starterQuestions: null,
+  // Restores analytics to its default of true.
+  analytics: null,
   hooks: null,
 });
 ```
@@ -148,7 +150,9 @@ Pass this object to `init()`.
 | `appearance`       | [`AssistantAppearance`](#assistantappearance)   | Visual and presentation overrides.                                           |
 | `labels`           | [`AssistantLabels`](#assistantlabels)           | Customer-facing text overrides.                                              |
 | `supportEmail`     | string                                          | Sets the support address shown in the widget toolbar for this embed.          |
-| `starterQuestions` | string[]                                        | Sets up to three empty-state prompts for this embed.                              |
+| `starterQuestions` | string[]                                        | Sets up to three empty-state prompts for this embed.                           |
+| `filter`           | object                                          | Restricts retrieval by language or version.                                   |
+| `analytics`        | boolean                                         | Enables privacy-safe Mintlify analytics. The default is `true`.                |
 | `hooks`            | [`AssistantHooks`](#assistanthooks)             | Event and error observers.                                                   |
 
 ### `AssistantAppearance`
@@ -225,6 +229,8 @@ Pass this object to `update()`. Every field is optional, and `null` restores its
 | `labels`           | [`AssistantLabels`](#assistantlabels) or `null`         | Deep-patches customer-facing text.                                |
 | `supportEmail`     | string or `null`                                        | Changes the support address. Pass `null` to remove it.             |
 | `starterQuestions` | string[] or `null`                                      | Changes up to three prompts. Pass `null` to restore an empty list. |
+| `filter`           | object or `null`                                        | Deep-patches retrieval filters. Pass `null` to clear them.        |
+| `analytics`        | boolean or `null`                                       | Stops or resumes collection. Pass `null` to restore `true`.       |
 | `hooks`            | [`AssistantHooks`](#assistanthooks) or `null`           | Deep-patches event and error observers.                            |
 
 ## Browser API
@@ -241,6 +247,39 @@ Pass this object to `update()`. Every field is optional, and `null` restores its
 
 Conversation snapshots remain private to the widget. Each method resolves to `void`.
 
+## Analytics and privacy
+
+Analytics are enabled by default. The widget loads its analytics client in a separate lazy chunk from the widget CDN after initialization begins, then sends events to `https://ph.mintlify.com`. Initialization does not wait for analytics, and an analytics import, initialization, or capture failure does not affect widget behavior.
+
+Mintlify collects:
+
+- Installation and open or closed state transitions
+- Question submission origin, attachment count, request duration, and outcome
+- Opaque widget-session, open-session, and request IDs
+- Server-issued thread and message IDs
+- Successful starter-question, option, source, suggestion, copy, and support-link interactions using indexes or destination categories
+- Feedback polarity, widget ID and versions, presentation surface, anonymous-versus-signed identity mode, and the embedding hostname
+
+Mintlify does not collect prompts, answers, starter-question or option text, support email, identity tokens, thread keys, CAPTCHA values, raw identities, full URLs, referrers, query parameters, campaign parameters, or error messages.
+
+The analytics client uses memory-only persistence. It does not create person profiles or identify visitors, and it disables automatic capture, page views, page leave, session replay, surveys, feature flags, performance collection, heatmaps, exception capture, campaign storage, referrer storage, and geolocation enrichment.
+
+Analytics events are internal to Mintlify and do not change [`hooks.event`](#assistanthooks). Changing `analytics` with `update()` does not remount the widget, reset its conversation, or affect customer hooks.
+
+If your privacy or consent policy requires opt-in collection, initialize with analytics disabled, then enable it after consent:
+
+```js
+await window.MintlifyAssistant.init({
+  id: "YOUR_WIDGET_ID",
+  analytics: false,
+});
+
+// After the visitor provides any consent your policy requires:
+await window.MintlifyAssistant.update({ analytics: true });
+```
+
+Your site remains responsible for its privacy notice and consent requirements. Setting `analytics: false` before `init()` prevents the analytics client from loading.
+
 ## Content Security Policy
 
 If your site uses a Content Security Policy, allow the origins required by your enabled widget features:
@@ -248,7 +287,8 @@ If your site uses a Content Security Policy, allow the origins required by your 
 | Directive                                    | Source                              | Required for                |
 | -------------------------------------------- | ----------------------------------- | --------------------------- |
 | `script-src`                                 | `https://cdn.jsdelivr.net`          | Widget loader and runtime   |
-| `connect-src`                                | `https://api.mintlify.com`          | Widget API                  |
+| `connect-src`                                | `https://api.mintlify.com`          | Configuration, messages, and feedback |
+| `connect-src`                                | `https://ph.mintlify.com`           | Analytics, when enabled     |
 | `style-src`                                  | `https://cdn.jsdelivr.net`          | Widget style sheet           |
 | `font-src`                                   | `https://cdn.jsdelivr.net`          | Optional bundled Inter font |
 | `script-src`, `connect-src`, and `frame-src` | `https://challenges.cloudflare.com` | Turnstile bot protection    |
@@ -257,4 +297,6 @@ If your site uses a Content Security Policy, allow the origins required by your 
 
 A strict `script-src` policy must still authorize both the loader and initialization script. Passing `nonce` to `init()` propagates it only to resources the widget creates after initialization.
 
-</AssistantWidgetPlayground>
+Setting `analytics: false` removes the `https://ph.mintlify.com` requirement. `https://api.mintlify.com` remains required when you use the hosted endpoint because the browser sends configuration, message, and feedback requests to it. If you set a custom `endpoint`, allow that origin instead.
+
+The CSP `frame-ancestors` directive controls which sites may embed a document. It does not authorize outgoing browser requests and is unrelated to the widget, which renders in Shadow DOM instead of an iframe. CAPTCHA providers can embed their own frames and separately require the `frame-src` sources in the table.

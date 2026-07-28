@@ -1,4 +1,4 @@
-export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
+export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
   // Mintlify evaluates snippet exports independently, so shared values must stay in this scope.
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
   const EMBED_URL =
@@ -39,6 +39,10 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
     { value: "start", label: "Start" },
     { value: "center", label: "Center" },
     { value: "end", label: "End" },
+  ];
+  const BOOLEAN_OPTIONS = [
+    { value: "off", label: "Off" },
+    { value: "on", label: "On" },
   ];
   const INSTALL_OPTIONS = [
     { value: "html", label: "HTML" },
@@ -97,8 +101,8 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   }, []);
 
   useEffect(() => {
-    // SPA navigations can mount this page before the sticky/absolute preview
-    // host has a laid-out box. Delay the iframe until the host has size.
+    // SPA navigations can mount this page before the preview host has a
+    // laid-out box. Delay the iframe until the host has size.
     const host = previewHostRef.current;
     if (!host) return undefined;
 
@@ -120,94 +124,54 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
     return () => observer.disconnect();
   }, []);
 
-  const classNames = (...classes) => classes.filter(Boolean).join(" ");
-
-  const renderSegmentedControl = ({
-    ariaLabel,
-    onChange,
-    options,
-    threeColumns = false,
-    value,
-  }) => (
-    <div
-      role="group"
-      aria-label={ariaLabel}
-      className="grid gap-1 rounded-lg bg-gray-100 p-1 dark:bg-white/10"
-      style={{
-        gridTemplateColumns: `repeat(${threeColumns ? 3 : options.length}, minmax(0, 1fr))`,
-      }}
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-          className={classNames(
-            "min-h-8 rounded-md px-2 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-            value === option.value
-              ? "bg-white text-gray-950 shadow-sm dark:bg-white/15 dark:text-white"
-              : "text-gray-600 hover:text-gray-950 dark:text-gray-400 dark:hover:text-white",
-          )}
+  const renderSelectField = ({ hint, label, onChange, options, value }) => (
+    <label className="block min-w-0">
+      <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label}
+      </span>
+      <span className="relative block">
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-9 w-full cursor-pointer appearance-none rounded-lg border border-gray-950/10 bg-white pl-3 pr-8 text-sm text-gray-950 shadow-sm outline-none transition-colors hover:border-gray-950/20 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20 dark:focus-visible:border-primary-light dark:focus-visible:ring-primary-light/30"
         >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-
-  const renderSelectField = ({ label, onChange, options, value }) => (
-    <label className="flex min-w-0 flex-col text-sm font-medium text-gray-700 dark:text-gray-300">
-      <span className="mb-2">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-xl border border-gray-950/10 bg-transparent px-3 text-sm font-normal text-gray-950 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:text-white"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 16 16"
+          fill="none"
+          className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+        >
+          <path
+            d="M4 6l4 4 4-4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      {hint ? (
+        <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+          {hint}
+        </span>
+      ) : null}
     </label>
   );
 
-  const renderToggleRow = ({ checked, description, label, onChange }) => (
-    <label className="flex cursor-pointer items-center justify-between gap-5 py-3">
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-gray-950 dark:text-white">
-          {label}
-        </span>
-        <span className="block text-sm text-gray-600 dark:text-gray-400">
-          {description}
-        </span>
-      </span>
-      <span className="relative inline-flex shrink-0 rounded-full focus-within:ring-2 focus-within:ring-primary/40">
-        <input
-          type="checkbox"
-          role="switch"
-          checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
-          className="sr-only"
-        />
-        <span
-          aria-hidden="true"
-          className={classNames(
-            "h-5 w-9 rounded-full transition-colors",
-            checked ? "bg-primary" : "bg-gray-200 dark:bg-white/15",
-          )}
-        />
-        <span
-          aria-hidden="true"
-          className={classNames(
-            "pointer-events-none absolute left-0.5 top-0.5 size-4 rounded-full bg-white shadow-sm transition-all",
-            checked && "ml-4",
-          )}
-        />
-      </span>
-    </label>
-  );
+  const renderBooleanSelect = ({ checked, hint, label, onChange }) =>
+    renderSelectField({
+      label,
+      hint,
+      value: checked ? "on" : "off",
+      options: BOOLEAN_OPTIONS,
+      onChange: (value) => onChange(value === "on"),
+    });
 
   const appearance = useMemo(
     () => ({
@@ -353,166 +317,104 @@ export const AssistantWidget = () => (
   const installCode = installTarget === "html" ? htmlCode : nextCode;
 
   return (
-    <div className="my-6 grid gap-8" data-assistant-playground-layout="">
-      <div className="min-w-0">
-        <div className="not-prose overflow-hidden rounded-xl border border-gray-950/10 dark:border-white/10">
-          <div className="px-5 py-4">
+    <div className="not-prose my-6 overflow-hidden rounded-xl border border-gray-950/10 dark:border-white/10">
+      <div className="flex flex-col lg:h-[36rem] lg:flex-row">
+        <div className="flex w-full flex-col border-b border-gray-950/10 dark:border-white/10 lg:h-full lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r">
+          <div className="border-b border-gray-950/10 px-4 py-3.5 dark:border-white/10">
             <div className="text-sm font-medium text-gray-950 dark:text-white">
               Widget playground
             </div>
-            <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
               Changes apply to the widget preview.
             </p>
           </div>
 
-          <div className="border-t border-gray-950/10 px-5 py-5 dark:border-white/10">
-            <div className="space-y-6">
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-gray-950 dark:text-white">
-                  Variants
-                </legend>
-                {renderSegmentedControl({
-                  ariaLabel: "Variants",
-                  value: variant,
-                  options: VARIANT_OPTIONS,
-                  onChange: setVariant,
-                })}
-              </fieldset>
+          <div className="min-h-0 flex-1 space-y-4 p-4 lg:overflow-y-auto">
+            {renderSelectField({
+              label: "Variant",
+              value: variant,
+              options: VARIANT_OPTIONS,
+              onChange: setVariant,
+            })}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {renderSelectField({
-                  label: "Theme",
-                  value: theme,
-                  options: THEME_OPTIONS,
-                  onChange: setTheme,
-                })}
+            {renderSelectField({
+              label: "Theme",
+              value: theme,
+              options: THEME_OPTIONS,
+              onChange: setTheme,
+            })}
 
-                <label className="flex min-w-0 flex-col text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <span className="mb-2">Accent</span>
-                  <span className="flex h-10 items-center gap-2 rounded-xl border border-gray-950/10 px-2 dark:border-white/10">
-                    <input
-                      type="color"
-                      value={accent}
-                      onChange={(event) => setAccent(event.target.value)}
-                      aria-label="Accent color"
-                      className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    />
-                    <span className="font-mono text-xs font-normal text-gray-600 dark:text-gray-400">
-                      {accent}
-                    </span>
-                  </span>
-                </label>
-              </div>
-
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                <span className="mb-2 flex items-center justify-between">
-                  Corner radius
-                  <output className="font-mono text-xs font-normal text-gray-500 dark:text-gray-400">
-                    {radius}px
-                  </output>
-                </span>
+            <label className="block min-w-0">
+              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Accent
+              </span>
+              <span className="flex h-9 items-center gap-2 rounded-lg border border-gray-950/10 bg-white px-2 shadow-sm dark:border-white/10 dark:bg-white/5">
                 <input
-                  type="range"
-                  min="0"
-                  max="32"
-                  step="2"
-                  value={radius}
-                  onChange={(event) =>
-                    setRadius(Number.parseInt(event.target.value))
-                  }
-                  className="block w-full accent-primary"
+                  type="color"
+                  value={accent}
+                  onChange={(event) => setAccent(event.target.value)}
+                  aria-label="Accent color"
+                  className="h-6 w-7 cursor-pointer rounded border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 />
-              </label>
+                <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
+                  {accent}
+                </span>
+              </span>
+            </label>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <fieldset>
-                  <legend className="mb-2 text-sm font-medium text-gray-950 dark:text-white">
-                    Trigger side
-                  </legend>
-                  {renderSegmentedControl({
-                    ariaLabel: "Trigger side",
-                    threeColumns: true,
-                    value: side,
-                    options: SIDE_OPTIONS,
-                    onChange: setSide,
-                  })}
-                </fieldset>
+            <label className="block min-w-0">
+              <span className="mb-1.5 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
+                Corner radius
+                <output className="font-mono text-xs font-normal text-gray-500 dark:text-gray-400">
+                  {radius}px
+                </output>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="32"
+                step="2"
+                value={radius}
+                onChange={(event) =>
+                  setRadius(Number.parseInt(event.target.value))
+                }
+                className="block w-full accent-primary"
+              />
+            </label>
 
-                <fieldset>
-                  <legend className="mb-2 text-sm font-medium text-gray-950 dark:text-white">
-                    Trigger alignment
-                  </legend>
-                  {renderSegmentedControl({
-                    ariaLabel: "Trigger alignment",
-                    value: align,
-                    options: ALIGN_OPTIONS,
-                    onChange: setAlign,
-                  })}
-                </fieldset>
-              </div>
+            {renderSelectField({
+              label: "Trigger side",
+              value: side,
+              options: SIDE_OPTIONS,
+              onChange: setSide,
+            })}
 
-              <fieldset>
-                <legend className="text-sm font-medium text-gray-950 dark:text-white">
-                  Hooks
-                </legend>
-                <div className="mt-1 divide-y divide-gray-950/10 dark:divide-white/10">
-                  {renderToggleRow({
-                    label: "Lifecycle events",
-                    description:
-                      "Observe open, close, ask, update, and navigation events.",
-                    checked: trackEvents,
-                    onChange: setTrackEvents,
-                  })}
-                  {renderToggleRow({
-                    label: "Structured errors",
-                    description:
-                      "Receive stable error codes and retry metadata.",
-                    checked: reportErrors,
-                    onChange: setReportErrors,
-                  })}
-                </div>
-              </fieldset>
-            </div>
-          </div>
+            {renderSelectField({
+              label: "Trigger alignment",
+              value: align,
+              options: ALIGN_OPTIONS,
+              onChange: setAlign,
+            })}
 
-          <div className="border-t border-gray-950/10 p-5 dark:border-white/10">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium text-gray-950 dark:text-white">
-                  Install
-                </div>
-                <div className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-                  Copy the generated setup for your stack.
-                </div>
-              </div>
-              {renderSegmentedControl({
-                ariaLabel: "Installation target",
-                value: installTarget,
-                options: INSTALL_OPTIONS,
-                onChange: setInstallTarget,
-              })}
-            </div>
+            {renderBooleanSelect({
+              label: "Lifecycle events",
+              hint: "Observe open, close, ask, update, and navigation events.",
+              checked: trackEvents,
+              onChange: setTrackEvents,
+            })}
 
-            <CodeBlockComponent
-              // always use jsx as langugae to render code highlighting correctly
-              language= "jsx"
-              filename={
-                installTarget === "html" ? "index.html" : "assistant-widget.jsx"
-              }
-              wrap
-            >
-              {installCode}
-            </CodeBlockComponent>
+            {renderBooleanSelect({
+              label: "Structured errors",
+              hint: "Receive stable error codes and retry metadata.",
+              checked: reportErrors,
+              onChange: setReportErrors,
+            })}
           </div>
         </div>
-        {children ? <div className="mt-8">{children}</div> : null}
-      </div>
 
-      <aside className="not-prose" data-assistant-preview="">
         <div
           ref={previewHostRef}
-          className="relative flex h-[42rem] min-h-0 flex-col overflow-hidden rounded-xl border border-gray-950/10 bg-transparent dark:border-white/10 lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)]"
-          data-assistant-preview-card=""
+          className="relative h-[26rem] min-w-0 flex-1 lg:h-full"
         >
           {previewHostReady && previewUrl ? (
             <iframe
@@ -521,7 +423,7 @@ export const AssistantWidget = () => (
               src={previewUrl}
               onLoad={updatePreview}
               scrolling="no"
-              className="min-h-0 w-full flex-1 border-0 bg-transparent [color-scheme:light_dark] dark:[color-scheme:dark]"
+              className="h-full w-full border-0 bg-transparent [color-scheme:light_dark] dark:[color-scheme:dark]"
             />
           ) : null}
           {previewStatus !== "ready" ? (
@@ -544,7 +446,40 @@ export const AssistantWidget = () => (
             </div>
           ) : null}
         </div>
-      </aside>
+      </div>
+
+      <div className="border-t border-gray-950/10 p-4 dark:border-white/10">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium text-gray-950 dark:text-white">
+              Install
+            </div>
+            <div className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+              Copy the generated setup for your stack.
+            </div>
+          </div>
+          <div className="w-32">
+            {renderSelectField({
+              label: "Target",
+              value: installTarget,
+              options: INSTALL_OPTIONS,
+              onChange: setInstallTarget,
+            })}
+          </div>
+        </div>
+
+        <CodeBlockComponent
+          // always use jsx as language to render code highlighting correctly
+          language="jsx"
+          filename={
+            installTarget === "html" ? "index.html" : "assistant-widget.jsx"
+          }
+          wrap
+          expandable
+        >
+          {installCode}
+        </CodeBlockComponent>
+      </div>
     </div>
   );
 };
