@@ -8,12 +8,9 @@ export const AssistantWidgetPlayground = ({
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
   const EMBED_URL =
     "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
-  // The preview loads the hidden /assistant/widget-preview page through the
-  // chromeless `/_minimal/` renderer when deployed, and directly in local
-  // previews where that renderer is unavailable. A real page URL is required
+  // The preview loads the hidden /assistant/widget-preview page at a real URL
   // because captcha providers reject srcdoc documents without a hostname.
-  // Message names must stay in sync with
-  // snippets/assistant-widget-preview-host.jsx.
+  // Message names must stay in sync with snippets/assistant-widget-preview-host.jsx.
   const PREVIEW_READY_MESSAGE = "mintlify-assistant-playground:ready";
   const PREVIEW_UPDATE_MESSAGE = "mintlify-assistant-playground:update";
   const PREVIEW_STATE_MESSAGE = "mintlify-assistant-playground:state";
@@ -63,6 +60,8 @@ export const AssistantWidgetPlayground = ({
   const [variant, setVariant] = useState("widget");
   const [theme, setTheme] = useState("system");
   const [accent, setAccent] = useState("#166E3F");
+  const [accentDraft, setAccentDraft] = useState("#166E3F");
+  const [accentKeyboardFocus, setAccentKeyboardFocus] = useState(false);
   const [radius, setRadius] = useState(16);
   const [side, setSide] = useState("bottom");
   const [align, setAlign] = useState("end");
@@ -70,16 +69,18 @@ export const AssistantWidgetPlayground = ({
   const [reportErrors, setReportErrors] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [openSelect, setOpenSelect] = useState(null);
+  const [activeSelectOptionIndex, setActiveSelectOptionIndex] = useState(0);
   const [previewHostReady, setPreviewHostReady] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewStatus, setPreviewStatus] = useState("loading");
+  const accentInputRef = useRef(null);
+  const accentPointerFocusRef = useRef(false);
   const previewRef = useRef(null);
   const previewHostRef = useRef(null);
 
   useEffect(() => {
     // Resolve the preview page against the deployment base path (for example
-    // /docs on mintlify.com). Translated pages keep their locale segment
-    // after the /_minimal/ renderer prefix.
+    // /docs on mintlify.com). Translated pages keep their locale segment.
     const pageMatch = window.location.pathname
       .replace(/\/$/, "")
       .match(/^(.*?)(\/[a-z]{2}(?:-[A-Za-z]{2,4})?)?\/assistant\/widget$/);
@@ -88,13 +89,8 @@ export const AssistantWidgetPlayground = ({
     const mode = document.documentElement.classList.contains("dark")
       ? "dark"
       : "light";
-    const rendererPrefix =
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1"
-        ? ""
-        : "/_minimal";
     setPreviewUrl(
-      `${basePath}${rendererPrefix}${locale}/assistant/widget-preview?mode=${mode}`,
+      `${basePath}${locale}/assistant/widget-preview?mode=${mode}`,
     );
   }, []);
 
@@ -165,34 +161,77 @@ export const AssistantWidgetPlayground = ({
     };
   }, [openSelect]);
 
+  useEffect(() => {
+    const accentInput = accentInputRef.current;
+    if (!accentInput) return undefined;
+
+    // React's color-input change handler fires while the native picker moves.
+    // Commit from the native change event instead, which fires on confirmation.
+    const commitAccent = () => {
+      const nextAccent = accentInput.value.toUpperCase();
+      setAccentDraft(nextAccent);
+      setAccent(nextAccent);
+    };
+
+    accentInput.addEventListener("change", commitAccent);
+    return () => accentInput.removeEventListener("change", commitAccent);
+  }, []);
+
   const renderSelectField = ({ id, label, onChange, options, value }) => {
     const isOpen = openSelect === id;
     const selectedIndex = options.findIndex((option) => option.value === value);
     const selectedOption = options[selectedIndex] ?? options[0];
 
+    const openMenu = (initialIndex = selectedIndex) => {
+      setActiveSelectOptionIndex(Math.max(initialIndex, 0));
+      setOpenSelect(id);
+    };
+
+    const closeMenu = () => setOpenSelect(null);
+
     const selectByIndex = (index) => {
       const option = options[index];
-      if (option) onChange(option.value);
+      if (!option) return;
+      onChange(option.value);
+      closeMenu();
     };
 
     const handleKeyDown = (event) => {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         if (!isOpen) {
-          setOpenSelect(id);
+          openMenu();
           return;
         }
 
         const direction = event.key === "ArrowDown" ? 1 : -1;
-        const nextIndex =
-          (Math.max(selectedIndex, 0) + direction + options.length) %
-          options.length;
-        selectByIndex(nextIndex);
+        setActiveSelectOptionIndex(
+          (currentIndex) =>
+            (currentIndex + direction + options.length) % options.length,
+        );
         return;
       }
       if (event.key === "Home" || event.key === "End") {
         event.preventDefault();
-        selectByIndex(event.key === "Home" ? 0 : options.length - 1);
+        if (!isOpen) openMenu();
+        setActiveSelectOptionIndex(
+          event.key === "Home" ? 0 : options.length - 1,
+        );
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        if (isOpen) {
+          selectByIndex(activeSelectOptionIndex);
+        } else {
+          openMenu();
+        }
+        return;
+      }
+      if (event.key === "Escape" && isOpen) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu();
       }
     };
 
@@ -223,12 +262,19 @@ export const AssistantWidgetPlayground = ({
             aria-haspopup="listbox"
             aria-expanded={isOpen}
             aria-controls={`assistant-playground-${id}-options`}
-            aria-labelledby={`assistant-playground-${id}-label assistant-playground-${id}-value`}
-            onClick={() =>
-              setOpenSelect((currentSelect) =>
-                currentSelect === id ? null : id,
-              )
+            aria-activedescendant={
+              isOpen
+                ? `assistant-playground-${id}-option-${activeSelectOptionIndex}`
+                : undefined
             }
+            aria-labelledby={`assistant-playground-${id}-label assistant-playground-${id}-value`}
+            onClick={() => {
+              if (isOpen) {
+                closeMenu();
+              } else {
+                openMenu();
+              }
+            }}
             onKeyDown={handleKeyDown}
           >
             <span id={`assistant-playground-${id}-value`}>
@@ -263,18 +309,22 @@ export const AssistantWidgetPlayground = ({
               role="listbox"
               aria-labelledby={`assistant-playground-${id}-label`}
             >
-              {options.map((option) => (
+              {options.map((option, index) => (
                 <button
                   key={option.value}
+                  id={`assistant-playground-${id}-option-${index}`}
                   type="button"
                   role="option"
                   tabIndex={-1}
                   aria-selected={option.value === value}
+                  data-active={
+                    activeSelectOptionIndex === index ? "true" : "false"
+                  }
                   data-selected={option.value === value ? "true" : "false"}
                   onPointerDown={(event) => event.preventDefault()}
+                  onPointerMove={() => setActiveSelectOptionIndex(index)}
                   onClick={() => {
-                    onChange(option.value);
-                    setOpenSelect(null);
+                    selectByIndex(index);
                   }}
                 >
                   <span>{option.label}</span>
@@ -312,6 +362,35 @@ export const AssistantWidgetPlayground = ({
         <span aria-hidden="true" className="assistant-playground-switch__knob" />
       </span>
     </label>
+  );
+
+  const renderDivider = () => (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      className="assistant-playground-customizer__divider"
+    >
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        width="100%"
+        height="1"
+        preserveAspectRatio="none"
+        viewBox="0 0 100 1"
+      >
+        <line
+          x1="0"
+          y1="0.5"
+          x2="100"
+          y2="0.5"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="5 5"
+          strokeLinecap="butt"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    </div>
   );
 
   const appearance = useMemo(
@@ -527,25 +606,54 @@ export const AssistantWidget = () => (
             })}
             <label className="assistant-playground-field">
               <span className="assistant-playground-field__label">Accent</span>
-              <span className="assistant-playground-accent">
+              <span
+                className="assistant-playground-accent"
+                data-keyboard-focus={accentKeyboardFocus ? "true" : "false"}
+              >
                 <input
+                  ref={accentInputRef}
                   type="color"
-                  value={accent}
-                  onChange={(event) => setAccent(event.target.value.toUpperCase())}
+                  value={accentDraft}
+                  onInput={(event) =>
+                    setAccentDraft(event.currentTarget.value.toUpperCase())
+                  }
+                  onPointerDown={() => {
+                    accentPointerFocusRef.current = true;
+                    setAccentKeyboardFocus(false);
+                  }}
+                  onFocus={() => {
+                    setAccentKeyboardFocus(!accentPointerFocusRef.current);
+                    accentPointerFocusRef.current = false;
+                  }}
+                  onBlur={(event) => {
+                    setAccentKeyboardFocus(false);
+                    const nextAccent = event.currentTarget.value.toUpperCase();
+                    setAccentDraft(nextAccent);
+                    setAccent(nextAccent);
+                  }}
+                  onKeyDown={(event) => {
+                    setAccentKeyboardFocus(true);
+                    if (event.key === "Enter") {
+                      const nextAccent =
+                        event.currentTarget.value.toUpperCase();
+                      setAccentDraft(nextAccent);
+                      setAccent(nextAccent);
+                    }
+                  }}
                   aria-label="Accent color"
                   className="assistant-playground-accent__input"
                 />
                 <span
                   aria-hidden="true"
                   className="assistant-playground-accent__swatch"
-                  style={{ backgroundColor: accent }}
+                  style={{ backgroundColor: accentDraft }}
                 />
-                <span>{accent}</span>
+                <span>{accentDraft}</span>
               </span>
             </label>
           </div>
 
-          <div className="assistant-playground-customizer__divider" />
+          {renderDivider()}
 
           <div className="assistant-playground-customizer__section">
             <div className="assistant-playground-customizer__heading">Trigger</div>
@@ -565,7 +673,7 @@ export const AssistantWidget = () => (
             })}
           </div>
 
-          <div className="assistant-playground-customizer__divider" />
+          {renderDivider()}
 
           <div className="assistant-playground-customizer__section">
             <div className="assistant-playground-customizer__heading">Hooks</div>
