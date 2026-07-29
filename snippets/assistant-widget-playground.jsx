@@ -56,7 +56,7 @@ export const AssistantWidgetPlayground = ({
 
   const [installTarget, setInstallTarget] = useState("html");
   const [variant, setVariant] = useState("widget");
-  const [theme, setTheme] = useState("system");
+  const [previewTheme, setPreviewTheme] = useState(null);
   const [accent, setAccent] = useState("#166E3F");
   const [accentDraft, setAccentDraft] = useState("#166E3F");
   const [accentKeyboardFocus, setAccentKeyboardFocus] = useState(false);
@@ -78,18 +78,16 @@ export const AssistantWidgetPlayground = ({
 
   useEffect(() => {
     // Resolve the preview page against the deployment base path (for example
-    // /docs on mintlify.com). Translated pages keep their locale segment.
+    // /docs on mintlify.com). Every locale can reuse the same host document
+    // because the preview UI is configured by this component.
     const pageMatch = window.location.pathname
       .replace(/\/$/, "")
       .match(/^(.*?)(\/[a-z]{2}(?:-[A-Za-z]{2,4})?)?\/assistant\/widget$/);
     const basePath = pageMatch?.[1] ?? "";
-    const locale = pageMatch?.[2] ?? "";
     const mode = document.documentElement.classList.contains("dark")
       ? "dark"
       : "light";
-    setPreviewUrl(
-      `${basePath}${locale}/assistant/widget-preview?mode=${mode}`,
-    );
+    setPreviewUrl(`${basePath}/assistant/widget-preview?mode=${mode}`);
   }, []);
 
   useEffect(() => {
@@ -394,20 +392,19 @@ export const AssistantWidgetPlayground = ({
   const appearance = useMemo(
     () => ({
       variant,
-      theme,
       accent,
       radius: `${radius}px`,
       side,
       align,
     }),
-    [accent, align, radius, side, theme, variant],
+    [accent, align, radius, side, variant],
   );
 
   const togglePreviewTheme = () => {
-    setTheme((currentTheme) => {
+    setPreviewTheme((currentTheme) => {
       const isDark =
         currentTheme === "dark" ||
-        (currentTheme === "system" &&
+        (currentTheme === null &&
           document.documentElement.classList.contains("dark"));
       return isDark ? "light" : "dark";
     });
@@ -422,13 +419,11 @@ export const AssistantWidgetPlayground = ({
     const previewWindow = previewRef.current?.contentWindow;
     if (!previewWindow) return;
 
-    // Match the docs theme in the iframe while generated examples retain "system".
+    // Match the docs theme until the preview-only toggle overrides it.
+    // Generated examples always retain "system".
     const liveTheme =
-      appearance.theme === "system"
-        ? document.documentElement.classList.contains("dark")
-          ? "dark"
-          : "light"
-        : appearance.theme;
+      previewTheme ??
+      (document.documentElement.classList.contains("dark") ? "dark" : "light");
 
     previewWindow.postMessage(
       {
@@ -443,7 +438,7 @@ export const AssistantWidgetPlayground = ({
       // The preview page is same-origin (served by this docs site).
       window.location.origin,
     );
-  }, [appearance, reportErrors, trackEvents]);
+  }, [appearance, previewTheme, reportErrors, trackEvents]);
 
   useEffect(() => {
     const handlePreviewMessage = (event) => {
@@ -494,7 +489,7 @@ export const AssistantWidgetPlayground = ({
     "  ],",
     "  appearance: {",
     `    variant: '${variant}',`,
-    `    theme: '${theme}',`,
+    "    theme: 'system',",
     `    accent: '${accent}',`,
     `    radius: '${radius}px',`,
     `    side: '${side}',`,
@@ -550,9 +545,9 @@ export const AssistantWidget = () => (
   const installCode = installTarget === "html" ? htmlCode : nextCode;
 
   return (
-    <div className="not-prose" data-assistant-playground-layout="">
+    <div data-assistant-playground-layout="">
       <section
-        className="assistant-playground-frame"
+        className="assistant-playground-frame not-prose"
         data-customize-open={customizeOpen ? "true" : "false"}
         aria-label="Assistant widget playground"
       >
@@ -722,7 +717,10 @@ export const AssistantWidget = () => (
         </div>
       </section>
 
-      <div className="assistant-playground-code" data-assistant-code="">
+      <div
+        className="assistant-playground-code not-prose"
+        data-assistant-code=""
+      >
         <div className="assistant-playground-code__header">
           <div>
             <div className="assistant-playground-code__title">Install</div>
