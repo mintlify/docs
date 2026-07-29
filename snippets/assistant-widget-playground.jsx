@@ -29,9 +29,15 @@ export const AssistantWidgetPlayground = ({
     { value: "panel", label: "Panel" },
   ];
   const RADIUS_OPTIONS = [
-    { value: 8, label: "Small" },
-    { value: 18, label: "Medium" },
-    { value: 28, label: "Large" },
+    { value: 0, label: "None", detail: "0px" },
+    { value: 4, label: "Extra small", detail: "4px" },
+    { value: 8, label: "Small", detail: "8px" },
+    { value: 12, label: "Medium", detail: "12px" },
+    { value: 16, label: "Large", detail: "16px" },
+    { value: 20, label: "Extra large", detail: "20px" },
+    { value: 24, label: "2X large", detail: "24px" },
+    { value: 28, label: "3X large", detail: "28px" },
+    { value: 32, label: "4X large", detail: "32px" },
   ];
   // Mentha labels the direction the assistant opens; the widget API stores
   // the trigger's screen edge, so each label maps to the opposite edge.
@@ -56,8 +62,8 @@ export const AssistantWidgetPlayground = ({
   const [installTarget, setInstallTarget] = useState("html");
   const [variant, setVariant] = useState("widget");
   const [theme, setTheme] = useState("system");
-  const [accent, setAccent] = useState("#006ADC");
-  const [radius, setRadius] = useState(8);
+  const [accent, setAccent] = useState("#166E3F");
+  const [radius, setRadius] = useState(16);
   const [side, setSide] = useState("bottom");
   const [align, setAlign] = useState("end");
   const [trackEvents, setTrackEvents] = useState(false);
@@ -228,20 +234,27 @@ export const AssistantWidgetPlayground = ({
             <span id={`assistant-playground-${id}-value`}>
               {selectedOption?.label}
             </span>
-            <svg
-              aria-hidden="true"
-              className="assistant-playground-select__chevron"
-              viewBox="0 0 16 16"
-            >
-              <path
-                d="M4 6L8 10L12 6"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-              />
-            </svg>
+            <span className="assistant-playground-select__end">
+              {selectedOption?.detail ? (
+                <span className="assistant-playground-select__detail">
+                  {selectedOption.detail}
+                </span>
+              ) : null}
+              <svg
+                aria-hidden="true"
+                className="assistant-playground-select__chevron"
+                viewBox="0 0 16 16"
+              >
+                <path
+                  d="M4 6L8 10L12 6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+            </span>
           </button>
           {isOpen ? (
             <div
@@ -264,7 +277,12 @@ export const AssistantWidgetPlayground = ({
                     setOpenSelect(null);
                   }}
                 >
-                  {option.label}
+                  <span>{option.label}</span>
+                  {option.detail ? (
+                    <span className="assistant-playground-select__detail">
+                      {option.detail}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
