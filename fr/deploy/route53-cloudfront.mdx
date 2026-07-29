@@ -1,5 +1,5 @@
 ---
-title: "AWS Route 53 et CloudFront"
+title: "Déployer sur un sous-chemin avec AWS Route 53 et CloudFront"
 sidebarTitle: "AWS"
 description: "Déployez votre documentation Mintlify sur un sous-chemin AWS en utilisant Route 53 pour le routage DNS et CloudFront comme CDN avec des fonctions Lambda@Edge."
 keywords: ["déploiement AWS", "Route 53 DNS", "CloudFront CDN", "stratégies de cache"]
@@ -28,10 +28,11 @@ Dirigez le trafic vers ces chemins avec une stratégie de mise en cache (**Cache
 - `/.well-known/vercel/*` - Requis pour la vérification du domaine
 - `/docs/*` - Requis pour le routage par sous-chemin
 - `/docs/` - Requis pour le routage par sous-chemin
+- `/_mintlify/*` - Requis pour les requêtes du playground d'API
 
-Dirigez le trafic vers ce chemin avec une stratégie de mise en cache (**Cache Policy**) de **CachingEnabled** :
+Dirigez le trafic vers ces chemins avec une stratégie de mise en cache (**Cache Policy**) de **CachingEnabled** :
 
-- `/mintlify-assets/_next/static/*`
+- `/mintlify-assets/*` - Requis pour le CSS, le JavaScript et les favicons
 - `Default (*)` - La page d'accueil de votre site web
 
 Tous les Behaviors doivent avoir une **origin request policy** de `AllViewerExceptHostHeader`.
@@ -94,7 +95,7 @@ Les Behaviors de votre sous-chemin doivent autoriser toutes les méthodes HTTP. 
   ![Page CloudFront « Create origin » avec le champ de saisie « Origin domain » mis en évidence.](/images/cloudfront/default-origin.png)
 </Frame>
 
-À ce stade, vous devriez avoir deux Origins : une avec `[SUBDOMAIN].mintlify.site` et une autre avec votre URL de staging.
+Vous devriez maintenant avoir deux Origins : une avec `[SUBDOMAIN].mintlify.site` et une autre avec votre URL de staging.
 
 <Frame>
   ![Page CloudFront « Origins » avec deux origins : une pour mintlify et une autre pour mintlify-landing-page.](/images/cloudfront/final-origins.png)
@@ -167,19 +168,32 @@ Ces paramètres doivent correspondre exactement au comportement de votre sous-ch
 - Définissez "Viewer protocol policy" sur **Redirect HTTP to HTTPS**.
 - Définissez "Allowed HTTP methods" sur **GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE**.
 
-<div id="mintlify-assets_nextstatic">
-  ### `/mintlify-assets/_next/static/*`
+<div id="mintlify-assets">
+  ### `/mintlify-assets/*`
 </div>
 
-- Définissez la « Cache policy » sur **CachingOptimized**
- - Définissez la « Origin request policy » sur **AllViewerExceptHostHeader**
- - Définissez la « Viewer protocol policy » sur **Redirect HTTP to HTTPS**
+Créez un comportement avec un **Path pattern** de `/mintlify-assets/*` et des **Origin and origin groups** pointant vers l'URL `.mintlify.site`. Ce chemin sert le CSS, le JavaScript et les favicons de votre documentation depuis la racine de votre domaine.
+
+ - Définissez « Cache policy » sur **CachingOptimized**.
+ - Définissez « Origin request policy » sur **AllViewerExceptHostHeader**.
+ - Définissez « Viewer protocol policy » sur **Redirect HTTP to HTTPS**.
+
+<div id="_mintlify">
+  ### `/_mintlify/*`
+</div>
+
+Créez un comportement avec un **Path pattern** de `/_mintlify/*` et des **Origin and origin groups** pointant vers l'URL `.mintlify.site`. Ce chemin gère les requêtes du playground d'API depuis la racine de votre domaine.
+
+- Définissez « Cache policy » sur **CachingDisabled**.
+- Définissez « Origin request policy » sur **AllViewerExceptHostHeader**.
+- Définissez « Viewer protocol policy » sur **Redirect HTTP to HTTPS**.
+- Définissez « Allowed HTTP methods » sur **GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE**.
 
 <div id="default">
   ### `Default (*)`
 </div>
 
-Enfin, nous allons modifier le comportement `Default (*)`.
+Modifiez le comportement `Default (*)`.
 
 <Frame>
   ![Une distribution CloudFront avec le comportement « Default (*) » sélectionné et le bouton Edit mis en évidence.](/images/cloudfront/default-behavior-1.png)
@@ -207,19 +221,19 @@ Si vous suivez les étapes précédentes, vos comportements devraient être les 
   ## Aperçu de la distribution
 </div>
 
-Vous pouvez maintenant vérifier si vous avez correctement configuré votre distribution en accédant à l’onglet « General » et en ouvrant l’URL **Distribution domain name**.
+Pour tester votre distribution, accédez à l’onglet « General » et ouvrez l’URL **Distribution domain name**.
 
 <Frame>
   ![Onglet CloudFront « General » avec l’URL « Distribution domain name » mise en évidence.](/images/cloudfront/preview-distribution.png)
 </Frame>
 
-Toutes les pages devraient renvoyer vers votre page d’accueil principale. En revanche, si vous ajoutez à l’URL le sous-chemin de votre choix — par exemple `/docs` — vous devriez être redirigé vers votre instance de documentation Mintlify.
+Toutes les pages devraient être acheminées vers votre page d’accueil principale. Lorsque vous ajoutez le sous-chemin de votre choix, par exemple `/docs`, l’URL devrait servir votre documentation Mintlify.
 
 <div id="connect-with-route-53">
   ## Connecter avec Route 53
 </div>
 
-Nous allons maintenant faire pointer votre domaine principal vers la distribution CloudFront.
+Ensuite, connectez la distribution CloudFront à votre domaine principal.
 
 <Note>
   Pour cette section, vous pouvez également consulter le guide officiel d’AWS sur la [configuration

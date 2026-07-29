@@ -1,0 +1,298 @@
+---
+title: "Mintlify widget"
+sidebarTitle: "Widget"
+description: "Install and configure the Mintlify widget to embed an AI assistant trained on your content into any website, web app, or dashboard."
+keywords: ["assistant", "chat", "embed"]
+mode: "wide"
+---
+
+import { AssistantWidgetPlayground } from "/snippets/assistant-widget-playground.jsx";
+
+export const WidgetCodeBlock = ({ children, ...props }) => (
+  <CodeBlock {...props}>{children}</CodeBlock>
+);
+
+The [assistant](/assistant) answers questions on your Mintlify site. To embed the same capability on another site or web app, use the widget. With the widget, you can give your users access to AI chat trained on your content in your product dashboard, marketing site, support portal, or elsewhere.
+
+Add the widget to any website or web application with a hosted script. The widget owns its trigger and renders inside a closed Shadow DOM, which prevents your application styles from affecting the widget.
+
+The only required browser option is the public widget ID. Manage the enabled state, allowed origins, attachments, and bot protection in your dashboard. Set embed-specific starter questions and a support email in the browser configuration.
+
+## Prerequisites
+
+- A [Pro or Enterprise plan](https://mintlify.com/pricing?ref=assistant). The widget uses the same credits as the assistant.
+
+## Enable the widget
+
+1. Navigate to your deployment's [Widget](https://app.mintlify.com/settings/deployment/widget) page.
+2. Enable the widget.
+3. Add allowed origins where you embed the widget.
+4. Copy the widget ID.
+
+## Install and configure
+
+Use the playground to configure the presentation, visual options, and observer hooks for your widget. The installation code block updates as you change each option.
+
+<Info>
+  Replace `YOUR_WIDGET_ID` in the generated code with the widget ID from the [Widget](https://app.mintlify.com/settings/deployment/widget) page of your dashboard.
+</Info>
+
+After you add the generated code to your site, reload the page. Confirm the trigger appears, then click it and send a test question to verify the connection.
+
+<AssistantWidgetPlayground CodeBlockComponent={WidgetCodeBlock}>
+
+<Warning>
+  Module scripts defer and run in document order. Keep the hosted loader before the initialization block when you install the widget with HTML, or the widget fails to mount.
+</Warning>
+
+## Open on initialization
+
+Set `defaultOpen` to `true` to open the widget immediately after its first mount:
+
+```js
+await window.MintlifyAssistant.init({
+  id: "YOUR_WIDGET_ID",
+  defaultOpen: true,
+});
+```
+
+`defaultOpen` defaults to `false` and only applies to the first initialization. Calling `init()` again with the same widget ID and API endpoint does not reopen a widget that a visitor closed. Use `open()` and `close()` to control it after initialization.
+
+## Use a custom trigger
+
+Await `init()` before calling other methods. Keep the built-in trigger or open the configured presentation from any button in your application.
+
+```js
+await window.MintlifyAssistant.init({
+  id: "YOUR_WIDGET_ID",
+  supportEmail: "hi@mintlify.com",
+  starterQuestions: [
+    "How do I get started with Mintlify?",
+    "How do I customize my docs?",
+    "How do I deploy my docs?",
+  ],
+});
+
+document.querySelector("#help-button").addEventListener("click", () => {
+  void window.MintlifyAssistant.open({
+    source: "help-button",
+    focus: true,
+  });
+});
+```
+
+To open the widget and immediately send a question, call `ask()`:
+
+```js
+await window.MintlifyAssistant.ask("How do I authenticate?", {
+  source: "authentication-guide",
+  open: true,
+  focus: true,
+});
+```
+
+Event metadata and requests include the `source` value, which lets you distinguish built-in interactions from your custom entry points.
+
+## Update a mounted widget
+
+Use `update()` to change appearance, labels, support email, starter questions, or hooks without clearing the current conversation. Only the supplied fields change.
+
+```js
+await window.MintlifyAssistant.update({
+  appearance: {
+    theme: "dark",
+    accent: "#7c3aed",
+  },
+  labels: {
+    title: "Docs copilot",
+    trigger: "Ask docs",
+  },
+  supportEmail: "support@example.com",
+  starterQuestions: [
+    "How do I get started?",
+    "How do I manage my account?",
+  ],
+});
+```
+
+Pass `null` to restore a field or group to its default, remove the support email, or restore an empty starter-question list:
+
+```js
+await window.MintlifyAssistant.update({
+  appearance: {
+    accent: null,
+  },
+  supportEmail: null,
+  starterQuestions: null,
+  hooks: null,
+});
+```
+
+Changing `identity` starts a new conversation. Changing the widget ID or API endpoint requires calling `destroy()` before a new `init()`.
+
+You can supply `supportEmail` and `starterQuestions` during initialization and change them later with `update()`. These values apply to the current embed and do not inherit from your Mintlify dashboard.
+
+## Scope retrieval by language or version
+
+Use `filter` to restrict what the assistant retrieves when your docs are organized by language or [versions](/organize/navigation#versions). Omit a field to search across every value for it.
+
+```js
+await window.MintlifyAssistant.init({
+  id: "YOUR_WIDGET_ID",
+  filter: {
+    language: "en",
+    version: "v2",
+  },
+});
+```
+
+`language` must be a [supported language code](/organize/settings-reference#navigation-global-languages), such as `en`, `es`, `fr`, or `zh-Hans`. `version` matches the version name configured in your dashboard.
+
+Change filters at runtime with `update()` when the visitor switches language or version in your application:
+
+```js
+await window.MintlifyAssistant.update({
+  filter: {
+    language: "fr",
+    version: null,
+  },
+});
+```
+
+Pass `null` on a field to clear that filter, or `filter: null` to clear both.
+
+## Configuration reference
+
+### `AssistantConfig`
+
+Pass this object to `init()`.
+
+| Option             | Type                                            | Description                                                                  |
+| ------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------- |
+| `id`               | string                                          | Public widget ID from the Mintlify dashboard.                                |
+| `endpoint`         | string                                          | Overrides the hosted widget API endpoint.                                    |
+| `identity`         | string                                          | Signed end-user identity token. Omit for anonymous visitors.                 |
+| `nonce`            | string                                          | CSP nonce copied to resources created by the widget.                         |
+| `defaultOpen`      | boolean                                         | Opens the widget on its first initialization. The default is `false`.        |
+| `appearance`       | [`AssistantAppearance`](#assistantappearance)   | Visual and presentation overrides.                                           |
+| `labels`           | [`AssistantLabels`](#assistantlabels)           | Customer-facing text overrides.                                              |
+| `supportEmail`     | string                                          | Sets the support address shown in the widget toolbar for this embed.          |
+| `starterQuestions` | string[]                                        | Sets up to three empty-state prompts for this embed.                              |
+| `filter`           | [`AssistantFilter`](#assistantfilter)           | Restricts retrieval to a docs language and version.                          |
+| `hooks`            | [`AssistantHooks`](#assistanthooks)             | Event and error observers.                                                   |
+
+### `AssistantAppearance`
+
+| Option                     | Values                                                         | Description                                                                                             |
+| -------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `variant`                  | `widget`, `modal`, `panel`                                     | Controls whether the assistant opens as an anchored popover, centered dialog, or responsive side panel. |
+| `theme`                    | `light`, `dark`, `system`                                      | Sets the widget color scheme. The default is `system`.                                                  |
+| `accent`                   | CSS color                                                      | Sets the color of primary controls.                                                                     |
+| `radius`                   | CSS border radius                                              | Sets the panel radius, such as `18px`.                                                                  |
+| `font`                     | CSS font family                                                | Uses a font already loaded by your application. The default is Inter, which the widget bundles.         |
+| `side`                     | `top`, `bottom`, `left`, `right`, `inline-start`, `inline-end` | Positions the built-in trigger on a screen edge.                                                        |
+| `align`                    | `start`, `center`, `end`                                       | Aligns the trigger along its selected edge.                                                             |
+| `dismissOnInteractOutside` | boolean                                                        | Controls whether pointer or focus interactions outside close the assistant.                             |
+| `logo`                     | URL or `{ light, dark }`                                       | Replaces the default Mintlify mark.                                                                     |
+| `zIndex`                   | number                                                         | Changes the stacking order of the widget host.                                                          |
+
+Arbitrary CSS and neutral-palette overrides are not supported. The closed Shadow DOM protects both your application and the widget from cross-site style regressions.
+
+### `AssistantFilter`
+
+| Option     | Type             | Description                                                                                                                                        |
+| ---------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `language` | string or `null` | Restricts retrieval to a [supported language code](/organize/settings-reference#navigation-global-languages), such as `en`. Omit to search all languages. |
+| `version`  | string or `null` | Restricts retrieval to a docs version, such as `v2`. Omit to search all versions.                                                                  |
+
+### `AssistantLabels`
+
+| Option        | Values            | Description                                                         |
+| ------------- | ----------------- | ------------------------------------------------------------------- |
+| `title`       | string or `null`  | Sets the panel header. The default is `Assistant`.                   |
+| `trigger`     | string or `null`  | Sets the compact widget and panel trigger text.                      |
+| `placeholder` | string or `null`  | Sets the composer and modal trigger placeholder.                     |
+| `disclaimer`  | string, `false`, or `null` | Sets the empty-state disclaimer. Pass `false` to hide it.    |
+| `suggestions` | string or `null`  | Sets the heading preceding starter questions. The default is `Suggestions`. |
+
+### `AssistantHooks`
+
+```js
+hooks: {
+  event(event) {
+    console.log(event.type, event.actor, event.source);
+  },
+  error(error) {
+    console.error(error.code, error.retryable, error.status);
+  },
+}
+```
+
+The `event` hook receives lifecycle and interaction metadata for `init`, `open`, `close`, `ask`, `update`, `reset`, `navigate`, and `destroy`. Events do not include question text, identity, session, or CAPTCHA tokens.
+
+The `error` hook receives a stable `code`, a `retryable` boolean, and an optional HTTP `status`. Exceptions thrown by either hook do not interrupt the widget.
+
+### `AssistantOpenOptions`
+
+Pass this optional object to `open()`.
+
+| Option   | Type    | Description                                                          |
+| -------- | ------- | -------------------------------------------------------------------- |
+| `source` | string  | Customer-defined attribution included in events and requests.        |
+| `focus`  | boolean | Focuses the composer after opening. The default is `true`.            |
+
+### `AssistantAskOptions`
+
+Pass this optional object after the question string in `ask()`.
+
+| Option   | Type    | Description                                                          |
+| -------- | ------- | -------------------------------------------------------------------- |
+| `source` | string  | Customer-defined attribution included in events and requests.        |
+| `open`   | boolean | Opens the panel before sending. The default is `true`.                |
+| `focus`  | boolean | Focuses the composer when opening. The default is `true`.             |
+
+### `AssistantUpdate`
+
+Pass this object to `update()`. Every field is optional, and `null` restores its default.
+
+| Option             | Type                                                    | Description                                                       |
+| ------------------ | ------------------------------------------------------- | ----------------------------------------------------------------- |
+| `identity`         | string or `null`                                        | Changes the signed identity and starts a new conversation.        |
+| `appearance`       | [`AssistantAppearance`](#assistantappearance) or `null` | Deep-patches appearance settings.                                 |
+| `labels`           | [`AssistantLabels`](#assistantlabels) or `null`         | Deep-patches customer-facing text.                                |
+| `supportEmail`     | string or `null`                                        | Changes the support address. Pass `null` to remove it.             |
+| `starterQuestions` | string[] or `null`                                      | Changes up to three prompts. Pass `null` to restore an empty list. |
+| `filter`           | [`AssistantFilter`](#assistantfilter) or `null`         | Deep-patches retrieval filters. Pass `null` to clear all filters.  |
+| `hooks`            | [`AssistantHooks`](#assistanthooks) or `null`           | Deep-patches event and error observers.                            |
+
+## Browser API
+
+| Method                   | Parameter types                                             | Description                                                                        |
+| ------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `init(config)`           | [`AssistantConfig`](#assistantconfig)                        | Loads and mounts the widget. This is the readiness promise for every other method. |
+| `open(options)`          | [`AssistantOpenOptions`](#assistantopenoptions)              | Opens the configured presentation.                                                 |
+| `close()`                | —                                                           | Closes the widget.                                                                 |
+| `ask(question, options)` | string, [`AssistantAskOptions`](#assistantaskoptions)         | Opens the widget if requested and sends a question.                                |
+| `update(config)`         | [`AssistantUpdate`](#assistantupdate)                        | Deep-patches mutable identity, appearance, copy, and observer settings.             |
+| `reset()`                | —                                                           | Starts a fresh conversation.                                                       |
+| `destroy()`              | —                                                           | Removes the widget and releases its browser resources.                             |
+
+Conversation snapshots remain private to the widget. Each method resolves to `void`.
+
+## Content Security Policy
+
+If your site uses a Content Security Policy, allow the origins required by your enabled widget features:
+
+| Directive                                    | Source                              | Required for                |
+| -------------------------------------------- | ----------------------------------- | --------------------------- |
+| `script-src`                                 | `https://cdn.jsdelivr.net`          | Widget loader and runtime   |
+| `connect-src`                                | `https://api.mintlify.com`          | Widget API                  |
+| `style-src`                                  | `https://cdn.jsdelivr.net`          | Widget style sheet           |
+| `font-src`                                   | `https://cdn.jsdelivr.net`          | Optional bundled Inter font |
+| `script-src`, `connect-src`, and `frame-src` | `https://challenges.cloudflare.com` | Turnstile bot protection    |
+| `script-src`                                 | `https://js.hcaptcha.com`           | hCaptcha bot protection     |
+| `connect-src` and `frame-src`                | `https://*.hcaptcha.com`            | hCaptcha bot protection     |
+
+A strict `script-src` policy must still authorize both the loader and initialization script. Passing `nonce` to `init()` propagates it only to resources the widget creates after initialization.
+
+</AssistantWidgetPlayground>

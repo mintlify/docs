@@ -39,8 +39,8 @@ Improper proxy configuration can prevent Vercel from provisioning Let's Encrypt 
 
 Your Cloudflare Worker must allow traffic to these specific paths without blocking or redirecting:
 
-- `/.well-known/acme-challenge/*` - Required for Let's Encrypt certificate verification
-- `/.well-known/vercel/*` - Required for Vercel domain verification
+- `/.well-known/acme-challenge/*`: Required for Let's Encrypt certificate verification.
+- `/.well-known/vercel/*`: Required for Vercel domain verification.
 
 While Cloudflare automatically handles many verification rules, creating additional custom rules may inadvertently block this critical traffic.
 
@@ -70,8 +70,12 @@ async function handleRequest(request) {
       return await fetch(request);
     }
     
-    // If the request is to the docs subpath
-    if (/^\/docs/.test(urlObject.pathname)) {
+    // If the request is to the docs subpath or a Mintlify asset or API path
+    if (
+      /^\/docs/.test(urlObject.pathname) ||
+      /^\/mintlify-assets\//.test(urlObject.pathname) ||
+      /^\/_mintlify\//.test(urlObject.pathname)
+    ) {
       // Then Proxy to Mintlify
       const DOCS_URL = "[SUBDOMAIN].mintlify.site";
       const CUSTOM_URL = "[YOUR_DOMAIN]";
@@ -90,11 +94,17 @@ async function handleRequest(request) {
       return await fetch(proxyRequest);
     }
   } catch (error) {
-    // If no action found, play the regular request
+    // If no action found, serve the regular request
     return await fetch(request);
   }
 }
 ```
+
+<Warning>
+  In addition to your subpath, your Worker must proxy `/mintlify-assets/*`, which serves the CSS, JavaScript, and favicons for your documentation, and `/_mintlify/*`, which handles API playground requests.
+  
+  If you route traffic to your Worker with route patterns instead of a custom domain, add routes for `yoursite.com/mintlify-assets/*` and `yoursite.com/_mintlify/*` alongside your subpath route. These paths must originate from the root of your domain, not your subpath.
+</Warning>
 
 Click **Deploy** and wait for the changes to propagate.
 
@@ -107,17 +117,17 @@ After your code deploys, test your Worker to ensure it routes to your Mintlify d
 1. Test using the Worker's preview URL: `your-worker.your-subdomain.workers.dev/docs`
 2. Verify the Worker routes to your Mintlify docs and your website.
 
-### Add custom domain
+### Add a custom domain
 
 1. In your [Cloudflare dashboard](https://dash.cloudflare.com/), navigate to your Worker.
 2. Go to **Settings > Domains & Routes > Add > Custom Domain**.
-3. Add your domain. 
+3. Add your domain.
 
 <Tip>
   Add your domain both with and without `www.` prepended.
 </Tip>
 
-See [Add a custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/#add-a-custom-domain) in the Cloudflare documentation for more information. 
+See [Add a custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/#add-a-custom-domain) in the Cloudflare documentation for more information.
 
 ### Resolve DNS conflicts
 
@@ -154,8 +164,12 @@ If you use Webflow to host your main site and want to serve Mintlify docs at `/d
       return await fetch(request);
     }
     
-    // If the request is to the docs subpath
-    if (/^\/docs/.test(urlObject.pathname)) {
+    // If the request is to the docs subpath or a Mintlify asset or API path
+    if (
+      /^\/docs/.test(urlObject.pathname) ||
+      /^\/mintlify-assets\//.test(urlObject.pathname) ||
+      /^\/_mintlify\//.test(urlObject.pathname)
+    ) {
       // Proxy to Mintlify
       const DOCS_URL = "[SUBDOMAIN].mintlify.site";
       const CUSTOM_URL = "[YOUR_DOMAIN]";
