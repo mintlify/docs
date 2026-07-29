@@ -1,0 +1,85 @@
+---
+title: "MCP 服务器"
+description: "通过单个流式 HTTP 端点将 Claude Code 和其他 MCP 客户端连接到通用搜索，将 search、context 和 contents 作为工具暴露出来。"
+keywords: ["MCP", "Model Context Protocol", "Claude Code", "通用搜索"]
+---
+
+通用搜索 MCP 服务器通过 [Model Context Protocol](https://modelcontextprotocol.io/) 暴露与 REST API 相同的 `search`、`context` 和 `contents` 操作，因此像 Claude Code 这样的代理可以将它们作为工具调用，而无需自行拼接 HTTP 请求。
+
+<div id="endpoint">
+## 端点
+</div>
+
+```
+POST https://api.mintlify.com/universal-search/v1/mcp
+```
+
+该服务器实现了流式 HTTP 传输，且为无状态——每个 POST 只发送一个 JSON-RPC 请求。传输层也接受 `GET` 和 `DELETE`；JSON-RPC 批处理会以 `-32600` 错误被拒绝。
+
+<div id="authentication">
+## 身份验证
+</div>
+
+使用与 REST API 相同的通用搜索 API 密钥进行身份验证。在每个请求中将其作为 bearer token 传递：
+
+```http
+Authorization: Bearer YOUR_UNIVERSAL_SEARCH_API_KEY
+```
+
+有关如何创建密钥，请参阅 [API 密钥](/zh/api/introduction#api-keys)。访问需要 Universal Search 权限。
+
+<div id="tools">
+## 工具
+</div>
+
+该服务器注册了三个只读工具。每个工具的输入和输出模式都与 REST 端点保持一致，因此请求和响应结构相同。
+
+<Card title="search" icon="magnifying-glass" href="/zh/api/universal-search/search">
+  在 Mintlify 托管的站点和网络中查找文档页面。每个结果都包含匹配查询的部分。结果中包含 `truncated` 标记——当其为 `false` 时，返回的文本即为完整匹配部分，无需再次调用。Mintlify 结果还会报告 `totalCharacters`，以便代理确定后续请求的大小。默认包含正文文本，并被截断为每个结果 2,000 个字符；传入 `text: false` 可仅返回标题和 URL，或传入 `text: { maxCharacters: n }` 以调整上限。
+</Card>
+
+<Card title="context" icon="layer-group" href="/zh/api/universal-search/context">
+  一次性从多个排序过的来源组装出符合 token 预算的答案。对于"我该如何构建 X"这类问题，请优先选择此工具而非 `search`——通常无需再次调用。返回可直接交给 LLM 使用的纯文本或 JSON 负载。
+</Card>
+
+<Card title="contents" icon="file-lines" href="/zh/api/universal-search/contents">
+  读取 `search` 或 `context` 返回的 URL 或文档 ID 背后的完整页面。仅在搜索结果报告 `truncated: true` 时才需要。将 `query` 与 `maxCharacters` 一起传递，即可返回匹配 `query` 的部分，而非从页面顶部截断——这正是在大型参考页面上一次补齐调用就够用的关键。
+
+  输入与 REST 端点略有不同：传递 `items` 数组，包含 `{ type: "url", url }` 或 `{ type: "id", id }` 对象（最多 20 个），而不是分开的 `urls` 和 `ids` 数组。
+</Card>
+
+<div id="connect-claude-code">
+## 连接 Claude Code
+</div>
+
+将该服务器添加到你的 Claude Code MCP 配置中：
+
+```json
+{
+  "mcpServers": {
+    "mintlify-universal-search": {
+      "type": "http",
+      "url": "https://api.mintlify.com/universal-search/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MINTLIFY_UNIVERSAL_SEARCH_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+在启动 Claude Code 之前，请在你的环境中设置 `MINTLIFY_UNIVERSAL_SEARCH_API_KEY`。
+
+<div id="rate-limits">
+## 速率限制
+</div>
+
+MCP 端点对每个客户端 IP 地址实施突发和每小时速率限制。如果你达到上限，服务器会返回 `429 Too Many Requests`——请退避后重试。
+
+<div id="errors">
+## 错误
+</div>
+
+- `405 Method Not Allowed`：请求使用了 `POST`、`GET` 或 `DELETE` 之外的 HTTP 方法。
+- `400 Bad Request` 且 JSON-RPC 错误为 `-32600`：请求体是 JSON-RPC 批处理。请每个 POST 只发送一个请求。
+- 工具级失败：工具响应中包含 `isError: true` 以及描述失败原因的 `content` 条目。HTTP 状态保持为 `200`，以便 MCP 客户端将错误呈现给代理。

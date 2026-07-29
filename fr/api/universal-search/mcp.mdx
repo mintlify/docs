@@ -1,0 +1,85 @@
+---
+title: "Serveur MCP"
+description: "Connectez Claude Code et d'autres clients MCP à la recherche universelle via un seul endpoint HTTP streamable qui expose la recherche, le contexte et le contenu sous forme d'outils."
+keywords: ["MCP", "Model Context Protocol", "Claude Code", "recherche universelle"]
+---
+
+Le serveur MCP de recherche universelle expose les mêmes opérations `search`, `context` et `contents` que l'API REST via le [Model Context Protocol](https://modelcontextprotocol.io/), afin que des agents comme Claude Code puissent les appeler comme des outils sans avoir à assembler eux-mêmes des requêtes HTTP.
+
+<div id="endpoint">
+## Endpoint
+</div>
+
+```
+POST https://api.mintlify.com/universal-search/v1/mcp
+```
+
+Le serveur implémente le transport HTTP streamable et est sans état — envoyez une seule requête JSON-RPC par POST. `GET` et `DELETE` sont également acceptés par le transport ; le batching JSON-RPC est rejeté avec une erreur `-32600`.
+
+<div id="authentication">
+## Authentification
+</div>
+
+Authentifiez-vous avec la même clé API de recherche universelle que celle utilisée pour l'API REST. Passez-la comme token bearer sur chaque requête :
+
+```http
+Authorization: Bearer YOUR_UNIVERSAL_SEARCH_API_KEY
+```
+
+Consultez [Clés API](/fr/api/introduction#api-keys) pour savoir comment en créer une. L'accès nécessite l'entitlement Universal Search.
+
+<div id="tools">
+## Outils
+</div>
+
+Le serveur enregistre trois outils en lecture seule. Les schémas d'entrée et de sortie de chaque outil reprennent ceux des endpoints REST, si bien que les mêmes formes de requête et de réponse s'appliquent.
+
+<Card title="search" icon="magnifying-glass" href="/fr/api/universal-search/search">
+  Trouvez des pages de documentation à travers les sites hébergés par Mintlify et le web. Chaque résultat contient la section qui correspond à la requête. Les résultats incluent un indicateur `truncated` — lorsqu'il vaut `false`, le texte renvoyé est la section correspondante complète et aucun appel supplémentaire n'est nécessaire. Les résultats Mintlify indiquent également `totalCharacters` afin que les agents puissent dimensionner les requêtes de suivi. Le texte du corps est inclus par défaut et tronqué à 2 000 caractères par résultat ; passez `text: false` pour n'obtenir que les titres et les URL, ou `text: { maxCharacters: n }` pour modifier la limite.
+</Card>
+
+<Card title="context" icon="layer-group" href="/fr/api/universal-search/context">
+  Assemblez une réponse calibrée en jetons à partir de plusieurs sources classées en une seule fois. Préférez cet outil à `search` pour les questions du type « comment construire X » — il ne nécessite généralement aucun appel de suivi. Renvoie une charge utile en texte brut ou en JSON prête à être transmise à un LLM.
+</Card>
+
+<Card title="contents" icon="file-lines" href="/fr/api/universal-search/contents">
+  Lisez la page complète derrière une URL ou un ID de document renvoyé par `search` ou `context`. Nécessaire uniquement lorsqu'un résultat de recherche indique `truncated: true`. Passez `query` en même temps que `maxCharacters` pour renvoyer les sections qui correspondent à `query` au lieu de tronquer depuis le haut de la page — c'est ce qui permet qu'un seul appel d'hydratation suffise sur les pages de référence volumineuses.
+
+  L'entrée diffère légèrement de l'endpoint REST : passez un tableau `items` d'objets `{ type: "url", url }` ou `{ type: "id", id }` (jusqu'à 20) au lieu de tableaux `urls` et `ids` séparés.
+</Card>
+
+<div id="connect-claude-code">
+## Connecter Claude Code
+</div>
+
+Ajoutez le serveur à votre configuration MCP de Claude Code :
+
+```json
+{
+  "mcpServers": {
+    "mintlify-universal-search": {
+      "type": "http",
+      "url": "https://api.mintlify.com/universal-search/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MINTLIFY_UNIVERSAL_SEARCH_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Définissez `MINTLIFY_UNIVERSAL_SEARCH_API_KEY` dans votre environnement avant de démarrer Claude Code.
+
+<div id="rate-limits">
+## Limites de débit
+</div>
+
+L'endpoint MCP applique des limites de débit en rafale et horaires par adresse IP client. Si vous atteignez la limite, le serveur renvoie `429 Too Many Requests` — patientez avant de réessayer.
+
+<div id="errors">
+## Erreurs
+</div>
+
+- `405 Method Not Allowed` : la requête a utilisé une méthode HTTP autre que `POST`, `GET` ou `DELETE`.
+- `400 Bad Request` avec l'erreur JSON-RPC `-32600` : le corps de la requête était un batch JSON-RPC. Envoyez une seule requête par POST.
+- Échecs au niveau de l'outil : la réponse de l'outil contient `isError: true` et une entrée `content` décrivant ce qui a échoué. Le statut HTTP reste `200` afin que le client MCP puisse remonter l'erreur à l'agent.

@@ -1,0 +1,73 @@
+---
+title: "MCP server"
+description: "Connect Claude Code and other MCP clients to Universal Search over a single streamable HTTP endpoint that exposes search, context, and contents as tools."
+keywords: ["MCP", "Model Context Protocol", "Claude Code", "universal search"]
+---
+
+The Universal Search MCP server exposes the same `search`, `context`, and `contents` operations as the REST API through the [Model Context Protocol](https://modelcontextprotocol.io/), so agents like Claude Code can call them as tools without stitching together HTTP requests.
+
+## Endpoint
+
+```
+POST https://api.mintlify.com/universal-search/v1/mcp
+```
+
+The server implements the streamable HTTP transport and is stateless — send one JSON-RPC request per POST. `GET` and `DELETE` are also accepted by the transport; JSON-RPC batching is rejected with a `-32600` error.
+
+## Authentication
+
+Authenticate with the same universal search API key you use for the REST API. Pass it as a bearer token on every request:
+
+```http
+Authorization: Bearer YOUR_UNIVERSAL_SEARCH_API_KEY
+```
+
+See [API keys](/api/introduction#api-keys) for how to create one. Access requires the Universal Search entitlement.
+
+## Tools
+
+The server registers three read-only tools. Each tool's input and output schemas mirror the REST endpoints, so the same request and response shapes apply.
+
+<Card title="search" icon="magnifying-glass" href="/api/universal-search/search">
+  Find documentation pages across Mintlify-hosted sites and the web. Each result carries the section that matched the query. Results include a `truncated` flag — when `false`, the returned text is the complete matched section and no follow-up call is needed. Mintlify results also report `totalCharacters` so agents can size follow-up requests. Body text is included by default and truncated to 2,000 characters per result; pass `text: false` for titles and URLs only, or `text: { maxCharacters: n }` to change the limit.
+</Card>
+
+<Card title="context" icon="layer-group" href="/api/universal-search/context">
+  Assemble a token-budgeted answer from several ranked sources at once. Prefer this over `search` for "how do I build X" questions — it usually needs no follow-up call. Returns a plain-text or JSON payload ready to hand to an LLM.
+</Card>
+
+<Card title="contents" icon="file-lines" href="/api/universal-search/contents">
+  Read the full page behind a URL or document ID returned by `search` or `context`. Only needed when a search result reported `truncated: true`. Pass `query` alongside `maxCharacters` to return the sections that match `query` instead of truncating from the top of the page — this is what makes a single hydration call enough on large reference pages.
+
+  Input differs slightly from the REST endpoint: pass an `items` array of `{ type: "url", url }` or `{ type: "id", id }` objects (up to 20) instead of separate `urls` and `ids` arrays.
+</Card>
+
+## Connect Claude Code
+
+Add the server to your Claude Code MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "mintlify-universal-search": {
+      "type": "http",
+      "url": "https://api.mintlify.com/universal-search/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MINTLIFY_UNIVERSAL_SEARCH_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+Set `MINTLIFY_UNIVERSAL_SEARCH_API_KEY` in your environment before starting Claude Code.
+
+## Rate limits
+
+The MCP endpoint enforces burst and hourly rate limits per client IP address. If you hit the limit, the server returns `429 Too Many Requests` — back off and retry.
+
+## Errors
+
+- `405 Method Not Allowed`: The request used an HTTP method other than `POST`, `GET`, or `DELETE`.
+- `400 Bad Request` with JSON-RPC error `-32600`: The request body was a JSON-RPC batch. Send one request per POST.
+- Tool-level failures: The tool response has `isError: true` and a `content` entry describing what failed. The HTTP status stays `200` so the MCP client can surface the error to the agent.
