@@ -33,8 +33,6 @@ export const AssistantWidgetPlayground = ({
     { value: 16, label: "Large", detail: "16px" },
     { value: 20, label: "Extra large", detail: "20px" },
     { value: 24, label: "2X large", detail: "24px" },
-    { value: 28, label: "3X large", detail: "28px" },
-    { value: 32, label: "4X large", detail: "32px" },
   ];
   // Mentha labels the direction the assistant opens; the widget API stores
   // the trigger's screen edge, so each label maps to the opposite edge.
