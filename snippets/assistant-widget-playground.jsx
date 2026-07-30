@@ -1,13 +1,10 @@
-export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
+export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   // Mintlify evaluates snippet exports independently, so shared values must stay in this scope.
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
-  const EMBED_URL =
-    "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
-  // The preview loads the hidden /assistant/widget-preview page through the
-  // chromeless `/_minimal/` renderer instead of a srcdoc iframe: captcha
-  // providers reject documents without a hostname, and srcdoc documents have
-  // none. Message names must stay in sync with
-  // snippets/assistant-widget-preview-host.jsx.
+  const EMBED_URL = "https://widget.mintlify.com/v1/embed.js";
+  // The preview loads the hidden /assistant/widget-preview page at a real URL
+  // because captcha providers reject srcdoc documents without a hostname.
+  // Message names must stay in sync with snippets/assistant-widget-preview-host.jsx.
   const PREVIEW_READY_MESSAGE = "mintlify-assistant-playground:ready";
   const PREVIEW_UPDATE_MESSAGE = "mintlify-assistant-playground:update";
   const PREVIEW_STATE_MESSAGE = "mintlify-assistant-playground:state";
@@ -22,14 +19,19 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
     { value: "modal", label: "Modal" },
     { value: "panel", label: "Panel" },
   ];
-  const THEME_OPTIONS = [
-    { value: "system", label: "System" },
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
+  const RADIUS_OPTIONS = [
+    { value: 0, label: "None", detail: "0px" },
+    { value: 4, label: "Extra small", detail: "4px" },
+    { value: 8, label: "Small", detail: "8px" },
+    { value: 12, label: "Medium", detail: "12px" },
+    { value: 16, label: "Large", detail: "16px" },
+    { value: 20, label: "Extra large", detail: "20px" },
+    { value: 24, label: "2X large", detail: "24px" },
   ];
+  // Labels match the widget API: `side` is the trigger's screen edge.
   const SIDE_OPTIONS = [
-    { value: "top", label: "Top" },
     { value: "bottom", label: "Bottom" },
+    { value: "top", label: "Top" },
     { value: "left", label: "Left" },
     { value: "right", label: "Right" },
     { value: "inline-start", label: "Inline start" },
@@ -40,45 +42,132 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
     { value: "center", label: "Center" },
     { value: "end", label: "End" },
   ];
-  const BOOLEAN_OPTIONS = [
-    { value: "off", label: "Off" },
-    { value: "on", label: "On" },
-  ];
   const INSTALL_OPTIONS = [
     { value: "html", label: "HTML" },
     { value: "next", label: "Next.js" },
   ];
 
+  const CustomizeIcon = () => (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M2.83337 4.83325V12.1666"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M13.1666 3.83325V11.1666"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <circle
+        cx="2.83337"
+        cy="3.33325"
+        r="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <circle
+        cx="13.1666"
+        cy="12.6667"
+        r="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M6.5 3.83325H7.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M9.83337 3.83325H10.8334"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M5.16663 12.1667H6.16663"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M8.5 12.1667H9.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+    </svg>
+  );
+
+  const ThemeIcon = () => (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M8 5.33333C6.52724 5.33333 5.33333 6.52724 5.33333 8C5.33333 9.47276 6.52724 10.6667 8 10.6667V14C4.68629 14 2 11.3137 2 8C2 4.68629 4.68629 2 8 2V5.33333ZM8 5.33333C9.47276 5.33333 10.6667 6.52724 10.6667 8C10.6667 9.47276 9.47276 10.6667 8 10.6667V5.33333Z"
+        fill="currentColor"
+      />
+      <circle
+        cx="8.00004"
+        cy="7.99992"
+        r="6.16667"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+
   const [installTarget, setInstallTarget] = useState("html");
   const [variant, setVariant] = useState("widget");
-  const [theme, setTheme] = useState("system");
-  const [accent, setAccent] = useState("#16a34a");
-  const [radius, setRadius] = useState(18);
+  const [previewTheme, setPreviewTheme] = useState(null);
+  const [accent, setAccent] = useState("#166E3F");
+  const [accentDraft, setAccentDraft] = useState("#166E3F");
+  const [accentKeyboardFocus, setAccentKeyboardFocus] = useState(false);
+  const [radius, setRadius] = useState(16);
   const [side, setSide] = useState("bottom");
   const [align, setAlign] = useState("end");
   const [trackEvents, setTrackEvents] = useState(false);
   const [reportErrors, setReportErrors] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [openSelect, setOpenSelect] = useState(null);
+  const [activeSelectOptionIndex, setActiveSelectOptionIndex] = useState(0);
   const [previewHostReady, setPreviewHostReady] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewStatus, setPreviewStatus] = useState("loading");
+  const accentInputRef = useRef(null);
+  const accentPointerFocusRef = useRef(false);
   const previewRef = useRef(null);
   const previewHostRef = useRef(null);
 
   useEffect(() => {
     // Resolve the preview page against the deployment base path (for example
-    // /docs on mintlify.com). Translated pages keep their locale segment
-    // after the /_minimal/ renderer prefix.
+    // /docs on mintlify.com). Every locale can reuse the same host document
+    // because the preview UI is configured by this component.
     const pageMatch = window.location.pathname
       .replace(/\/$/, "")
       .match(/^(.*?)(\/[a-z]{2}(?:-[A-Za-z]{2,4})?)?\/assistant\/widget$/);
     const basePath = pageMatch?.[1] ?? "";
-    const locale = pageMatch?.[2] ?? "";
     const mode = document.documentElement.classList.contains("dark")
       ? "dark"
       : "light";
-    setPreviewUrl(
-      `${basePath}/_minimal${locale}/assistant/widget-preview?mode=${mode}`,
-    );
+    setPreviewUrl(`${basePath}/assistant/widget-preview?mode=${mode}`);
   }, []);
 
   useEffect(() => {
@@ -101,8 +190,8 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
   }, []);
 
   useEffect(() => {
-    // SPA navigations can mount this page before the preview host has a
-    // laid-out box. Delay the iframe until the host has size.
+    // SPA navigations can mount this page before the sticky/absolute preview
+    // host has a laid-out box. Delay the iframe until the host has size.
     const host = previewHostRef.current;
     if (!host) return undefined;
 
@@ -124,78 +213,297 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
     return () => observer.disconnect();
   }, []);
 
-  const renderSelectField = ({ hint, label, onChange, options, value }) => (
-    <label className="block min-w-0">
-      <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {label}
-      </span>
-      <span className="relative block">
-        <select
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-9 w-full cursor-pointer appearance-none rounded-lg border border-gray-950/10 bg-white pl-3 pr-8 text-sm text-gray-950 shadow-sm outline-none transition-colors hover:border-gray-950/20 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:border-white/20 dark:focus-visible:border-primary-light dark:focus-visible:ring-primary-light/30"
+  useEffect(() => {
+    if (!openSelect) return undefined;
+
+    const closeOnPointerDown = (event) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(`[data-assistant-select="${openSelect}"]`)
+      ) {
+        return;
+      }
+      setOpenSelect(null);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpenSelect(null);
+    };
+
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openSelect]);
+
+  useEffect(() => {
+    const accentInput = accentInputRef.current;
+    if (!accentInput) return undefined;
+
+    // React's color-input change handler fires while the native picker moves.
+    // Commit from the native change event instead, which fires on confirmation.
+    const commitAccent = () => {
+      const nextAccent = accentInput.value.toUpperCase();
+      setAccentDraft(nextAccent);
+      setAccent(nextAccent);
+    };
+
+    accentInput.addEventListener("change", commitAccent);
+    return () => accentInput.removeEventListener("change", commitAccent);
+  }, []);
+
+  const renderSelectField = ({ id, label, onChange, options, value }) => {
+    const isOpen = openSelect === id;
+    const selectedIndex = options.findIndex((option) => option.value === value);
+    const selectedOption = options[selectedIndex] ?? options[0];
+
+    const openMenu = (initialIndex = selectedIndex) => {
+      setActiveSelectOptionIndex(Math.max(initialIndex, 0));
+      setOpenSelect(id);
+    };
+
+    const closeMenu = () => setOpenSelect(null);
+
+    const selectByIndex = (index) => {
+      const option = options[index];
+      if (!option) return;
+      onChange(option.value);
+      closeMenu();
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (!isOpen) {
+          openMenu();
+          return;
+        }
+
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        setActiveSelectOptionIndex(
+          (currentIndex) =>
+            (currentIndex + direction + options.length) % options.length,
+        );
+        return;
+      }
+      if (event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        if (!isOpen) openMenu();
+        setActiveSelectOptionIndex(
+          event.key === "Home" ? 0 : options.length - 1,
+        );
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        if (isOpen) {
+          selectByIndex(activeSelectOptionIndex);
+        } else {
+          openMenu();
+        }
+        return;
+      }
+      if (event.key === "Escape" && isOpen) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu();
+      }
+    };
+
+    return (
+      <div className="assistant-playground-field">
+        <span
+          id={`assistant-playground-${id}-label`}
+          className="assistant-playground-field__label"
         >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 16 16"
-          fill="none"
-          className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400 dark:text-gray-500"
-        >
-          <path
-            d="M4 6l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      {hint ? (
-        <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-          {hint}
+          {label}
         </span>
-      ) : null}
+        <div
+          className="assistant-playground-select"
+          data-assistant-select={id}
+          data-open={isOpen ? "true" : "false"}
+          onBlur={(event) => {
+            if (
+              !(event.relatedTarget instanceof Node) ||
+              !event.currentTarget.contains(event.relatedTarget)
+            ) {
+              setOpenSelect(null);
+            }
+          }}
+        >
+          <button
+            type="button"
+            className="assistant-playground-field__control"
+            aria-haspopup="listbox"
+            aria-expanded={isOpen}
+            aria-controls={`assistant-playground-${id}-options`}
+            aria-activedescendant={
+              isOpen
+                ? `assistant-playground-${id}-option-${activeSelectOptionIndex}`
+                : undefined
+            }
+            aria-labelledby={`assistant-playground-${id}-label assistant-playground-${id}-value`}
+            onClick={() => {
+              if (isOpen) {
+                closeMenu();
+              } else {
+                openMenu();
+              }
+            }}
+            onKeyDown={handleKeyDown}
+          >
+            <span id={`assistant-playground-${id}-value`}>
+              {selectedOption?.label}
+            </span>
+            <span className="assistant-playground-select__end">
+              {selectedOption?.detail ? (
+                <span className="assistant-playground-select__detail">
+                  {selectedOption.detail}
+                </span>
+              ) : null}
+              <svg
+                aria-hidden="true"
+                className="assistant-playground-select__chevron"
+                viewBox="0 0 16 16"
+              >
+                <path
+                  d="M4 6L8 10L12 6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+            </span>
+          </button>
+          {isOpen ? (
+            <div
+              id={`assistant-playground-${id}-options`}
+              className="assistant-playground-select__options"
+              role="listbox"
+              aria-labelledby={`assistant-playground-${id}-label`}
+            >
+              {options.map((option, index) => (
+                <button
+                  key={option.value}
+                  id={`assistant-playground-${id}-option-${index}`}
+                  type="button"
+                  role="option"
+                  tabIndex={-1}
+                  aria-selected={option.value === value}
+                  data-active={
+                    activeSelectOptionIndex === index ? "true" : "false"
+                  }
+                  data-selected={option.value === value ? "true" : "false"}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onPointerMove={() => setActiveSelectOptionIndex(index)}
+                  onClick={() => {
+                    selectByIndex(index);
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {option.detail ? (
+                    <span className="assistant-playground-select__detail">
+                      {option.detail}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
+  const renderToggleRow = ({ checked, description, label, onChange }) => (
+    <label className="assistant-playground-hook">
+      <span className="assistant-playground-hook__copy">
+        <span className="assistant-playground-hook__label">{label}</span>
+        <span className="assistant-playground-hook__description">{description}</span>
+      </span>
+      <span
+        className="assistant-playground-switch"
+        data-checked={checked ? "true" : "false"}
+      >
+        <input
+          type="checkbox"
+          role="switch"
+          checked={checked}
+          onChange={(event) => onChange(event.target.checked)}
+          className="assistant-playground-switch__input"
+        />
+        <span aria-hidden="true" className="assistant-playground-switch__knob" />
+      </span>
     </label>
   );
 
-  const renderBooleanSelect = ({ checked, hint, label, onChange }) =>
-    renderSelectField({
-      label,
-      hint,
-      value: checked ? "on" : "off",
-      options: BOOLEAN_OPTIONS,
-      onChange: (value) => onChange(value === "on"),
-    });
+  const renderDivider = () => (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      className="assistant-playground-customizer__divider"
+    >
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        width="100%"
+        height="1"
+        preserveAspectRatio="none"
+        viewBox="0 0 100 1"
+      >
+        <line
+          x1="0"
+          y1="0.5"
+          x2="100"
+          y2="0.5"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeDasharray="5 5"
+          strokeLinecap="butt"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    </div>
+  );
 
   const appearance = useMemo(
     () => ({
       variant,
-      theme,
       accent,
       radius: `${radius}px`,
       side,
       align,
     }),
-    [accent, align, radius, side, theme, variant],
+    [accent, align, radius, side, variant],
   );
+
+  const togglePreviewTheme = () => {
+    setPreviewTheme((currentTheme) => {
+      const isDark =
+        currentTheme === "dark" ||
+        (currentTheme === null &&
+          document.documentElement.classList.contains("dark"));
+      return isDark ? "light" : "dark";
+    });
+  };
+
+  const toggleCustomizer = () => {
+    setCustomizeOpen((isOpen) => !isOpen);
+    setOpenSelect(null);
+  };
 
   const updatePreview = useCallback(() => {
     const previewWindow = previewRef.current?.contentWindow;
     if (!previewWindow) return;
 
-    // Match the docs theme in the iframe while generated examples retain "system".
+    // Match the docs theme until the preview-only toggle overrides it.
+    // Generated examples always retain "system".
     const liveTheme =
-      appearance.theme === "system"
-        ? document.documentElement.classList.contains("dark")
-          ? "dark"
-          : "light"
-        : appearance.theme;
+      previewTheme ??
+      (document.documentElement.classList.contains("dark") ? "dark" : "light");
 
     previewWindow.postMessage(
       {
@@ -210,7 +518,7 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
       // The preview page is same-origin (served by this docs site).
       window.location.origin,
     );
-  }, [appearance, reportErrors, trackEvents]);
+  }, [appearance, previewTheme, reportErrors, trackEvents]);
 
   useEffect(() => {
     const handlePreviewMessage = (event) => {
@@ -240,8 +548,8 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
   }, [updatePreview]);
 
   useEffect(() => {
-    // Local docs previews don't serve the `/_minimal/` renderer, and a broken
-    // embed never reports readiness. Surface a hint instead of spinning.
+    // Stop showing the loading state if the preview page never reports readiness.
+    // Leave the iframe untouched so local 404 pages remain visible while developing.
     if (!previewHostReady || !previewUrl || previewStatus !== "loading") {
       return undefined;
     }
@@ -261,7 +569,7 @@ export const AssistantWidgetPlayground = ({ CodeBlockComponent }) => {
     "  ],",
     "  appearance: {",
     `    variant: '${variant}',`,
-    `    theme: '${theme}',`,
+    "    theme: 'system',",
     `    accent: '${accent}',`,
     `    radius: '${radius}px',`,
     `    side: '${side}',`,
@@ -317,95 +625,141 @@ export const AssistantWidget = () => (
   const installCode = installTarget === "html" ? htmlCode : nextCode;
 
   return (
-    <div className="not-prose my-6 overflow-hidden rounded-xl border border-gray-950/10 dark:border-white/10">
-      <div className="flex flex-col lg:h-[36rem] lg:flex-row">
-        <div className="flex w-full flex-col border-b border-gray-950/10 dark:border-white/10 lg:h-full lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r">
-          <div className="border-b border-gray-950/10 px-4 py-3.5 dark:border-white/10">
-            <div className="text-sm font-medium text-gray-950 dark:text-white">
-              Widget playground
-            </div>
-            <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
-              Changes apply to the widget preview.
-            </p>
-          </div>
+    <div data-assistant-playground-layout="">
+      <section
+        className="assistant-playground-frame not-prose"
+        data-customize-open={customizeOpen ? "true" : "false"}
+        aria-label="Assistant widget playground"
+      >
+        <div className="assistant-playground-toolbar">
+          <button
+            type="button"
+            className="assistant-playground-toolbar__button assistant-playground-toolbar__button--labeled"
+            aria-controls="assistant-playground-customizer"
+            aria-expanded={customizeOpen}
+            onClick={toggleCustomizer}
+          >
+            <CustomizeIcon />
+            <span>Customize</span>
+          </button>
+          <button
+            type="button"
+            className="assistant-playground-toolbar__button assistant-playground-toolbar__button--icon"
+            aria-label="Toggle preview theme"
+            onClick={togglePreviewTheme}
+          >
+            <ThemeIcon />
+          </button>
+        </div>
 
-          <div className="min-h-0 flex-1 space-y-4 p-4 lg:overflow-y-auto">
+        <div
+          id="assistant-playground-customizer"
+          className="assistant-playground-customizer"
+          role="dialog"
+          aria-label="Customize assistant widget"
+          hidden={!customizeOpen}
+        >
+          <div className="assistant-playground-customizer__section">
+            <div className="assistant-playground-customizer__heading">
+              Component
+            </div>
             {renderSelectField({
+              id: "variant",
               label: "Variant",
               value: variant,
               options: VARIANT_OPTIONS,
               onChange: setVariant,
             })}
-
             {renderSelectField({
-              label: "Theme",
-              value: theme,
-              options: THEME_OPTIONS,
-              onChange: setTheme,
+              id: "radius",
+              label: "Corner radius",
+              value: radius,
+              options: RADIUS_OPTIONS,
+              onChange: setRadius,
             })}
-
-            <label className="block min-w-0">
-              <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Accent
-              </span>
-              <span className="flex h-9 items-center gap-2 rounded-lg border border-gray-950/10 bg-white px-2 shadow-sm dark:border-white/10 dark:bg-white/5">
+            <label className="assistant-playground-field">
+              <span className="assistant-playground-field__label">Accent</span>
+              <span
+                className="assistant-playground-accent"
+                data-keyboard-focus={accentKeyboardFocus ? "true" : "false"}
+              >
                 <input
+                  ref={accentInputRef}
                   type="color"
-                  value={accent}
-                  onChange={(event) => setAccent(event.target.value)}
+                  value={accentDraft}
+                  onInput={(event) =>
+                    setAccentDraft(event.currentTarget.value.toUpperCase())
+                  }
+                  onPointerDown={() => {
+                    accentPointerFocusRef.current = true;
+                    setAccentKeyboardFocus(false);
+                  }}
+                  onFocus={() => {
+                    setAccentKeyboardFocus(!accentPointerFocusRef.current);
+                    accentPointerFocusRef.current = false;
+                  }}
+                  onBlur={(event) => {
+                    setAccentKeyboardFocus(false);
+                    const nextAccent = event.currentTarget.value.toUpperCase();
+                    setAccentDraft(nextAccent);
+                    setAccent(nextAccent);
+                  }}
+                  onKeyDown={(event) => {
+                    setAccentKeyboardFocus(true);
+                    if (event.key === "Enter") {
+                      const nextAccent =
+                        event.currentTarget.value.toUpperCase();
+                      setAccentDraft(nextAccent);
+                      setAccent(nextAccent);
+                    }
+                  }}
                   aria-label="Accent color"
-                  className="h-6 w-7 cursor-pointer rounded border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  className="assistant-playground-accent__input"
                 />
-                <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
-                  {accent}
-                </span>
+                <span
+                  aria-hidden="true"
+                  className="assistant-playground-accent__swatch"
+                  style={{ backgroundColor: accentDraft }}
+                />
+                <span>{accentDraft}</span>
               </span>
             </label>
+          </div>
 
-            <label className="block min-w-0">
-              <span className="mb-1.5 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300">
-                Corner radius
-                <output className="font-mono text-xs font-normal text-gray-500 dark:text-gray-400">
-                  {radius}px
-                </output>
-              </span>
-              <input
-                type="range"
-                min="0"
-                max="32"
-                step="2"
-                value={radius}
-                onChange={(event) =>
-                  setRadius(Number.parseInt(event.target.value))
-                }
-                className="block w-full accent-primary"
-              />
-            </label>
+          {renderDivider()}
 
+          <div className="assistant-playground-customizer__section">
+            <div className="assistant-playground-customizer__heading">Trigger</div>
             {renderSelectField({
-              label: "Trigger side",
+              id: "side",
+              label: "Placement",
               value: side,
               options: SIDE_OPTIONS,
               onChange: setSide,
             })}
-
             {renderSelectField({
-              label: "Trigger alignment",
+              id: "align",
+              label: "Alignment",
               value: align,
               options: ALIGN_OPTIONS,
               onChange: setAlign,
             })}
+          </div>
 
-            {renderBooleanSelect({
+          {renderDivider()}
+
+          <div className="assistant-playground-customizer__section">
+            <div className="assistant-playground-customizer__heading">Hooks</div>
+            {renderToggleRow({
               label: "Lifecycle events",
-              hint: "Observe open, close, ask, update, and navigation events.",
+              description:
+                "Observe open, close, ask, update, and navigation events.",
               checked: trackEvents,
               onChange: setTrackEvents,
             })}
-
-            {renderBooleanSelect({
+            {renderToggleRow({
               label: "Structured errors",
-              hint: "Receive stable error codes and retry metadata.",
+              description: "Receive stable error codes and retry metadata.",
               checked: reportErrors,
               onChange: setReportErrors,
             })}
@@ -414,7 +768,9 @@ export const AssistantWidget = () => (
 
         <div
           ref={previewHostRef}
-          className="relative h-[26rem] min-w-0 flex-1 lg:h-full"
+          className="assistant-playground-preview"
+          data-assistant-preview=""
+          data-assistant-preview-card=""
         >
           {previewHostReady && previewUrl ? (
             <iframe
@@ -423,63 +779,66 @@ export const AssistantWidget = () => (
               src={previewUrl}
               onLoad={updatePreview}
               scrolling="no"
-              className="h-full w-full border-0 bg-transparent [color-scheme:light_dark] dark:[color-scheme:dark]"
             />
           ) : null}
-          {previewStatus !== "ready" ? (
+          {previewStatus === "loading" ? (
             <div
               aria-live="polite"
               role="status"
-              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-3 px-6 text-center text-sm text-gray-600 dark:text-gray-400"
+              className="assistant-playground-preview__status"
             >
-              {previewStatus === "loading" ? (
-                <span
-                  aria-hidden="true"
-                  className="size-[18px] shrink-0 animate-spin rounded-full border-[1.5px] border-gray-300 border-t-gray-600 motion-reduce:animate-none dark:border-gray-600 dark:border-t-gray-300"
-                />
-              ) : null}
-              <span>
-                {previewStatus === "loading"
-                  ? "Loading assistant preview..."
-                  : "The live preview could not load. It requires a deployed docs site and the browser console may have details."}
-              </span>
+              <span
+                aria-hidden="true"
+                className="assistant-playground-preview__spinner"
+              />
+              <span>Loading assistant preview...</span>
             </div>
           ) : null}
         </div>
-      </div>
+      </section>
 
-      <div className="border-t border-gray-950/10 p-4 dark:border-white/10">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+      <div
+        className="assistant-playground-code not-prose"
+        data-assistant-code=""
+      >
+        <div className="assistant-playground-code__header">
           <div>
-            <div className="text-sm font-medium text-gray-950 dark:text-white">
-              Install
-            </div>
-            <div className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+            <div className="assistant-playground-code__title">Install</div>
+            <div className="assistant-playground-code__description">
               Copy the generated setup for your stack.
             </div>
           </div>
-          <div className="w-32">
-            {renderSelectField({
-              label: "Target",
-              value: installTarget,
-              options: INSTALL_OPTIONS,
-              onChange: setInstallTarget,
-            })}
+          <div
+            role="group"
+            aria-label="Installation target"
+            className="assistant-playground-code__tabs"
+          >
+            {INSTALL_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                data-active={installTarget === option.value ? "true" : "false"}
+                aria-pressed={installTarget === option.value}
+                onClick={() => setInstallTarget(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
-
         <CodeBlockComponent
-          // always use jsx as language to render code highlighting correctly
+          // Always use JSX to render the generated HTML and Next.js snippets consistently.
           language="jsx"
           filename={
             installTarget === "html" ? "index.html" : "assistant-widget.jsx"
           }
           wrap
-          expandable
         >
           {installCode}
         </CodeBlockComponent>
       </div>
+
+      {children ? <div className="assistant-playground-children">{children}</div> : null}
     </div>
   );
 };
