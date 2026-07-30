@@ -16,7 +16,7 @@ export const WidgetCodeBlock = ({ children, ...props }) => (
 
 通过一段托管脚本,即可将小组件添加到任何网站或 Web 应用。小组件自带触发器,并在封闭的 Shadow DOM 内渲染,可防止你的应用样式影响小组件。
 
-浏览器端唯一必需的选项是公共小组件 ID。启用状态、允许的来源、附件以及机器人防护均可在仪表板中管理。可在浏览器配置中设置针对该嵌入的起始问题和支持邮箱。
+浏览器端唯一必需的选项是公共小组件 ID。启用状态、允许的来源、附件、机器人防护以及[分流联系表单](/zh/assistant/configure#set-deflection-email)均可在仪表板中管理。可在浏览器配置中设置针对该嵌入的起始问题和支持邮箱。
 
 <div id="prerequisites">
   ## 前置条件
@@ -144,6 +144,37 @@ await window.MintlifyAssistant.update({
 
 你可以在初始化时提供 `supportEmail` 和 `starterQuestions`,也可以稍后通过 `update()` 更改。这些值仅作用于当前嵌入,不会继承自你的 Mintlify 仪表板。
 
+<div id="scope-retrieval-by-language-or-version">
+  ## 按语言或版本限定检索范围
+</div>
+
+当你的文档按语言或[版本](/zh/organize/navigation#versions)组织时,使用 `filter` 来限定助手检索的范围。省略某个字段即可对该字段的所有取值进行检索。
+
+```js
+await window.MintlifyAssistant.init({
+  id: "YOUR_WIDGET_ID",
+  filter: {
+    language: "en",
+    version: "v2",
+  },
+});
+```
+
+`language` 必须是[受支持的语言代码](/zh/organize/settings-reference#navigation-global-languages),例如 `en`、`es`、`fr` 或 `zh-Hans`。`version` 与你在仪表板中配置的版本名称一致。
+
+当访客在你的应用中切换语言或版本时,可通过 `update()` 在运行时更改筛选条件:
+
+```js
+await window.MintlifyAssistant.update({
+  filter: {
+    language: "fr",
+    version: null,
+  },
+});
+```
+
+对某个字段传入 `null` 可清除该筛选条件,传入 `filter: null` 可同时清除两个筛选条件。
+
 <div id="configuration-reference">
   ## 配置参考
 </div>
@@ -165,6 +196,7 @@ await window.MintlifyAssistant.update({
 | `labels`           | [`AssistantLabels`](#assistantlabels)           | 面向客户的文案覆盖设置。                                                     |
 | `supportEmail`     | string                                          | 设置该嵌入在小组件工具栏中显示的支持邮箱。                                   |
 | `starterQuestions` | string[]                                        | 为该嵌入设置最多 **三** 条空状态提示。                                       |
+| `filter`           | [`AssistantFilter`](#assistantfilter)           | 将检索限定到指定的文档语言和版本。                                           |
 | `hooks`            | [`AssistantHooks`](#assistanthooks)             | 事件和错误观察者。                                                           |
 
 <div id="assistantappearance">
@@ -185,6 +217,15 @@ await window.MintlifyAssistant.update({
 | `zIndex`                   | number                                                         | 更改小组件宿主的堆叠顺序。                                                                              |
 
 不支持任意 CSS 和中性色板覆盖。封闭的 Shadow DOM 可同时保护你的应用与小组件,防止跨站样式回归。
+
+<div id="assistantfilter">
+  ### `AssistantFilter`
+</div>
+
+| Option     | Type             | Description                                                                                                                       |
+| ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `language` | string or `null` | 将检索限定到[受支持的语言代码](/zh/organize/settings-reference#navigation-global-languages),例如 `en`。省略以在所有语言中检索。       |
+| `version`  | string or `null` | 将检索限定到指定的文档版本,例如 `v2`。省略以在所有版本中检索。                                                                    |
 
 <div id="assistantlabels">
   ### `AssistantLabels`
@@ -253,6 +294,7 @@ hooks: {
 | `labels`           | [`AssistantLabels`](#assistantlabels) or `null`         | 深度合并面向客户的文案。                                          |
 | `supportEmail`     | string or `null`                                        | 更改支持邮箱。传入 `null` 可移除。                                |
 | `starterQuestions` | string[] or `null`                                      | 更改最多三条提示。传入 `null` 可恢复为空列表。                    |
+| `filter`           | [`AssistantFilter`](#assistantfilter) or `null`         | 深度合并检索筛选条件。传入 `null` 可清除所有筛选条件。            |
 | `hooks`            | [`AssistantHooks`](#assistanthooks) or `null`           | 深度合并事件和错误观察者。                                        |
 
 <div id="browser-api">
@@ -263,11 +305,11 @@ hooks: {
 | ------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `init(config)`           | [`AssistantConfig`](#assistantconfig)                        | 加载并挂载小组件。这是所有其他方法的就绪 Promise。                                 |
 | `open(options)`          | [`AssistantOpenOptions`](#assistantopenoptions)              | 打开已配置的展示形式。                                                             |
-| `close()`                | —                                                           | 关闭小组件。                                                                       |
+| `close()`                | 无                                                          | 关闭小组件。                                                                       |
 | `ask(question, options)` | string, [`AssistantAskOptions`](#assistantaskoptions)         | 按需打开小组件并发送一个问题。                                                     |
 | `update(config)`         | [`AssistantUpdate`](#assistantupdate)                        | 深度合并可变的身份、外观、文案和观察者设置。                                       |
-| `reset()`                | —                                                           | 开启一次全新的会话。                                                               |
-| `destroy()`              | —                                                           | 移除小组件并释放其浏览器资源。                                                     |
+| `reset()`                | 无                                                          | 开启一次全新的会话。                                                               |
+| `destroy()`              | 无                                                          | 移除小组件并释放其浏览器资源。                                                     |
 
 会话快照始终保留在小组件内部。每个方法都会 resolve 为 `void`。
 
@@ -279,14 +321,15 @@ hooks: {
 
 | Directive                                    | Source                              | Required for                |
 | -------------------------------------------- | ----------------------------------- | --------------------------- |
-| `script-src`                                 | `https://cdn.jsdelivr.net`          | 小组件加载器与运行时        |
-| `connect-src`                                | `https://api.mintlify.com`          | 小组件 API                  |
-| `style-src`                                  | `https://cdn.jsdelivr.net`          | 小组件样式表                |
-| `font-src`                                   | `https://cdn.jsdelivr.net`          | 可选的内置 Inter 字体       |
+| `script-src`                                 | `https://widget.mintlify.com`       | 小组件加载器与运行时        |
+| `connect-src`                                | `https://widget.mintlify.com`       | 小组件版本清单              |
+| `connect-src`                                | `https://api.mintlify.com`          | 配置、消息和反馈            |
+| `connect-src`                                | `https://ph.mintlify.com`           | 小组件内部分析              |
+| `font-src`                                   | `https://widget.mintlify.com`       | 可选的内置 Inter 字体       |
 | `script-src`, `connect-src`, and `frame-src` | `https://challenges.cloudflare.com` | Turnstile 机器人防护        |
 | `script-src`                                 | `https://js.hcaptcha.com`           | hCaptcha 机器人防护         |
 | `connect-src` and `frame-src`                | `https://*.hcaptcha.com`            | hCaptcha 机器人防护         |
 
-即使采用严格的 `script-src` 策略,也必须同时授权加载器和初始化脚本。向 `init()` 传入 `nonce` 时,仅会将其传播到小组件在初始化之后创建的资源。
+即使采用严格的 `script-src` 策略,也必须同时授权加载器和初始化脚本。严格的 `style-src` 策略必须授权你传入 `init()` 的 nonce,小组件会将其复制到注入的样式表上。向 `init()` 传入 `nonce` 时,仅会将其传播到小组件在初始化之后创建的资源。
 
 </AssistantWidgetPlayground>

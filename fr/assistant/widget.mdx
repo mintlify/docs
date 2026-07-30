@@ -16,7 +16,7 @@ L'[assistant](/fr/assistant) répond aux questions sur votre site Mintlify. Pour
 
 Ajoutez le widget à n'importe quel site web ou application web à l'aide d'un script hébergé. Le widget possède son propre déclencheur et s'affiche dans un Shadow DOM fermé, ce qui empêche les styles de votre application d'affecter le widget.
 
-La seule option de navigateur requise est l'ID public du widget. Gérez l'état d'activation, les origines autorisées, les pièces jointes et la protection contre les bots dans votre tableau de bord. Définissez les questions d'introduction spécifiques à l'intégration et une adresse e-mail d'assistance dans la configuration du navigateur.
+La seule option de navigateur requise est l'ID public du widget. Gérez l'état d'activation, les origines autorisées, les pièces jointes, la protection contre les bots et le [formulaire de contact de déflection](/fr/assistant/configure#set-deflection-email) dans votre tableau de bord. Définissez les questions d'introduction spécifiques à l'intégration et une adresse e-mail d'assistance dans la configuration du navigateur.
 
 <div id="prerequisites">
   ## Prérequis
@@ -144,6 +144,37 @@ La modification de `identity` démarre une nouvelle conversation. La modificatio
 
 Vous pouvez fournir `supportEmail` et `starterQuestions` lors de l'initialisation et les modifier ultérieurement avec `update()`. Ces valeurs s'appliquent à l'intégration en cours et ne sont pas héritées de votre tableau de bord Mintlify.
 
+<div id="scope-retrieval-by-language-or-version">
+  ## Restreindre la recherche par langue ou version
+</div>
+
+Utilisez `filter` pour restreindre ce que l'assistant récupère lorsque votre documentation est organisée par langue ou par [versions](/fr/organize/navigation#versions). Omettez un champ pour rechercher dans toutes ses valeurs.
+
+```js
+await window.MintlifyAssistant.init({
+  id: "YOUR_WIDGET_ID",
+  filter: {
+    language: "en",
+    version: "v2",
+  },
+});
+```
+
+`language` doit être un [code de langue pris en charge](/fr/organize/settings-reference#navigation-global-languages), tel que `en`, `es`, `fr` ou `zh-Hans`. `version` correspond au nom de la version configurée dans votre tableau de bord.
+
+Modifiez les filtres au moment de l'exécution avec `update()` lorsque le visiteur change de langue ou de version dans votre application :
+
+```js
+await window.MintlifyAssistant.update({
+  filter: {
+    language: "fr",
+    version: null,
+  },
+});
+```
+
+Passez `null` sur un champ pour effacer ce filtre, ou `filter: null` pour effacer les deux.
+
 <div id="configuration-reference">
   ## Référence de configuration
 </div>
@@ -165,6 +196,7 @@ Passez cet objet à `init()`.
 | `labels`           | [`AssistantLabels`](#assistantlabels)           | Substitutions du texte visible par le client.                                 |
 | `supportEmail`     | string                                          | Définit l'adresse d'assistance affichée dans la barre d'outils du widget pour cette intégration. |
 | `starterQuestions` | string[]                                        | Définit jusqu'à **trois** invites d'état vide pour cette intégration.         |
+| `filter`           | [`AssistantFilter`](#assistantfilter)           | Restreint la recherche à une langue et à une version de la documentation.    |
 | `hooks`            | [`AssistantHooks`](#assistanthooks)             | Observateurs d'événements et d'erreurs.                                       |
 
 <div id="assistantappearance">
@@ -185,6 +217,15 @@ Passez cet objet à `init()`.
 | `zIndex`                   | number                                                         | Modifie l'ordre d'empilement de l'hôte du widget.                                                       |
 
 Les substitutions CSS arbitraires et les palettes neutres ne sont pas prises en charge. Le Shadow DOM fermé protège à la fois votre application et le widget des régressions de style entre sites.
+
+<div id="assistantfilter">
+  ### `AssistantFilter`
+</div>
+
+| Option     | Type             | Description                                                                                                                                                       |
+| ---------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `language` | string or `null` | Restreint la recherche à un [code de langue pris en charge](/fr/organize/settings-reference#navigation-global-languages), tel que `en`. Omettez pour rechercher dans toutes les langues. |
+| `version`  | string or `null` | Restreint la recherche à une version de la documentation, telle que `v2`. Omettez pour rechercher dans toutes les versions.                                       |
 
 <div id="assistantlabels">
   ### `AssistantLabels`
@@ -253,6 +294,7 @@ Passez cet objet à `update()`. Chaque champ est facultatif, et `null` restaure 
 | `labels`           | [`AssistantLabels`](#assistantlabels) or `null`         | Applique un patch profond au texte visible par le client.         |
 | `supportEmail`     | string or `null`                                        | Change l'adresse d'assistance. Passez `null` pour la supprimer.   |
 | `starterQuestions` | string[] or `null`                                      | Change jusqu'à trois invites. Passez `null` pour restaurer une liste vide. |
+| `filter`           | [`AssistantFilter`](#assistantfilter) or `null`         | Applique un patch en profondeur aux filtres de recherche. Passez `null` pour effacer tous les filtres. |
 | `hooks`            | [`AssistantHooks`](#assistanthooks) or `null`           | Applique un patch profond aux observateurs d'événements et d'erreurs. |
 
 <div id="browser-api">
@@ -263,11 +305,11 @@ Passez cet objet à `update()`. Chaque champ est facultatif, et `null` restaure 
 | ------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `init(config)`           | [`AssistantConfig`](#assistantconfig)                        | Charge et monte le widget. Il s'agit de la promesse de disponibilité pour toutes les autres méthodes. |
 | `open(options)`          | [`AssistantOpenOptions`](#assistantopenoptions)              | Ouvre la présentation configurée.                                                  |
-| `close()`                | —                                                           | Ferme le widget.                                                                   |
+| `close()`                | Aucun                                                       | Ferme le widget.                                                                   |
 | `ask(question, options)` | string, [`AssistantAskOptions`](#assistantaskoptions)         | Ouvre le widget si demandé et envoie une question.                                 |
 | `update(config)`         | [`AssistantUpdate`](#assistantupdate)                        | Applique un patch profond aux paramètres modifiables d'identité, d'apparence, de texte et d'observateurs. |
-| `reset()`                | —                                                           | Démarre une nouvelle conversation.                                                 |
-| `destroy()`              | —                                                           | Supprime le widget et libère ses ressources navigateur.                            |
+| `reset()`                | Aucun                                                       | Démarre une nouvelle conversation.                                                 |
+| `destroy()`              | Aucun                                                       | Supprime le widget et libère ses ressources navigateur.                            |
 
 Les instantanés de conversation restent privés au widget. Chaque méthode se résout en `void`.
 
@@ -277,16 +319,17 @@ Les instantanés de conversation restent privés au widget. Chaque méthode se r
 
 Si votre site utilise une Content Security Policy, autorisez les origines requises par les fonctionnalités de votre widget activées :
 
-| Directive                                    | Source                              | Required for                |
-| -------------------------------------------- | ----------------------------------- | --------------------------- |
-| `script-src`                                 | `https://cdn.jsdelivr.net`          | Chargeur et runtime du widget |
-| `connect-src`                                | `https://api.mintlify.com`          | API du widget               |
-| `style-src`                                  | `https://cdn.jsdelivr.net`          | Feuille de style du widget  |
-| `font-src`                                   | `https://cdn.jsdelivr.net`          | Police Inter intégrée facultative |
-| `script-src`, `connect-src`, and `frame-src` | `https://challenges.cloudflare.com` | Protection anti-bot Turnstile |
-| `script-src`                                 | `https://js.hcaptcha.com`           | Protection anti-bot hCaptcha |
-| `connect-src` and `frame-src`                | `https://*.hcaptcha.com`            | Protection anti-bot hCaptcha |
+| Directive                                    | Source                              | Required for                              |
+| -------------------------------------------- | ----------------------------------- | ----------------------------------------- |
+| `script-src`                                 | `https://widget.mintlify.com`       | Chargeur et runtime du widget             |
+| `connect-src`                                | `https://widget.mintlify.com`       | Manifeste de version du widget            |
+| `connect-src`                                | `https://api.mintlify.com`          | Configuration, messages et commentaires   |
+| `connect-src`                                | `https://ph.mintlify.com`           | Analytique interne du widget              |
+| `font-src`                                   | `https://widget.mintlify.com`       | Police Inter intégrée facultative         |
+| `script-src`, `connect-src`, and `frame-src` | `https://challenges.cloudflare.com` | Protection anti-bot Turnstile             |
+| `script-src`                                 | `https://js.hcaptcha.com`           | Protection anti-bot hCaptcha              |
+| `connect-src` and `frame-src`                | `https://*.hcaptcha.com`            | Protection anti-bot hCaptcha              |
 
-Une politique `script-src` stricte doit toujours autoriser à la fois le chargeur et le script d'initialisation. Passer `nonce` à `init()` ne le propage qu'aux ressources créées par le widget après l'initialisation.
+Une politique `script-src` stricte doit toujours autoriser à la fois le chargeur et le script d'initialisation. Une politique `style-src` stricte doit autoriser le nonce que vous passez à `init()`, que le widget copie sur sa feuille de style injectée. Passer `nonce` à `init()` ne le propage qu'aux ressources créées par le widget après l'initialisation.
 
 </AssistantWidgetPlayground>

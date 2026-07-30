@@ -1,11 +1,10 @@
 export const AssistantWidgetPreviewHost = () => {
   // This component only runs on /assistant/widget-preview, which the widget
-  // playground embeds through the chromeless `/_minimal/` renderer so the
-  // captcha provider sees a real hostname (srcdoc iframes have none).
+  // playground embeds at a real URL so the captcha provider sees a hostname
+  // (srcdoc iframes have none).
   // Mintlify evaluates snippet exports independently, so these constants must
   // stay in sync with snippets/assistant-widget-playground.jsx.
-  const EMBED_URL =
-    "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
+  const EMBED_URL = "https://widget.mintlify.com/v1/embed.js";
   const PREVIEW_WIDGET_ID = "mint_widget_ce2bb750-8cc9-4057-96b3-cbd3aedd7acb";
   const PREVIEW_READY_MESSAGE = "mintlify-assistant-playground:ready";
   const PREVIEW_UPDATE_MESSAGE = "mintlify-assistant-playground:update";
