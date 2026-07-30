@@ -225,3 +225,113 @@ async function handleRequest(request) {
 5. 选择 **Deploy**，等待更改完成传播。
 
 <Propagating />
+
+<div id="firewall-troubleshooting">
+  ## 防火墙故障排查
+</div>
+
+如果你的文档站点在几秒钟后出现 500 错误，或者页面之间导航速度缓慢，可能是 Cloudflare 的防火墙拦截了对 Mintlify 资源的请求。
+
+<div id="symptoms">
+  ### 症状
+</div>
+
+- 文档页面最初可以加载，但在 30-60 秒后崩溃并显示 500 错误。
+- 页面之间的客户端导航缓慢或失效。
+- 浏览器控制台中出现对 `/mintlify-assets/*` 路径请求的 403 错误。
+- Cloudflare 安全挑战消息提示"malformed data"或"suspicious URL patterns"。
+
+<div id="root-cause">
+  ### 根本原因
+</div>
+
+Cloudflare 的 Web 应用防火墙（WAF）和 Bot Fight Mode 可能会因以下原因将 Mintlify 资源请求标记为可疑：
+
+- 编码 URL 参数中出现多个 `%` 符号。
+- 带有特殊字符的长查询字符串。
+- 来自闲置标签页的自动化请求。
+
+<div id="create-a-firewall-exception">
+  ### 创建防火墙例外
+</div>
+
+创建一条 Cloudflare 防火墙规则，将 Mintlify 资源从安全检查中豁免。
+
+1. 登录你的 [Cloudflare 控制台](https://dash.cloudflare.com/)。
+2. 选择你的域名。
+3. 导航至 **Security > WAF**。
+4. 选择 **Create rule**。
+5. 使用以下设置配置该规则：
+
+    **规则名称：** Allow Mintlify assets
+
+    **When incoming requests match：**
+    - Field: `Hostname`
+    - Operator: `equals`
+    - Value: `docs.yourdomain.com`（替换为你实际的文档域名）
+
+    **And：**
+    - Field: `URI Path`
+    - Operator: `starts with`
+    - Value: `/mintlify-assets/`
+
+    **Then：**
+    - Action: `Skip`
+    - Select: `All remaining custom rules`、`Managed rules` 和 `Super Bot Fight Mode`
+
+6. 启用 **Log** 以跟踪匹配到的请求。
+7. 选择 **Deploy**。
+
+<div id="verify-the-rule">
+  ### 验证规则
+</div>
+
+部署完成后：
+
+1. 在浏览器中打开你的文档站点。
+2. 让页面闲置 2-3 分钟。
+3. 在页面之间导航。
+4. 检查浏览器控制台是否有任何 403 错误。
+
+如果问题仍然存在，请核对你的规则配置：
+
+- 确保主机名与你的文档域名完全一致。
+- 确认 URI Path 使用 `starts with`（而不是 `contains`）。
+- 不要在 path 值中包含通配符（`*`）。
+- 确认你已启用并部署了该规则。
+
+<div id="common-mistakes">
+  ### 常见错误
+</div>
+
+- 对 `/mintlify-assets/*` 使用 `contains` 运算符。`*` 会被视为字面字符，而不是通配符。
+- 对 URI Path 使用 `equals`。这样只会匹配确切路径 `/mintlify-assets/`，而不匹配子路径。
+- 忘记跳过 Bot Fight Mode。请在 skip 操作中显式包含它。
+- 主机名设置错误。它必须与你实际的文档域名一致。
+
+<div id="additional-troubleshooting">
+  ### 其他故障排查
+</div>
+
+如果防火墙例外无法解决问题：
+
+1. 检查 Cloudflare 的 **Security > Events** 日志中被拦截的请求。
+2. 确认你的 Cloudflare Worker（如果使用自定义子路径）将 `Host` 头设置为你的 `<subdomain>.mintlify.site` 目标，而不是直接透传原始请求的 `Host` 头。
+3. 临时将 Security Level 设置为 "Essentially Off"，以确认 Cloudflare 是否为问题根源。
+4. 检查任何可能覆盖防火墙例外的自定义 Page Rules。
+
+<div id="example-working-configuration">
+  ### 可用配置示例
+</div>
+
+```
+Rule: Allow Mintlify assets
+Status: Enabled
+
+When incoming requests match:
+  (http.host eq "docs.flashnet.xyz" and starts_with(http.request.uri.path, "/mintlify-assets/"))
+
+Then:
+  Skip: All remaining custom rules, Managed rules, Super Bot Fight Mode
+  Log: Enabled
+```

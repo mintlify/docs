@@ -223,3 +223,113 @@ Si usas Webflow para alojar tu sitio principal y quieres servir la documentació
 5. Haz clic en **Deploy** y espera a que se propaguen los cambios.
 
 <Propagating />
+
+<div id="firewall-troubleshooting">
+  ## Solución de problemas del firewall
+</div>
+
+Si tu sitio de documentación muestra errores 500 después de unos segundos o experimenta una navegación lenta, es posible que el firewall de Cloudflare esté bloqueando las solicitudes a los recursos de Mintlify.
+
+<div id="symptoms">
+  ### Síntomas
+</div>
+
+- La página de documentación se carga inicialmente, pero falla con un error 500 después de 30-60 segundos.
+- Navegación del lado del cliente lenta o interrumpida entre páginas.
+- Errores 403 en la consola del navegador para solicitudes a rutas `/mintlify-assets/*`.
+- Mensajes de desafío de seguridad de Cloudflare sobre "malformed data" o "suspicious URL patterns".
+
+<div id="root-cause">
+  ### Causa raíz
+</div>
+
+El Web Application Firewall (WAF) y el Bot Fight Mode de Cloudflare pueden marcar las solicitudes de recursos de Mintlify como sospechosas debido a:
+
+- Múltiples símbolos `%` en parámetros de URL codificados.
+- Cadenas de consulta largas con caracteres especiales.
+- Solicitudes automatizadas desde pestañas inactivas.
+
+<div id="create-a-firewall-exception">
+  ### Crear una excepción de firewall
+</div>
+
+Crea una regla de firewall de Cloudflare para excluir los recursos de Mintlify de las comprobaciones de seguridad.
+
+1. Inicia sesión en tu [dashboard de Cloudflare](https://dash.cloudflare.com/).
+2. Selecciona tu dominio.
+3. Ve a **Security > WAF**.
+4. Haz clic en **Create rule**.
+5. Configura la regla con estos ajustes:
+
+    **Nombre de la regla:** Allow Mintlify assets
+
+    **Cuando las solicitudes entrantes coincidan con:**
+    - Campo: `Hostname`
+    - Operador: `equals`
+    - Valor: `docs.yourdomain.com` (reemplázalo con tu dominio de documentación real)
+
+    **Y:**
+    - Campo: `URI Path`
+    - Operador: `starts with`
+    - Valor: `/mintlify-assets/`
+
+    **Entonces:**
+    - Acción: `Skip`
+    - Selecciona: `All remaining custom rules`, `Managed rules` y `Super Bot Fight Mode`
+
+6. Activa **Log** para rastrear las solicitudes coincidentes.
+7. Haz clic en **Deploy**.
+
+<div id="verify-the-rule">
+  ### Verificar la regla
+</div>
+
+Después de desplegarla:
+
+1. Abre tu sitio de documentación en un navegador.
+2. Deja la página inactiva durante 2-3 minutos.
+3. Navega entre páginas.
+4. Revisa la consola del navegador en busca de errores 403.
+
+Si los problemas persisten, verifica la configuración de tu regla:
+
+- Asegúrate de que el hostname coincida exactamente con el dominio de tu documentación.
+- Confirma que la ruta URI use `starts with` (no `contains`).
+- No incluyas comodines (`*`) en el valor de la ruta.
+- Verifica que hayas activado y desplegado la regla.
+
+<div id="common-mistakes">
+  ### Errores comunes
+</div>
+
+- Usar el operador `contains` con `/mintlify-assets/*`. El `*` se trata como un carácter literal, no como un comodín.
+- Usar `equals` para URI Path. Esto solo coincide con la ruta exacta `/mintlify-assets/` y no con las subrutas.
+- Olvidar omitir el Bot Fight Mode. Inclúyelo explícitamente en la acción de skip.
+- Establecer el hostname incorrecto. Debe coincidir con el dominio real de tu documentación.
+
+<div id="additional-troubleshooting">
+  ### Solución de problemas adicional
+</div>
+
+Si la excepción del firewall no resuelve el problema:
+
+1. Revisa el registro **Security > Events** de Cloudflare en busca de solicitudes bloqueadas.
+2. Verifica que tu Cloudflare Worker (si usas una subruta personalizada) establezca el encabezado `Host` con el destino `<subdomain>.mintlify.site` en lugar de pasar el encabezado `Host` original de la solicitud.
+3. Establece temporalmente el Security Level en "Essentially Off" para confirmar que Cloudflare es la causa.
+4. Revisa cualquier Page Rule personalizada que pueda anular la excepción del firewall.
+
+<div id="example-working-configuration">
+  ### Ejemplo de configuración funcional
+</div>
+
+```
+Rule: Allow Mintlify assets
+Status: Enabled
+
+When incoming requests match:
+  (http.host eq "docs.flashnet.xyz" and starts_with(http.request.uri.path, "/mintlify-assets/"))
+
+Then:
+  Skip: All remaining custom rules, Managed rules, Super Bot Fight Mode
+  Log: Enabled
+```
