@@ -1,8 +1,7 @@
 export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   // Mintlify evaluates snippet exports independently, so shared values must stay in this scope.
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
-  const EMBED_URL =
-    "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
+  const EMBED_URL = "https://widget.mintlify.com/v1/embed.js";
   // The preview loads the hidden /assistant/widget-preview page at a real URL
   // because captcha providers reject srcdoc documents without a hostname.
   // Message names must stay in sync with snippets/assistant-widget-preview-host.jsx.

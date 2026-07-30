@@ -4,8 +4,7 @@ export const AssistantWidgetPreviewHost = () => {
   // (srcdoc iframes have none).
   // Mintlify evaluates snippet exports independently, so these constants must
   // stay in sync with snippets/assistant-widget-playground.jsx.
-  const EMBED_URL =
-    "https://cdn.jsdelivr.net/npm/@mintlify/assistant-widget@0.0/dist/browser/embed.js";
+  const EMBED_URL = "https://widget.mintlify.com/v1/embed.js";
   const PREVIEW_WIDGET_ID = "mint_widget_ce2bb750-8cc9-4057-96b3-cbd3aedd7acb";
   const PREVIEW_READY_MESSAGE = "mintlify-assistant-playground:ready";
   const PREVIEW_UPDATE_MESSAGE = "mintlify-assistant-playground:update";
