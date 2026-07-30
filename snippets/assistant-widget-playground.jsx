@@ -1,9 +1,4 @@
-export const AssistantWidgetPlayground = ({
-  children,
-  CodeBlockComponent,
-  CustomizeIconComponent,
-  ThemeIconComponent,
-}) => {
+export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
   // Mintlify evaluates snippet exports independently, so shared values must stay in this scope.
   const EXAMPLE_WIDGET_ID = "YOUR_WIDGET_ID";
   const EMBED_URL =
@@ -34,15 +29,14 @@ export const AssistantWidgetPlayground = ({
     { value: 20, label: "Extra large", detail: "20px" },
     { value: 24, label: "2X large", detail: "24px" },
   ];
-  // Mentha labels the direction the assistant opens; the widget API stores
-  // the trigger's screen edge, so each label maps to the opposite edge.
+  // Labels match the widget API: `side` is the trigger's screen edge.
   const SIDE_OPTIONS = [
-    { value: "bottom", label: "Top" },
-    { value: "top", label: "Bottom" },
-    { value: "right", label: "Left" },
-    { value: "left", label: "Right" },
-    { value: "inline-end", label: "Inline start" },
-    { value: "inline-start", label: "Inline end" },
+    { value: "bottom", label: "Bottom" },
+    { value: "top", label: "Top" },
+    { value: "left", label: "Left" },
+    { value: "right", label: "Right" },
+    { value: "inline-start", label: "Inline start" },
+    { value: "inline-end", label: "Inline end" },
   ];
   const ALIGN_OPTIONS = [
     { value: "start", label: "Start" },
@@ -53,6 +47,93 @@ export const AssistantWidgetPlayground = ({
     { value: "html", label: "HTML" },
     { value: "next", label: "Next.js" },
   ];
+
+  const CustomizeIcon = () => (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M2.83337 4.83325V12.1666"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M13.1666 3.83325V11.1666"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <circle
+        cx="2.83337"
+        cy="3.33325"
+        r="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <circle
+        cx="13.1666"
+        cy="12.6667"
+        r="1.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M6.5 3.83325H7.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M9.83337 3.83325H10.8334"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M5.16663 12.1667H6.16663"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+      <path
+        d="M8.5 12.1667H9.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="square"
+      />
+    </svg>
+  );
+
+  const ThemeIcon = () => (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M8 5.33333C6.52724 5.33333 5.33333 6.52724 5.33333 8C5.33333 9.47276 6.52724 10.6667 8 10.6667V14C4.68629 14 2 11.3137 2 8C2 4.68629 4.68629 2 8 2V5.33333ZM8 5.33333C9.47276 5.33333 10.6667 6.52724 10.6667 8C10.6667 9.47276 9.47276 10.6667 8 10.6667V5.33333Z"
+        fill="currentColor"
+      />
+      <circle
+        cx="8.00004"
+        cy="7.99992"
+        r="6.16667"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
 
   const [installTarget, setInstallTarget] = useState("html");
   const [variant, setVariant] = useState("widget");
@@ -559,7 +640,7 @@ export const AssistantWidget = () => (
             aria-expanded={customizeOpen}
             onClick={toggleCustomizer}
           >
-            {CustomizeIconComponent ? <CustomizeIconComponent /> : null}
+            <CustomizeIcon />
             <span>Customize</span>
           </button>
           <button
@@ -568,7 +649,7 @@ export const AssistantWidget = () => (
             aria-label="Toggle preview theme"
             onClick={togglePreviewTheme}
           >
-            {ThemeIconComponent ? <ThemeIconComponent /> : null}
+            <ThemeIcon />
           </button>
         </div>
 
@@ -652,14 +733,14 @@ export const AssistantWidget = () => (
             <div className="assistant-playground-customizer__heading">Trigger</div>
             {renderSelectField({
               id: "side",
-              label: "Alignment",
+              label: "Placement",
               value: side,
               options: SIDE_OPTIONS,
               onChange: setSide,
             })}
             {renderSelectField({
               id: "align",
-              label: "Placement",
+              label: "Alignment",
               value: align,
               options: ALIGN_OPTIONS,
               onChange: setAlign,
