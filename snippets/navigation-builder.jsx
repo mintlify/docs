@@ -58,69 +58,41 @@ export const NavigationBuilder = () => {
   ])
   const [copied, setCopied] = useState(false)
   const [previewActive, setPreviewActive] = useState({})
+  const [openDropdown, setOpenDropdown] = useState(null)
   const [rightPanelTab, setRightPanelTab] = useState("preview")
 
-  // Divisions where only one sibling is visible at a time (a switcher the visitor
-  // clicks between), as opposed to groups/pages, which all render together.
-  const SWITCHER_DIVISIONS = new Set([
-    "languages",
-    "versions",
-    "products",
-    "dropdowns",
-    "tabs",
-    "anchors",
-    "menu",
-  ])
-  // Visual treatment per switcher division, echoing how each renders in a live site:
-  // tabs underline like a real tab bar, anchors/dropdowns/products/menu read as buttons.
-  const SWITCHER_CHIP_CLASSES = {
-    tabs: (active) =>
-      `px-1 pb-1 text-sm border-b-2 transition-colors ${
-        active
-          ? "border-primary text-primary dark:text-primary-light font-medium"
-          : "border-transparent text-zinc-950/60 dark:text-white/60 hover:text-zinc-950/90 dark:hover:text-white/90"
-      }`,
-    dropdowns: (active) =>
-      `px-2.5 py-1 text-sm rounded-full transition-colors ${
-        active
-          ? "bg-primary text-white"
-          : "bg-zinc-950/5 dark:bg-white/10 text-zinc-950/70 dark:text-white/70"
-      }`,
-    products: (active) =>
-      `px-2.5 py-1 text-sm rounded-md border transition-colors ${
-        active
-          ? "border-primary text-primary dark:text-primary-light"
-          : "border-zinc-950/10 dark:border-white/10 text-zinc-950/70 dark:text-white/70"
-      }`,
-    versions: (active) =>
-      `px-2 py-0.5 text-xs font-mono rounded-md transition-colors ${
-        active
-          ? "bg-primary/10 text-primary dark:text-primary-light"
-          : "bg-zinc-950/5 dark:bg-white/10 text-zinc-950/60 dark:text-white/60"
-      }`,
-    languages: (active) =>
-      `px-2 py-0.5 text-xs uppercase tracking-wide rounded-md transition-colors ${
-        active
-          ? "bg-primary/10 text-primary dark:text-primary-light"
-          : "bg-zinc-950/5 dark:bg-white/10 text-zinc-950/60 dark:text-white/60"
-      }`,
-    anchors: (active) =>
-      `px-2.5 py-1 text-sm rounded-full border transition-colors ${
-        active
-          ? "bg-primary/10 border-primary text-primary dark:text-primary-light"
-          : "border-zinc-950/10 dark:border-white/10 text-zinc-950/70 dark:text-white/70"
-      }`,
-    menu: (active) =>
-      `px-2 py-1 text-xs rounded-md border border-dashed transition-colors ${
-        active
-          ? "border-primary text-primary dark:text-primary-light"
-          : "border-zinc-950/20 dark:border-white/20 text-zinc-950/60 dark:text-white/60"
-      }`,
-  }
+  // Divisions that render in the mock navbar, like a live site's top bar.
+  const NAVBAR_DIVISIONS = new Set(["tabs", "dropdowns", "products", "versions", "languages"])
+  // Anything else (anchors, menu) pins above the sidebar tree instead: anchors stay always
+  // visible, a menu is the active tab/product's flyout. Groups/pages become the tree itself.
 
   const activeIndexFor = (key, length) => Math.min(previewActive[key] ?? 0, Math.max(length - 1, 0))
   const setPreviewActiveIndex = (key, index) =>
     setPreviewActive((prev) => ({ ...prev, [key]: index }))
+  const toggleDropdown = (key) => setOpenDropdown((prev) => (prev === key ? null : key))
+  const closeDropdown = () => setOpenDropdown(null)
+
+  useEffect(() => {
+    if (!openDropdown) return undefined
+    const closeOnPointerDown = (event) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(`[data-preview-dropdown="${openDropdown}"]`)
+      ) {
+        return
+      }
+      setOpenDropdown(null)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpenDropdown(null)
+    }
+    document.addEventListener("pointerdown", closeOnPointerDown)
+    document.addEventListener("keydown", closeOnEscape)
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown)
+      document.removeEventListener("keydown", closeOnEscape)
+    }
+  }, [openDropdown])
 
   const mapTree = (items, id, fn) =>
     items.map((item) => {
@@ -361,25 +333,144 @@ export const NavigationBuilder = () => {
     </div>
   )
 
-  const renderSwitcherRow = (division, nodes, key, activeIdx) => {
-    const meta = DIVISIONS[division]
-    const chipClass = SWITCHER_CHIP_CLASSES[division]
-    const showChevron = division === "dropdowns" || division === "products"
+  // Chevron icon used on real dropdown/select-style controls.
+  const renderChevron = (isOpen) => (
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+    >
+      <path
+        d="M4 6L8 10L12 6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+
+  // A real tab bar: plain text links, active tab underlined, like a live site's top navigation.
+  const renderTabsRow = (nodes, key, activeIdx, meta) => (
+    <div key={key} className="flex items-center gap-4">
+      {nodes.map((node, index) => (
+        <button
+          key={node.id}
+          type="button"
+          onClick={() => setPreviewActiveIndex(key, index)}
+          className={`text-sm pb-2 -mb-px border-b-2 transition-colors ${
+            index === activeIdx
+              ? "border-primary text-zinc-950 dark:text-white font-medium"
+              : "border-transparent text-zinc-950/60 dark:text-white/60 hover:text-zinc-950/90 dark:hover:text-white/90"
+          }`}
+        >
+          {node.label.trim() || meta.placeholder}
+        </button>
+      ))}
+    </div>
+  )
+
+  // A real dropdown/select: a trigger button that opens a popover listing the other options.
+  const renderDropdownControl = (division, nodes, key, activeIdx, meta) => {
+    const activeNode = nodes[activeIdx]
+    const isOpen = openDropdown === key
+    const compact = division === "versions" || division === "languages"
     return (
-      <div className="space-y-1">
-        <div className="text-[10px] uppercase tracking-wide text-zinc-950/40 dark:text-white/40 px-1">
-          {meta.pluralLabel}
-        </div>
-        <div className="flex flex-wrap gap-1.5 px-1">
-          {nodes.map((node, index) => (
+      <div key={key} className="relative" data-preview-dropdown={key}>
+        <button
+          type="button"
+          onClick={() => toggleDropdown(key)}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          className={`flex items-center gap-1 rounded-md border border-zinc-950/10 dark:border-white/10 text-zinc-950/80 dark:text-white/80 hover:bg-zinc-950/5 dark:hover:bg-white/10 transition-colors ${
+            compact ? "px-2 py-1 text-xs" : "px-2.5 py-1.5 text-sm"
+          }`}
+        >
+          <span className="truncate max-w-[8rem]">
+            {activeNode ? activeNode.label.trim() || meta.placeholder : meta.placeholder}
+          </span>
+          {renderChevron(isOpen)}
+        </button>
+        {isOpen ? (
+          <div
+            role="listbox"
+            className="absolute z-10 top-full left-0 mt-1 min-w-[9rem] rounded-lg border dark:border-white/10 bg-white dark:bg-zinc-900 shadow-lg py-1"
+          >
+            {nodes.map((node, index) => (
+              <button
+                key={node.id}
+                type="button"
+                role="option"
+                aria-selected={index === activeIdx}
+                onClick={() => {
+                  setPreviewActiveIndex(key, index)
+                  closeDropdown()
+                }}
+                className={`block w-full text-left px-3 py-1.5 text-sm transition-colors ${
+                  index === activeIdx
+                    ? "text-primary dark:text-primary-light font-medium"
+                    : "text-zinc-950/70 dark:text-white/70 hover:bg-zinc-950/5 dark:hover:bg-white/10"
+                }`}
+              >
+                {node.label.trim() || meta.placeholder}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  const renderNavbarRow = (row) => {
+    const meta = DIVISIONS[row.division]
+    if (row.division === "tabs") return renderTabsRow(row.nodes, row.key, row.activeIdx, meta)
+    return renderDropdownControl(row.division, row.nodes, row.key, row.activeIdx, meta)
+  }
+
+  // Anchors pin above the sidebar tree as always-visible buttons (no popover, since anchors
+  // are meant to stay in view). A menu is the tab/product flyout, shown as a strip of items.
+  const renderSidebarHeaderRow = (row) => {
+    const meta = DIVISIONS[row.division]
+    if (row.division === "anchors") {
+      return (
+        <div key={row.key} className="space-y-0.5 pb-2 mb-2 border-b border-dashed border-zinc-950/10 dark:border-white/10">
+          {row.nodes.map((node, index) => (
             <button
               key={node.id}
               type="button"
-              onClick={() => setPreviewActiveIndex(key, index)}
-              className={chipClass(index === activeIdx)}
+              onClick={() => setPreviewActiveIndex(row.key, index)}
+              className={`flex items-center gap-1.5 w-full px-2 py-1 text-sm rounded-md transition-colors ${
+                index === row.activeIdx
+                  ? "bg-primary/10 text-primary dark:text-primary-light font-medium"
+                  : "text-zinc-950/70 dark:text-white/70 hover:bg-zinc-950/5 dark:hover:bg-white/10"
+              }`}
+            >
+              <span aria-hidden="true" className="w-3 h-3 rounded-sm border border-current opacity-60 shrink-0" />
+              <span className="truncate">{node.label.trim() || meta.placeholder}</span>
+            </button>
+          ))}
+        </div>
+      )
+    }
+    return (
+      <div key={row.key} className="pb-2 mb-2 border-b border-dashed border-zinc-950/10 dark:border-white/10">
+        <div className="text-[10px] uppercase tracking-wide text-zinc-950/40 dark:text-white/40 px-1 mb-1">Menu</div>
+        <div className="flex flex-wrap gap-1">
+          {row.nodes.map((node, index) => (
+            <button
+              key={node.id}
+              type="button"
+              onClick={() => setPreviewActiveIndex(row.key, index)}
+              className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                index === row.activeIdx
+                  ? "border-primary text-primary dark:text-primary-light"
+                  : "border-zinc-950/15 dark:border-white/15 text-zinc-950/60 dark:text-white/60 hover:bg-zinc-950/5 dark:hover:bg-white/10"
+              }`}
             >
               {node.label.trim() || meta.placeholder}
-              {showChevron ? <span className="ml-1 opacity-60">&#9662;</span> : null}
             </button>
           ))}
         </div>
@@ -387,34 +478,38 @@ export const NavigationBuilder = () => {
     )
   }
 
-  const renderPreviewLevel = (division, nodes, key) => {
-    if (!division || !nodes.length) {
-      return <div className="px-2 py-1 text-xs text-zinc-950/40 dark:text-white/40">Nothing nested here yet.</div>
-    }
+  // Walk down the active path, sorting each switcher level into the navbar or the sidebar
+  // header, until reaching the groups/pages tree that becomes the sidebar's main content.
+  const collectPreview = (division, nodes, key) => {
+    const empty = { navbarRows: [], sidebarHeaderRows: [], sidebarContent: null }
+    if (!division || !nodes.length) return empty
     if (division === "pages") {
-      return <div className="space-y-0.5">{nodes.map((entry) => renderPreviewPage(entry))}</div>
+      return { ...empty, sidebarContent: <div className="space-y-0.5">{nodes.map((entry) => renderPreviewPage(entry))}</div> }
     }
     if (division === "groups") {
-      return <div className="space-y-2">{nodes.map((node) => renderPreviewGroup(node))}</div>
+      return { ...empty, sidebarContent: <div className="space-y-2">{nodes.map((node) => renderPreviewGroup(node))}</div> }
     }
 
     const activeIdx = activeIndexFor(key, nodes.length)
     const activeNode = nodes[activeIdx]
-    return (
-      <div className="space-y-3">
-        {renderSwitcherRow(division, nodes, key, activeIdx)}
-        <div className="pt-3 border-t border-dashed border-zinc-950/10 dark:border-white/10">
-          {activeNode
-            ? renderPreviewLevel(
-                activeNode.childDivision,
-                activeNode.childDivision === "pages" ? activeNode.pages : activeNode.children,
-                activeNode.id,
-              )
-            : null}
-        </div>
-      </div>
-    )
+    const row = { division, nodes, key, activeIdx }
+    const rest = activeNode
+      ? collectPreview(
+          activeNode.childDivision,
+          activeNode.childDivision === "pages" ? activeNode.pages : activeNode.children,
+          activeNode.id,
+        )
+      : empty
+
+    if (NAVBAR_DIVISIONS.has(division)) {
+      return { ...rest, navbarRows: [row, ...rest.navbarRows] }
+    }
+    return { ...rest, sidebarHeaderRows: [row, ...rest.sidebarHeaderRows] }
   }
+
+  const preview = rootDivision
+    ? collectPreview(rootDivision, entries, "root")
+    : { navbarRows: [], sidebarHeaderRows: [], sidebarContent: null }
 
   return (
     <div className="not-prose grid gap-4 lg:grid-cols-2 lg:items-start">
@@ -473,8 +568,9 @@ export const NavigationBuilder = () => {
         )}
       </div>
 
-      <div className="lg:sticky lg:top-4 rounded-2xl border dark:border-white/10 overflow-hidden">
-        <div className="flex items-center gap-1.5 px-3 py-2 border-b dark:border-white/10 bg-zinc-950/[0.02] dark:bg-white/[0.02]">
+      <div className="lg:sticky lg:top-4 rounded-2xl border dark:border-white/10">
+        {/* Rounded directly (not via a clipping parent) so the dropdown popovers below aren't cut off. */}
+        <div className="flex items-center gap-1.5 px-3 py-2 rounded-t-2xl border-b dark:border-white/10 bg-zinc-950/[0.02] dark:bg-white/[0.02]">
           <span className="w-2.5 h-2.5 rounded-full bg-zinc-950/15 dark:bg-white/15" />
           <span className="w-2.5 h-2.5 rounded-full bg-zinc-950/15 dark:bg-white/15" />
           <span className="w-2.5 h-2.5 rounded-full bg-zinc-950/15 dark:bg-white/15" />
@@ -518,21 +614,47 @@ export const NavigationBuilder = () => {
             </button>
           )}
         </div>
-        <div className="p-4 h-[26rem] overflow-auto">
-          {rightPanelTab === "preview" ? (
-            rootDivision ? (
-              renderPreviewLevel(rootDivision, entries, "root")
-            ) : (
-              <div className="text-sm text-zinc-950/50 dark:text-white/50">
-                Choose a root pattern to see a preview.
+        {rightPanelTab === "preview" ? (
+          rootDivision ? (
+            <div className="h-[26rem] flex flex-col">
+              <div className="flex flex-wrap items-center gap-4 px-3 py-2.5 border-b dark:border-white/10">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span aria-hidden="true" className="w-4 h-4 rounded bg-primary/30" />
+                  <span className="text-xs font-medium text-zinc-950/70 dark:text-white/70">Sitename</span>
+                </div>
+                {preview.navbarRows.length ? (
+                  <div className="flex flex-wrap items-center gap-4">
+                    {preview.navbarRows.map((row) => renderNavbarRow(row))}
+                  </div>
+                ) : null}
               </div>
-            )
+              <div className="flex flex-1 min-h-0">
+                <div className="w-44 shrink-0 border-r dark:border-white/10 p-3 overflow-y-auto">
+                  {preview.sidebarHeaderRows.map((row) => renderSidebarHeaderRow(row))}
+                  {preview.sidebarContent || (
+                    <div className="text-xs text-zinc-950/40 dark:text-white/40">Nothing nested here yet.</div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 p-4 space-y-2" aria-hidden="true">
+                  <div className="h-3 w-2/3 rounded bg-zinc-950/10 dark:bg-white/10" />
+                  <div className="h-2 w-full rounded bg-zinc-950/5 dark:bg-white/5" />
+                  <div className="h-2 w-full rounded bg-zinc-950/5 dark:bg-white/5" />
+                  <div className="h-2 w-4/5 rounded bg-zinc-950/5 dark:bg-white/5" />
+                </div>
+              </div>
+            </div>
           ) : (
+            <div className="p-4 h-[26rem] flex items-center justify-center text-sm text-zinc-950/50 dark:text-white/50">
+              Choose a root pattern to see a preview.
+            </div>
+          )
+        ) : (
+          <div className="p-4 h-[26rem] overflow-auto">
             <pre className="text-xs">
               <code>{output}</code>
             </pre>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )
