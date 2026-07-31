@@ -57,6 +57,70 @@ export const NavigationBuilder = () => {
     },
   ])
   const [copied, setCopied] = useState(false)
+  const [previewActive, setPreviewActive] = useState({})
+  const [rightPanelTab, setRightPanelTab] = useState("preview")
+
+  // Divisions where only one sibling is visible at a time (a switcher the visitor
+  // clicks between), as opposed to groups/pages, which all render together.
+  const SWITCHER_DIVISIONS = new Set([
+    "languages",
+    "versions",
+    "products",
+    "dropdowns",
+    "tabs",
+    "anchors",
+    "menu",
+  ])
+  // Visual treatment per switcher division, echoing how each renders in a live site:
+  // tabs underline like a real tab bar, anchors/dropdowns/products/menu read as buttons.
+  const SWITCHER_CHIP_CLASSES = {
+    tabs: (active) =>
+      `px-1 pb-1 text-sm border-b-2 transition-colors ${
+        active
+          ? "border-primary text-primary dark:text-primary-light font-medium"
+          : "border-transparent text-zinc-950/60 dark:text-white/60 hover:text-zinc-950/90 dark:hover:text-white/90"
+      }`,
+    dropdowns: (active) =>
+      `px-2.5 py-1 text-sm rounded-full transition-colors ${
+        active
+          ? "bg-primary text-white"
+          : "bg-zinc-950/5 dark:bg-white/10 text-zinc-950/70 dark:text-white/70"
+      }`,
+    products: (active) =>
+      `px-2.5 py-1 text-sm rounded-md border transition-colors ${
+        active
+          ? "border-primary text-primary dark:text-primary-light"
+          : "border-zinc-950/10 dark:border-white/10 text-zinc-950/70 dark:text-white/70"
+      }`,
+    versions: (active) =>
+      `px-2 py-0.5 text-xs font-mono rounded-md transition-colors ${
+        active
+          ? "bg-primary/10 text-primary dark:text-primary-light"
+          : "bg-zinc-950/5 dark:bg-white/10 text-zinc-950/60 dark:text-white/60"
+      }`,
+    languages: (active) =>
+      `px-2 py-0.5 text-xs uppercase tracking-wide rounded-md transition-colors ${
+        active
+          ? "bg-primary/10 text-primary dark:text-primary-light"
+          : "bg-zinc-950/5 dark:bg-white/10 text-zinc-950/60 dark:text-white/60"
+      }`,
+    anchors: (active) =>
+      `px-2.5 py-1 text-sm rounded-full border transition-colors ${
+        active
+          ? "bg-primary/10 border-primary text-primary dark:text-primary-light"
+          : "border-zinc-950/10 dark:border-white/10 text-zinc-950/70 dark:text-white/70"
+      }`,
+    menu: (active) =>
+      `px-2 py-1 text-xs rounded-md border border-dashed transition-colors ${
+        active
+          ? "border-primary text-primary dark:text-primary-light"
+          : "border-zinc-950/20 dark:border-white/20 text-zinc-950/60 dark:text-white/60"
+      }`,
+  }
+
+  const activeIndexFor = (key, length) => Math.min(previewActive[key] ?? 0, Math.max(length - 1, 0))
+  const setPreviewActiveIndex = (key, index) =>
+    setPreviewActive((prev) => ({ ...prev, [key]: index }))
 
   const mapTree = (items, id, fn) =>
     items.map((item) => {
@@ -274,6 +338,84 @@ export const NavigationBuilder = () => {
     )
   }
 
+  const renderPreviewPage = (entry) => (
+    <div
+      key={entry.id}
+      className="flex items-center gap-1.5 px-2 py-1 rounded-md text-sm text-zinc-950/70 dark:text-white/70"
+    >
+      <span aria-hidden="true" className="w-1 h-1 rounded-full bg-zinc-950/30 dark:bg-white/30 shrink-0" />
+      <span className="truncate">{entry.value.trim() || "page-path"}</span>
+    </div>
+  )
+
+  const renderPreviewGroup = (node) => (
+    <div key={node.id} className="mb-2 last:mb-0">
+      <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-950/50 dark:text-white/50">
+        {node.label.trim() || DIVISIONS.groups.placeholder}
+      </div>
+      {node.childDivision === "pages" ? (
+        <div className="pl-3 space-y-0.5">
+          {node.pages.map((entry) => (entry.type === "leaf" ? renderPreviewPage(entry) : renderPreviewGroup(entry)))}
+        </div>
+      ) : null}
+    </div>
+  )
+
+  const renderSwitcherRow = (division, nodes, key, activeIdx) => {
+    const meta = DIVISIONS[division]
+    const chipClass = SWITCHER_CHIP_CLASSES[division]
+    const showChevron = division === "dropdowns" || division === "products"
+    return (
+      <div className="space-y-1">
+        <div className="text-[10px] uppercase tracking-wide text-zinc-950/40 dark:text-white/40 px-1">
+          {meta.pluralLabel}
+        </div>
+        <div className="flex flex-wrap gap-1.5 px-1">
+          {nodes.map((node, index) => (
+            <button
+              key={node.id}
+              type="button"
+              onClick={() => setPreviewActiveIndex(key, index)}
+              className={chipClass(index === activeIdx)}
+            >
+              {node.label.trim() || meta.placeholder}
+              {showChevron ? <span className="ml-1 opacity-60">&#9662;</span> : null}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const renderPreviewLevel = (division, nodes, key) => {
+    if (!division || !nodes.length) {
+      return <div className="px-2 py-1 text-xs text-zinc-950/40 dark:text-white/40">Nothing nested here yet.</div>
+    }
+    if (division === "pages") {
+      return <div className="space-y-0.5">{nodes.map((entry) => renderPreviewPage(entry))}</div>
+    }
+    if (division === "groups") {
+      return <div className="space-y-2">{nodes.map((node) => renderPreviewGroup(node))}</div>
+    }
+
+    const activeIdx = activeIndexFor(key, nodes.length)
+    const activeNode = nodes[activeIdx]
+    return (
+      <div className="space-y-3">
+        {renderSwitcherRow(division, nodes, key, activeIdx)}
+        <div className="pt-3 border-t border-dashed border-zinc-950/10 dark:border-white/10">
+          {activeNode
+            ? renderPreviewLevel(
+                activeNode.childDivision,
+                activeNode.childDivision === "pages" ? activeNode.pages : activeNode.children,
+                activeNode.id,
+              )
+            : null}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="not-prose grid gap-4 lg:grid-cols-2 lg:items-start">
       <div className="rounded-2xl border dark:border-white/10 p-4 space-y-4">
@@ -331,23 +473,66 @@ export const NavigationBuilder = () => {
         )}
       </div>
 
-      <div className="lg:sticky lg:top-4 relative">
-        <button
-          onClick={copyToClipboard}
-          aria-label="Copy configuration"
-          className="absolute top-2 right-2 p-2 rounded-lg transition-all duration-200 group"
-        >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="w-4 h-4 dark:text-white/60 text-gray-400 group-hover:text-gray-500 dark:group-hover:text-white/60 transition-colors">
-            <path d="M14.25 5.25H7.25C6.14543 5.25 5.25 6.14543 5.25 7.25V14.25C5.25 15.3546 6.14543 16.25 7.25 16.25H14.25C15.3546 16.25 16.25 15.3546 16.25 14.25V7.25C16.25 6.14543 15.3546 5.25 14.25 5.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-            <path d="M2.80103 11.998L1.77203 5.07397C1.61003 3.98097 2.36403 2.96397 3.45603 2.80197L10.38 1.77297C11.313 1.63397 12.19 2.16297 12.528 3.00097" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-          </svg>
-          <span className="absolute top-9 right-0 bg-primary text-white text-xs px-1.5 py-0.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-            {copied ? "Copied" : "Copy"}
-          </span>
-        </button>
-        <pre className="p-4 rounded-lg overflow-auto text-xs border dark:border-white/10 max-h-[32rem]">
-          <code>{output}</code>
-        </pre>
+      <div className="lg:sticky lg:top-4 rounded-2xl border dark:border-white/10 overflow-hidden">
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b dark:border-white/10 bg-zinc-950/[0.02] dark:bg-white/[0.02]">
+          <span className="w-2.5 h-2.5 rounded-full bg-zinc-950/15 dark:bg-white/15" />
+          <span className="w-2.5 h-2.5 rounded-full bg-zinc-950/15 dark:bg-white/15" />
+          <span className="w-2.5 h-2.5 rounded-full bg-zinc-950/15 dark:bg-white/15" />
+          <div className="ml-2 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setRightPanelTab("preview")}
+              aria-pressed={rightPanelTab === "preview"}
+              className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
+                rightPanelTab === "preview"
+                  ? "bg-zinc-950/10 dark:bg-white/15 text-zinc-950 dark:text-white font-medium"
+                  : "text-zinc-950/50 dark:text-white/50 hover:text-zinc-950/80 dark:hover:text-white/80"
+              }`}
+            >
+              Preview
+            </button>
+            <button
+              type="button"
+              onClick={() => setRightPanelTab("json")}
+              aria-pressed={rightPanelTab === "json"}
+              className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
+                rightPanelTab === "json"
+                  ? "bg-zinc-950/10 dark:bg-white/15 text-zinc-950 dark:text-white font-medium"
+                  : "text-zinc-950/50 dark:text-white/50 hover:text-zinc-950/80 dark:hover:text-white/80"
+              }`}
+            >
+              docs.json
+            </button>
+          </div>
+          {rightPanelTab === "json" && (
+            <button
+              type="button"
+              onClick={copyToClipboard}
+              className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-xs text-zinc-950/50 dark:text-white/50 hover:text-zinc-950/80 dark:hover:text-white/80 hover:bg-zinc-950/5 dark:hover:bg-white/10 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M14.25 5.25H7.25C6.14543 5.25 5.25 6.14543 5.25 7.25V14.25C5.25 15.3546 6.14543 16.25 7.25 16.25H14.25C15.3546 16.25 16.25 15.3546 16.25 14.25V7.25C16.25 6.14543 15.3546 5.25 14.25 5.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+                <path d="M2.80103 11.998L1.77203 5.07397C1.61003 3.98097 2.36403 2.96397 3.45603 2.80197L10.38 1.77297C11.313 1.63397 12.19 2.16297 12.528 3.00097" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+              </svg>
+              {copied ? "Copied" : "Copy"}
+            </button>
+          )}
+        </div>
+        <div className="p-4 h-[26rem] overflow-auto">
+          {rightPanelTab === "preview" ? (
+            rootDivision ? (
+              renderPreviewLevel(rootDivision, entries, "root")
+            ) : (
+              <div className="text-sm text-zinc-950/50 dark:text-white/50">
+                Choose a root pattern to see a preview.
+              </div>
+            )
+          ) : (
+            <pre className="text-xs">
+              <code>{output}</code>
+            </pre>
+          )}
+        </div>
       </div>
     </div>
   )
