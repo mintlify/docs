@@ -40,22 +40,8 @@ export const NavigationBuilder = () => {
   })
   const createLeaf = () => ({ id: nextId("page"), type: "leaf", value: "" })
 
-  const [rootDivision, setRootDivision] = useState("groups")
-  const [entries, setEntries] = useState([
-    {
-      id: "seed-group",
-      type: "container",
-      division: "groups",
-      label: "Getting started",
-      childDivision: "pages",
-      children: [],
-      pages: [
-        { id: "seed-page-1", type: "leaf", value: "index" },
-        { id: "seed-page-2", type: "leaf", value: "quickstart" },
-        { id: "seed-page-3", type: "leaf", value: "development" },
-      ],
-    },
-  ])
+  const [rootDivision, setRootDivision] = useState(null)
+  const [entries, setEntries] = useState([])
   const [copied, setCopied] = useState(false)
   const [previewActive, setPreviewActive] = useState({})
   const [openDropdown, setOpenDropdown] = useState(null)
