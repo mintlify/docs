@@ -111,32 +111,20 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
     </svg>
   );
 
-  const ThemeIcon = () => (
-    <svg
-      aria-hidden="true"
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M8 5.33333C6.52724 5.33333 5.33333 6.52724 5.33333 8C5.33333 9.47276 6.52724 10.6667 8 10.6667V14C4.68629 14 2 11.3137 2 8C2 4.68629 4.68629 2 8 2V5.33333ZM8 5.33333C9.47276 5.33333 10.6667 6.52724 10.6667 8C10.6667 9.47276 9.47276 10.6667 8 10.6667V5.33333Z"
-        fill="currentColor"
-      />
-      <circle
-        cx="8.00004"
-        cy="7.99992"
-        r="6.16667"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-    </svg>
-  );
+  // The theme icon SVG is inlined in the toolbar button below (not a nested
+  // component) so React keeps the same DOM nodes across renders; a component
+  // defined inside this function gets a new identity every render, which
+  // remounts the SVG and prevents the CSS transition from ever running.
+  const ICON_CENTER = 6.66667;
 
   const [installTarget, setInstallTarget] = useState("html");
   const [variant, setVariant] = useState("widget");
   const [previewTheme, setPreviewTheme] = useState(null);
+  const [docsIsDark, setDocsIsDark] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark"),
+  );
   const [accent, setAccent] = useState("#166E3F");
   const [accentDraft, setAccentDraft] = useState("#166E3F");
   const [accentKeyboardFocus, setAccentKeyboardFocus] = useState(false);
@@ -480,14 +468,11 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
     [accent, align, radius, side, variant],
   );
 
+  const isPreviewDark =
+    previewTheme === "dark" || (previewTheme === null && docsIsDark);
+
   const togglePreviewTheme = () => {
-    setPreviewTheme((currentTheme) => {
-      const isDark =
-        currentTheme === "dark" ||
-        (currentTheme === null &&
-          document.documentElement.classList.contains("dark"));
-      return isDark ? "light" : "dark";
-    });
+    setPreviewTheme(isPreviewDark ? "light" : "dark");
   };
 
   const toggleCustomizer = () => {
@@ -532,7 +517,10 @@ export const AssistantWidgetPlayground = ({ children, CodeBlockComponent }) => {
         setPreviewStatus(event.data.state === "error" ? "error" : "ready");
       }
     };
-    const themeObserver = new MutationObserver(updatePreview);
+    const themeObserver = new MutationObserver(() => {
+      setDocsIsDark(document.documentElement.classList.contains("dark"));
+      updatePreview();
+    });
 
     window.addEventListener("message", handlePreviewMessage);
     themeObserver.observe(document.documentElement, {
@@ -648,7 +636,40 @@ export const AssistantWidget = () => (
             aria-label="Toggle preview theme"
             onClick={togglePreviewTheme}
           >
-            <ThemeIcon />
+            <svg
+              aria-hidden="true"
+              className={`theme-icon${isPreviewDark ? " theme-icon--dark" : ""}`}
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <g transform={`translate(${ICON_CENTER} ${ICON_CENTER})`}>
+                <g className="theme-icon__fill-wrap">
+                  <g transform={`translate(${-ICON_CENTER} ${-ICON_CENTER})`}>
+                    <path
+                      className="theme-icon__fill"
+                      d="M6.66667 4C8.13943 4 9.33333 5.19391 9.33333 6.66667C9.33333 8.13943 8.13943 9.33333 6.66667 9.33333V4Z"
+                      fill="currentColor"
+                    />
+                  </g>
+                </g>
+              </g>
+              <g transform={`translate(${ICON_CENTER} ${ICON_CENTER})`}>
+                <g className="theme-icon__ring-wrap">
+                  <g transform={`translate(${-ICON_CENTER} ${-ICON_CENTER})`}>
+                    <path
+                      className="theme-icon__ring"
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M6.66667 0C10.3486 0 13.3333 2.98477 13.3333 6.66667C13.3333 10.3486 10.3486 13.3333 6.66667 13.3333C2.98477 13.3333 0 10.3486 0 6.66667C0 2.98477 2.98477 0 6.66667 0ZM6.66667 4C5.19391 4 4 5.19391 4 6.66667C4 8.13943 5.19391 9.33333 6.66667 9.33333V12.3333C9.79628 12.3333 12.3333 9.79628 12.3333 6.66667C12.3333 3.53705 9.79628 1 6.66667 1V4Z"
+                      fill="currentColor"
+                    />
+                  </g>
+                </g>
+              </g>
+            </svg>
           </button>
         </div>
 
