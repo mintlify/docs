@@ -40,6 +40,10 @@ Search the docs before creating new pages. You may need to:
 - Add a section to an existing page
 - Link to existing content rather than duplicating
 
+### Separate source and target repositories
+
+When a user asks you to create documentation from an existing code or product repository, treat that repository as read-only research context. Keep the Mintlify documentation repository as the writable target. Read source files to verify product behavior, but write generated MDX and `docs.json` changes only to the documentation repository.
+
 ### Read surrounding content
 
 Before writing, read 2-3 similar pages to understand the site's voice, structure, formatting conventions, and level of detail.
