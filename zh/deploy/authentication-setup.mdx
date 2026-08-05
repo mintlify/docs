@@ -125,7 +125,7 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
         * **Scopes** (可选) ：要请求的权限。复制 **完整的** scope 字符串 (例如，对于 `provider.users.docs` 这样的 scope，复制完整的 `provider.users.docs`) 。如果需要不同的访问级别，可以使用多个 scope。
         * **Additional authorization parameters** (可选) ：要添加到初始授权请求中的其他 query 参数。
         * **Token URL**：你的 OAuth 令牌交换端点。
-        * **Info API URL** (可选) ：你服务器上的一个端点，Mintlify 会调用它来获取用户信息。对于基于用户组的访问控制是必填项。如果省略，OAuth 流程只会验证身份。
+        * **Info API URL** (可选) ：你服务器上的一个端点，Mintlify 会调用它来获取用户信息。对于基于用户组的访问控制，请使用此字段配置 Info API 方式。你也可以改用 OAuth 令牌声明。如果两者都未配置，OAuth 流程只会验证身份。
         * **Logout URL** (可选) ：你的 OAuth 提供方自带的登出 URL。用户登出时，Mintlify 会将登出重定向与该配置的 URL 进行校验，以确保安全性。只有当重定向地址与配置的 `logoutUrl` 完全匹配时，重定向才会成功。如果你未配置登出 URL，用户会被重定向到 `/login`。Mintlify 会使用 `GET` 请求重定向用户，并且不会追加任何 query 参数，因此请将所有参数 (例如 `returnTo`) 直接包含在 URL 中。
         * **Redirect URL** (可选) ：在认证完成后重定向用户的 URL。
 
@@ -139,8 +139,8 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
         2. 将该 Redirect URL 添加为 OAuth 服务器中授权的重定向 URL。
       </Step>
 
-      <Step title="创建用户信息端点（可选）。">
-        为启用基于用户组的访问控制，创建一个 API 端点，该端点需满足：
+      <Step title="创建用于群组访问的用户信息端点（可选）。">
+        如要使用 Info API 方式实现基于用户组的访问控制，请创建一个 API 端点，该端点需满足：
 
         * 响应 `GET` 请求。
         * 接受 `Authorization: Bearer <access_token>` 头部用于认证。
@@ -151,6 +151,28 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
         将此端点 URL 填入你[认证设置](https://dashboard.mintlify.com/products/authentication)中的 **Info API URL** 字段。
       </Step>
     </Steps>
+
+    ### 使用 OAuth 令牌声明中的用户组
+
+    如果你的身份提供方在 ID 令牌或访问令牌中包含用户组信息，你可以使用这些声明来代替 Info API URL。此选项适用于使用客户端密钥的 OAuth 配置。
+
+    为部署配置 OAuth 令牌声明时，可以使用以下值：
+
+    ```json
+    {
+      "source": "id_token",
+      "groupsClaim": "groups",
+      "groupsDelimiter": ","
+    }
+    ```
+
+    * `source`：选择 `id_token` 或 `access_token`。如果选择 `id_token`，请在 OAuth scopes 中包含 `openid`。
+    * `groupsClaim`：指定包含用户组的令牌声明。默认值为 `groups`。
+    * `groupsDelimiter`：可选的分隔符，长度为 1 至 4 个字符。Mintlify 仅使用它来拆分字符串类型的声明值。
+
+    例如，当 `"groups": "general,clienta_eur"` 且 `groupsDelimiter` 设置为 `","` 时，Mintlify 会将 `general` 和 `clienta_eur` 作为两个独立的用户组。Mintlify 会删除每个用户组两侧的空格，并忽略空片段。不设置 `groupsDelimiter` 时，整个字符串会被视为一个用户组。数组类型的声明始终将每个字符串元素视为一个用户组，不会进行拆分。
+
+    当分隔符可能出现在用户组名称中时，请不要设置 `groupsDelimiter`。
 
     ### OAuth 2.0 示例
 

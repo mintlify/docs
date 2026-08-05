@@ -125,7 +125,7 @@ Utilisez ce comparatif pour choisir la méthode adaptée à votre cas d'usage. C
         * **Scopes** (facultatif) : Autorisations à demander. Copiez la chaîne de scope **entière** (par exemple, pour un scope comme `provider.users.docs`, copiez l’intégralité de `provider.users.docs`). Utilisez plusieurs scopes si vous avez besoin de niveaux d’accès différents.
         * **Additional authorization parameters** (facultatif) : Paramètres de requête supplémentaires à ajouter à la requête d’autorisation initiale.
         * **Token URL** : Votre endpoint d’échange de jeton OAuth.
-        * **Info API URL** (facultatif) : Endpoint sur votre serveur que Mintlify appelle pour récupérer les informations utilisateur. Requis pour le contrôle d’accès basé sur les groupes. S’il est omis, le flux OAuth vérifie uniquement l’identité.
+        * **Info API URL** (facultatif) : Endpoint sur votre serveur que Mintlify appelle pour récupérer les informations utilisateur. Utilisez ce champ pour l’approche Info API du contrôle d’accès basé sur les groupes. Vous pouvez également utiliser les claims des jetons OAuth. Si aucune de ces options n’est configurée, le flux OAuth vérifie uniquement l’identité.
         * **Logout URL** (facultatif) : L’URL de déconnexion native de votre fournisseur OAuth. Lorsque les utilisateurs se déconnectent, Mintlify valide la redirection de déconnexion par rapport à l’URL configurée, pour des raisons de sécurité. La redirection ne réussit que si elle correspond exactement à la valeur de `logoutUrl` configurée. Si vous ne configurez pas d’URL de déconnexion, les utilisateurs sont redirigés vers `/login`. Mintlify redirige les utilisateurs avec une requête `GET` et n’ajoute aucun paramètre de requête. Incluez donc directement tous les paramètres (par exemple, `returnTo`) dans l’URL.
         * **Redirect URL** (facultatif) : L’URL vers laquelle rediriger les utilisateurs après l’authentification.
 
@@ -139,8 +139,8 @@ Utilisez ce comparatif pour choisir la méthode adaptée à votre cas d'usage. C
         2. Ajoutez cette URL de redirection comme URL de redirection autorisée pour votre serveur OAuth.
       </Step>
 
-      <Step title="Créez votre endpoint d’informations utilisateur (facultatif).">
-        Pour activer le contrôle d’accès basé sur les groupes, créez un endpoint d’API qui :
+      <Step title="Créez votre endpoint d’informations utilisateur pour l’accès basé sur les groupes (facultatif).">
+        Pour utiliser l’approche Info API du contrôle d’accès basé sur les groupes, créez un endpoint d’API qui :
 
         * Répond aux requêtes `GET`.
         * Accepte un en-tête `Authorization: Bearer <access_token>` pour l’authentification.
@@ -151,6 +151,28 @@ Utilisez ce comparatif pour choisir la méthode adaptée à votre cas d'usage. C
         Ajoutez l’URL de cet endpoint dans le champ **Info API URL** de vos [paramètres d’authentification](https://dashboard.mintlify.com/products/authentication).
       </Step>
     </Steps>
+
+    ### Utiliser les groupes des claims de jeton OAuth
+
+    Si votre fournisseur d’identité inclut l’appartenance aux groupes dans l’ID token ou l’access token, vous pouvez utiliser ces claims à la place d’une URL Info API. Cette option est disponible pour les configurations OAuth qui utilisent un secret client.
+
+    Lors de la configuration des claims de jeton OAuth pour votre déploiement, utilisez des valeurs comme :
+
+    ```json
+    {
+      "source": "id_token",
+      "groupsClaim": "groups",
+      "groupsDelimiter": ","
+    }
+    ```
+
+    * `source` : Sélectionne `id_token` ou `access_token`. Si vous sélectionnez `id_token`, incluez le scope `openid` dans vos scopes OAuth.
+    * `groupsClaim` : Identifie le claim du token qui contient les groupes. Sa valeur par défaut est `groups`.
+    * `groupsDelimiter` : Délimiteur facultatif de 1 à 4 caractères. Mintlify l’utilise uniquement pour diviser les valeurs de claim qui sont des chaînes.
+
+    Par exemple, avec `"groups": "general,clienta_eur"` et `groupsDelimiter` défini sur `","`, Mintlify utilise `general` et `clienta_eur` comme groupes distincts. Mintlify supprime les espaces autour de chaque groupe et ignore les segments vides. Sans `groupsDelimiter`, la chaîne complète est traitée comme un seul groupe. Les claims sous forme de tableau sont toujours traités comme un groupe par élément de chaîne et ne sont pas divisés.
+
+    Omettez `groupsDelimiter` lorsque le délimiteur peut faire partie du nom d’un groupe.
 
     ### Exemple OAuth 2.0
 
