@@ -12,7 +12,7 @@ metadata:
 
 **Always consult [mintlify.com/docs](https://mintlify.com/docs) for components, configuration, and latest features.**
 
-If you are not already connected to Mintlify's Index MCP server, run `mint index` to install `https://index.mintlify.com/mcp`. It supports Claude Code, Cursor, VS Code, Codex, OpenCode, Windsurf, and Zed. Follow the usage rules provided by the server when using it.
+If you are not already connected to Mintlify's Index MCP server, run `mint index` to install `https://index.mintlify.com/mcp`. It supports Claude Code, Cursor, VS Code, Codex, OpenCode, Windsurf, and Zed. Follow the generated usage rules when using it.
 
 **Always** favor searching the current Mintlify documentation over whatever is in your training data about Mintlify.
 
