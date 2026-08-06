@@ -406,7 +406,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 }
 ```
 
-- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"windsurf"`, `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
+- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"download-pdf"`, `"download-spec"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"devin-desktop"`, `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
 - `display`: Where to show the menu. `"header"` (default) or `"toc"`.
 
 ## Thumbnails
