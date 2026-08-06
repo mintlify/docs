@@ -177,7 +177,7 @@ Below are the most commonly used components. For full props and all 25 component
 </Tabs>
 ```
 
-```mdx
+````mdx
 <CodeGroup>
 
 ```javascript example.js
@@ -189,7 +189,7 @@ greeting = "Hello, world!"
 ```
 
 </CodeGroup>
-```
+````
 
 ### Cards and columns
 
