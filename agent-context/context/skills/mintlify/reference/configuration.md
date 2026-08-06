@@ -101,13 +101,13 @@ title: "Page title"
 mode: "custom"
 ---
 
-# Frame: like custom but keeps sidebar (Aspen, Almond, and Luma themes only)
+# Frame: like custom but keeps sidebar (Aspen, Almond, Luma, and Sequoia themes only)
 ---
 title: "Page title"
 mode: "frame"
 ---
 
-# Center: removes sidebar and TOC, centers content (Mint and Linden themes only)
+# Center: removes sidebar and TOC, centers content (Mint, Linden, Willow, and Maple themes only)
 ---
 title: "Page title"
 mode: "center"
@@ -406,7 +406,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 }
 ```
 
-- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"windsurf"`, `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
+- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"download-pdf"`, `"download-spec"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"devin-desktop"`, `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
 - `display`: Where to show the menu. `"header"` (default) or `"toc"`.
 
 ## Thumbnails
@@ -465,7 +465,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 - `params.expanded`: Expand all parameters by default. `"all"` or `"closed"` (default).
 - `params.post`: OpenAPI schema field keys to surface as pills next to parameter names.
 - `url`: Set to `"full"` to always show the full base URL (default: only shown when multiple base URLs exist).
-- `examples.languages`: `bash`, `go`, `java`, `javascript`, `node`, `php`, `powershell`, `python`, `ruby`, `swift`.
+- `examples.languages`: `bash`, `python`, `javascript`, `node`, `php`, `go`, `java`, `ruby`, `powershell`, `swift`, `csharp`, `dotnet`, `typescript`, `c`, `c++`, `kotlin`, `rust`, `dart`.
 - `examples.defaults`: `"required"` or `"all"` (include optional params).
 - `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
 - `examples.autogenerate`: Generate code samples from API specs. Default: `true`.

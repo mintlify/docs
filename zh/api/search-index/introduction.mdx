@@ -1,0 +1,101 @@
+---
+title: "Mintlify Index REST API"
+sidebarTitle: "概览"
+description: "使用 Mintlify Index REST API 搜索文档和 Web，组装带有来源引用的上下文，并为应用和代理获取页面内容。"
+keywords: ["Mintlify Index API", "REST API", "认证", "API key"]
+---
+
+使用 Mintlify Index REST API 为应用和代理检索技术知识。该 API 支持三种检索模式：
+
+- [`context`](/zh/api/search-index/context) 在 token 预算内组装带有来源引用的内容。
+- [`search`](/zh/api/search-index/search) 返回排名后的文档和 Web 结果。
+- [`contents`](/zh/api/search-index/contents) 获取所选 Mintlify 结果 ID 或结果 URL 对应的内容。
+
+<Info>
+  REST API 需要组织的 API key。公开的 [Index MCP 服务器](/zh/search-index/mcp) 不需要 API key。
+</Info>
+
+<div id="base-url">
+  ## 基础 URL
+</div>
+
+向以下地址发送 REST API 请求：
+
+```text
+https://leaves.mintlify.com/api/universal-search/v1
+```
+
+在此基础 URL 后追加端点路径，例如 `/context`、`/search` 或 `/contents`。
+
+<div id="authentication">
+  ## 认证
+</div>
+
+在 `Authorization` 请求头中使用 Index API key 对每个请求进行认证：
+
+```http
+Authorization: Bearer mint_us_...
+```
+
+Index API key 以 `mint_us_` 开头。
+
+<Steps>
+  <Step title="创建 Index API key">
+    打开控制台的 [API keys 页面](https://app.mintlify.com/settings/organization/api-keys)，创建一个 Index API key。
+
+    如果没有此 key 类型，则表示你的组织无权访问 Index REST API。
+  </Step>
+  <Step title="安全存储 key">
+    将 key 保存到服务端环境变量中。Mintlify 只会在你首次创建 key 时显示完整 key，请妥善保存。
+
+    ```bash
+    export MINTLIFY_INDEX_API_KEY="mint_us_..."
+    ```
+
+    <Warning>
+      不要在客户端代码中暴露 Index API key，也不要将其提交到版本控制系统。
+    </Warning>
+  </Step>
+  <Step title="构建上下文">
+    向 `context` 端点发送第一个请求：
+
+    ```bash
+    curl -X POST "https://leaves.mintlify.com/api/universal-search/v1/context" \
+      -H "Authorization: Bearer $MINTLIFY_INDEX_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "query": "How should I configure caching in Next.js 16?",
+        "product": "Next.js",
+        "format": "txt",
+        "tokenBudget": 3000
+      }'
+    ```
+
+    成功响应包含组装后的上下文、所用结果数量以及输出 token 数量。
+  </Step>
+</Steps>
+
+<div id="rate-limits">
+  ## 速率限制
+</div>
+
+REST API 限制按 Mintlify 组织计算。一个组织中的所有 API key 共享同一限制：
+
+| 时间窗口 | 限制 |
+| --- | ---: |
+| 每秒 | 10 个请求 |
+| 每天 | 1,000 个请求 |
+
+超过任一限制的请求会返回 `429 Too Many Requests`。重试前请使用指数退避。
+
+<div id="errors">
+  ## 错误
+</div>
+
+| 状态 | 含义 |
+| --- | --- |
+| `400` | 请求正文无效。 |
+| `401` | API key 缺失或无效，或组织无权访问 Index REST API。 |
+| `403` | API key 不允许该请求 IP。 |
+| `429` | 组织超出速率限制。 |
+| `500` | Index 无法完成请求。 |
