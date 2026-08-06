@@ -465,7 +465,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 - `params.expanded`: Expand all parameters by default. `"all"` or `"closed"` (default).
 - `params.post`: OpenAPI schema field keys to surface as pills next to parameter names.
 - `url`: Set to `"full"` to always show the full base URL (default: only shown when multiple base URLs exist).
-- `examples.languages`: `bash`, `go`, `java`, `javascript`, `node`, `php`, `powershell`, `python`, `ruby`, `swift`.
+- `examples.languages`: `bash`, `python`, `javascript`, `node`, `php`, `go`, `java`, `ruby`, `powershell`, `swift`, `csharp`, `dotnet`, `typescript`, `c`, `c++`, `kotlin`, `rust`, `dart`.
 - `examples.defaults`: `"required"` or `"all"` (include optional params).
 - `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
 - `examples.autogenerate`: Generate code samples from API specs. Default: `true`.
