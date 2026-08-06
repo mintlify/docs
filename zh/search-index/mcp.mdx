@@ -1,0 +1,85 @@
+---
+title: "Mintlify Index MCP 服务器"
+sidebarTitle: "MCP 参考"
+description: "公共 Mintlify Index MCP 服务器参考，包括其 context 工具、参数、输出和速率限制。"
+keywords: ["Mintlify Index", "MCP 服务器", "context 工具", "速率限制"]
+---
+
+Mintlify Index MCP 服务器为 AI 工具提供对技术文档和网络上下文的只读访问。连接地址为：
+
+```text
+https://index.mintlify.com
+```
+
+无需向公共服务器进行身份验证。有关 Claude Code 和 Cursor 的设置说明，请参阅[连接](/zh/search-index/connect)。
+
+<Note>
+  Index MCP 会搜索所涵盖产品的文档和技术类网页。若要仅搜索特定 Mintlify 托管站点上的内容，请使用该站点的[搜索 MCP 服务器](/zh/ai/model-context-protocol)。
+</Note>
+
+<div id="context-tool">
+  ## `context` 工具
+</div>
+
+使用 `context` 研究实现任务，并在一次调用中返回紧凑、带来源引用的上下文。该工具为只读工具，可以访问开放网络。
+
+<ParamField body="query" type="string" required>
+  要研究的实现问题。
+</ParamField>
+
+<ParamField body="product" type="string">
+  用作额外检索提示的产品或公司名称。
+</ParamField>
+
+<ParamField body="includeDomains" type="string[]">
+  要包含在检索中的域名。设置后，检索结果会限制在这些域名内。
+</ParamField>
+
+<ParamField body="excludeDomains" type="string[]">
+  要从检索中排除的域名。
+</ParamField>
+
+<ParamField body="tokenBudget" type="integer" default="3000">
+  要返回的最大令牌数。最大值为 `6000`。针对聚焦问题使用默认值；对于复杂的多部分任务，可使用更大的预算。
+</ParamField>
+
+<div id="output">
+  ### 输出
+</div>
+
+该工具返回由排序后的来源组装而成的 Markdown 格式上下文。每个部分都包含标题、来源 URL 和相关来源内容。
+
+```text
+### 配置缓存
+
+来源：https://nextjs.org/docs/app/getting-started/caching-and-revalidating
+
+相关来源内容显示在此处。
+
+--------------------------------
+```
+
+MCP 服务器会返回供已连接代理使用的来源材料。代理决定如何将这些上下文应用到你的任务中。
+
+<div id="rate-limits">
+  ## 速率限制
+</div>
+
+Index 对公共 MCP 服务器应用以下每 IP 限制：
+
+| 时间窗口 | 限制 |
+| --- | ---: |
+| 每秒 | 10 个请求 |
+| 每天 | 1,000 个请求 |
+
+超过任一限制的请求会返回 `429 Too Many Requests`。请等待后重试；对于自动化客户端，请使用指数退避。
+
+<div id="protocol-behavior">
+  ## 协议行为
+</div>
+
+Index MCP 使用无状态的 Streamable HTTP：
+
+- 将每个 JSON-RPC 请求作为 HTTP `POST` 发送。
+- 每个 HTTP 请求发送一个 JSON-RPC 请求。不支持批处理。
+- 不要在请求之间持久化或发送 MCP 会话 ID。

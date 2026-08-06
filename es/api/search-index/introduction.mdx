@@ -1,0 +1,101 @@
+---
+title: "API REST de Mintlify Index"
+sidebarTitle: "Descripción general"
+description: "Usa la API REST de Mintlify Index para buscar en la documentación y la web, recopilar contexto con citas de fuentes y recuperar el contenido de páginas para aplicaciones y agentes."
+keywords: ["API de Mintlify Index", "API REST", "autenticación", "clave de API"]
+---
+
+Usa la API REST de Mintlify Index para obtener conocimientos técnicos en aplicaciones y agentes. La API admite tres patrones de recuperación:
+
+- [`context`](/es/api/search-index/context) recopila contenido con citas de fuentes dentro de un presupuesto de tokens.
+- [`search`](/es/api/search-index/search) devuelve resultados de documentación y web clasificados por relevancia.
+- [`contents`](/es/api/search-index/contents) recupera contenido a partir de ID de resultados de Mintlify o URL de resultados seleccionados.
+
+<Info>
+  La API REST requiere una clave de API de tu organización. El [servidor MCP público de Index](/es/search-index/mcp) no requiere una clave de API.
+</Info>
+
+<div id="base-url">
+  ## URL base
+</div>
+
+Envía las solicitudes de la API REST a:
+
+```text
+https://leaves.mintlify.com/api/universal-search/v1
+```
+
+Añade una ruta de endpoint a esta URL base, por ejemplo `/context`, `/search` o `/contents`.
+
+<div id="authentication">
+  ## Autenticación
+</div>
+
+Autentica cada solicitud con una clave de API de Index en el encabezado `Authorization`:
+
+```http
+Authorization: Bearer mint_us_...
+```
+
+Las claves de API de Index comienzan por `mint_us_`.
+
+<Steps>
+  <Step title="Crear una clave de API de Index">
+    Abre la [página de claves de API](https://app.mintlify.com/settings/organization/api-keys) en tu dashboard y crea una clave de API de Index.
+
+    Si este tipo de clave no está disponible, tu organización no tiene acceso a la API REST de Index.
+  </Step>
+  <Step title="Almacenar la clave de forma segura">
+    Guarda la clave en una variable de entorno del lado del servidor. Mintlify solo muestra la clave completa cuando la creas por primera vez. Guárdala de forma segura.
+
+    ```bash
+    export MINTLIFY_INDEX_API_KEY="mint_us_..."
+    ```
+
+    <Warning>
+      No expongas una clave de API de Index en código del lado del cliente ni hagas commit de ella en el control de versiones.
+    </Warning>
+  </Step>
+  <Step title="Crear contexto">
+    Envía tu primera solicitud al endpoint `context`:
+
+    ```bash
+    curl -X POST "https://leaves.mintlify.com/api/universal-search/v1/context" \
+      -H "Authorization: Bearer $MINTLIFY_INDEX_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "query": "How should I configure caching in Next.js 16?",
+        "product": "Next.js",
+        "format": "txt",
+        "tokenBudget": 3000
+      }'
+    ```
+
+    Una respuesta correcta incluye contexto recopilado con las URL de las fuentes, el número de resultados utilizados y el recuento de tokens de salida.
+  </Step>
+</Steps>
+
+<div id="rate-limits">
+  ## Límites de velocidad
+</div>
+
+Los límites de la API REST se aplican por organización de Mintlify. Todas las claves de API de una organización comparten el mismo límite:
+
+| Ventana | Límite |
+| --- | ---: |
+| Por segundo | 10 solicitudes |
+| Por día | 1.000 solicitudes |
+
+Las solicitudes que superen cualquiera de los límites devuelven `429 Too Many Requests`. Usa una espera exponencial antes de volver a intentarlo.
+
+<div id="errors">
+  ## Errores
+</div>
+
+| Estado | Significado |
+| --- | --- |
+| `400` | El cuerpo de la solicitud no es válido. |
+| `401` | Falta la clave de API o no es válida, o la organización no tiene acceso a la API REST de Index. |
+| `403` | La IP de la solicitud no está permitida por la clave de API. |
+| `429` | La organización superó un límite de velocidad. |
+| `500` | Index no pudo completar la solicitud. |
