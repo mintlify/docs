@@ -46,6 +46,26 @@ Available on all commands.
 
 - `mint new [directory]` — Scaffold a new Mintlify docs site. `--name` and `--theme` set initial config. `--template` selects a pre-defined template. `--force` overwrites an existing directory.
 
+## MCP setup
+
+- `mint index [options]` — Install the hosted Mintlify Index MCP server (`https://index.mintlify.com/mcp`) in supported coding agents. The server exposes a `context` tool for researching libraries, frameworks, SDKs, APIs, and CLI tools across all public Mintlify sites. Separate from the [Mintlify Docs MCP server](/ai/model-context-protocol), which searches a single site.
+
+  Client flags (pass one or more to skip the interactive picker): `--claude`, `--cursor`, `--vscode`, `--codex`, `--opencode`, `--windsurf`, `--zed`. Other flags: `--project` writes project-level configuration where the client supports it (Windsurf always writes MCP config globally); `--yes`, `-y` configures every detected client without prompts.
+
+  The command adds a `mintlify-index` server entry plus a usage rule (for every client except Zed) that tells the agent to prefer the `context` tool over web search for documentation research. Reruns update the existing entry and rule and leave unrelated configuration intact. If a JSON/JSONC config file is invalid, the command reports an error and does not write to it.
+
+  Standard configuration paths per client:
+
+  | Client | Global | Project |
+  |--------|--------|---------|
+  | Claude Code | `~/.claude.json` | `.mcp.json` |
+  | Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` |
+  | VS Code | User `mcp.json` | `.vscode/mcp.json` |
+  | Codex | `~/.codex/config.toml` | `.codex/config.toml` |
+  | OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` |
+  | Windsurf | `~/.codeium/windsurf/mcp_config.json` | Global only |
+  | Zed | User `settings.json` | `.zed/settings.json` |
+
 ## Automations
 
 All `mint automations` subcommands share these flags: `--subdomain`, `--format` (table/json; default: table). `mint workflow` and `mint workflows` continue to work as aliases.
