@@ -2,13 +2,15 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildAll } from './lib.mjs';
+import { buildAll, loadTargets } from './lib.mjs';
 
 const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-'));
 
 try {
   const results = await buildAll({ outputRoot });
-  assert.equal(results.length, 3);
+  const targets = await loadTargets();
+  const targetsById = new Map(targets.map((target) => [target.id, target]));
+  assert.equal(results.length, 4);
 
   const sharedFiles = [
     'api-docs.md',
@@ -22,7 +24,14 @@ try {
     const contents = await Promise.all(
       results.map(({ provenance }) =>
         readFile(
-          path.join(outputRoot, provenance.target, 'skills', 'mintlify', 'reference', file),
+          path.join(
+            outputRoot,
+            provenance.target,
+            'skills',
+            'mintlify',
+            targetsById.get(provenance.target).skillReferenceDirectory ?? 'reference',
+            file,
+          ),
           'utf8',
         ),
       ),
