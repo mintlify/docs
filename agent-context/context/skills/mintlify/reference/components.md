@@ -25,7 +25,7 @@ Custom callout with icon and color:
 
 ## Banner
 
-Not an MDX component. A site-wide announcement banner configured via the `banner` field in `docs.json`. See `reference/configuration.md`.
+Not an MDX component. A site-wide announcement banner configured via the `banner` field in `docs.json`. See `./configuration.md`.
 
 ## Accordions
 
@@ -164,7 +164,7 @@ Tab props:
 
 Tabbed code examples in multiple languages. Tabs sync with `<Tabs>` components that have matching titles.
 
-```mdx
+````mdx
 <CodeGroup>
 
 ```javascript example.js
@@ -178,7 +178,7 @@ print(greeting)
 ```
 
 </CodeGroup>
-```
+````
 
 For dropdown style instead of tabs:
 
@@ -210,21 +210,21 @@ Document API parameters and response structures.
 ### ParamField
 
 ```mdx
-<ParamField path="query.limit" type="number" required default="10" placeholder="1-100">
+<ParamField query="limit" type="number" required default="10" placeholder="1-100">
   Maximum number of results to return.
 </ParamField>
 
-<ParamField path="body.email" type="string" required>
+<ParamField body="email" type="string" required>
   User email address.
 </ParamField>
 
-<ParamField path="header.Authorization" type="string" required>
+<ParamField header="Authorization" type="string" required>
   Bearer token for authentication.
 </ParamField>
 ```
 
 Props:
-- First parameter format: `query.name`, `path.name`, `body.name`, or `header.name`.
+- Location prop: `query`, `path`, `body`, or `header`. The prop name is the parameter location, and its value is the parameter name.
 - `type` (string): `number`, `string`, `boolean`, `object`. Append `[]` for arrays.
 - `required` (boolean): Mark as required.
 - `deprecated` (boolean): Mark as deprecated.
@@ -259,7 +259,7 @@ Props:
 
 Display code examples in the right sidebar on API pages.
 
-```mdx
+````mdx
 <RequestExample>
 
 ```bash cURL
@@ -288,7 +288,7 @@ response = requests.post(
 ```
 
 </ResponseExample>
-```
+````
 
 ## Frames
 
@@ -498,7 +498,7 @@ Props:
 
 Language/framework-specific content sections that switch with a multi-view dropdown.
 
-```mdx
+````mdx
 <View title="JavaScript" icon="js">
   ```javascript
   console.log("Hello from JavaScript!");
@@ -510,7 +510,7 @@ Language/framework-specific content sections that switch with a multi-view dropd
   print("Hello from Python!")
   ```
 </View>
-```
+````
 
 Props:
 - `title` (string, required): View selector label.
