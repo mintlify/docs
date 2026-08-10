@@ -605,6 +605,7 @@ export const AssistantWidget = () => (
   <Script
     type="module"
     src="${EMBED_URL}"
+    strategy="afterInteractive"
     onReady={() => {
       void window.MintlifyAssistant.init(ASSISTANT_CONFIG);
     }}
