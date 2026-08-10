@@ -1,0 +1,134 @@
+---
+title: "Diffuser les événements analytics vers Amazon S3"
+sidebarTitle: "Diffuser les événements"
+description: "Configurez la diffusion analytics Enterprise pour envoyer certaines catégories d'événements et certains déploiements vers Amazon S3."
+keywords: ["analytics", "streaming", "Amazon S3", "data warehouse", "events", "Enterprise"]
+---
+
+<Info>
+  Les analytics nécessitent un [plan Pro ou Enterprise](https://mintlify.com/pricing?ref=analytics).
+  La diffusion analytics est disponible uniquement sur les [plans Enterprise](https://mintlify.com/pricing?ref=analytics-streaming).
+</Info>
+
+Diffusez les événements analytics vers Amazon S3 en temps quasi réel afin d'envoyer les événements vers votre data warehouse ou vos pipelines analytics en aval, sans attendre les exports CSV.
+
+Les administrateurs d'organisation peuvent ajouter plusieurs destinations, choisir quelles catégories d'événements envoyer et depuis quels déploiements diffuser. La diffusion analytics utilise un modèle d'inclusion : aucun événement n'est diffusé tant que vous n'avez pas sélectionné au moins une catégorie et un déploiement. Les mêmes sélections de catégories et de déploiements s'appliquent à chaque destination.
+
+<div id="add-a-destination">
+  ## Ajouter une destination
+</div>
+
+1. Accédez à la page [Streaming](https://app.mintlify.com/settings/organization/streaming) de votre dashboard.
+2. Dans la section **Analytics streaming**, sélectionnez **Configure**.
+3. Sélectionnez **Add destination**.
+4. Saisissez un libellé optionnel, puis fournissez le bucket Amazon S3, la région AWS, l'access key ID et la secret access key. Optionnellement, saisissez un préfixe que Mintlify ajoutera au début de chaque clé d'objet.
+5. Sélectionnez **Add destination**.
+
+<Accordion title="Préparer les identifiants Amazon S3">
+  Créez un utilisateur AWS Identity and Access Management (IAM) avec une access key dont la policy autorise l'écriture dans le bucket cible. Mintlify ne prend pas en charge l'assomption de rôle ni les identifiants temporaires qui nécessitent un session token. Au minimum, accordez `s3:PutObject` sur le bucket et le préfixe de clé que vous prévoyez d'utiliser. Par exemple :
+
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["s3:PutObject"],
+        "Resource": "arn:aws:s3:::your-bucket-name/analytics/*"
+      }
+    ]
+  }
+  ```
+
+  Utilisez l'access key ID et la secret access key de cet utilisateur IAM lors de l'ajout de la destination. Le préfixe de clé est optionnel. Mintlify l'ajoute au début de chaque clé d'objet.
+</Accordion>
+
+Pour arrêter la diffusion vers une destination, ouvrez la configuration de streaming et sélectionnez l'icône de suppression <Icon icon="trash-2" /> à côté de la destination.
+
+<div id="select-streamed-categories">
+  ## Sélectionner les catégories diffusées
+</div>
+
+1. Accédez à la page [Streaming](https://app.mintlify.com/settings/organization/streaming) de votre dashboard.
+2. Dans la section **Analytics streaming**, sélectionnez **Configure**.
+3. Sous **Streamed categories**, sélectionnez les catégories que vous souhaitez envoyer.
+
+   | Catégorie | Exemples |
+   | --- | --- |
+   | Pages vues | Événements de consultation de pages et de Markdown. |
+   | Navigation | Clics sur les éléments de navigation, clics sur les appels à l'action de la navigation, et changements de version. |
+   | Recherche | Requêtes de recherche, clics sur les résultats, fermetures de recherche et comparaisons de recherche. |
+   | Composants de page | Interactions avec les composants dépliables, accordéons, blocs de code et API playground. |
+   | Retours | Pouce en haut, pouce en bas et soumissions de retours détaillés. |
+   | AI Assistant | Conversations avec l'assistant, sources, suggestions, retours et erreurs. |
+   | Menu contextuel & MCP | Actions du menu contextuel, copies de lien MCP, installations de serveur MCP et appels d'outils MCP. |
+
+   Les exemples résument chaque catégorie. Utilisez la valeur `eventType` diffusée pour identifier l'événement exact.
+
+4. Sélectionnez **Save changes**.
+
+<div id="select-streamed-deployments">
+  ## Sélectionner les déploiements diffusés
+</div>
+
+Sélectionnez ceux des déploiements de votre organisation qui envoient des événements. Le dashboard liste chaque déploiement par sous-domaine. Si vous créez un déploiement, revenez à la configuration de streaming et sélectionnez-le. Les nouveaux déploiements ne commencent pas automatiquement à diffuser des événements.
+
+1. Accédez à la page [Streaming](https://app.mintlify.com/settings/organization/streaming) de votre dashboard.
+2. Dans la section **Analytics streaming**, sélectionnez **Configure**.
+3. Sous **Streamed deployments**, sélectionnez les déploiements depuis lesquels vous souhaitez envoyer des événements.
+4. Sélectionnez **Save changes**.
+
+Aucun événement n'est diffusé tant que vous n'avez pas sélectionné au moins une catégorie et un déploiement.
+
+<div id="understand-streamed-data">
+  ## Comprendre les données diffusées
+</div>
+
+Mintlify écrit des objets JSON délimités par des sauts de ligne (`.jsonl`) dans votre bucket. Mintlify génère les noms d'objets à partir d'horodatages UTC. Si vous configurez un préfixe de clé, Mintlify écrit les objets sous ce préfixe.
+
+Chaque ligne contient une enveloppe d'événement avec un `eventType` et un `payload`. Le `eventType` est le nom de l'événement, par exemple `docs.content.view`. Le `payload` contient l'événement analytics sous forme d'objet JSON ou de chaîne encodée en JSON. Si `payload` est une chaîne, analysez-la comme du JSON avant de la charger dans votre warehouse.
+
+<Accordion title="Exemple d'événement diffusé">
+  ```json
+  {
+    "eventType": "docs.content.view",
+    "payload": {
+      "event_id": "4b91fdbc-4677-4e03-b51b-5f2da41c8654",
+      "subdomain": "docs",
+      "user_id": "",
+      "anon_id": "anon_01JZ8W6QKEJ6ECG1T7QK2S5PZ2",
+      "session_id": "session_01JZ8W8CS5JC8T18HXH8ES7Z5M",
+      "created_at": "2026-07-22T23:21:41.063Z",
+      "event": "docs.content.view",
+      "path": "/quickstart",
+      "referrer": "https://www.example.com/",
+      "user_agent": "Mozilla/5.0",
+      "ip": "203.0.113.10",
+      "properties": {}
+    }
+  }
+  ```
+</Accordion>
+
+Le payload de l'événement contient les champs suivants :
+
+| Champ | Description |
+| --- | --- |
+| `event_id` | UUID qui identifie l'événement. Utilisez-le comme clé de déduplication lors du chargement des données. |
+| `subdomain` | Sous-domaine du déploiement qui a généré l'événement. |
+| `user_id` | ID de l'utilisateur authentifié, lorsque disponible. |
+| `anon_id` | ID de visiteur anonyme, lorsque disponible. |
+| `session_id` | ID de session du visiteur ou de l'assistant, lorsque disponible. |
+| `created_at` | Horodatage ISO 8601 du moment où l'événement s'est produit. |
+| `event` | Nom de l'événement. Il correspond à `eventType` dans l'enveloppe. |
+| `path` | Chemin de la documentation où l'événement s'est produit. |
+| `referrer` | URL de référence, lorsque disponible. |
+| `user_agent` | Chaîne user-agent du navigateur ou du client. |
+| `ip` | Adresse IP du visiteur. |
+| `properties` | Données spécifiques à l'événement sous forme d'objet JSON ou de chaîne encodée en JSON. |
+
+Les changements de configuration peuvent prendre jusqu'à une minute à s'appliquer.
+
+<Warning>
+  Les événements diffusés peuvent contenir des données personnelles, notamment des adresses IP, des identifiants d'utilisateur et de session, des requêtes et réponses de l'assistant, et des commentaires de retour ou des coordonnées de contact. Appliquez des contrôles d'accès, des politiques de rétention et d'autres exigences de traitement des données appropriées à votre organisation.
+</Warning>

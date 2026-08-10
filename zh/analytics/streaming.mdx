@@ -1,0 +1,134 @@
+---
+title: "将分析事件流式传输到 Amazon S3"
+sidebarTitle: "流式传输事件"
+description: "配置 Enterprise 分析流式传输,将选定的事件类别和部署发送到 Amazon S3。"
+keywords: ["analytics", "streaming", "Amazon S3", "data warehouse", "events", "Enterprise"]
+---
+
+<Info>
+  分析功能需要 [Pro 或 Enterprise 套餐](https://mintlify.com/pricing?ref=analytics)。
+  分析流式传输仅在 [Enterprise 套餐](https://mintlify.com/pricing?ref=analytics-streaming)中可用。
+</Info>
+
+将分析事件近实时地流式传输到 Amazon S3,可在不等待 CSV 导出的情况下将事件发送到您的数据仓库或下游分析管道。
+
+组织管理员可以添加多个目标地址、选择要发送的事件类别,并选择要从哪些部署进行流式传输。分析流式传输采用包含模式:在您至少选择一个类别和一个部署之前,不会流式传输任何事件。相同的类别和部署选择将应用于所有目标地址。
+
+<div id="add-a-destination">
+  ## 添加目标地址
+</div>
+
+1. 导航到 dashboard 中的 [Streaming](https://app.mintlify.com/settings/organization/streaming) 页面。
+2. 在 **Analytics streaming** 部分,选择 **Configure**。
+3. 选择 **Add destination**。
+4. 输入可选的标签,然后提供 Amazon S3 存储桶、AWS 区域、访问密钥 ID 和秘密访问密钥。可选地,输入 Mintlify 将添加到每个对象键开头的前缀。
+5. 选择 **Add destination**。
+
+<Accordion title="准备 Amazon S3 凭据">
+  创建一个 AWS Identity and Access Management (IAM) 用户,其访问密钥的策略允许写入目标存储桶。Mintlify 不支持角色代入或需要会话令牌的临时凭据。至少需要授予目标存储桶和您计划使用的键前缀上的 `s3:PutObject` 权限。例如:
+
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["s3:PutObject"],
+        "Resource": "arn:aws:s3:::your-bucket-name/analytics/*"
+      }
+    ]
+  }
+  ```
+
+  添加目标地址时,请使用该 IAM 用户的访问密钥 ID 和秘密访问密钥。键前缀是可选的。Mintlify 会将其添加到每个对象键的开头。
+</Accordion>
+
+要停止向某个目标地址流式传输,请打开流式传输配置,然后选择目标地址旁边的 <Icon icon="trash-2" /> 移除图标。
+
+<div id="select-streamed-categories">
+  ## 选择流式传输的类别
+</div>
+
+1. 导航到 dashboard 中的 [Streaming](https://app.mintlify.com/settings/organization/streaming) 页面。
+2. 在 **Analytics streaming** 部分,选择 **Configure**。
+3. 在 **Streamed categories** 下,选择您想要发送的类别。
+
+   | 类别 | 示例 |
+   | --- | --- |
+   | Page views | 页面和 Markdown 浏览事件。 |
+   | Navigation | 导航项点击、导航行动号召点击以及版本切换。 |
+   | Search | 搜索查询、结果点击、搜索关闭和搜索比较。 |
+   | Page components | 展开、折叠、代码块和 API playground 交互。 |
+   | Feedback | 点赞、点踩和详细反馈提交。 |
+   | AI Assistant | 助手对话、来源、建议、反馈和错误。 |
+   | Context menu & MCP | 上下文菜单操作、MCP 链接复制、MCP 服务器安装以及 MCP 工具调用。 |
+
+   示例是对各类别的概述。使用流式传输的 `eventType` 值来识别确切事件。
+
+4. 选择 **Save changes**。
+
+<div id="select-streamed-deployments">
+  ## 选择流式传输的部署
+</div>
+
+选择组织中的哪些部署发送事件。dashboard 按子域列出每个部署。如果您创建了新的部署,请返回流式传输配置并选择它。新部署不会自动开始流式传输事件。
+
+1. 导航到 dashboard 中的 [Streaming](https://app.mintlify.com/settings/organization/streaming) 页面。
+2. 在 **Analytics streaming** 部分,选择 **Configure**。
+3. 在 **Streamed deployments** 下,选择您希望从中发送事件的部署。
+4. 选择 **Save changes**。
+
+在您至少选择一个类别和一个部署之前,不会流式传输任何事件。
+
+<div id="understand-streamed-data">
+  ## 理解流式传输的数据
+</div>
+
+Mintlify 会以换行符分隔的 JSON(`.jsonl`)对象写入您的存储桶。Mintlify 根据 UTC 时间戳生成对象名称。如果您配置了键前缀,Mintlify 会将对象写入该前缀下。
+
+每一行包含一个事件信封,其中含有 `eventType` 和 `payload`。`eventType` 是事件名称,例如 `docs.content.view`。`payload` 以 JSON 对象或 JSON 编码字符串的形式包含分析事件。如果 `payload` 是字符串,请在加载到数据仓库之前将其解析为 JSON。
+
+<Accordion title="流式传输事件示例">
+  ```json
+  {
+    "eventType": "docs.content.view",
+    "payload": {
+      "event_id": "4b91fdbc-4677-4e03-b51b-5f2da41c8654",
+      "subdomain": "docs",
+      "user_id": "",
+      "anon_id": "anon_01JZ8W6QKEJ6ECG1T7QK2S5PZ2",
+      "session_id": "session_01JZ8W8CS5JC8T18HXH8ES7Z5M",
+      "created_at": "2026-07-22T23:21:41.063Z",
+      "event": "docs.content.view",
+      "path": "/quickstart",
+      "referrer": "https://www.example.com/",
+      "user_agent": "Mozilla/5.0",
+      "ip": "203.0.113.10",
+      "properties": {}
+    }
+  }
+  ```
+</Accordion>
+
+事件 payload 包含以下字段:
+
+| 字段 | 描述 |
+| --- | --- |
+| `event_id` | 用于标识事件的 UUID。加载数据时可作为去重键。 |
+| `subdomain` | 生成该事件的部署子域。 |
+| `user_id` | 已认证用户的 ID(如果可用)。 |
+| `anon_id` | 匿名访客 ID(如果可用)。 |
+| `session_id` | 访客或助手会话 ID(如果可用)。 |
+| `created_at` | 事件发生时的 ISO 8601 时间戳。 |
+| `event` | 事件名称。与信封中的 `eventType` 相同。 |
+| `path` | 事件发生的文档路径。 |
+| `referrer` | 引荐 URL(如果可用)。 |
+| `user_agent` | 浏览器或客户端的 user-agent 字符串。 |
+| `ip` | 访客 IP 地址。 |
+| `properties` | 特定事件的数据,以 JSON 对象或 JSON 编码字符串形式表示。 |
+
+配置更改最多可能需要一分钟才能生效。
+
+<Warning>
+  流式传输的事件可能包含个人数据,包括 IP 地址、用户与会话标识符、助手查询与响应,以及反馈评论或联系方式。请为您的组织应用适当的访问控制、留存策略和其他数据处理要求。
+</Warning>
