@@ -333,6 +333,27 @@ Each language entry can include its own `banner`, `footer`, and `navbar` configu
 
 When you add `openapi` to a navigation element without specifying pages, Mintlify auto-generates pages for all endpoints.
 
+## SDK references
+
+Generate SDK reference pages from documentation-tool build artifacts by adding an `sdk` property to a tab. Set `format` to `typedoc`, `docfx`, `javadoc`, `sphinx`, or `phpdoc`; set `source` to an artifact path or HTTPS URL; and optionally set `directory` to control the generated pages' URL prefix.
+
+```json
+{
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "TypeScript SDK",
+        "sdk": {
+          "format": "typedoc",
+          "source": "sdk-artifacts/typedoc.json",
+          "directory": "sdk/typescript"
+        }
+      }
+    ]
+  }
+}
+```
+
 ## Choosing a navigation pattern
 
 | Pattern | When to use |
