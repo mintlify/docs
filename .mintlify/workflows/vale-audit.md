@@ -13,11 +13,15 @@ notify:
 1. Find all PRs merged to the mintlify/docs repository in the last week and list the English MDX files they changed.
 2. Run `vale` against those files. If the `vale` binary is unavailable, evaluate the files against the rule definitions in `.vale/styles/Mintlify/` directly.
 3. Deduplicate the resulting alerts.
-4. For each alert, quote the rule that fired and the exact text it matched, then classify it before changing anything:
+4. Resolve spelling alerts first. Before fixing any prose, handle alerts about unfamiliar terminology:
+   - For each flagged word, decide whether it is a valid technical term, product name, or proper noun used in Mintlify docs, or a genuine misspelling. Genuine misspellings are prose fixes, so leave them for the next step.
+   - Before adding a valid term, check whether an existing entry already covers it. Entries in `.vale/styles/config/vocabularies/Mintlify/accept.txt` are regular expressions and are case-sensitive: `allowlist(s|ed|ing)?` already covers "allowlisted" and `(?i)airgap` already covers "Airgap". Add a new entry only when nothing existing matches, and prefer extending an existing pattern over adding a near-duplicate line.
+   - Keep the file alphabetized.
+5. For each remaining alert, quote the rule that fired and the exact text it matched, then classify it before changing anything:
    - **Prose is wrong**: the rule caught a real style problem. Fix the prose.
    - **Rule is wrong**: the prose is correct English and the rule is over-matching. Fix the rule, not the prose.
    - **Unclear**: do not guess and do not edit either one. List it in the PR body for human review.
-5. Open one pull request containing all prose fixes and rule changes.
+6. Open one pull request containing the vocabulary additions, prose fixes, and rule changes.
 
 ## Fixing a rule instead of the prose
 
@@ -35,4 +39,4 @@ Apply the narrowest change that resolves the false positive. Verify it by runnin
 - Do not change meaning when fixing prose. Style corrections only.
 - Only update English language files. Vale is already disabled for `es/`, `fr/`, and `zh/` in `.vale.ini`.
 
-Success criteria: every real style problem is fixed, every false positive is fixed at the rule level, and anything uncertain is escalated rather than guessed. A run that changes no prose and narrows two rules is a good run.
+Success criteria: valid new terminology is accepted into the vocabulary, every real style problem is fixed, every false positive is fixed at the rule level, and anything uncertain is escalated rather than guessed. A run that changes no prose and narrows two rules is a good run.
