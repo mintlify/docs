@@ -146,7 +146,7 @@ Control the API playground behavior in `docs.json`:
 
 ### Runtime server variables
 
-Prefill OpenAPI server variables from custom JavaScript when values become available after page load (for example, after authentication or a tenant change). Runtime values take precedence over OpenAPI defaults and saved values, apply to open and future playgrounds for the current page session, and reset on a full-page refresh. Do not use them for secrets.
+Prefill OpenAPI server variables from custom JavaScript when values become available after page load (for example, after authentication or a tenant change). Runtime values take precedence over OpenAPI defaults and saved values. They apply to open and future playgrounds for the current page session, and reset on a full-page refresh. Do not use them for secrets.
 
 ```js
 window.mintlify.api.playground.setServerVariables({
