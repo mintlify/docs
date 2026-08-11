@@ -5,10 +5,62 @@ keywords: ["content personalization", "personalization", "user data", "groups", 
 ---
 
 <Note>
-  Personalization requires [authentication](/deploy/authentication-setup) configured with OAuth or JWT.
+  Personalization identifies visitors without restricting access to your pages. It can use Shared session, JWT, or OAuth independently of [authentication](/deploy/authentication-setup), including on sites hosted at a [custom subpath](/deploy/docs-subpath).
 </Note>
 
-Customize content for your users when they log in to your documentation site. You can prefill API keys, show content specific to a user's plan or role, and filter API reference content based on group membership.
+Customize content for identified visitors while keeping your documentation public. You can prefill API keys, show content specific to a user's plan or role, and filter API reference content based on group membership. Visitors who aren't identified continue to see public content normally.
+
+## Configure personalization
+
+Personalization is available under **Add-ons** in the dashboard. It cannot be enabled alongside full authentication on the same deployment. JWT and OAuth full authentication already include personalization features.
+
+1. Open the [Add-ons](https://app.mintlify.com/settings/deployment/addons) page for your deployment.
+2. In **Personalization**, choose Shared session, JWT, or OAuth.
+3. Configure the selected method and click **Save changes**.
+
+| Method | Best for | Visitor identification |
+| :--- | :--- | :--- |
+| Shared session | Documentation and an existing application that can share a browser session | Mintlify requests user data from your Info API with the visitor's session cookies. |
+| JWT | An existing login flow that can sign Mintlify user data | Your login flow redirects the visitor back with a signed JWT. |
+| OAuth | An existing OAuth 2.0 provider | Mintlify completes an OAuth flow and requests user data from your Info API. |
+
+### Shared session
+
+Shared session reuses a visitor's existing application session, so they don't need to log in again on your documentation site.
+
+1. Select **Shared session** in the **Personalization** settings.
+2. Enter an **Info API URL** that returns the current visitor's [user data](#user-data-format).
+3. Optionally enter a **Login URL**. Mintlify displays a login link when the Info API does not return user data.
+4. Click **Save changes**.
+
+Mintlify sends a `GET` request to the Info API from the visitor's browser with credentials included. Return a successful JSON response for an identified visitor:
+
+```json User data response
+{
+  "expiresAt": 1786492800,
+  "content": {
+    "firstName": "Jane",
+    "plan": "Enterprise"
+  },
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer user_abc123"
+    }
+  }
+}
+```
+
+For a visitor without a valid session, return a non-success response such as `401`. Mintlify leaves the visitor unidentified and keeps public content available.
+
+If the Info API is on a different origin from your documentation, configure it to allow credentialed cross-origin requests from the exact documentation origin. Do not use a wildcard origin with credentials. Prevent browsers and intermediary caches from storing user data by returning `Cache-Control: private, no-store`.
+
+<Warning>
+  Values in `apiPlaygroundInputs` are available to the browser so the API playground can send them. Return short-lived, appropriately scoped credentials, and avoid exposing a privileged application session token when a dedicated documentation token is available.
+</Warning>
+
+### JWT and OAuth
+
+JWT and OAuth personalization use the same user data format as Shared session but leave all documentation pages public. Configure them in **Add-ons** rather than **Authentication**. See the [JWT and OAuth authentication flows](/deploy/authentication-setup#configure-authentication) for the corresponding URLs, signing keys, and user-data requirements.
 
 ## API key prefilling
 
