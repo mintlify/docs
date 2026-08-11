@@ -515,3 +515,17 @@ Language/framework-specific content sections that switch with a multi-view dropd
 Props:
 - `title` (string, required): View selector label.
 - `icon` (string): Icon name.
+
+## GitHub
+
+Embed a card that links to a public GitHub repository. The card fetches the repository's description, star count, and fork count from the public GitHub API when the page loads.
+
+```mdx
+<GitHub.Repo repo="mintlify/docs" />
+<GitHub.Repo repo="mintlify/docs" variant="flat" />
+```
+
+`GitHub.Repo` props:
+- `repo` (string, required): `owner/name` slug (for example, `mintlify/docs`) or a full GitHub URL.
+- `variant` (string, default: `"inset"`): Card layout. Options: `inset`, `flat`.
+- `className` (string): Additional CSS classes applied to the card.
