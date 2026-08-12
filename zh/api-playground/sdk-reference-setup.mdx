@@ -53,7 +53,7 @@ phpdoc -d src -t artifacts --template=xml
   ## 自动填充 SDK 页面
 </div>
 
-在 `docs.json` 的某个 tab 中添加 `sdk` 属性。Mintlify 会解析该构建产物，并为该库创建导航分组和页面。
+在 `docs.json` 的某个 tab 或 group 中添加 `sdk` 属性。Mintlify 会解析该构建产物，并为该库创建导航分组和页面。
 
 ```json
 "navigation": {
@@ -70,8 +70,21 @@ phpdoc -d src -t artifacts --template=xml
 }
 ```
 
+在 group 上声明 `sdk`，可将生成的页面限定在现有 tab 的某个子部分中。Group 会从其父级继承 `sdk` 配置，因此嵌套的 group 可以覆盖或扩展 tab 级别的构建产物。
+
+```json
+{
+  "group": "TypeScript SDK",
+  "sdk": {
+    "format": "typedoc",
+    "source": "sdk-artifacts/typedoc.json",
+    "directory": "sdk/typescript"
+  }
+}
+```
+
 <Note>
-  你必须在 [tab](/zh/organize/navigation#tabs) 上声明 `sdk`。包含 `sdk` 的 tab 可以包含 `groups`，但不能包含其他导航结构，例如 `pages`、`versions` 或 `languages`。此外，它不能包含 `openapi`、`asyncapi` 或 `graphql` 属性。
+  你可以在 [tab](/zh/organize/navigation#tabs) 或 [group](/zh/organize/navigation#groups) 上声明 `sdk`。包含 `sdk` 的 tab 或 group 可以包含嵌套的 `groups`，但不能包含其他导航结构，例如 `pages`、`versions` 或 `languages`。此外，它也不能包含 `openapi`、`asyncapi` 或 `graphql` 属性。
 </Note>
 
 <ParamField path="format" type="string" required>
@@ -99,6 +112,63 @@ phpdoc -d src -t artifacts --template=xml
 Mintlify 会将生成的导航组添加到 tab 中已有的任何 `groups` 之后。这些组因格式而异，可能表示模块、包、命名空间或符号类型。
 
 每个生成的页面都记录了构建产物中的一个类、接口、函数、类型或其他符号，并链接到相关的生成页面。如果转换器生成的页面不属于任何组，Mintlify 会将它们归入 `Reference` 组。
+
+<div id="customize-a-page-for-a-single-symbol">
+  ## 为单个符号自定义页面
+</div>
+
+在 MDX 页面上使用 `sdk` frontmatter，可将构建产物中的某个符号作为目标。Mintlify 会先渲染你编写的任何正文内容，然后在其下方追加该符号对应的生成参考内容。当你希望在某个特定的 class、interface 或 method 之上添加示例、迁移说明或上下文时，可以使用这种方式。
+
+当带有 `sdk` 的 tab 或 group 下至少存在一个手动编写的 SDK 页面时，Mintlify 会跳过该所属项的批量生成。如果你希望该库的其余部分自动填充，请将该页面移出该所属项。
+
+有两种方式可让 `sdk` 指向某个符号：
+
+<CodeGroup>
+
+```mdx String form
+---
+title: "Auth0Client"
+sdk: "class Auth0Client"
+---
+
+Use `Auth0Client` to authenticate users with Auth0.
+```
+
+```mdx Object form
+---
+title: "loginWithRedirect"
+sdk:
+  kind: method
+  name: loginWithRedirect
+  parent: Auth0Client
+---
+
+Redirect the user to the Auth0 login page.
+```
+
+</CodeGroup>
+
+字符串形式会被解析为 `[source] kind name`。省略 `source` 时，会从 tab 或 group 的 `sdk` 配置继承 `source`（以及 `format`）。对于 `method` 和 `property` 目标，需要使用父级限定名称，例如 `method Auth0Client.loginWithRedirect`。
+
+<ParamField path="kind" type="string" required>
+  符号类型：`class`、`interface`、`enum`、`function`、`type`、`variable`、`method` 或 `property`。
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  符号名称，需与构建产物中出现的名称一致。
+</ParamField>
+
+<ParamField path="parent" type="string">
+  对 `method` 和 `property` 目标为必填。所属的 class、interface 或 type。
+</ParamField>
+
+<ParamField path="format" type="string">
+  覆盖继承的 `format`。仅在页面不属于带有 `sdk` 的 tab 或 group 时才需要。
+</ParamField>
+
+<ParamField path="source" type="string">
+  覆盖继承的 `source`。仅在页面不属于带有 `sdk` 的 tab 或 group 时才需要。
+</ParamField>
 
 <div id="use-remote-sources">
   ## 使用远程源
