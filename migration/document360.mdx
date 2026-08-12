@@ -1,0 +1,137 @@
+---
+title: "Migrate from Document360"
+description: "Migrate Document360 workspaces, languages, articles, categories, media, reusable content, and API references to Mintlify."
+keywords: ["Document360 migration", "Document360 to Mintlify", "knowledge base export", "project ZIP"]
+---
+
+Export a Document360 project as a ZIP, then convert its workspaces, languages, categories, and articles into a Mintlify project. Use the Document360 API and published site to audit content that the export does not represent completely.
+
+<Note>
+  The Mintlify scraper does not currently support Document360. Use a native project export as the primary source instead of running `@mintlify/scraping` against the published site.
+</Note>
+
+## Create a migration snapshot
+
+Before exporting, create a named manual backup in **Settings > Knowledge base portal > Backup & Restore**. Backups are for recovery inside Document360. Download a project export for the migration itself.
+
+In **Content tools > Import and export > Import and export project**:
+
+1. Select **Export project**.
+2. Include articles from **All** dates.
+3. Select every maintained workspace, language, category, and subcategory.
+4. Include media files.
+5. Download the ZIP as soon as it is ready. A later export replaces the previous file shown in the portal.
+
+Keep the ZIP unchanged as a source snapshot and perform conversion work in a copy.
+
+<Warning>
+  Export each workspace and language deliberately. A single-language export can contain Markdown for articles created in the Markdown editor and HTML for WYSIWYG articles. A multi-language export uses JSON regardless of editor type.
+</Warning>
+
+Also export the **All articles** list as CSV. It contains metadata rather than article bodies, but it is useful for reconciling titles, publication status, dates, categories, and URLs.
+
+## Inventory content outside the export
+
+Record project features that require separate migration work:
+
+- Homepage Builder content and navigation
+- Custom pages linked from the header, footer, or sidebar
+- Snippets, variables, glossary terms, and templates
+- Custom CSS, JavaScript, and integrations
+- Reader groups, roles, SSO, and private-content rules
+- Redirect rules and custom domains
+- Analytics, feedback, forms, and search configuration
+- API reference source specifications
+- Drive files, decision trees, and embedded content
+
+Use the published sitemap and the Customer API to compare the export with public and private content. The API is particularly useful when you need to traverse category metadata or recover fields that are awkward to derive from exported files.
+
+## Recreate navigation
+
+Map the Document360 hierarchy to `docs.json`.
+
+| Document360 | Mintlify |
+| --- | --- |
+| Workspace | Version, product, tab, or separate navigation tree |
+| Language | Language navigation |
+| Folder category | Navigation group |
+| Index or page category | Group with a `root` page |
+| Article or sub-article | Page or nested group |
+| Custom page | Standard MDX page or custom layout |
+| Header and footer navigation | Navbar links, anchors, menus, or footer links |
+
+Choose the mapping for workspaces based on how readers use them. A workspace named `v1` is usually a version, while separate product knowledge bases may map better to products or tabs.
+
+Document360 category API responses include only direct children. If you use the API to build an inventory, request each child category recursively and retrieve content separately for index and page categories.
+
+## Convert article content
+
+Copy Markdown articles into `.mdx` files and convert exported HTML or JSON to MDX. Add frontmatter with at least a `title`, and retain descriptions, keywords, publication metadata, and canonical routes where useful.
+
+Review each editor's platform-specific output:
+
+| Document360 content | Mintlify treatment |
+| --- | --- |
+| Info, warning, and error callouts | Convert to [Mintlify callouts](/components/callouts). |
+| Tabs and accordions | Convert to [`Tabs`](/components/tabs) or [`AccordionGroup`](/components/accordions). |
+| Step-by-step guides | Convert to [`Steps`](/components/steps). |
+| Code tabs | Convert to a [`CodeGroup`](/components/code-groups). |
+| Private notes | Remove them or move internal guidance outside the public docs. |
+| Article templates | Convert repeated structure into starter files or reusable snippets. |
+| Embedded forms, videos, and widgets | Replace with supported embeds, links, or custom components. |
+| Decision trees | Rebuild as guides, branching links, or an appropriate interactive experience. |
+
+Document360 reserves the article title as the page H1, so article bodies usually begin at H2. Mintlify also renders the frontmatter title as the page heading. Do not add a duplicate H1 during conversion.
+
+## Convert reusable content
+
+Inventory variables, snippets, glossary terms, and every usage before replacing them.
+
+- Convert reusable content blocks to [Mintlify snippets](/create/reusable-snippets).
+- Replace variables with explicit text, generated content, or another maintainable source of truth.
+- Replace glossary tooltips with links or supported tooltip components.
+- Preserve language-specific variations rather than consolidating text that only appears identical in one locale.
+
+Check the rendered source site as well as the export. Some exports can contain expanded content instead of an obvious reusable-content reference.
+
+## Migrate API references
+
+Download the original OpenAPI file from each Document360 API reference category or retrieve it from the system that syncs the specification.
+
+1. Add the original specification to the Mintlify repository.
+2. Configure [OpenAPI-generated pages](/api-playground/openapi-setup).
+3. Preserve custom endpoint descriptions or examples that editors added after import.
+4. Compare tag hierarchy, endpoint order, servers, authentication, examples, and code samples.
+5. Replace any Document360 resync automation with the Mintlify deployment workflow.
+
+Do not convert generated endpoint articles when the source specification is available.
+
+## Migrate media and files
+
+Include media in the project export and copy owned files into the Mintlify repository. Check Document360 Drive links, thumbnails, SVGs, downloadable files, CSS background images, and content embedded from external services.
+
+Update asset paths after reorganizing pages. Do not leave required production assets on Document360 domains unless you intend to keep that hosting active.
+
+## Preserve URLs and access rules
+
+Document360 routes can include workspace and language slugs plus category and article slugs. Build a URL map from the published sitemap and the exported article CSV, then add [redirects](/create/redirects) for every changed route.
+
+Recreate private documentation with [authentication and access control](/deploy/authentication-setup). Translate reader groups and role-based restrictions deliberately, and test as users in each access group before launch.
+
+## Validate the result
+
+- Reconcile the project ZIP, article CSV, API inventory, and published sitemap.
+- Compare every workspace, language, category, subcategory, article, and custom page.
+- Search for unconverted HTML, snippets, variables, private notes, and widget embeds.
+- Verify that API reference content comes from the maintained source specification.
+- Test media, downloads, language switching, private access, and redirects.
+- Complete the [go-live checklist](/migration/go-live).
+
+## Document360 references
+
+- [Export a project ZIP](https://docs.document360.com/help/docs/exporting-your-document360-project-as-a-zip-file-json)
+- [Backup and restore](https://docs.document360.com/docs/backup-restore)
+- [Markdown editor](https://docs.document360.com/docs/markdown-editor)
+- [Manage API references](https://docs.document360.com/docs/manage-api-references)
+- [Category API](https://apidocs.document360.com/apidocs/get-category)
+- [Custom pages](https://docs.document360.com/docs/custom-pages)
