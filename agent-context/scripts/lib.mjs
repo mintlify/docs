@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptsDirectory, '..');
@@ -9,6 +10,38 @@ export const repositoryRoot = path.resolve(scriptsDirectory, '..');
 const contextDirectory = path.join(repositoryRoot, 'context', 'skills', 'mintlify');
 const mcpServersPath = path.join(repositoryRoot, 'context', 'mcp-servers.json');
 const targetsDirectory = path.join(repositoryRoot, 'targets');
+const agentPluginsSchemaDirectory = path.join(
+  repositoryRoot,
+  'schemas',
+  'agent-plugins',
+  '1.0.0',
+);
+
+const ajv = new Ajv2020({ allErrors: true });
+const agentPluginValidators = {
+  mcp: ajv.compile(
+    JSON.parse(await readFile(path.join(agentPluginsSchemaDirectory, 'mcp.schema.json'), 'utf8')),
+  ),
+  plugin: ajv.compile(
+    JSON.parse(
+      await readFile(path.join(agentPluginsSchemaDirectory, 'plugin.schema.json'), 'utf8'),
+    ),
+  ),
+};
+
+export function validateAgentPluginArtifact(kind, value, targetId) {
+  const validate = agentPluginValidators[kind];
+  if (validate === undefined) {
+    throw new Error(`Unknown Agent Plugins artifact kind: ${kind}`);
+  }
+  if (!validate(value)) {
+    throw new Error(
+      `${targetId}: invalid Agent Plugins ${kind} artifact: ${ajv.errorsText(validate.errors, {
+        separator: '; ',
+      })}`,
+    );
+  }
+}
 
 export async function loadTargets(selectedIds = []) {
   const entries = (await readdir(targetsDirectory))
@@ -25,10 +58,18 @@ export async function loadTargets(selectedIds = []) {
       typeof target.id !== 'string' ||
       typeof target.repository !== 'string' ||
       !['.mcp.json', 'mcp.json'].includes(target.mcpConfigFile) ||
-      !['mcp_servers', 'mcpServers'].includes(target.mcpConfigKey)
+      !['mcp_servers', 'mcpServers'].includes(target.mcpConfigKey) ||
+      (target.skillReferenceDirectory !== undefined &&
+        !['reference', 'references'].includes(target.skillReferenceDirectory)) ||
+      (target.mcpSchema !== undefined && typeof target.mcpSchema !== 'string') ||
+      (target.mcpTypeOverrides !== undefined &&
+        (target.mcpTypeOverrides === null ||
+          typeof target.mcpTypeOverrides !== 'object' ||
+          Object.values(target.mcpTypeOverrides).some((value) => typeof value !== 'string')))
     ) {
       throw new Error(`Invalid target configuration: ${JSON.stringify(target)}`);
     }
+
   }
 
   const ids = new Set(targets.map((target) => target.id));
@@ -93,23 +134,53 @@ function validateSkill(skill, target) {
 export async function buildTarget(target, outputRoot) {
   const targetRoot = path.join(outputRoot, target.id);
   const skillOutput = path.join(targetRoot, 'skills', 'mintlify');
+  const referenceDirectory = target.skillReferenceDirectory ?? 'reference';
   await rm(targetRoot, { recursive: true, force: true });
   await mkdir(skillOutput, { recursive: true });
 
   const skillTemplate = await readFile(path.join(contextDirectory, 'SKILL.md'), 'utf8');
-  const skill = markGenerated(skillTemplate);
+  const skill = markGenerated(skillTemplate).replaceAll(
+    'reference/',
+    `${referenceDirectory}/`,
+  );
   validateSkill(skill, target);
   await writeFile(path.join(skillOutput, 'SKILL.md'), skill);
-  await cp(path.join(contextDirectory, 'reference'), path.join(skillOutput, 'reference'), {
-    recursive: true,
-  });
+  await cp(
+    path.join(contextDirectory, 'reference'),
+    path.join(skillOutput, referenceDirectory),
+    { recursive: true },
+  );
 
-  const mcpServers = JSON.parse(await readFile(mcpServersPath, 'utf8'));
-  const mcpConfig = { [target.mcpConfigKey]: mcpServers };
+  const canonicalMcpServers = JSON.parse(await readFile(mcpServersPath, 'utf8'));
+  const mcpServers = Object.fromEntries(
+    Object.entries(canonicalMcpServers).map(([name, server]) => [
+      name,
+      target.mcpTypeOverrides?.[server.type] === undefined
+        ? server
+        : { ...server, type: target.mcpTypeOverrides[server.type] },
+    ]),
+  );
+  const mcpConfig = {
+    ...(target.mcpSchema === undefined ? {} : { $schema: target.mcpSchema }),
+    [target.mcpConfigKey]: mcpServers,
+  };
+  if (target.mcpSchema !== undefined) {
+    validateAgentPluginArtifact('mcp', mcpConfig, target.id);
+  }
+  if (target.pluginManifest !== undefined) {
+    validateAgentPluginArtifact('plugin', target.pluginManifest, target.id);
+  }
   await writeFile(
     path.join(targetRoot, target.mcpConfigFile),
     `${JSON.stringify(mcpConfig, null, 2)}\n`,
   );
+
+  if (target.pluginManifest !== undefined) {
+    await writeFile(
+      path.join(targetRoot, 'plugin.json'),
+      `${JSON.stringify(target.pluginManifest, null, 2)}\n`,
+    );
+  }
 
   const provenance = {
     schemaVersion: 1,
@@ -147,6 +218,9 @@ export async function copyTargetToRepository(targetId, destination, outputRoot) 
     path.join(sourceRoot, target.mcpConfigFile),
     path.join(destination, target.mcpConfigFile),
   );
+  if (target.pluginManifest !== undefined) {
+    await cp(path.join(sourceRoot, 'plugin.json'), path.join(destination, 'plugin.json'));
+  }
   await cp(
     path.join(sourceRoot, '.mintlify-agent-context.json'),
     path.join(destination, '.mintlify-agent-context.json'),
