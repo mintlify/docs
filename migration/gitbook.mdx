@@ -1,0 +1,159 @@
+---
+title: "Migrate from GitBook"
+description: "Migrate GitBook spaces, Markdown, navigation, reusable content, variants, assets, and OpenAPI documentation to Mintlify."
+keywords: ["GitBook migration", "GitBook to Mintlify", "Git Sync", "SUMMARY.md"]
+---
+
+Export GitBook content to a Git repository with Git Sync for the most complete migration, or scrape a public GitBook site to create an initial Mintlify project.
+
+## Choose a method
+
+| Method | Use it when |
+| --- | --- |
+| Git Sync export | You can administer the GitBook space or need source Markdown, reusable content, private pages, or a stable migration snapshot. |
+| Automated scraper | The site is public and you want a fast conversion of rendered pages, common blocks, assets, and navigation. |
+
+Use Git Sync for the primary migration when possible. A GitBook site can contain multiple spaces and variants, while Git Sync operates at the space level. Export every space that appears on the published site.
+
+## Export a space with Git Sync
+
+GitBook does not provide direct Markdown downloads for individual pages. To export a space as Markdown:
+
+1. Create an empty GitHub or GitLab repository or an empty branch in a migration repository.
+2. In the GitBook space, select **Set up Git Sync**.
+3. Connect the empty repository and choose the branch for the export.
+4. For the initial synchronization direction, select **GitBook → GitHub** or **GitBook → GitLab**.
+5. Wait for the sync to finish, then clone or download the repository.
+6. Repeat for every space, language, or version that you need to migrate.
+
+<Warning>
+  The initial sync direction matters. Selecting the repository-to-GitBook direction with an empty repository can replace or remove space content. Confirm that the direction starts at GitBook and targets the empty repository.
+</Warning>
+
+Keep the synchronized repository unchanged as a migration snapshot. Create a branch or copy for Mintlify conversion.
+
+## Migrate a public site
+
+Run the scraper in an empty directory:
+
+```bash
+mkdir mintlify-migration
+cd mintlify-migration
+npx @mintlify/scraping@latest section https://docs.example.com
+```
+
+The scraper loads GitBook's rendered navigation, downloads reachable images, converts common blocks, and creates a `docs.json`. It cannot retrieve private spaces, unpublished changes, permissions, comments, or revision history.
+
+Compare the generated project with the Git Sync export when both are available. The scrape is useful for checking rendered block conversion; the export is the better inventory of source content.
+
+## Understand the Git Sync export
+
+GitBook normally creates or uses:
+
+```text
+README.md              Space home page
+SUMMARY.md             Table of contents
+.gitbook.yaml          Content root, structure, and space redirects
+.gitbook/assets/       Uploaded images and files
+.gitbook/includes/     Reusable content
+```
+
+The paths can differ when the GitBook configuration defines another content root, home page, or summary file. Read the configuration before moving any files.
+
+## Convert `SUMMARY.md` navigation
+
+`SUMMARY.md` is a nested Markdown list. Convert its headings and links to `docs.json` navigation:
+
+| GitBook `SUMMARY.md` | Mintlify |
+| --- | --- |
+| Heading | Navigation group or other division |
+| Top-level linked item | Page path |
+| Linked item with children | Group with a `root` and nested `pages` |
+| Nested linked item | Page or nested group |
+| `README.md` | Space or group overview page |
+| External link | Navigation link where supported, or a normal page that points to the external resource |
+
+Remove `.md` extensions from navigation paths, but do not rename every file before checking links. A page such as `guides/README.md` can become `guides/index.mdx` or remain a Markdown file with a different navigation path.
+
+<Note>
+  Community scripts can automate the recursive `SUMMARY.md` mapping, but review their generated file moves and shell commands before running them. A converter must handle missing links, external URLs, duplicate pages, nested groups, and GitBook content roots without overwriting source files.
+</Note>
+
+## Convert GitBook blocks
+
+Git Sync represents many GitBook blocks with `{% ... %}` directives. Convert these directives to Mintlify components.
+
+| GitBook source | Mintlify replacement |
+| --- | --- |
+| `{% hint style="info" %}` | [`Info`](/components/callouts) |
+| `hint` style `success` | [`Check`](/components/callouts) or `Tip` |
+| `hint` style `warning` | [`Warning`](/components/callouts) |
+| `hint` style `danger` | [`Danger`](/components/callouts) |
+| `{% tabs %}` and `{% tab title="..." %}` | [`Tabs` and `Tab`](/components/tabs) |
+| Expandable block | [`Accordion`](/components/accordions) |
+| Code tabs | [`CodeGroup`](/components/code-groups) |
+| Cards and columns | [`Card`, `CardGroup`](/components/cards), or [`Columns`](/components/columns) |
+| Embedded media or integration block | A supported [embed](/create/image-embeds), link, image, or custom React component |
+
+GitBook exports some custom blocks as HTML because they do not have a Markdown representation. Review every HTML block instead of assuming that it behaves the same in MDX.
+
+## Convert reusable content
+
+GitBook exports reusable content into `.gitbook/includes/` and references it with include directives. Convert each reusable file to a [Mintlify snippet](/create/reusable-snippets), then replace the GitBook include with an MDX import and component.
+
+For example:
+
+```mdx
+import Authentication from "/snippets/authentication.mdx";
+
+<Authentication />
+```
+
+Check reusable content shared across multiple spaces. GitBook assigns an owning space, so separate space exports can contain duplicate or cross-space references that need to become a single shared snippet.
+
+## Migrate spaces, variants, and translations
+
+A GitBook site can publish multiple spaces as sections and use variants for versions or languages. Choose the closest Mintlify navigation model:
+
+- Map product or audience spaces to [products](/organize/navigation#products), tabs, or anchors.
+- Map release variants to [versions](/organize/navigation#versions).
+- Map translated spaces to [languages](/organize/navigation#languages).
+- Map independent content collections to separate groups when users do not need a selector.
+
+Record the default variant and every variant slug before changing the domain. GitBook can omit the default variant slug from its public URL, so redirects must account for both the default and explicitly named paths.
+
+## Migrate assets and links
+
+Copy `.gitbook/assets/` into the Mintlify repository and update relative image and download paths. Review inline images that use HTML for sizing or alignment.
+
+GitBook redirects can exist in its configuration file and in site-level settings. Export both sources and convert them to Mintlify [redirects](/create/redirects). GitBook scopes a space redirect to one space, while a Mintlify redirect applies to the published site, so include the former space or variant prefix when necessary.
+
+## Migrate OpenAPI documentation
+
+GitBook can store OpenAPI specifications at the organization level and place generated OpenAPI blocks in spaces. The Markdown space export might not be the source of truth for these specifications.
+
+1. Inventory every OpenAPI specification in the GitBook organization.
+2. Retrieve the original file, hosted source URL, or specification through the GitBook API.
+3. Add the JSON or YAML file to the Mintlify repository.
+4. Configure [OpenAPI-generated pages](/api-playground/openapi-setup).
+5. Recreate adjacent explanations from normal GitBook blocks.
+6. Compare authentication, server URLs, examples, and GitBook-specific OpenAPI extensions with the Mintlify output.
+
+## Validate the result
+
+- Compare every exported space and `SUMMARY.md` entry with `docs.json`.
+- Search for remaining `{%`, `{% end`, `.gitbook/includes`, and raw HTML blocks.
+- Confirm that every reusable-content import resolves.
+- Test asset paths from nested pages.
+- Verify every section, variant, language, and default route.
+- Test redirects from the GitBook configuration and site settings.
+- Complete the [go-live checklist](/migration/go-live).
+
+## GitBook references
+
+- [Git Sync](https://gitbook.com/docs/getting-started/git-sync)
+- [Content configuration](https://gitbook.com/docs/getting-started/git-sync/content-configuration)
+- [Exporting content](https://gitbook.com/docs/help-center/editing-content/managing-your-content)
+- [Reusable content](https://gitbook.com/docs/creating-content/reusable-content)
+- [Content variants](https://gitbook.com/docs/publishing-documentation/site-structure/variants)
+- [OpenAPI](https://gitbook.com/docs/api-references/openapi)

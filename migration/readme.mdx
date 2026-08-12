@@ -1,0 +1,158 @@
+---
+title: "Migrate from ReadMe"
+description: "Migrate ReadMe guides, API references, recipes, custom pages, versions, reusable content, and assets to Mintlify."
+keywords: ["ReadMe migration", "ReadMe to Mintlify", "ReadMe export", "rdme"]
+---
+
+Migrate a public ReadMe project with the automated scraper, or export project files from ReadMe when you need private content, OpenAPI specifications, or multiple versions.
+
+## Choose a method
+
+| Method | Use it when |
+| --- | --- |
+| Automated scraper | The complete site is public and you want the fastest conversion of rendered pages and navigation. |
+| ZIP or GitHub export | You can access the ReadMe project and need private pages, OpenAPI files, custom pages, recipes, or version history. |
+| ReadMe API | You need data that the file export does not include, such as hosted images or other project data. |
+
+For a complete migration, start with a native export and use the public-site scrape as a comparison. The two inventories help reveal unpublished pages and content that does not have a file representation.
+
+## Export from ReadMe
+
+From the branch menu in ReadMe, export the documentation files as a ZIP. ReadMe sends the completed export by email. The export includes Guides, Components, Custom Pages, Recipes, API Reference content, and OpenAPI files, but it does not include the image files themselves.
+
+If your project uses ReadMe's GitHub integration, you can export the project to a repository. ReadMe documents that the repository contains the same content as a branch export and can include all documentation versions.
+
+Keep the export unchanged as a migration snapshot. Do conversion work in a copy or on a separate Git branch.
+
+<Warning>
+  Export every maintained version before deleting or changing anything in ReadMe. Also export or download hosted images separately; the file export preserves their paths but not the image files.
+</Warning>
+
+## Migrate a public site
+
+Run the Mintlify scraper in an empty directory:
+
+```bash
+mkdir mintlify-migration
+cd mintlify-migration
+npx @mintlify/scraping@latest section https://project.readme.io
+```
+
+If the site contains documentation under a specific path or version, use a filter to limit the initial migration:
+
+```bash
+npx @mintlify/scraping@latest section https://project.readme.io --filter=/docs
+```
+
+The scraper converts reachable pages, images, navigation, and common rendered components. It cannot access private or unpublished content and does not replace a separate export of the source OpenAPI specification.
+
+## Understand the exported files
+
+ReadMe's file structure separates content by type:
+
+```text
+docs/             Guides organized by category
+reference/        API reference pages and OpenAPI files
+recipes/          Step-by-step recipes
+custom_pages/     Markdown or HTML custom pages
+custom_blocks/    Reusable custom blocks
+_order.yaml       Order within a folder or category
+```
+
+A folder containing child pages can include `index.md` for the parent page and `_order.yaml` for its children. Translate that structure to nested `group` and `pages` entries in `docs.json`. Use the parent `index.md` as the group's `root` when it contains useful overview content.
+
+| ReadMe | Mintlify |
+| --- | --- |
+| Guide category | Navigation group |
+| `_order.yaml` | Order of the `pages` array |
+| Folder `index.md` | Group `root` page |
+| Guide or reference child page | Nested group or page |
+| Project version or branch | Navigation version |
+| Custom Page | Standard MDX page or custom layout |
+| Link page | Navigation link or a redirecting page |
+
+## Convert pages and frontmatter
+
+Retain `title`, SEO metadata, descriptions, and useful keywords. Convert ReadMe-specific fields deliberately:
+
+| ReadMe frontmatter | Mintlify treatment |
+| --- | --- |
+| `excerpt` or `content.excerpt` | Use as the page `description`. |
+| `hidden: true` | Leave the page out of navigation and review whether it should remain reachable. |
+| `deprecated: true` or `state: deprecated` | Add a deprecation warning to the page. |
+| `metadata.title` and `metadata.description` | Use page-level SEO fields when they differ from the visible title and description. |
+| `metadata.robots: noindex` | Set `noindex: true`. |
+| `next.pages` | Add explicit links or related-page cards where they help the reader. |
+| `icon` with Font Awesome classes | Replace with a supported Font Awesome or Lucide icon name. |
+
+ReadMe supports a custom Markdown dialect and older JSON-based magic blocks. The scraper converts common rendered components, but file exports can retain platform syntax. Review:
+
+- Callouts, tabs, accordions, cards, and code groups
+- Reusable Content and Custom Blocks
+- Variables and glossary terms
+- Interactive recipes
+- Custom HTML pages
+- Embedded API explorers and personalized content
+
+Convert reusable material to [Mintlify snippets](/create/reusable-snippets). The export might expand a reusable block into each page, so compare the copies and consolidate only identical content.
+
+## Migrate API reference content
+
+Prefer the original OpenAPI file over rendered or exported endpoint pages.
+
+1. Find every JSON or YAML OpenAPI file in `reference/` and any source repository used by `rdme` or ReadMe's API sync.
+2. Identify Markdown that editors added in ReadMe outside the specification. ReadMe associates this content with an operation by its `operationId`.
+3. Add the specification to the Mintlify repository and configure [OpenAPI-generated pages](/api-playground/openapi-setup).
+4. Move valuable supplemental Markdown into the relevant operation description, schema description, or an adjacent guide.
+5. Compare authentication, server URLs, code samples, examples, and endpoint order with the original reference.
+
+ReadMe can also ingest Swagger 2.0 and Postman Collections. Retrieve the converted or original OpenAPI source before configuring Mintlify rather than copying the rendered reference.
+
+## Migrate versions
+
+ReadMe versions and branches apply to Guides, Recipes, and API Reference content, while some project content remains shared across versions. Inventory each version separately and map maintained versions to Mintlify [version navigation](/organize/navigation#versions).
+
+Check for:
+
+- A different default version and URL behavior
+- Hidden, beta, and deprecated versions
+- Version-specific Reusable Content
+- Pages that exist in only one version
+- API specifications that differ by version
+- Shared Custom Pages or changelog content
+
+## Download images and files
+
+The ReadMe ZIP export does not contain hosted images. Use the image URLs in the export or the ReadMe API to download the original files, then add them to the Mintlify repository.
+
+Do not rely on remote ReadMe asset URLs for the final site. Copy the files you own, update their references, and verify alt text and downloadable-file links.
+
+## Preserve URLs
+
+ReadMe URLs can include the project version and content type, such as `/docs/`, `/reference/`, or `/page/`. Export a sitemap or crawl the published site to capture the actual paths.
+
+Add [redirects](/create/redirects) for every path that changes. Pay special attention to:
+
+- Default-version URLs that omit the version segment
+- Custom Pages under `/page`
+- Guides and reference pages with the same slug
+- Endpoint paths derived from OpenAPI tags and summaries
+- Deprecated or hidden pages that still receive traffic
+
+## Validate the result
+
+- Compare the ZIP, API inventory, and published sitemap with the migrated files.
+- Check every `_order.yaml` entry against `docs.json`.
+- Search for ReadMe magic blocks, variables, glossary references, and Custom Block syntax.
+- Verify API operation descriptions stored outside OpenAPI.
+- Confirm that images no longer depend on ReadMe hosting.
+- Test redirects for every version and content section.
+- Complete the [go-live checklist](/migration/go-live).
+
+## ReadMe references
+
+- [Exporting data](https://docs.readme.com/main/docs/exporting-data)
+- [Documentation structure](https://docs.readme.com/main/docs/documentation-structure)
+- [Versioning](https://docs.readme.com/main/docs/versions)
+- [OpenAPI support](https://docs.readme.com/main/docs/openapi)
+- [Reusable Content](https://docs.readme.com/main/docs/reusable-content)
