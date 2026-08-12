@@ -48,7 +48,7 @@ phpdoc -d src -t artifacts --template=xml
 
 ## Auto-populate SDK pages
 
-Add an `sdk` property to a tab in your `docs.json`. Mintlify parses the artifact. It creates navigation groups and pages for the library.
+Add an `sdk` property to a tab or group in your `docs.json`. Mintlify parses the artifact. It creates navigation groups and pages for the library.
 
 ```json
 "navigation": {
@@ -65,8 +65,27 @@ Add an `sdk` property to a tab in your `docs.json`. Mintlify parses the artifact
 }
 ```
 
+Add `sdk` to a [group](/organize/navigation#groups) to generate pages inside one section of a tab instead of an entire tab. Groups and pages inherit the `sdk` settings of the tab or group above them. If a nested group sets its own `sdk`, Mintlify uses those settings instead of the inherited ones.
+
+```json
+{
+  "group": "TypeScript SDK",
+  "sdk": {
+    "format": "typedoc",
+    "source": "sdk-artifacts/typedoc.json",
+    "directory": "sdk/typescript"
+  },
+  "pages": ["sdk/typescript/overview"]
+}
+```
+
+A group with `sdk` can also list `pages` that you write yourself. Your pages appear first, followed by the generated reference groups.
+
 <Note>
-  You must declare `sdk` on a [tab](/organize/navigation#tabs). A tab with `sdk` may include `groups`, but no other navigation structures, such as `pages`, `versions`, or `languages`. It also cannot include an `openapi`, `asyncapi`, or `graphql` property.
+  You can declare `sdk` on a [tab](/organize/navigation#tabs) or a [group](/organize/navigation#groups).
+
+  - A tab with `sdk` can include `groups`, but no other navigation structures, such as `pages`, `versions`, or `languages`. It also cannot include an `openapi`, `asyncapi`, or `graphql` property.
+  - A group with `sdk` can include `pages` and nested groups, but cannot include a `graphql` property.
 </Note>
 
 <ParamField path="format" type="string" required>
@@ -81,7 +100,7 @@ Add an `sdk` property to a tab in your `docs.json`. Mintlify parses the artifact
   The URL path prefix for generated pages. Defaults to `sdk-reference`.
 </ParamField>
 
-Add multiple tabs to document multiple libraries. Use a unique `directory` for each library to avoid route collisions.
+Add multiple tabs or groups to document multiple libraries. For example, use two groups in the same tab for the stable and beta versions of an SDK. Use a unique `directory` for each library to avoid route collisions.
 
 <Tip>
   Add your artifact directory to [`.mintignore`](/organize/mintignore) so Mintlify treats artifacts as build inputs rather than publishing them as static assets.
@@ -89,9 +108,68 @@ Add multiple tabs to document multiple libraries. Use a unique `directory` for e
 
 ## Generated pages
 
-Mintlify adds the generated navigation groups after any `groups` on the tab. The groups vary by format and may represent modules, packages, namespaces, or symbol types.
+Mintlify adds the generated navigation groups after any `groups` on the tab. If you add `sdk` to a group, the generated groups appear after that group's `pages`. The groups vary by format and may represent modules, packages, namespaces, or symbol types.
 
 Each generated page documents a class, interface, function, type, or other symbol from the artifact and links to related generated pages. If a converter produces pages that do not belong to a group, Mintlify collects them under a `Reference` group.
+
+## Customize a page for a single symbol
+
+Use the `sdk` frontmatter on an MDX page to target one symbol from the artifact. Mintlify renders any body content you write, then appends the generated reference for that symbol below it. Use this when you want to add examples, migration notes, or context above a specific class, interface, or method.
+
+Add the page to your `docs.json` navigation like any other page. Mintlify only builds SDK content for pages that appear in your navigation.
+
+Once a tab or group with `sdk` contains a page with `sdk` frontmatter, Mintlify stops auto-populating that tab or group and shows only the pages you wrote. Move the page out of the tab or group if you want the rest of the library to auto-populate.
+
+Point `sdk` at a symbol in one of two ways:
+
+<CodeGroup>
+
+```mdx String form
+---
+title: "Client"
+sdk: "class Client"
+---
+
+Create a `Client` to call the API.
+```
+
+```mdx Object form
+---
+title: "getUser"
+sdk:
+  kind: method
+  name: getUser
+  parent: Client
+---
+
+Fetch a user by ID.
+```
+
+</CodeGroup>
+
+The string form follows the pattern `[source] kind name`. If you leave out `source`, the page inherits it from the tab or group `sdk` config. The string form always inherits `format`, so it only works on pages under a tab or group with `sdk`. Use the object form everywhere else. For methods and properties, include the parent name, such as `method Client.getUser`.
+
+If you leave out `title` or `description`, Mintlify uses the title and description generated for the symbol.
+
+<ParamField path="kind" type="string" required>
+  The symbol kind: `class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, or `property`.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  The symbol name as it appears in the artifact.
+</ParamField>
+
+<ParamField path="parent" type="string">
+  Required for `method` and `property` targets. The enclosing class, interface, or type.
+</ParamField>
+
+<ParamField path="format" type="string">
+  Overrides the inherited `format`. Required when the page is not under a tab or group with `sdk`. Only available in the object form.
+</ParamField>
+
+<ParamField path="source" type="string">
+  Overrides the inherited `source`. Required when the page is not under a tab or group with `sdk`.
+</ParamField>
 
 ## Use remote sources
 
