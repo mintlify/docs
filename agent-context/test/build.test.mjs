@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildAll, copyTargetToRepository } from '../scripts/lib.mjs';
+import { buildAll, buildTarget, copyTargetToRepository, loadTargets } from '../scripts/lib.mjs';
 
 test('builds all client variants from one canonical skill', async () => {
   const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-test-'));
@@ -124,6 +124,46 @@ test('sync writes the complete Kiro power without changing target-owned files', 
     );
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects unknown Agent Plugins manifest properties', async () => {
+  const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-invalid-plugin-'));
+
+  try {
+    const [kiro] = await loadTargets(['kiro']);
+    const target = {
+      ...kiro,
+      pluginManifest: { ...kiro.pluginManifest, unknownProperty: true },
+    };
+    await assert.rejects(
+      buildTarget(target, outputRoot),
+      /invalid Agent Plugins plugin artifact.*additional properties/,
+    );
+    await assert.rejects(readFile(path.join(outputRoot, 'kiro', 'mcp.json')));
+    await assert.rejects(readFile(path.join(outputRoot, 'kiro', 'plugin.json')));
+  } finally {
+    await rm(outputRoot, { recursive: true, force: true });
+  }
+});
+
+test('rejects unsupported Agent Plugins MCP transports', async () => {
+  const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-invalid-mcp-'));
+
+  try {
+    const [kiro] = await loadTargets(['kiro']);
+    const target = {
+      ...kiro,
+      mcpTypeOverrides: { ...kiro.mcpTypeOverrides, http: 'websocket' },
+    };
+    await assert.rejects(
+      buildTarget(target, outputRoot),
+      /invalid Agent Plugins mcp artifact/,
+    );
+    await assert.rejects(readFile(path.join(outputRoot, 'kiro', 'mcp.json')));
+    await assert.rejects(readFile(path.join(outputRoot, 'kiro', 'plugin.json')));
+  } finally {
+    await rm(outputRoot, { recursive: true, force: true });
   }
 });
 

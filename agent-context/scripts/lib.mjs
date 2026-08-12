@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptsDirectory, '..');
@@ -9,6 +10,38 @@ export const repositoryRoot = path.resolve(scriptsDirectory, '..');
 const contextDirectory = path.join(repositoryRoot, 'context', 'skills', 'mintlify');
 const mcpServersPath = path.join(repositoryRoot, 'context', 'mcp-servers.json');
 const targetsDirectory = path.join(repositoryRoot, 'targets');
+const agentPluginsSchemaDirectory = path.join(
+  repositoryRoot,
+  'schemas',
+  'agent-plugins',
+  '1.0.0',
+);
+
+const ajv = new Ajv2020({ allErrors: true });
+const agentPluginValidators = {
+  mcp: ajv.compile(
+    JSON.parse(await readFile(path.join(agentPluginsSchemaDirectory, 'mcp.schema.json'), 'utf8')),
+  ),
+  plugin: ajv.compile(
+    JSON.parse(
+      await readFile(path.join(agentPluginsSchemaDirectory, 'plugin.schema.json'), 'utf8'),
+    ),
+  ),
+};
+
+export function validateAgentPluginArtifact(kind, value, targetId) {
+  const validate = agentPluginValidators[kind];
+  if (validate === undefined) {
+    throw new Error(`Unknown Agent Plugins artifact kind: ${kind}`);
+  }
+  if (!validate(value)) {
+    throw new Error(
+      `${targetId}: invalid Agent Plugins ${kind} artifact: ${ajv.errorsText(validate.errors, {
+        separator: '; ',
+      })}`,
+    );
+  }
+}
 
 export async function loadTargets(selectedIds = []) {
   const entries = (await readdir(targetsDirectory))
@@ -37,20 +70,6 @@ export async function loadTargets(selectedIds = []) {
       throw new Error(`Invalid target configuration: ${JSON.stringify(target)}`);
     }
 
-    if (target.pluginManifest !== undefined) {
-      const manifest = target.pluginManifest;
-      if (
-        manifest?.$schema !== 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json' ||
-        typeof manifest.name !== 'string' ||
-        typeof manifest.version !== 'string' ||
-        typeof manifest.description !== 'string' ||
-        typeof manifest.author?.name !== 'string' ||
-        !Array.isArray(manifest.keywords) ||
-        manifest.keywords.length === 0
-      ) {
-        throw new Error(`Invalid plugin manifest: ${JSON.stringify(manifest)}`);
-      }
-    }
   }
 
   const ids = new Set(targets.map((target) => target.id));
@@ -145,6 +164,12 @@ export async function buildTarget(target, outputRoot) {
     ...(target.mcpSchema === undefined ? {} : { $schema: target.mcpSchema }),
     [target.mcpConfigKey]: mcpServers,
   };
+  if (target.mcpSchema !== undefined) {
+    validateAgentPluginArtifact('mcp', mcpConfig, target.id);
+  }
+  if (target.pluginManifest !== undefined) {
+    validateAgentPluginArtifact('plugin', target.pluginManifest, target.id);
+  }
   await writeFile(
     path.join(targetRoot, target.mcpConfigFile),
     `${JSON.stringify(mcpConfig, null, 2)}\n`,
