@@ -335,7 +335,7 @@ When you add `openapi` to a navigation element without specifying pages, Mintlif
 
 ## SDK references
 
-Generate SDK reference pages from documentation-tool build artifacts by adding an `sdk` property to a tab. Set `format` to `typedoc`, `docfx`, `javadoc`, `sphinx`, or `phpdoc`; set `source` to an artifact path or HTTPS URL; and optionally set `directory` to control the generated pages' URL prefix.
+Generate SDK reference pages from documentation-tool build artifacts by adding an `sdk` property to a tab or group. Set `format` to `typedoc`, `docfx`, `javadoc`, `sphinx`, or `phpdoc`; set `source` to an artifact path or HTTPS URL; and optionally set `directory` to control the generated pages' URL prefix (defaults to `sdk-reference`). Groups and pages inherit the nearest ancestor's `sdk` settings; a nested group with its own `sdk` overrides that inheritance.
 
 ```json
 {
@@ -353,6 +353,45 @@ Generate SDK reference pages from documentation-tool build artifacts by adding a
   }
 }
 ```
+
+A tab with `sdk` can include `groups` but not `pages`, `versions`, `languages`, `openapi`, `asyncapi`, or `graphql`. A group with `sdk` can include `pages` and nested groups but not `graphql`. Author-written `pages` render first, followed by the generated reference groups. Use multiple tabs or groups with unique `directory` values to document multiple libraries (for example, stable and beta versions in the same tab).
+
+```json
+{
+  "group": "TypeScript SDK",
+  "sdk": {
+    "format": "typedoc",
+    "source": "sdk-artifacts/typedoc.json",
+    "directory": "sdk/typescript"
+  },
+  "pages": ["sdk/typescript/overview"]
+}
+```
+
+### Customize a single symbol page
+
+Add `sdk` frontmatter to an MDX page (listed in navigation) to target one symbol. Mintlify renders the body, then appends the generated reference for that symbol. Once any page under a tab or group uses `sdk` frontmatter, Mintlify stops auto-populating that tab or group and shows only the pages you wrote.
+
+String form (`[source] kind name`) inherits `source` and always inherits `format`, so it only works under a tab or group with `sdk`. Use the object form elsewhere. For `method` and `property`, include the parent.
+
+````mdx
+---
+title: "Client"
+sdk: "class Client"
+---
+````
+
+````mdx
+---
+title: "getUser"
+sdk:
+  kind: method
+  name: getUser
+  parent: Client
+---
+````
+
+Object-form fields: `kind` (required: `class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, `property`), `name` (required), `parent` (required for `method` and `property`), `format` (overrides inherited; required outside a tab or group with `sdk`; object form only), `source` (overrides inherited; required outside a tab or group with `sdk`). If `title` or `description` is omitted, Mintlify uses the generated symbol values.
 
 ## Choosing a navigation pattern
 
