@@ -44,7 +44,7 @@ When in doubt about which mode to use, default to collaborative.
 ## Core principles
 
 1. **Only document what you can verify.** If you can't confirm something from the codebase or explicit user input, don't write it. Leave a TODO instead.
-2. **Write just enough.** Help users succeed and get back to their work. More docs isn't better docs.
+2. **Write just enough.** Help users succeed and get back to their work. More docs aren't better docs.
 3. **Match existing patterns.** Read surrounding content before writing. Consistency beats personal preference.
 4. **Flag uncertainty.** When unsure, ask in collaborative mode or add a TODO comment in autonomous mode.
 5. **Ask before assuming.** If something is unclear, ask. Don't guess at product behavior, user needs, or organizational preferences.
