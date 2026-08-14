@@ -30,6 +30,27 @@ Reference individual endpoints in navigation:
 }
 ```
 
+### File uploads
+
+For OpenAPI 3.1 specs, describe a file upload field as a string schema with a binary `contentMediaType` inside a `multipart/form-data` request body. The playground renders it as a file input and sends the request as multipart form data.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream"
+    }
+  },
+  "required": ["file"]
+}
+```
+
+- Binary media types such as `application/octet-stream`, images, audio, video, PDFs, and archives are treated as file uploads. Structured types such as `application/json` are not.
+- `contentEncoding` of `base64` or `base64url` sends the file as base64; other values use binary handling. A `contentEncoding` without a binary `contentMediaType` stays a text field.
+- The legacy `format: "binary"` and `format: "base64"` fields remain supported.
+
 ## OpenAPI extensions
 
 - `x-hidden`: Creates page but hides from navigation.
@@ -122,6 +143,19 @@ Control the API playground behavior in `docs.json`:
 - `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
 - `examples.autogenerate`: Generate code samples from API specs. Default: `true`.
 - `mdx.auth.method`: `"bearer"`, `"basic"`, `"key"`, `"cobo"`.
+
+### Runtime server variables
+
+Prefill OpenAPI server variables from custom JavaScript when values become available after page load (for example, after authentication or a tenant change). Runtime values take precedence over OpenAPI defaults and saved values. They apply to open and future playgrounds for the current page session, and reset on a full-page refresh. Do not use them for secrets.
+
+```js
+window.mintlify.api.playground.setServerVariables({
+  tenantDomain: "example.us.auth0.com",
+});
+
+// Clear runtime values
+window.mintlify.api.playground.clearServerVariables();
+```
 
 ## Response rendering
 

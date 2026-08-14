@@ -53,7 +53,7 @@ phpdoc -d src -t artifacts --template=xml
   ## Remplir automatiquement les pages SDK
 </div>
 
-Ajoutez une propriété `sdk` à un onglet dans votre `docs.json`. Mintlify analyse l’artefact et crée des groupes de navigation et des pages pour la bibliothèque.
+Ajoutez une propriété `sdk` à un onglet ou à un groupe dans votre `docs.json`. Mintlify analyse l’artefact et crée des groupes de navigation et des pages pour la bibliothèque.
 
 ```json
 "navigation": {
@@ -70,8 +70,27 @@ Ajoutez une propriété `sdk` à un onglet dans votre `docs.json`. Mintlify anal
 }
 ```
 
+Ajoutez `sdk` à un groupe pour générer des pages dans une section d’un onglet plutôt que dans l’onglet entier. Les groupes et pages héritent des paramètres `sdk` de l’onglet ou du groupe parent. Si un groupe imbriqué définit son propre `sdk`, Mintlify utilise ces paramètres à la place de ceux hérités.
+
+```json
+{
+  "group": "TypeScript SDK",
+  "sdk": {
+    "format": "typedoc",
+    "source": "sdk-artifacts/typedoc.json",
+    "directory": "sdk/typescript"
+  },
+  "pages": ["sdk/typescript/overview"]
+}
+```
+
+Un groupe avec `sdk` peut aussi lister des `pages` que vous rédigez vous-même. Vos pages apparaissent en premier, suivies des groupes de référence générés.
+
 <Note>
-  Vous devez déclarer `sdk` sur un [onglet](/fr/organize/navigation#tabs). Un onglet avec `sdk` peut inclure `groups`, mais aucune autre structure de navigation, telle que `pages`, `versions` ou `languages`. Il ne peut pas non plus inclure une propriété `openapi`, `asyncapi` ou `graphql`.
+  Vous pouvez déclarer `sdk` sur un [onglet](/fr/organize/navigation#tabs) ou un [groupe](/fr/organize/navigation#groups).
+
+  - Un onglet avec `sdk` peut inclure des `groups`, mais aucune autre structure de navigation, telle que `pages`, `versions` ou `languages`. Il ne peut pas non plus inclure une propriété `openapi`, `asyncapi` ou `graphql`.
+  - Un groupe avec `sdk` peut inclure des `pages` et des groupes imbriqués, mais ne peut pas inclure une propriété `graphql`.
 </Note>
 
 <ParamField path="format" type="string" required>
@@ -86,7 +105,7 @@ Ajoutez une propriété `sdk` à un onglet dans votre `docs.json`. Mintlify anal
   Le préfixe du chemin d’URL pour les pages générées. Par défaut, `sdk-reference`.
 </ParamField>
 
-Ajoutez plusieurs onglets pour documenter plusieurs bibliothèques. Utilisez un `directory` unique pour chaque bibliothèque afin d’éviter les collisions de routes.
+Ajoutez plusieurs onglets ou groupes pour documenter plusieurs bibliothèques. Par exemple, utilisez deux groupes dans le même onglet pour les versions stable et bêta d’un SDK. Utilisez un `directory` unique pour chaque bibliothèque afin d’éviter les collisions de routes.
 
 <Tip>
   Ajoutez le répertoire de votre artefact à [`.mintignore`](/fr/organize/mintignore) afin que Mintlify traite les artefacts comme des entrées de build plutôt que de les publier comme des ressources statiques.
@@ -96,9 +115,70 @@ Ajoutez plusieurs onglets pour documenter plusieurs bibliothèques. Utilisez un 
   ## Pages générées
 </div>
 
-Mintlify ajoute les groupes de navigation générés après les éventuels `groups` de l’onglet. Les groupes varient selon le format et peuvent représenter des modules, des packages, des espaces de noms ou des types de symboles.
+Mintlify ajoute les groupes de navigation générés après les éventuels `groups` de l’onglet. Si vous ajoutez `sdk` à un groupe, les groupes générés apparaissent après les `pages` de ce groupe. Les groupes varient selon le format et peuvent représenter des modules, des packages, des espaces de noms ou des types de symboles.
 
 Chaque page générée documente une classe, une interface, une fonction, un type ou un autre symbole de l’artefact et renvoie vers les pages générées associées. Si un convertisseur produit des pages qui n’appartiennent à aucun groupe, Mintlify les regroupe sous un groupe `Reference`.
+
+<div id="customize-a-page-for-a-single-symbol">
+  ## Personnaliser une page pour un seul symbole
+</div>
+
+Utilisez le frontmatter `sdk` sur une page MDX pour cibler un seul symbole de l’artefact. Mintlify affiche le contenu que vous rédigez, puis ajoute la référence générée pour ce symbole en dessous. Utilisez cette approche lorsque vous souhaitez ajouter des exemples, des notes de migration ou du contexte au-dessus d’une classe, d’une interface ou d’une méthode spécifique.
+
+Ajoutez la page à la navigation de votre `docs.json`, comme n’importe quelle autre page. Mintlify ne génère du contenu SDK que pour les pages qui apparaissent dans votre navigation.
+
+Dès qu’un onglet ou un groupe avec `sdk` contient une page avec un frontmatter `sdk`, Mintlify cesse de remplir automatiquement cet onglet ou ce groupe et n’affiche que les pages que vous avez rédigées. Déplacez la page hors de l’onglet ou du groupe si vous souhaitez que le reste de la bibliothèque soit rempli automatiquement.
+
+Pointez `sdk` vers un symbole de deux manières :
+
+<CodeGroup>
+
+```mdx String form
+---
+title: "Client"
+sdk: "class Client"
+---
+
+Créez un `Client` pour appeler l’API.
+```
+
+```mdx Object form
+---
+title: "getUser"
+sdk:
+  kind: method
+  name: getUser
+  parent: Client
+---
+
+Récupérez un utilisateur par ID.
+```
+
+</CodeGroup>
+
+La forme chaîne suit le modèle `[source] kind name`. Si vous omettez `source`, la page l’hérite de la configuration `sdk` de l’onglet ou du groupe. La forme chaîne hérite toujours de `format` et ne fonctionne donc que sur les pages situées sous un onglet ou un groupe avec `sdk`. Utilisez la forme objet dans tous les autres cas. Pour les méthodes et propriétés, incluez le nom du parent, par exemple `method Client.getUser`.
+
+Si vous omettez `title` ou `description`, Mintlify utilise le titre et la description générés pour le symbole.
+
+<ParamField path="kind" type="string" required>
+  Le type de symbole : `class`, `interface`, `enum`, `function`, `type`, `variable`, `method` ou `property`.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Le nom du symbole tel qu’il apparaît dans l’artefact.
+</ParamField>
+
+<ParamField path="parent" type="string">
+  Requis pour les cibles `method` et `property`. La classe, l’interface ou le type englobant.
+</ParamField>
+
+<ParamField path="format" type="string">
+  Remplace le `format` hérité. Requis lorsque la page ne se trouve pas sous un onglet ou un groupe avec `sdk`. Disponible uniquement dans la forme objet.
+</ParamField>
+
+<ParamField path="source" type="string">
+  Remplace le `source` hérité. Requis lorsque la page ne se trouve pas sous un onglet ou un groupe avec `sdk`.
+</ParamField>
 
 <div id="use-remote-sources">
   ## Utiliser des sources distantes

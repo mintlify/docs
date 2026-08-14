@@ -53,7 +53,7 @@ phpdoc -d src -t artifacts --template=xml
   ## Generar automáticamente páginas de SDK
 </div>
 
-Agrega una propiedad `sdk` a una pestaña en tu `docs.json`. Mintlify analiza el artefacto y crea grupos de navegación y páginas para la biblioteca.
+Agrega una propiedad `sdk` a una pestaña o grupo en tu `docs.json`. Mintlify analiza el artefacto y crea grupos de navegación y páginas para la biblioteca.
 
 ```json
 "navigation": {
@@ -70,8 +70,27 @@ Agrega una propiedad `sdk` a una pestaña en tu `docs.json`. Mintlify analiza el
 }
 ```
 
+Agrega `sdk` a un grupo para generar páginas dentro de una sección de una pestaña en lugar de en toda la pestaña. Los grupos y páginas heredan la configuración de `sdk` de la pestaña o grupo superior. Si un grupo anidado define su propio `sdk`, Mintlify usa esa configuración en lugar de la heredada.
+
+```json
+{
+  "group": "TypeScript SDK",
+  "sdk": {
+    "format": "typedoc",
+    "source": "sdk-artifacts/typedoc.json",
+    "directory": "sdk/typescript"
+  },
+  "pages": ["sdk/typescript/overview"]
+}
+```
+
+Un grupo con `sdk` también puede incluir `pages` que escribas tú mismo. Tus páginas aparecen primero, seguidas de los grupos de referencia generados.
+
 <Note>
-  Debes declarar `sdk` en una [pestaña](/es/organize/navigation#tabs). Una pestaña con `sdk` puede incluir `groups`, pero no otras estructuras de navegación, como `pages`, `versions` o `languages`. Tampoco puede incluir una propiedad `openapi`, `asyncapi` o `graphql`.
+  Puedes declarar `sdk` en una [pestaña](/es/organize/navigation#tabs) o en un [grupo](/es/organize/navigation#groups).
+
+  - Una pestaña con `sdk` puede incluir `groups`, pero no otras estructuras de navegación, como `pages`, `versions` o `languages`. Tampoco puede incluir una propiedad `openapi`, `asyncapi` o `graphql`.
+  - Un grupo con `sdk` puede incluir `pages` y grupos anidados, pero no puede incluir una propiedad `graphql`.
 </Note>
 
 <ParamField path="format" type="string" required>
@@ -86,7 +105,7 @@ Agrega una propiedad `sdk` a una pestaña en tu `docs.json`. Mintlify analiza el
   El prefijo de la ruta URL para las páginas generadas. El valor predeterminado es `sdk-reference`.
 </ParamField>
 
-Agrega varias pestañas para documentar varias bibliotecas. Usa un `directory` único para cada biblioteca para evitar colisiones de rutas.
+Agrega varias pestañas o grupos para documentar varias bibliotecas. Por ejemplo, usa dos grupos en la misma pestaña para las versiones estable y beta de un SDK. Usa un `directory` único para cada biblioteca para evitar colisiones de rutas.
 
 <Tip>
   Agrega tu directorio de artefactos a [`.mintignore`](/es/organize/mintignore) para que Mintlify trate los artefactos como entradas de compilación en lugar de publicarlos como activos estáticos.
@@ -96,9 +115,70 @@ Agrega varias pestañas para documentar varias bibliotecas. Usa un `directory` �
   ## Páginas generadas
 </div>
 
-Mintlify agrega los grupos de navegación generados después de cualquier `groups` en la pestaña. Los grupos varían según el formato y pueden representar módulos, paquetes, espacios de nombres o tipos de símbolos.
+Mintlify agrega los grupos de navegación generados después de cualquier `groups` en la pestaña. Si agregas `sdk` a un grupo, los grupos generados aparecen después de las `pages` de ese grupo. Los grupos varían según el formato y pueden representar módulos, paquetes, espacios de nombres o tipos de símbolos.
 
 Cada página generada documenta una clase, interfaz, función, tipo u otro símbolo del artefacto y enlaza con las páginas generadas relacionadas. Si un convertidor produce páginas que no pertenecen a ningún grupo, Mintlify las recopila en un grupo `Reference`.
+
+<div id="customize-a-page-for-a-single-symbol">
+  ## Personalizar una página para un símbolo individual
+</div>
+
+Usa el frontmatter `sdk` en una página MDX para apuntar a un símbolo del artefacto. Mintlify renderiza el contenido del cuerpo que escribas y, a continuación, añade debajo la referencia generada para ese símbolo. Utiliza esta opción cuando quieras agregar ejemplos, notas de migración o contexto sobre una clase, interfaz o método específicos.
+
+Agrega la página a la navegación de tu `docs.json` como cualquier otra página. Mintlify solo genera contenido de SDK para las páginas que aparecen en tu navegación.
+
+Cuando una pestaña o grupo con `sdk` contiene una página con frontmatter `sdk`, Mintlify deja de rellenar automáticamente esa pestaña o grupo y muestra solo las páginas que escribiste. Mueve la página fuera de la pestaña o grupo si quieres que el resto de la biblioteca se genere automáticamente.
+
+Apunta `sdk` a un símbolo de una de estas dos maneras:
+
+<CodeGroup>
+
+```mdx String form
+---
+title: "Client"
+sdk: "class Client"
+---
+
+Crea un `Client` para llamar a la API.
+```
+
+```mdx Object form
+---
+title: "getUser"
+sdk:
+  kind: method
+  name: getUser
+  parent: Client
+---
+
+Obtiene un usuario por ID.
+```
+
+</CodeGroup>
+
+La forma de cadena sigue el patrón `[source] kind name`. Si omites `source`, la página lo hereda de la configuración `sdk` de la pestaña o del grupo. La forma de cadena siempre hereda `format`, por lo que solo funciona en páginas bajo una pestaña o grupo con `sdk`. Usa la forma de objeto en cualquier otro caso. Para métodos y propiedades, incluye el nombre del elemento superior, por ejemplo `method Client.getUser`.
+
+Si omites `title` o `description`, Mintlify usa el título y la descripción generados para el símbolo.
+
+<ParamField path="kind" type="string" required>
+  El tipo de símbolo: `class`, `interface`, `enum`, `function`, `type`, `variable`, `method` o `property`.
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  El nombre del símbolo tal como aparece en el artefacto.
+</ParamField>
+
+<ParamField path="parent" type="string">
+  Requerido para símbolos de tipo `method` y `property`. La clase, interfaz o tipo que lo contiene.
+</ParamField>
+
+<ParamField path="format" type="string">
+  Sobrescribe el `format` heredado. Obligatorio cuando la página no está bajo una pestaña o grupo con `sdk`. Solo disponible en la forma de objeto.
+</ParamField>
+
+<ParamField path="source" type="string">
+  Sobrescribe el `source` heredado. Obligatorio cuando la página no está bajo una pestaña o grupo con `sdk`.
+</ParamField>
 
 <div id="use-remote-sources">
   ## Usar fuentes remotas

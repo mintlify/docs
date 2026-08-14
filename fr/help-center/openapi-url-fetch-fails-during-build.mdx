@@ -1,0 +1,45 @@
+---
+title: "Erreur \"Failed to fetch OpenAPI file for anchor or tab\""
+description: "Résolvez les builds Mintlify qui n'arrivent pas à télécharger un document OpenAPI à cause d'hôtes privés, d'URL authentifiées, de TLS, DNS ou CI."
+keywords: ["Failed to fetch OpenAPI file", "OpenAPI build error", "openapi URL", "spec fetch", "build failure", "CI race condition"]
+---
+
+Quand le champ `openapi` de votre `docs.json` pointe vers une URL au lieu d'un fichier de votre dépôt, Mintlify télécharge ce document à chaque build. Si le téléchargement échoue, la build échoue avec `Failed to fetch OpenAPI file for anchor or tab`. Pour un aperçu des causes courantes et de la solution recommandée, consultez [Dépannage de l'API playground](/fr/api-playground/troubleshooting).
+
+Cette page explique comment cerner la cause quand la solution n'est pas évidente.
+
+## Reproduire le téléchargement en dehors de Mintlify
+
+Les builds Mintlify s'exécutent depuis l'internet public, sans accès à votre réseau ni à vos identifiants. Exécutez ces commandes depuis une machine qui n'est pas sur votre VPN ou votre réseau d'entreprise :
+
+```bash
+curl -IL "https://example.com/openapi.json"
+curl -o openapi.json "https://example.com/openapi.json"
+```
+
+Analysez la réponse pour repérer ces signaux :
+
+- Un timeout de connexion ou une erreur DNS signifie que l'hôte n'est pas résolu publiquement.
+- Un `401` ou `403` signifie que l'URL requiert une authentification. Les téléchargements de build ne sont pas authentifiés et ne peuvent pas envoyer de jeton, de cookie ni provenir d'une IP autorisée.
+- Une erreur de certificat signifie que la chaîne TLS est incomplète. Les navigateurs acceptent souvent une chaîne que les clients automatisés rejettent, donc une URL qui se charge chez vous peut quand même échouer pendant une build.
+- Un `200` avec un corps tronqué ou vide signifie que l'origine a servi une réponse partielle.
+
+Ensuite, validez le document téléchargé :
+
+```bash
+mint validate
+```
+
+Si la validation échoue, le problème vient du document lui-même et non du téléchargement. Consultez [Configuration OpenAPI](/fr/api-playground/openapi-setup).
+
+## Éliminer une course dans le CI
+
+Si votre pipeline génère la spécification puis appelle le point de terminaison [Trigger deployment](/fr/api/update/trigger), un échec intermittent signifie généralement que le déploiement démarre avant que la nouvelle spécification ne soit publiée. La build télécharge alors un document obsolète, partiel, ou rien du tout.
+
+Séquencez le pipeline pour que la spécification soit entièrement publiée et lisible à son URL publique avant de déclencher le déploiement. Confirmez que le transfert est terminé plutôt que de le supposer. Les téléversements vers un stockage d'objets ou un CDN reviennent souvent avant que l'objet ne soit servi de façon cohérente.
+
+Ce mode de défaillance est intermittent par nature. Une build qui réussit lors d'une nouvelle tentative sans modification de la spécification est un fort indice que vous rencontrez ce problème.
+
+## Quand l'URL ne peut pas être publique
+
+Si vous ne pouvez pas servir la spécification depuis une URL publique non authentifiée, ajoutez-la à votre dépôt de documentation et pointez le champ `openapi` vers le chemin relatif au dépôt. Mettez à jour le fichier dans le même commit que celui qui modifie votre API pour que les deux restent synchronisés. Consultez [`mint validate`](/fr/cli/commands#mint-validate) pour vérifier le document avant de le commiter.

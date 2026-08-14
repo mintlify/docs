@@ -1,0 +1,45 @@
+---
+title: "修复 \"Failed to fetch OpenAPI file for anchor or tab\" 错误"
+description: "解决 Mintlify 构建因私有主机、需要认证的 URL、TLS、DNS 或 CI 竞争条件而无法下载托管的 OpenAPI 文档的问题。"
+keywords: ["Failed to fetch OpenAPI file", "OpenAPI build error", "openapi URL", "spec fetch", "build failure", "CI race condition"]
+---
+
+当 `docs.json` 的 `openapi` 字段指向 URL 而不是仓库中的文件时，Mintlify 在每次构建时都会下载该文档。如果下载失败，构建会因 `Failed to fetch OpenAPI file for anchor or tab` 而失败。有关常见原因和推荐解决方案的概述，请参见 [API playground 疑难解答](/zh/api-playground/troubleshooting)。
+
+本页介绍在解决方案不明显时如何进一步定位原因。
+
+## 在 Mintlify 之外重现下载
+
+Mintlify 构建从公网运行，无法访问你的网络或凭据。请在不在你的 VPN 或公司网络中的机器上运行这些命令：
+
+```bash
+curl -IL "https://example.com/openapi.json"
+curl -o openapi.json "https://example.com/openapi.json"
+```
+
+检查响应，注意以下信号：
+
+- 连接超时或 DNS 失败意味着该主机无法在公网解析。
+- `401` 或 `403` 意味着 URL 需要身份验证。构建下载不会携带凭据，无法发送 token、cookie，也不会来自允许列表中的 IP。
+- 证书错误意味着 TLS 链不完整。浏览器通常会接受自动化客户端拒绝的证书链，因此在你那里能加载的 URL 仍可能在构建时失败。
+- `200` 但正文被截断或为空，意味着源服务器返回了不完整的响应。
+
+然后校验下载的文档：
+
+```bash
+mint validate
+```
+
+如果校验失败，问题在文档本身而不是下载。请参见 [OpenAPI 设置](/zh/api-playground/openapi-setup)。
+
+## 排除 CI 竞争条件
+
+如果你的流水线先生成规范再调用 [Trigger deployment](/zh/api/update/trigger) 端点，间歇性失败通常意味着部署在新规范发布完成之前就开始了。构建会下载到过期、部分或空的文档。
+
+调整流水线顺序，先让规范完整发布并可在其公共 URL 读取，再触发部署。确认上传已完成，而不是假设它完成了。对象存储和 CDN 的上传通常在对象可稳定服务之前就返回。
+
+这种失败模式本质上是间歇性的。未做任何规范改动、只重试就能成功的构建，是命中该问题的强烈信号。
+
+## 当 URL 无法公开时
+
+如果无法通过未认证的公共 URL 提供规范，请将其提交到你的文档仓库，并将 `openapi` 字段指向仓库相对路径。在修改 API 的同一次提交中更新该文件，让两者保持同步。参见 [`mint validate`](/zh/cli/commands#mint-validate) 以在提交前检查文档。

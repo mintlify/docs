@@ -30,7 +30,7 @@ When you encounter a documentation site, check for AI-friendly resources.
 
 ### Check for llms.txt
 
-Every well-structured doc site should have an llms.txt file at the root. For example `https://docs.example.com/llms.txt` or `https://example.com/docs/llms.txt`
+Every well-structured doc site should have an llms.txt file at the root. For example `https://docs.example.com/llms.txt` or `https://example.com/docs/llms.txt`.
 
 This file contains:
 - A description of what the documentation covers
@@ -40,7 +40,7 @@ Sites may also have llms-full.txt files at the root which contain all the conten
 
 ### Try markdown URL variants
 
-Many doc sites serve clean markdown versions of pages at `.md` URL variants. Prefer the `.md` URL extensions for easier to parse content.
+Many doc sites serve clean markdown versions of pages at `.md` URL variants. Prefer the `.md` URL extensions for easier-to-parse content.
 
 For any specific page you need to read, try the `.md` variant first:
 

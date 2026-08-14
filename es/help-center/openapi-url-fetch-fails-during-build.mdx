@@ -1,0 +1,45 @@
+---
+title: "Error \"Failed to fetch OpenAPI file for anchor or tab\""
+description: "Resuelve las builds de Mintlify que no pueden descargar un documento OpenAPI alojado por hosts privados, URLs autenticadas, TLS, DNS o carreras en CI."
+keywords: ["Failed to fetch OpenAPI file", "OpenAPI build error", "openapi URL", "spec fetch", "build failure", "CI race condition"]
+---
+
+Cuando el campo `openapi` de tu `docs.json` apunta a una URL en lugar de a un archivo del repositorio, Mintlify descarga ese documento en cada build. Si la descarga falla, la build falla con `Failed to fetch OpenAPI file for anchor or tab`. Para una visión general de las causas comunes y la solución recomendada, consulta [Solución de problemas del API playground](/es/api-playground/troubleshooting).
+
+Esta página explica cómo acotar la causa cuando la solución no es evidente.
+
+## Reproduce la descarga fuera de Mintlify
+
+Las builds de Mintlify se ejecutan desde la Internet pública, sin acceso a tu red ni a tus credenciales. Ejecuta estos comandos desde una máquina que no esté en tu VPN o red corporativa:
+
+```bash
+curl -IL "https://example.com/openapi.json"
+curl -o openapi.json "https://example.com/openapi.json"
+```
+
+Revisa la respuesta para detectar estas señales:
+
+- Un timeout de conexión o un fallo de DNS significa que el host no es resoluble públicamente.
+- Un `401` o `403` significa que la URL requiere autenticación. Las descargas de la build no llevan credenciales y no pueden enviar un token, una cookie ni provenir de una IP en la lista de permitidos.
+- Un error de certificado significa que la cadena TLS está incompleta. Los navegadores suelen aceptar cadenas que los clientes automatizados rechazan, por lo que una URL que se carga para ti puede seguir fallando durante la build.
+- Un `200` con un cuerpo truncado o vacío significa que el origen sirvió una respuesta parcial.
+
+Después valida el documento que descargaste:
+
+```bash
+mint validate
+```
+
+Si la validación falla, el problema es el propio documento, no la descarga. Consulta [Configuración de OpenAPI](/es/api-playground/openapi-setup).
+
+## Descarta una carrera en CI
+
+Si tu pipeline genera la especificación y luego llama al endpoint [Trigger deployment](/es/api/update/trigger), un fallo intermitente suele significar que el despliegue arranca antes de que la nueva especificación termine de publicarse. La build descarga entonces un documento obsoleto, parcial o vacío.
+
+Ordena el pipeline para que la especificación esté completamente publicada y sea legible en su URL pública antes de disparar el despliegue. Confirma que la subida terminó en lugar de asumirlo. Las subidas a almacenamiento de objetos y CDN a menudo devuelven antes de que el objeto se sirva de forma consistente.
+
+Este modo de fallo es intermitente por naturaleza. Una build que tiene éxito al reintentar sin cambios en la especificación es una fuerte señal de que estás cayendo en él.
+
+## Cuando la URL no puede ser pública
+
+Si no puedes servir la especificación desde una URL pública sin autenticar, súbela a tu repositorio de documentación y apunta el campo `openapi` a la ruta relativa del repositorio. Actualiza el archivo en el mismo commit que cambia tu API para que ambos se mantengan sincronizados. Consulta [`mint validate`](/es/cli/commands#mint-validate) para revisar el documento antes de subirlo.
