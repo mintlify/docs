@@ -1,14 +1,85 @@
 ---
 title: "Personalized content"
-description: "Show personalized content based on user authentication data, group memberships, and custom variables to tailor documentation per audience."
+description: "Show personalized content based on identified visitor data, group memberships, and custom variables to tailor documentation per audience."
 keywords: ["content personalization", "personalization", "user data", "groups", "dynamic", "prefill"]
 ---
 
-<Note>
-  Personalization requires [authentication](/deploy/authentication-setup) configured with OAuth or JWT.
-</Note>
+Customize content for identified visitors while keeping your documentation public. Examples of personalization include prefilling API keys, showing content specific to a user's plan or role, and filtering API reference content based on group membership.
 
-Customize content for your users when they log in to your documentation site. You can prefill API keys, show content specific to a user's plan or role, and filter API reference content based on group membership.
+Personalization uses a shared session, JWT, or OAuth to identify visitors without restricting access to your pages.
+
+| Method | Best for | Visitor identification |
+| :--- | :--- | :--- |
+| Shared session | Documentation and an existing application that can share a browser session | Mintlify requests user data from your Info API with the visitor's session cookies. |
+| JWT | An existing login flow that can sign Mintlify user data | Your login flow redirects the visitor back with a signed JWT. |
+| OAuth | An existing OAuth 2.0 provider | Mintlify completes an OAuth flow and requests user data from your Info API. |
+
+## Configure personalization
+
+Enable personalization on the [Add-ons](https://app.mintlify.com/settings/deployment/addons) page of your dashboard. Personalization is mutually exclusive with full authentication. JWT and OAuth authentication include personalization features.
+
+1. Navigate to the [Add-ons](https://app.mintlify.com/settings/deployment/addons) page of your dashboard.
+2. In the **Personalization** section, select shared session, JWT, or OAuth.
+3. Configure your selected personalization method.
+4. Click **Save changes**.
+
+### Shared session
+
+Shared session reuses a visitor's existing application session, so they don't need to log in again on your Mintlify site.
+
+1. Select **Shared session** in the **Personalization** settings.
+2. Enter an **Info API URL** that returns the current visitor's [user data](#user-data-format).
+3. Optionally enter a **Login URL**. Mintlify displays a login link when the Info API does not return user data.
+4. Click **Save changes**.
+
+Mintlify sends a `GET` request to the Info API from the visitor's browser with credentials included. Return a successful JSON response for an identified visitor:
+
+```json User data response
+{
+  "expiresAt": 1893456000,
+  "content": {
+    "firstName": "Jane",
+    "plan": "Enterprise"
+  },
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer user_abc123"
+    }
+  }
+}
+```
+
+For a visitor without a valid session, return a non-success response such as `401`. Mintlify leaves the visitor unidentified and keeps public content available.
+
+If the Info API is on a different origin from your documentation, configure it to allow credentialed cross-origin requests from the exact documentation origin. Do not use a wildcard origin with credentials. Prevent browsers and intermediary caches from storing user data by returning `Cache-Control: private, no-store`.
+
+<Warning>
+  Values in `apiPlaygroundInputs` are available to the browser so the API playground can send them. Return short-lived, appropriately scoped credentials, and avoid exposing a privileged application session token when a dedicated documentation token is available.
+</Warning>
+
+### JWT and OAuth
+
+JWT and OAuth personalization use the same user data format as shared session but don't restrict access to your documentation. Configure these methods in **Add-ons**, not **Authentication**.
+
+For JWT personalization:
+
+1. Enter the URL of your existing login flow.
+2. Click **Save changes**.
+3. Click **Generate new key** and store the downloaded private key securely.
+4. In your login flow, create a JWT containing the identified visitor's [user data](#user-data-format) and sign it with the generated private key using the ES256 algorithm.
+5. Redirect the visitor to a page on your documentation site with the signed JWT as the URL fragment. For example, `https://docs.example.com/get-started#{SIGNED_JWT}`. For a custom subpath, include the subpath in this URL.
+
+Set the JWT's `exp` claim to a short duration of 10 seconds or less. Use the user data `expiresAt` field to control how long Mintlify stores the personalization data.
+
+For OAuth personalization:
+
+1. Enter your authorization URL, client ID, scopes, token URL, Info API URL, and any optional settings, then click **Save changes**. OAuth personalization uses the Authorization Code flow with Proof Key for Code Exchange (PKCE) and does not require a client secret.
+2. Copy the **Redirect URL** from the dashboard and add it as an authorized redirect URL for your OAuth provider.
+3. Configure the Info API to accept a `GET` request with the OAuth access token in the `Authorization: Bearer <access_token>` header and return [user data](#user-data-format).
+
+The OAuth redirect path is `/mintlify-oauth-callback`. On a custom subpath, the dashboard includes the subpath in the redirect URL.
+
+Mintlify exchanges the authorization code and requests user data from the visitor's browser. If the token or Info API endpoint is on a different origin from your documentation, configure it to allow cross-origin requests from the exact documentation origin. The Info API must allow the `Authorization` request header.
 
 ## API key prefilling
 
@@ -59,11 +130,15 @@ For conditional rendering based on user data, use the `user` variable in JSX com
   The `user` variable is an empty object for logged-out users. Use optional chaining on all `user` fields to prevent errors. For example, `{user.org?.plan}` instead of `{user.org.plan}`.
 </Note>
 
-To read the same user object from a [custom JavaScript file](/customize/custom-scripts#access-authenticated-user-data), use `window.mintlify.user` and listen for the `mintlify:user` event.
+To read the same user object from a [custom JavaScript file](/customize/custom-scripts#access-personalized-user-data), use `window.mintlify.user` and listen for the `mintlify:user` event.
 
 ## Page visibility
 
-Restrict pages to specific user groups by adding `groups` to page frontmatter. Users must belong to at least one listed group to access the page.
+Control which pages appear in navigation based on user groups by adding `groups` to page frontmatter.
+
+<Warning>
+  With personalization, `groups` control visibility but do not restrict access to a page. A visitor can still open a group-filtered page by navigating directly to its URL. Use [authentication](/deploy/authentication-setup) to restrict access to sensitive content.
+</Warning>
 
 ```mdx
 ---
@@ -72,15 +147,13 @@ groups: ["admin"]
 ---
 ```
 
-For more details on how groups interact with public pages, see [Control access with groups](/deploy/authentication-setup#control-access-with-groups).
-
 ## OpenAPI content filtering
 
 Filter API reference content based on user groups with the `x-mint` extension in your OpenAPI specification. You can filter entire endpoints, individual schema properties, `oneOf` variants, and enum values.
 
 ### Filter endpoints
 
-Add `x-mint.groups` to an operation or path to restrict the endpoint page to specific user groups. Users not in the listed groups won't see the endpoint in navigation or be able to access its page.
+Add `x-mint.groups` to an operation or path to show the endpoint in navigation only to specific user groups. With standalone personalization, users not in the listed groups can still open the endpoint page by its direct URL.
 
 <CodeGroup>
 
@@ -207,7 +280,7 @@ In this example, all users see `free`. Users in the `pro` or `enterprise` groups
 
 ## User data format
 
-Your authentication system returns user data that controls personalization. The `groups`, `content`, and `apiPlaygroundInputs` fields described on this page are all part of the user data object.
+Your identification or authentication system returns user data that controls personalization. The `groups`, `content`, and `apiPlaygroundInputs` fields described on this page are all part of the user data object.
 
 For the full user data format and field reference, see [User data format](/deploy/authentication-setup#user-data-format).
 
