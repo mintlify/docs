@@ -1,0 +1,52 @@
+---
+title: "Configurar la autenticación OAuth 2.0 con Auth0"
+description: "Configura Auth0 como proveedor de identidad OAuth 2.0 para un sitio privado de documentación de Mintlify, incluyendo las URLs de los endpoints, el registro del callback y el control de acceso basado en grupos."
+keywords: ["Auth0", "OAuth", "OAuth 2.0", "OIDC", "identity provider", "SSO", "private docs", "authentication"]
+---
+
+Auth0 es un proveedor de identidad compatible con OAuth 2.0 y OIDC, por lo que se integra directamente con el soporte nativo de OAuth 2.0 de Mintlify. Esta página asigna los endpoints y ajustes de Auth0 a los campos de [Configuración de autenticación](/es/deploy/authentication-setup#oauth-2-0). Usa la página canónica de configuración para el flujo completo y consulta esta para los valores específicos de Auth0.
+
+La autenticación OAuth 2.0 está disponible en el plan Enterprise.
+
+## Requisitos previos
+
+- Un tenant de Auth0. Anota el dominio de tu tenant, por ejemplo `your-tenant.us.auth0.com`.
+- Una **Regular Web Application** de Auth0 creada para tu sitio de documentación.
+- El client ID y el client secret de esa aplicación.
+
+## Asigna Auth0 a los campos de OAuth de Mintlify
+
+En tu panel de Mintlify, ve a [Authentication](https://app.mintlify.com/products/authentication), define la visibilidad del sitio como **Private** y elige **Custom** → **OAuth**. Rellena los campos con los siguientes valores de Auth0. Reemplaza `YOUR_AUTH0_DOMAIN` con el dominio de tu tenant.
+
+| Campo de Mintlify | Valor de Auth0 |
+|---|---|
+| Authorization URL | `https://YOUR_AUTH0_DOMAIN/authorize` |
+| Token URL | `https://YOUR_AUTH0_DOMAIN/oauth/token` |
+| Client ID | Client ID de la aplicación en Auth0 |
+| Client Secret | Client secret de la aplicación en Auth0 |
+| Scopes | `openid profile email` (añade más si tu aplicación los necesita) |
+| Info API URL (opcional) | `https://YOUR_AUTH0_DOMAIN/userinfo` |
+| Logout URL (opcional) | `https://YOUR_AUTH0_DOMAIN/v2/logout?returnTo=<url-encoded-return-url>` |
+
+Guarda la configuración. Mintlify vuelve a desplegar tu sitio con la nueva configuración de autenticación.
+
+## Registra la URL de redirección en Auth0
+
+Copia la **Redirect URL** que aparece en la configuración de autenticación de Mintlify y añádela a tu aplicación de Auth0 en **Application URIs → Allowed Callback URLs**. Guarda la aplicación de Auth0. Sin este paso, Auth0 rechaza el flujo de inicio de sesión.
+
+Si configuras una **Logout URL** en Mintlify, añade la misma URL de retorno a los **Allowed Logout URLs** de tu aplicación de Auth0.
+
+## Control de acceso basado en grupos
+
+Para restringir páginas a usuarios específicos de Auth0, tienes dos opciones.
+
+- **Claims del token (recomendado).** Añade un claim de grupos al ID token o al access token mediante una [Auth0 Action](https://auth0.com/docs/customize/actions) y configura Mintlify para leerlo. Consulta [Usar grupos desde claims del token de OAuth](/es/deploy/authentication-setup#use-groups-from-oauth-token-claims). Si obtienes los grupos del ID token, mantén `openid` en tus scopes.
+- **Info API URL.** Apunta Mintlify a `https://YOUR_AUTH0_DOMAIN/userinfo` o a tu propio endpoint que devuelva los datos del usuario en el [formato de datos de usuario](/es/deploy/authentication-setup#user-data-format). El endpoint debe aceptar `Authorization: Bearer <access_token>` y devolver los grupos en la respuesta.
+
+Luego etiqueta las páginas o grupos de navegación con un valor `groups` que coincida para que solo los miembros de ese grupo puedan verlos.
+
+## Solución de problemas
+
+- **La URL de callback no coincide.** Auth0 bloquea el inicio de sesión y muestra un error de callback. Confirma que la URL de redirección en los **Allowed Callback URLs** de Auth0 coincide exactamente con la que aparece en la configuración de autenticación de Mintlify, incluyendo el protocolo y la ruta final.
+- **Los usuarios inician sesión pero no ven contenido restringido.** Tu claim de grupos no está llegando a Mintlify. Confirma que la Auth0 Action añade el claim, que el `source` en Mintlify coincide con el token en el que lo configuraste (`id_token` o `access_token`) y que `groupsClaim` coincide con el nombre del claim.
+- **El cierre de sesión no redirige de vuelta.** Auth0 requiere que la URL `returnTo` del enlace de cierre de sesión esté listada en los **Allowed Logout URLs** de la aplicación.
