@@ -76,6 +76,7 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `openapi` | string | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
 | `url` | string | External URL. Makes the nav entry link externally. |
 | `timestamp` | boolean | Override global timestamp setting for this page. |
+| `lastUpdatedDate` | string | Explicit "last modified" date (e.g., `"2026-08-13"`). Takes precedence over the Git commit date. |
 
 Any other key is accepted as custom frontmatter (e.g. `product: "API"`).
 
@@ -364,6 +365,8 @@ The current API version is {{apiVersion}}.
 ```
 
 Shows "Last modified on [date]" on all pages. Override per-page with `timestamp` frontmatter.
+
+Date precedence: (1) the page's `lastUpdatedDate` frontmatter, (2) the date of the last Git commit that modified the page (GitHub/GitLab deployments), (3) the most recent deployment timestamp. Set `lastUpdatedDate` when Git history doesn't reflect when content changed (e.g., imported or synced content).
 
 ## Interaction
 

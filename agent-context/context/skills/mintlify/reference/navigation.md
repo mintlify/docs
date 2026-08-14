@@ -306,7 +306,7 @@ Version properties:
 
 Each language entry can include its own `banner`, `footer`, and `navbar` configuration overrides.
 
-To redirect visitors from the site root to the language matching their browser's `Accept-Language` header, enable **Auto-route to preferred language** on the dashboard Add-ons page (`https://app.mintlify.com/settings/deployment/addons`). Mintlify only redirects visits to the site root. If a visitor picks a language with the language switcher, that choice takes precedence.
+To redirect visitors from the site root to the language matching their browser's `Accept-Language` header, enable **Auto-route to preferred language** on the dashboard Add-ons page (`https://app.mintlify.com/settings/deployment/addons`). Mintlify only redirects visits to the site root. If a visitor picks a language with the language switcher, Mintlify remembers their choice and stops auto-routing them. If no published language matches the visitor's browser preferences, Mintlify serves the default language.
 
 ## OpenAPI in navigation
 
