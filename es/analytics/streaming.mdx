@@ -1,0 +1,134 @@
+---
+title: "Transmite eventos de analíticas a Amazon S3"
+sidebarTitle: "Transmitir eventos"
+description: "Configura la transmisión de analíticas Enterprise para enviar categorías de eventos desde tus deployments de Mintlify a Amazon S3 casi en tiempo real."
+keywords: ["analytics", "streaming", "Amazon S3", "data warehouse", "events", "Enterprise"]
+---
+
+<Info>
+  Las analíticas requieren un [plan Pro o Enterprise](https://mintlify.com/pricing?ref=analytics).
+  La transmisión de analíticas solo está disponible en [planes Enterprise](https://mintlify.com/pricing?ref=analytics-streaming).
+</Info>
+
+Transmite los eventos de analíticas a Amazon S3 casi en tiempo real para enviarlos a tu data warehouse o a pipelines de analíticas posteriores sin esperar a las exportaciones CSV.
+
+Los administradores de la organización pueden agregar múltiples destinos, seleccionar qué categorías de eventos enviar y elegir desde qué deployments transmitir. La transmisión de analíticas utiliza un modelo de inclusión: no se transmite ningún evento hasta que selecciones al menos una categoría y un deployment. Las mismas selecciones de categoría y deployment se aplican a todos los destinos.
+
+<div id="add-a-destination">
+  ## Agregar un destino
+</div>
+
+1. Ve a la página de [Streaming](https://app.mintlify.com/settings/organization/streaming) de tu dashboard.
+2. En la sección **Analytics streaming**, selecciona **Configure**.
+3. Selecciona **Add destination**.
+4. Ingresa una etiqueta opcional y luego proporciona el bucket de Amazon S3, la región de AWS, el access key ID y la secret access key. Opcionalmente, ingresa un prefijo que Mintlify añadirá al principio de cada clave de objeto.
+5. Selecciona **Add destination**.
+
+<Accordion title="Preparar credenciales de Amazon S3">
+  Crea un usuario de AWS Identity and Access Management (IAM) con una access key cuya política permita escribir en el bucket de destino. Mintlify no admite la asunción de roles ni credenciales temporales que requieran un token de sesión. Como mínimo, otorga `s3:PutObject` sobre el bucket y el prefijo de clave que planeas usar. Por ejemplo:
+
+  ```json
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": ["s3:PutObject"],
+        "Resource": "arn:aws:s3:::your-bucket-name/analytics/*"
+      }
+    ]
+  }
+  ```
+
+  Usa el access key ID y la secret access key de ese usuario IAM al agregar el destino. El prefijo de clave es opcional. Mintlify lo añade al principio de cada clave de objeto.
+</Accordion>
+
+Para dejar de transmitir a un destino, abre la configuración de streaming y selecciona el ícono <Icon icon="trash-2" /> de eliminar junto al destino.
+
+<div id="select-streamed-categories">
+  ## Selecciona las categorías transmitidas
+</div>
+
+1. Ve a la página de [Streaming](https://app.mintlify.com/settings/organization/streaming) de tu dashboard.
+2. En la sección **Analytics streaming**, selecciona **Configure**.
+3. En **Streamed categories**, selecciona las categorías que quieres enviar.
+
+   | Categoría | Ejemplos |
+   | --- | --- |
+   | Page views | Eventos de vistas de páginas y de Markdown. |
+   | Navigation | Clics en elementos de navegación, clics en llamadas a la acción de navegación y cambios de versión. |
+   | Search | Consultas de búsqueda, clics en resultados, cierres de búsqueda y comparaciones de búsqueda. |
+   | Page components | Interacciones con elementos expandibles, acordeones, bloques de código y el API playground. |
+   | Feedback | Pulgar arriba, pulgar abajo y envíos de comentarios detallados. |
+   | AI Assistant | Conversaciones, fuentes, sugerencias, comentarios y errores del assistant. |
+   | Context menu & MCP | Acciones del menú contextual, copias de enlaces MCP, instalaciones de servidores MCP y llamadas a herramientas MCP. |
+
+   Los ejemplos resumen cada categoría. Usa el valor `eventType` transmitido para identificar el evento exacto.
+
+4. Selecciona **Save changes**.
+
+<div id="select-streamed-deployments">
+  ## Selecciona los deployments transmitidos
+</div>
+
+Selecciona cuáles de los deployments de tu organización envían eventos. El dashboard lista cada deployment por subdominio. Si creas un deployment, regresa a la configuración de streaming y selecciónalo. Los nuevos deployments no comienzan a transmitir eventos automáticamente.
+
+1. Ve a la página de [Streaming](https://app.mintlify.com/settings/organization/streaming) de tu dashboard.
+2. En la sección **Analytics streaming**, selecciona **Configure**.
+3. En **Streamed deployments**, selecciona los deployments desde los que quieres enviar eventos.
+4. Selecciona **Save changes**.
+
+No se transmite ningún evento hasta que selecciones al menos una categoría y un deployment.
+
+<div id="understand-streamed-data">
+  ## Comprende los datos transmitidos
+</div>
+
+Mintlify escribe objetos JSON delimitados por saltos de línea (`.jsonl`) en tu bucket. Mintlify genera los nombres de objeto a partir de marcas de tiempo UTC. Si configuras un prefijo de clave, Mintlify escribe los objetos bajo ese prefijo.
+
+Cada línea contiene un envoltorio de evento con un `eventType` y un `payload`. El `eventType` es el nombre del evento, como `docs.content.view`. El `payload` contiene el evento de analíticas como un objeto JSON o como una cadena codificada en JSON. Si `payload` es una cadena, parséala como JSON antes de cargarla en tu warehouse.
+
+<Accordion title="Ejemplo de evento transmitido">
+  ```json
+  {
+    "eventType": "docs.content.view",
+    "payload": {
+      "event_id": "4b91fdbc-4677-4e03-b51b-5f2da41c8654",
+      "subdomain": "docs",
+      "user_id": "",
+      "anon_id": "anon_01JZ8W6QKEJ6ECG1T7QK2S5PZ2",
+      "session_id": "session_01JZ8W8CS5JC8T18HXH8ES7Z5M",
+      "created_at": "2026-07-22T23:21:41.063Z",
+      "event": "docs.content.view",
+      "path": "/quickstart",
+      "referrer": "https://www.example.com/",
+      "user_agent": "Mozilla/5.0",
+      "ip": "203.0.113.10",
+      "properties": {}
+    }
+  }
+  ```
+</Accordion>
+
+El payload del evento contiene los siguientes campos:
+
+| Campo | Descripción |
+| --- | --- |
+| `event_id` | UUID que identifica el evento. Úsalo como clave de deduplicación al cargar los datos. |
+| `subdomain` | Subdominio del deployment que generó el evento. |
+| `user_id` | ID del usuario autenticado, cuando esté disponible. |
+| `anon_id` | ID anónimo del visitante, cuando esté disponible. |
+| `session_id` | ID de sesión del visitante o del assistant, cuando esté disponible. |
+| `created_at` | Marca de tiempo ISO 8601 de cuándo ocurrió el evento. |
+| `event` | Nombre del evento. Coincide con `eventType` en el envoltorio. |
+| `path` | Ruta de la documentación donde ocurrió el evento. |
+| `referrer` | URL de referencia, cuando esté disponible. |
+| `user_agent` | Cadena del user-agent del navegador o cliente. |
+| `ip` | Dirección IP del visitante. |
+| `properties` | Datos específicos del evento como un objeto JSON o una cadena codificada en JSON. |
+
+Los cambios de configuración pueden tardar hasta un minuto en aplicarse.
+
+<Warning>
+  Los eventos transmitidos pueden contener datos personales, incluidas direcciones IP, identificadores de usuarios y sesiones, consultas y respuestas del assistant, y comentarios o información de contacto de feedback. Aplica los controles de acceso, políticas de retención y otros requisitos de manejo de datos apropiados para tu organización.
+</Warning>

@@ -298,7 +298,7 @@
                 },
                 "timestamp": {
                   "type": "string",
-                  "description": "Timestamp when the conversation occurred."
+                  "description": "Timestamp of the user message that started this turn."
                 },
                 "query": {
                   "type": "string",
@@ -306,7 +306,15 @@
                 },
                 "response": {
                   "type": "string",
-                  "description": "The assistant's response."
+                  "description": "The assistant's response. For clarifying-question turns, this is the question the assistant asked the user."
+                },
+                "responseType": {
+                  "type": "string",
+                  "enum": [
+                    "answer",
+                    "clarifying_question"
+                  ],
+                  "description": "Type of response returned to the user. `answer` is a final answer. `clarifying_question` means the assistant asked the user a follow-up question instead of answering. Defaults to `answer` when not present."
                 },
                 "sources": {
                   "type": "array",
@@ -335,7 +343,7 @@
                     "answered",
                     "unanswered"
                   ],
-                  "description": "Whether the assistant successfully answered the user's question. `unanswered` indicates the assistant could not provide a satisfactory answer based on the available documentation."
+                  "description": "Whether the assistant successfully answered this turn. Computed per row: `unanswered` when the assistant marked the question as not covered by the available documentation, otherwise `answered`."
                 },
                 "queryCategory": {
                   "type": [
@@ -549,6 +557,47 @@
           }
         },
         "required": ["totals", "views", "hasMore"]
+      },
+      "AssistantThreadResponse": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "description": "Assistant conversation thread identifier (ULID)."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Timestamp when the thread was created."
+          },
+          "messages": {
+            "type": "array",
+            "description": "Ordered list of messages exchanged in the thread.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Unique message identifier."
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["user", "assistant"],
+                  "description": "Whether the message was sent by the user or the assistant."
+                },
+                "content": {
+                  "type": "string",
+                  "description": "The text content of the message."
+                },
+                "createdAt": {
+                  "type": "string",
+                  "description": "Timestamp when the message was sent."
+                }
+              },
+              "required": ["id", "role", "content", "createdAt"]
+            }
+          }
+        },
+        "required": ["threadId", "createdAt", "messages"]
       },
       "AssistantCallerStatsResponse": {
         "type": "object",
@@ -938,6 +987,77 @@
           },
           "400": {
             "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/analytics/{projectId}/assistant/threads/{threadId}": {
+      "get": {
+        "summary": "Get an assistant conversation thread",
+        "description": "Returns the full message transcript for a single assistant conversation thread. The thread ID is available from the assistant conversations endpoint, or as the `threadId` query parameter appended to assistant link-mode deflection support URLs.\n\nAuthenticate with an admin API key.",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "ulid",
+              "description": "Assistant conversation thread ID (ULID)."
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation transcript",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantThreadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid thread ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Thread not found",
             "content": {
               "application/json": {
                 "schema": {

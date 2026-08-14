@@ -283,6 +283,59 @@
           "error"
         ]
       },
+      "AssistantThreadResponse": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "description": "Identifiant du fil de conversation de l'assistant (ULID)."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Horodatage de création du fil."
+          },
+          "messages": {
+            "type": "array",
+            "description": "Liste ordonnée des messages échangés dans le fil.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Identifiant unique du message."
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant"
+                  ],
+                  "description": "Indique si le message a été envoyé par l'utilisateur ou par l'assistant."
+                },
+                "content": {
+                  "type": "string",
+                  "description": "Contenu textuel du message."
+                },
+                "createdAt": {
+                  "type": "string",
+                  "description": "Horodatage d'envoi du message."
+                }
+              },
+              "required": [
+                "id",
+                "role",
+                "content",
+                "createdAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "threadId",
+          "createdAt",
+          "messages"
+        ]
+      },
       "AssistantCallerStatsResponse": {
         "type": "object",
         "properties": {
@@ -325,7 +378,7 @@
                 },
                 "timestamp": {
                   "type": "string",
-                  "description": "Horodatage de la conversation."
+                  "description": "Horodatage du message de l’utilisateur qui a lancé ce tour."
                 },
                 "query": {
                   "type": "string",
@@ -333,7 +386,15 @@
                 },
                 "response": {
                   "type": "string",
-                  "description": "La réponse générée par l’Assistant."
+                  "description": "La réponse générée par l’Assistant. Pour les tours de question de clarification, il s’agit de la question posée à l’utilisateur."
+                },
+                "responseType": {
+                  "type": "string",
+                  "enum": [
+                    "answer",
+                    "clarifying_question"
+                  ],
+                  "description": "Type de réponse renvoyée à l’utilisateur. `answer` correspond à une réponse finale. `clarifying_question` signifie que l’Assistant a posé une question de suivi à l’utilisateur au lieu de répondre. La valeur par défaut est `answer` lorsque le champ est absent."
                 },
                 "sources": {
                   "type": "array",
@@ -518,6 +579,76 @@
           },
           "500": {
             "description": "Erreur serveur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/analytics/{projectId}/assistant/threads/{threadId}": {
+      "get": {
+        "summary": "Obtenir un fil de conversation de l'assistant",
+        "description": "Renvoie la transcription complète des messages d'un fil de conversation unique de l'assistant. L'ID du fil est disponible depuis l'endpoint des conversations de l'assistant, ou comme paramètre de requête `threadId` ajouté aux URL de support de redirection par lien de l'assistant.\n\nAuthentifiez-vous avec une clé API administrateur.",
+        "tags": [
+          "Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "ID du fil de conversation de l'assistant (ULID)."
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La transcription de la conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantThreadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ID de fil invalide",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Fil introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur du serveur",
             "content": {
               "application/json": {
                 "schema": {

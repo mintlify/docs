@@ -283,6 +283,47 @@
           "error"
         ]
       },
+      "AssistantThreadResponse": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "description": "Identificador del hilo de conversación del assistant (ULID)."
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Marca de tiempo de creación del hilo."
+          },
+          "messages": {
+            "type": "array",
+            "description": "Lista ordenada de mensajes intercambiados en el hilo.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Identificador único del mensaje."
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["user", "assistant"],
+                  "description": "Si el mensaje fue enviado por el usuario o por el assistant."
+                },
+                "content": {
+                  "type": "string",
+                  "description": "Contenido de texto del mensaje."
+                },
+                "createdAt": {
+                  "type": "string",
+                  "description": "Marca de tiempo de envío del mensaje."
+                }
+              },
+              "required": ["id", "role", "content", "createdAt"]
+            }
+          }
+        },
+        "required": ["threadId", "createdAt", "messages"]
+      },
       "AssistantCallerStatsResponse": {
         "type": "object",
         "properties": {
@@ -325,7 +366,7 @@
                 },
                 "timestamp": {
                   "type": "string",
-                  "description": "Marca de tiempo en la que se produjo la conversación."
+                  "description": "Marca de tiempo del mensaje del usuario que inició este turno."
                 },
                 "query": {
                   "type": "string",
@@ -333,7 +374,15 @@
                 },
                 "response": {
                   "type": "string",
-                  "description": "La respuesta del assistant."
+                  "description": "La respuesta del assistant. En los turnos de pregunta aclaratoria, es la pregunta que el assistant le hizo al usuario."
+                },
+                "responseType": {
+                  "type": "string",
+                  "enum": [
+                    "answer",
+                    "clarifying_question"
+                  ],
+                  "description": "Tipo de respuesta devuelta al usuario. `answer` es una respuesta final. `clarifying_question` indica que el assistant hizo una pregunta de seguimiento al usuario en lugar de responder. El valor predeterminado es `answer` cuando no está presente."
                 },
                 "sources": {
                   "type": "array",
@@ -525,6 +574,45 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/analytics/{projectId}/assistant/threads/{threadId}": {
+      "get": {
+        "summary": "Obtener un hilo de conversación del assistant",
+        "description": "Devuelve la transcripción completa de mensajes para un único hilo de conversación del assistant. El ID del hilo está disponible desde el endpoint de conversaciones del assistant, o como parámetro de consulta `threadId` añadido a las URL de soporte de derivación por enlace del assistant.\n\nAutentícate con una clave de API de administrador.",
+        "tags": ["Analytics"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/projectId" },
+          {
+            "schema": {
+              "type": "string",
+              "format": "ulid",
+              "description": "ID del hilo de conversación del assistant (ULID)."
+            },
+            "required": true,
+            "name": "threadId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La transcripción de la conversación",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AssistantThreadResponse" } } }
+          },
+          "400": {
+            "description": "ID de hilo no válido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnalyticsErrorResponse" } } }
+          },
+          "404": {
+            "description": "Hilo no encontrado",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnalyticsErrorResponse" } } }
+          },
+          "500": {
+            "description": "Error del servidor",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AnalyticsErrorResponse" } } }
           }
         }
       }

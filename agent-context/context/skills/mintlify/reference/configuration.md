@@ -76,6 +76,7 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `openapi` | string | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
 | `url` | string | External URL. Makes the nav entry link externally. |
 | `timestamp` | boolean | Override global timestamp setting for this page. |
+| `lastUpdatedDate` | string | Explicit "last modified" date (e.g., `"2026-08-13"`). Takes precedence over the Git commit date. |
 
 Any other key is accepted as custom frontmatter (e.g. `product: "API"`).
 
@@ -101,13 +102,13 @@ title: "Page title"
 mode: "custom"
 ---
 
-# Frame: like custom but keeps sidebar (Aspen, Almond, and Luma themes only)
+# Frame: like custom but keeps sidebar (Aspen, Almond, Luma, and Sequoia themes only)
 ---
 title: "Page title"
 mode: "frame"
 ---
 
-# Center: removes sidebar and TOC, centers content (Mint and Linden themes only)
+# Center: removes sidebar and TOC, centers content (Mint, Linden, Willow, and Maple themes only)
 ---
 title: "Page title"
 mode: "center"
@@ -365,6 +366,8 @@ The current API version is {{apiVersion}}.
 
 Shows "Last modified on [date]" on all pages. Override per-page with `timestamp` frontmatter.
 
+Date precedence: (1) the page's `lastUpdatedDate` frontmatter, (2) the date of the last Git commit that modified the page (GitHub/GitLab deployments), (3) the most recent deployment timestamp. Set `lastUpdatedDate` when Git history doesn't reflect when content changed (e.g., imported or synced content).
+
 ## Interaction
 
 ```json
@@ -406,7 +409,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 }
 ```
 
-- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"windsurf"`, `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
+- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"download-pdf"`, `"download-spec"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"devin-desktop"`, `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
 - `display`: Where to show the menu. `"header"` (default) or `"toc"`.
 
 ## Thumbnails
@@ -465,7 +468,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 - `params.expanded`: Expand all parameters by default. `"all"` or `"closed"` (default).
 - `params.post`: OpenAPI schema field keys to surface as pills next to parameter names.
 - `url`: Set to `"full"` to always show the full base URL (default: only shown when multiple base URLs exist).
-- `examples.languages`: `bash`, `go`, `java`, `javascript`, `node`, `php`, `powershell`, `python`, `ruby`, `swift`.
+- `examples.languages`: `bash`, `python`, `javascript`, `node`, `php`, `go`, `java`, `ruby`, `powershell`, `swift`, `csharp`, `dotnet`, `typescript`, `c`, `c++`, `kotlin`, `rust`, `dart`.
 - `examples.defaults`: `"required"` or `"all"` (include optional params).
 - `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
 - `examples.autogenerate`: Generate code samples from API specs. Default: `true`.

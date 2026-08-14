@@ -1,0 +1,62 @@
+---
+title: "使用 Auth0 配置 OAuth 2.0 身份验证"
+description: "为私有 Mintlify 文档站点将 Auth0 设置为 OAuth 2.0 身份提供方，包括端点 URL、回调注册和基于用户组的访问控制。"
+keywords: ["Auth0", "OAuth", "OAuth 2.0", "OIDC", "identity provider", "SSO", "private docs", "authentication"]
+---
+
+Auth0 是一个兼容 OAuth 2.0 和 OIDC 的身份提供方，因此可以直接接入 Mintlify 内置的 OAuth 2.0 支持。本页将 Auth0 的端点和设置映射到[身份验证设置](/zh/deploy/authentication-setup#oauth-2-0)中的字段。完整流程请参考对应的官方设置页面，本页仅提供 Auth0 特定的取值。
+
+OAuth 2.0 身份验证在 Enterprise 方案中可用。
+
+<div id="prerequisites">
+## 前提条件
+</div>
+
+- 一个 Auth0 租户。记下你的租户域名，例如 `your-tenant.us.auth0.com`。
+- 为你的文档站点创建的 Auth0 **Regular Web Application**。
+- 该应用的 client ID 和 client secret。
+
+<div id="map-auth0-to-mintlifys-oauth-fields">
+## 将 Auth0 映射到 Mintlify 的 OAuth 字段
+</div>
+
+在 Mintlify 控制台中，进入[身份验证](https://app.mintlify.com/products/authentication)，将站点可见性设置为 **Private**，然后选择 **Custom** → **OAuth**。使用以下 Auth0 的取值填写各字段。将 `YOUR_AUTH0_DOMAIN` 替换为你的租户域名。
+
+| Mintlify 字段 | Auth0 取值 |
+|---|---|
+| Authorization URL | `https://YOUR_AUTH0_DOMAIN/authorize` |
+| Token URL | `https://YOUR_AUTH0_DOMAIN/oauth/token` |
+| Client ID | 来自 Auth0 的应用 client ID |
+| Client Secret | 来自 Auth0 的应用 client secret |
+| Scopes | `openid profile email`（如果你的应用需要，可添加更多） |
+| Info API URL（可选） | `https://YOUR_AUTH0_DOMAIN/userinfo` |
+| Logout URL（可选） | `https://YOUR_AUTH0_DOMAIN/v2/logout?returnTo=<url-encoded-return-url>` |
+
+保存设置。Mintlify 会使用新的身份验证配置重新部署你的站点。
+
+<div id="register-the-redirect-url-in-auth0">
+## 在 Auth0 中注册重定向 URL
+</div>
+
+复制 Mintlify 身份验证设置中显示的 **Redirect URL**，并在 Auth0 应用的 **Application URIs → Allowed Callback URLs** 中添加该地址。保存 Auth0 应用。若未完成此步骤，Auth0 将拒绝登录流程。
+
+如果你在 Mintlify 中设置了 **Logout URL**，请把相同的返回地址添加到 Auth0 应用的 **Allowed Logout URLs**。
+
+<div id="group-based-access-control">
+## 基于用户组的访问控制
+</div>
+
+若要将页面限制给特定的 Auth0 用户访问，有两种方式。
+
+- **令牌声明（推荐）。** 使用 [Auth0 Action](https://auth0.com/docs/customize/actions) 在 ID 令牌或访问令牌中添加 groups 声明，并配置 Mintlify 读取它。参见[使用 OAuth 令牌声明中的用户组](/zh/deploy/authentication-setup#use-groups-from-oauth-token-claims)。如果你从 ID 令牌中获取用户组，请在 scopes 中保留 `openid`。
+- **Info API URL。** 让 Mintlify 指向 `https://YOUR_AUTH0_DOMAIN/userinfo` 或你自己的端点，该端点需按[用户数据格式](/zh/deploy/authentication-setup#user-data-format)返回用户数据。端点必须接受 `Authorization: Bearer <access_token>`，并在响应中返回用户组。
+
+然后为页面或导航分组标记匹配的 `groups` 值，这样只有属于该分组的成员才能看到它们。
+
+<div id="troubleshooting">
+## 疑难解答
+</div>
+
+- **回调 URL 不匹配。** Auth0 会阻止登录并显示回调错误。请确认 Auth0 **Allowed Callback URLs** 中的 redirect URL 与 Mintlify 身份验证设置中显示的地址完全一致，包括协议和结尾路径。
+- **用户能登录但看不到受限内容。** 你的 groups 声明没有传到 Mintlify。请确认 Auth0 Action 已添加该声明，Mintlify 中的 `source` 与你写入声明的令牌（`id_token` 或 `access_token`）一致，并且 `groupsClaim` 与声明名称匹配。
+- **登出后未跳回。** Auth0 要求登出链接中的 `returnTo` URL 已列入该应用的 **Allowed Logout URLs**。

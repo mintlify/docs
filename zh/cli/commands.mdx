@@ -1,7 +1,7 @@
 ---
 title: "Mintlify CLI 命令参考"
 sidebarTitle: "命令参考"
-description: "Mintlify CLI 所有命令和选项的完整参考，涵盖 mint dev、mint build、mint validate、mint broken-links、mint signup 等命令的用法与标志说明。"
+description: "Mintlify CLI 所有命令和选项的完整参考，涵盖 mint index、mint dev、mint validate 和 mint broken-links，并说明客户端选择、项目配置、MCP 规则及更多 CLI 工作流，帮助你完成日常文档开发以及部署前检查。"
 keywords: ["CLI", "mint", "命令", "选项", "参考"]
 boost: 3
 ---
@@ -36,6 +36,82 @@ mint dev [flags]
 | `--disable-openapi` | 跳过 OpenAPI 文件处理以提高性能。 |
 | `--disable-prefetch` | 在本地预览中禁用导航预加载。适用于后台预加载会拖慢页面加载的超大型站点。 |
 | `--local-schema` | 允许通过 HTTP 提供的本地托管 OpenAPI 文件。 |
+
+---
+
+<div id="mint-index">
+  ## `mint index`
+</div>
+
+将 Mintlify 托管的 Index MCP 服务器安装到你的编程代理中。该服务器提供 `context` 工具，用于查询库、框架、SDK、API 和 CLI 工具。
+
+Index MCP 服务器不同于[Mintlify Docs MCP 服务器](/zh/ai/model-context-protocol)，后者用于搜索你的文档站点。
+
+```bash
+mint index [options]
+```
+
+该命令也可以使用 `mintlify index` 运行。
+
+<div id="mint-index-options">
+  ### 选项
+</div>
+
+| 选项 | 描述 |
+| --- | --- |
+| `--claude` | 配置 Claude Code。 |
+| `--cursor` | 配置 Cursor。 |
+| `--vscode` | 配置 VS Code。 |
+| `--codex` | 配置 Codex。 |
+| `--opencode` | 配置 OpenCode。 |
+| `--windsurf` | 配置 Windsurf。 |
+| `--zed` | 配置 Zed。 |
+| `--project` | 在客户端支持时写入项目配置，而不是全局配置。 |
+| `--yes`、`-y` | 跳过选择器并配置所有检测到的客户端。 |
+
+<div id="mint-index-select-clients">
+  ### 选择客户端
+</div>
+
+不带客户端选项运行 `mint index`，即可检测已安装的客户端并打开交互式选择器。检测到的客户端默认处于选中状态。选择要配置的客户端，然后确认提示。
+
+传入一个或多个客户端选项，可以在不打开选择器的情况下配置指定客户端：
+
+```bash
+mint index --claude --cursor
+```
+
+使用 `--yes` 可在不显示提示的情况下配置所有检测到的客户端。如果没有检测到客户端，请传入明确的客户端选项，例如 `--claude` 或 `--cursor`。
+
+将 `--project` 与客户端选项一起使用，可将项目配置写入当前目录：
+
+```bash
+mint index --project --cursor --vscode
+```
+
+<div id="mint-index-configuration">
+  ### 配置和规则
+</div>
+
+该命令会将 `mintlify-index` 服务器添加到每个选中的客户端，并将其指向 `https://index.mintlify.com/mcp`。默认情况下，它会更新全局配置。使用 `--project` 时，如果客户端支持项目配置，则使用该配置。
+
+该命令还会为除 Zed 之外的每个选中客户端添加使用规则。该规则会告知客户端使用 Index MCP 的 `context` 工具查询文档，包括语法、配置、迁移和设置，并优先使用该工具而不是网页搜索，因为训练数据可能已经过时。该规则不适用于通用编程概念或业务逻辑调试。
+
+Windsurf 只有全局 MCP 配置。使用 `--project` 时，该命令仍会将 MCP 条目写入 Windsurf 的全局配置，并将使用规则写入当前项目。
+
+重新运行该命令会更新现有的 `mintlify-index` 条目及其生成的规则，同时保留其他配置。如果现有 JSON 或 JSONC 配置无效，该命令会显示错误且不会修改该文件。
+
+支持的客户端及其标准配置文件如下：
+
+| 客户端 | 全局配置 | 项目配置 |
+| --- | --- | --- |
+| Claude Code | `~/.claude.json` | `.mcp.json` |
+| Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` |
+| VS Code | 用户 `mcp.json` | `.vscode/mcp.json` |
+| Codex | `~/.codex/config.toml` | `.codex/config.toml` |
+| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` | 仅全局配置 |
+| Zed | 用户 `settings.json` | `.zed/settings.json` |
 
 ---
 
@@ -151,6 +227,8 @@ CNAME @ → cname.mintlify.builders
 ```
 
 请先添加 `TXT` 记录，验证记录通过后再添加 `CNAME`。有关完整的 DNS 配置说明、顶级域名要求和 TLS 配置详情，请参见[自定义域名](/zh/customize/custom-domain)。
+
+如果命令报错 `Domain is already in use by another deployment in your organization` 或 `Domain is already claimed by another organization`，说明该域名已绑定到另一个 Mintlify 部署。请参见[添加域名时报错 "Domain is already claimed by another organization"](/zh/help-center/domain-already-claimed-by-another-organization) 以释放并重新添加。
 
 <Note>
   如果命令结束时某些 `TXT` 记录仍在生成中，请稍后前往控制台的 [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) 页面查看剩余的值。

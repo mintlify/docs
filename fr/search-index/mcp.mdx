@@ -1,0 +1,85 @@
+---
+title: "Serveur MCP Mintlify Index"
+sidebarTitle: "Référence MCP"
+description: "Référence du serveur MCP public Mintlify Index : URL de connexion, outil context, paramètres, format de réponse, limites de débit et exemples."
+keywords: ["Mintlify Index", "MCP server", "context tool", "rate limits"]
+---
+
+Le serveur MCP Mintlify Index donne aux outils d’IA un accès en lecture seule à la documentation technique et au contexte web. Connectez-vous à l’adresse suivante :
+
+```text
+https://index.mintlify.com
+```
+
+Vous n’avez pas besoin de vous authentifier auprès du serveur public. Consultez [Connexion](/fr/search-index/connect) pour configurer Claude Code et Cursor.
+
+<Note>
+  Le MCP Index recherche dans la documentation des produits couverts et sur le web technique. Pour rechercher uniquement dans le contenu d’un site hébergé sur Mintlify, utilisez le [serveur MCP de recherche](/fr/ai/model-context-protocol) de ce site.
+</Note>
+
+<div id="context-tool">
+  ## Outil `context`
+</div>
+
+Utilisez `context` pour étudier une tâche d’implémentation et renvoyer en un appel un contexte compact accompagné de ses sources. L’outil est en lecture seule et peut accéder au web ouvert.
+
+<ParamField body="query" type="string" required>
+  Question d’implémentation à étudier.
+</ParamField>
+
+<ParamField body="product" type="string">
+  Nom du produit ou de l’entreprise à utiliser comme indication de récupération supplémentaire.
+</ParamField>
+
+<ParamField body="includeDomains" type="string[]">
+  Domaines à inclure dans la récupération. Lorsque ce champ est défini, la récupération limite les résultats à ces domaines.
+</ParamField>
+
+<ParamField body="excludeDomains" type="string[]">
+  Domaines à exclure de la récupération.
+</ParamField>
+
+<ParamField body="tokenBudget" type="integer" default="3000">
+  Nombre maximal de jetons à renvoyer. La valeur maximale est `6000`. Utilisez la valeur par défaut pour les questions ciblées et une limite plus élevée pour les tâches complexes comportant plusieurs parties.
+</ParamField>
+
+<div id="output">
+  ### Sortie
+</div>
+
+L’outil renvoie un contexte au format Markdown assemblé à partir de sources classées. Chaque section comprend un titre, une URL source et le contenu pertinent de la source.
+
+```text
+### Configure caching
+
+Source: https://nextjs.org/docs/app/getting-started/caching-and-revalidating
+
+Relevant source content appears here.
+
+--------------------------------
+```
+
+Le serveur MCP renvoie des sources que l’agent connecté peut utiliser. L’agent décide comment appliquer ce contexte à votre tâche.
+
+<div id="rate-limits">
+  ## Limites de débit
+</div>
+
+Index applique les limites par adresse IP suivantes au serveur MCP public :
+
+| Fenêtre | Limite |
+| --- | ---: |
+| Par seconde | 10 requêtes |
+| Par jour | 1 000 requêtes |
+
+Les requêtes dépassant l’une ou l’autre limite renvoient `429 Too Many Requests`. Attendez avant de réessayer et utilisez un back-off exponentiel pour les clients automatisés.
+
+<div id="protocol-behavior">
+  ## Comportement du protocole
+</div>
+
+Le MCP Index utilise Streamable HTTP sans état :
+
+- Envoyez chaque requête JSON-RPC avec un `POST` HTTP.
+- Envoyez une seule requête JSON-RPC par requête HTTP. Les lots ne sont pas pris en charge.
+- Ne conservez pas et n’envoyez pas d’identifiant de session MCP entre les requêtes.

@@ -1,0 +1,45 @@
+---
+title: "Fix \"Failed to fetch OpenAPI file for anchor or tab\" error"
+description: "Fix Mintlify builds that fail to download a hosted OpenAPI document because of private hosts, authenticated URLs, TLS, DNS, or CI race conditions."
+keywords: ["Failed to fetch OpenAPI file", "OpenAPI build error", "openapi URL", "spec fetch", "build failure", "CI race condition"]
+---
+
+When your `docs.json` `openapi` field points at a URL instead of a file in your repository, Mintlify downloads that document during every build. If the download fails, the build fails with `Failed to fetch OpenAPI file for anchor or tab`. For an overview of the common causes and the recommended fix, see [API playground troubleshooting](/api-playground/troubleshooting).
+
+This page covers how to narrow down the cause when the fix isn't obvious.
+
+## Reproduce the fetch outside Mintlify
+
+Mintlify builds run from the public internet with no access to your network or credentials. Run these commands from a machine that is not on your VPN or corporate network:
+
+```bash
+curl -IL "https://example.com/openapi.json"
+curl -o openapi.json "https://example.com/openapi.json"
+```
+
+Check the response for these signals:
+
+- A connection timeout or DNS failure means the host isn't publicly resolvable.
+- A `401` or `403` means the URL requires authentication. Build fetches are unauthenticated and cannot send a token, cookie, or come from an allowlisted IP.
+- A certificate error means the TLS chain is incomplete. Browsers often accept a chain that automated clients reject, so a URL that loads for you can still fail during a build.
+- A `200` with a truncated or empty body means the origin served a partial response.
+
+Then validate the document you downloaded:
+
+```bash
+mint validate
+```
+
+If validation fails, the problem is the document itself rather than the fetch. See [OpenAPI setup](/api-playground/openapi-setup).
+
+## Rule out a CI race condition
+
+If your pipeline generates the spec and then calls the [Trigger deployment](/api/update/trigger) endpoint, an intermittent failure usually means the deployment starts before the new spec finishes publishing. The build then fetches a stale document, a partial document, or nothing at all.
+
+Sequence the pipeline so the spec is fully published and readable at its public URL before you trigger the deployment. Confirm the upload completed rather than assuming it did. Object storage and CDN uploads often return before the object is served consistently.
+
+This failure mode is intermittent by nature. A build that succeeds on retry without any change to the spec is a strong signal that you're hitting it.
+
+## When the URL can't be public
+
+If you cannot serve the spec from an unauthenticated public URL, commit it into your documentation repository and point the `openapi` field at the repo-relative path. Update the file in the same commit that changes your API so the two stay in sync. See [`mint validate`](/cli/commands#mint-validate) to check the document before you commit it.
