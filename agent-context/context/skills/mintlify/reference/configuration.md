@@ -69,7 +69,7 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `related` | array or boolean | Related pages shown in the **Related topics** section, or `false` to hide it. Requires the Related pages add-on. |
 | `hideApiMarker` | boolean | Hide the HTTP method badge next to the page title in the sidebar. |
 | `contextual` | object | Override the site-wide contextual menu (`options`, `display`) for this page. `options: []` disables it. |
-| `groups` | string[] | Restrict the page to users in specific groups. Requires authentication configured first. |
+| `groups` | string[] | Limit the page to users in specific groups. With authentication, restricts access. With standalone personalization, only controls navigation visibility. Users can still open the page by direct URL. |
 | `mode` | string | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
 | `keywords` | array | Search terms for internal search and SEO. |
 | `api` | string | API endpoint for interactive playground (e.g., `"POST /users"`). |
