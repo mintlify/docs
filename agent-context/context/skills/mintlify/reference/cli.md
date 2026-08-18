@@ -25,7 +25,6 @@ Available on all commands.
 - `mint broken-links` — Check for broken internal links. `--files <paths...>` limits the check to specific files or globs. `--check-anchors` validates `#` anchors. `--check-external` checks external URLs. `--check-redirects` checks that redirect destinations in `docs.json` resolve. `--check-snippets` checks links inside `<Snippet>` components.
 - `mint a11y` — Accessibility checks (alt text, color contrast). `--skip-contrast` or `--skip-alt-text` to narrow scope.
 - `mint score [url]` — Score a docs site's AI/agent readiness. Checks llms.txt, MCP discoverability, robots.txt, sitemap, structured data, response latency, and more. Requires `mint login`. Defaults to your configured subdomain. `--format` accepts `table` (default), `plain`, or `json`.
-- `mint deslop [files...]` — Check pages for AI-sounding prose and get rewrite suggestions. Requires `mint login`. Without `files`, checks the `.md`/`.mdx` pages changed in your working tree (Git diff plus untracked files). Flags: `--format` (`table`/`plain`/`json`), `--subdomain`, `--threshold` (0-1, default 0.5), `--fix-whitespace` (normalizes trailing spaces, blank-line runs, and invisible Unicode outside code blocks/frontmatter).
 - `mint format` — Format every `.mdx` file in the current directory and its subdirectories in place. Respects `.gitignore` and Mintlify ignore rules. Commit or stash changes first so you can review the rewrite.
 
 ## Authentication
