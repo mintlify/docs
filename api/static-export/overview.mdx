@@ -20,17 +20,18 @@ Static exports use `.html` URLs that match the files in the bundle. For example,
 
 ## How static export works
 
-A static export runs as an asynchronous job. You start the job, poll for its status, and then generate a downloadable bundle once the job completes.
+A static export runs as an asynchronous job. You start the job for a project, then poll for its status until the bundle is ready to download.
 
 <Steps>
   <Step title="Start a static export job">
-    Call [Start static export job](/api/static-export/start-job) with the domain you want to export. The API queues the job and returns a `jobId`.
+    Call [Start static export job](/api/static-export/start-job) with your project ID. The API queues the job and returns a `jobId`.
+
+    A deployment can have only one active job at a time. If a job is already `queued` or `running` for the deployment, the endpoint returns `409`. The endpoint is rate-limited to 10 job starts per organization per hour.
   </Step>
-  <Step title="Query the job status">
-    Poll [Get static export job status](/api/static-export/get-job-status) with the `jobId` until `status` is `completed`. The response includes live `progress` and `pageCount` while the job runs.
-  </Step>
-  <Step title="Generate the bundle">
-    Call [Generate export bundle](/api/static-export/generate-bundle) with the `jobId`. The API packages the export into a single archive and returns `bundleUrl`, a presigned S3 link to the static export bundle, alongside an `expiresAt` timestamp. Download the bundle before the `expiresAt` time. After the `expiresAt` time, call [Generate export bundle](/api/static-export/generate-bundle) again to get a fresh link. The underlying job and its files remain reusable. Only the link is time-limited.
+  <Step title="Poll the job and download the bundle">
+    Poll [Get static export job status](/api/static-export/get-job-status) with the `jobId` until `status` is `completed`. The completed response includes `bundleUrl`, a time-limited presigned S3 link to the bundle, along with `sizeBytes` and an `expiresAt` timestamp.
+
+    Download the bundle before `expiresAt`. After it expires, call the status endpoint again to get a fresh `bundleUrl`. The underlying export files remain reusable. Only the link is time-limited.
   </Step>
 </Steps>
 
@@ -48,27 +49,28 @@ Which features are available depends on how you host your deployment. Air-gapped
 
 ## Endpoints
 
-- [Start static export job](/api/static-export/start-job): Start a static export job for a deployment.
-- [Get static export job status](/api/static-export/get-job-status): Poll the status and progress of a running job.
-- [Generate export bundle](/api/static-export/generate-bundle): Package a completed job and return a single S3 link to the bundle.
+- [Start static export job](/api/static-export/start-job): Queue a static export job for a project.
+- [Get static export job status](/api/static-export/get-job-status): Poll job state and, once complete, retrieve a presigned bundle download link.
 
 ## Authentication
 
 Authenticate requests with your admin API key. Generate an admin API key on the [API keys page](https://app.mintlify.com/settings/organization/api-keys) in your dashboard. Admin API keys begin with the `mint_` prefix and are server-side secrets—do not expose them in client-side code.
 
+Copy your project ID from the same page and use it as the `projectId` path parameter.
+
 ## Deploy the bundle to your Enterprise Helm chart
 
-Self-hosted Mintlify deploys with the Helm chart in the [`mintlify/enterprise`](https://github.com/mintlify/enterprise) repository. Once a static export job produces a bundle, you point the chart at the bundle and the deployment serves it from your own infrastructure.
+Self-hosted Mintlify deploys with the Helm chart in the [`mintlify/enterprise`](https://github.com/mintlify/enterprise) repository. Once a static export job completes, you point the chart at the `bundleUrl` and the deployment serves it from your own infrastructure.
 
 <Steps>
   <Step title="Add the bundle reference to your values">
-    Set the static export fields in your `values.yaml` to the `bundleUrl` returned by [Generate export bundle](/api/static-export/generate-bundle). The chart fetches the bundle on startup and serves it as the active version.
+    Set the static export fields in your `values.yaml` to the `bundleUrl` returned by [Get static export job status](/api/static-export/get-job-status). The chart fetches the bundle on startup and serves it as the active version.
 
     ```yaml values.yaml
     staticExport:
       enabled: true
-      # Presigned S3 link returned by the Generate export bundle endpoint.
-      bundleUrl: "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz"
+      # Presigned S3 link returned by the Get static export job status endpoint.
+      bundleUrl: "https://mintlify-static-exports.s3.amazonaws.com/6520f3a1c9b1a20012ab34cd/export.zip"
       # Optional: pin to a specific export version for reproducible rollouts.
       version: "2024-06-01"
     ```
@@ -85,11 +87,11 @@ Self-hosted Mintlify deploys with the Helm chart in the [`mintlify/enterprise`](
   </Step>
 </Steps>
 
-Because presigned links expire, regenerate the bundle and re-run the upgrade whenever you publish new content or automate the loop with GitHub Actions.
+Because presigned links expire, re-fetch the job status and re-run the upgrade whenever you publish new content or automate the loop with GitHub Actions.
 
 ## Automate with a GitHub Action
 
-The following template workflow runs the full export loop on a schedule or on demand. It starts a job, polls until the export completes, generates a bundle, and rolls the new `bundleUrl` into the Helm chart.
+The following template workflow runs the full export loop on a schedule or on demand. It starts a job, polls until the export completes, then rolls the new `bundleUrl` into the Helm chart.
 
 ```yaml .github/workflows/static-export.yml
 name: Publish static export
@@ -99,6 +101,9 @@ on:
   schedule:
     - cron: "0 6 * * *" # Daily at 06:00 UTC
 
+env:
+  PROJECT_ID: proj_your_project_id
+
 jobs:
   export:
     runs-on: ubuntu-latest
@@ -106,32 +111,30 @@ jobs:
       - name: Start static export job
         id: start
         run: |
-          JOB_ID=$(curl -s -X POST https://api.mintlify.com/v1/static-export/jobs \
-            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"domain": "docs.example.com"}' | jq -r '.jobId')
+          JOB_ID=$(curl -s -X POST \
+            https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.jobId')
           echo "job_id=$JOB_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for the job to complete
+      - name: Wait for the job to complete and capture the bundle URL
+        id: bundle
         run: |
           for i in $(seq 1 60); do
-            STATUS=$(curl -s https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }} \
-              -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.status')
+            RESPONSE=$(curl -s \
+              https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs/${{ steps.start.outputs.job_id }} \
+              -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}")
+            STATUS=$(echo "$RESPONSE" | jq -r '.status')
             echo "status=$STATUS"
-            [ "$STATUS" = "completed" ] && exit 0
+            if [ "$STATUS" = "completed" ]; then
+              BUNDLE_URL=$(echo "$RESPONSE" | jq -r '.bundleUrl')
+              echo "bundle_url=$BUNDLE_URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             [ "$STATUS" = "failed" ] && exit 1
             sleep 10
           done
           echo "Timed out waiting for the export job to complete." >&2
           exit 1
-
-      - name: Generate the bundle
-        id: bundle
-        run: |
-          BUNDLE_URL=$(curl -s -X POST \
-            https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }}/bundle \
-            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.bundleUrl')
-          echo "bundle_url=$BUNDLE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to the Helm chart
         run: |
@@ -141,4 +144,4 @@ jobs:
             --set staticExport.bundleUrl="${{ steps.bundle.outputs.bundle_url }}"
 ```
 
-Store your admin API key as the `MINTLIFY_ADMIN_KEY` repository secret. Before deploying, configure cluster credentials, for example with `azure/setup-helm` and your Kubernetes configuration file (`kubeconfig`).
+Store your admin API key as the `MINTLIFY_ADMIN_KEY` repository secret and set `PROJECT_ID` to your project's ID. Before deploying, configure cluster credentials, for example with `azure/setup-helm` and your Kubernetes configuration file (`kubeconfig`).
