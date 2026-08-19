@@ -1,20 +1,89 @@
 ---
 title: "个性化内容"
-description: "根据用户身份验证数据、群组成员资格和自定义变量显示个性化内容，为不同受众量身定制文档。"
+description: "根据已识别访客的数据、用户组成员资格和自定义变量显示个性化内容，为不同受众量身定制文档。"
 keywords: ["内容个性化", "个性化", "用户数据", "分组", "动态", "预填充"]
 ---
 
-<Note>
-  使用个性化功能前，需要先通过 OAuth 或 JWT 配置[认证](/zh/deploy/authentication-setup)。
-</Note>
+在保持文档公开访问的同时，为已识别的访客定制内容。个性化的典型场景包括预填充 API 密钥、展示与用户订阅计划或角色相关的特定内容，以及根据用户组成员身份筛选 API 参考内容。
 
-当用户登录你的文档站点时，可以为其定制内容。你可以预填充 API 密钥、展示与用户订阅计划或角色相关的特定内容，并根据分组成员身份筛选 API 参考内容。
+个性化通过共享会话、JWT 或 OAuth 来识别访客，同时不会限制访客对页面的访问。
 
-<div id="api-key-prefilling">
-  ## 预填充 API 密钥
-</div>
+| 方式 | 适用场景 | 访客识别方式 |
+| :--- | :--- | :--- |
+| 共享会话 | 文档站点与已有应用可以共享同一个浏览器会话 | Mintlify 使用访客的会话 cookie 向你的 Info API 请求用户数据。 |
+| JWT | 已有可对 Mintlify 用户数据进行签名的登录流程 | 你的登录流程会将访客重定向回来，并附带已签名的 JWT。 |
+| OAuth | 已有的 OAuth 2.0 提供方 | Mintlify 完成一次 OAuth 流程，然后向你的 Info API 请求用户数据。 |
 
-通过在用户数据中返回匹配的字段名，自动为 API 操作台中的字段填入用户特定的值。将这些值包含在你的 [用户数据](/zh/deploy/authentication-setup#user-data-format) 的 `apiPlaygroundInputs` 字段中。
+## 配置个性化
+
+在控制台的 [Add-ons](https://app.mintlify.com/settings/deployment/addons) 页面启用个性化。个性化与完整认证相互排斥。JWT 与 OAuth 认证已经包含个性化功能。
+
+1. 前往控制台的 [Add-ons](https://app.mintlify.com/settings/deployment/addons) 页面。
+2. 在 **Personalization** 部分，选择共享会话、JWT 或 OAuth。
+3. 配置所选的个性化方式。
+4. 点击 **Save changes**。
+
+### 共享会话
+
+共享会话会复用访客在你的应用中已有的会话，因此他们无需在 Mintlify 站点上再次登录。
+
+1. 在 **Personalization** 设置中选择 **Shared session**。
+2. 填入一个用于返回当前访客[用户数据](#user-data-format)的 **Info API URL**。
+3. 可选：填入 **Login URL**。当 Info API 未返回用户数据时，Mintlify 会显示一个登录链接。
+4. 点击 **Save changes**。
+
+Mintlify 会从访客的浏览器向 Info API 发起一个带凭据的 `GET` 请求。对于已识别的访客，请返回成功的 JSON 响应：
+
+```json User data response
+{
+  "expiresAt": 1893456000,
+  "content": {
+    "firstName": "Jane",
+    "plan": "Enterprise"
+  },
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer user_abc123"
+    }
+  }
+}
+```
+
+如果访客没有有效会话，请返回非成功的响应，例如 `401`。此时 Mintlify 会将该访客保持为未识别状态，并继续提供公开内容。
+
+如果 Info API 与你的文档不在同一来源，请将其配置为允许来自文档确切来源的带凭据跨源请求。请勿在启用凭据的同时使用通配符来源。为防止浏览器和中间缓存存储用户数据，请返回 `Cache-Control: private, no-store`。
+
+<Warning>
+  `apiPlaygroundInputs` 中的值对浏览器可见，以便 API 操作台可以发送这些值。请返回具有较短生命周期、权限范围合理的凭据，如果存在专用的文档令牌，请避免暴露具有更高权限的应用会话令牌。
+</Warning>
+
+### JWT 与 OAuth
+
+JWT 和 OAuth 个性化使用与共享会话相同的用户数据格式，但不会限制对文档的访问。请在 **Add-ons** 而不是 **Authentication** 中配置这些方式。
+
+JWT 个性化的配置步骤：
+
+1. 输入你现有登录流程的 URL。
+2. 点击 **Save changes**。
+3. 点击 **Generate new key**，并将下载的私钥安全存储起来。
+4. 在你的登录流程中，创建一个包含已识别访客[用户数据](#user-data-format)的 JWT，并使用生成的私钥以 ES256 算法进行签名。
+5. 将访客重定向到你文档站点上的某个页面，并将已签名的 JWT 作为 URL 片段。例如 `https://docs.example.com/get-started#{SIGNED_JWT}`。若使用自定义子路径，请在此 URL 中包含该子路径。
+
+将 JWT 的 `exp` 声明设置为一个较短的时长，10 秒或更短。使用用户数据中的 `expiresAt` 字段来控制 Mintlify 存储个性化数据的时间。
+
+OAuth 个性化的配置步骤：
+
+1. 输入你的授权 URL、Client ID、scopes、Token URL、Info API URL 以及任何可选设置，然后点击 **Save changes**。OAuth 个性化使用带 Proof Key for Code Exchange (PKCE) 的 Authorization Code 流程，无需 client secret。
+2. 从控制台复制 **Redirect URL**，并将其添加为 OAuth 提供方的授权重定向 URL。
+3. 将 Info API 配置为接受带有 `Authorization: Bearer <access_token>` 头的 `GET` 请求，并返回[用户数据](#user-data-format)。
+
+OAuth 回调路径为 `/mintlify-oauth-callback`。如果使用自定义子路径，控制台会在重定向 URL 中包含该子路径。
+
+Mintlify 会交换授权码，并从访客浏览器向 Info API 发起请求。如果 token 端点或 Info API 端点与你的文档不在同一来源，请将其配置为允许来自文档确切来源的跨源请求。Info API 必须允许 `Authorization` 请求头。
+
+## 预填充 API 密钥
+
+通过在用户数据中返回匹配的字段名，自动为 API 操作台中的字段填入用户特定的值。将这些值包含在你的[用户数据](/zh/deploy/authentication-setup#user-data-format)的 `apiPlaygroundInputs` 字段中。
 
 ```json
 {
@@ -27,11 +96,9 @@ keywords: ["内容个性化", "个性化", "用户数据", "分组", "动态", "
 
 字段名必须与 OpenAPI 规范中定义的名称完全一致。Mintlify 只会应用与当前端点安全方案匹配的值。
 
-<div id="dynamic-mdx-content">
-  ## 动态 MDX 内容
-</div>
+## 动态 MDX 内容
 
-在 MDX 页面中使用 `user` 变量，可根据用户的姓名、套餐或组织等信息动态展示内容。将自定义数据放入 [用户数据](/zh/deploy/authentication-setup#user-data-format) 中的 `content` 字段。
+在 MDX 页面中使用 `user` 变量，可根据用户的姓名、套餐或组织等信息动态展示内容。将自定义数据放入[用户数据](/zh/deploy/authentication-setup#user-data-format)中的 `content` 字段。
 
 ```json
 {
@@ -63,13 +130,15 @@ keywords: ["内容个性化", "个性化", "用户数据", "分组", "动态", "
   对于处于未登录状态的用户，`user` 变量是一个空对象。请在所有 `user` 字段上使用可选链操作符以避免错误。例如，使用 `{user.org?.plan}` 而不是 `{user.org.plan}`。
 </Note>
 
-要从[自定义 JavaScript 文件](/zh/customize/custom-scripts#access-authenticated-user-data)中读取同一个用户对象，请使用 `window.mintlify.user` 并监听 `mintlify:user` 事件。
+要从[自定义 JavaScript 文件](/zh/customize/custom-scripts#access-personalized-user-data)中读取同一个用户对象，请使用 `window.mintlify.user` 并监听 `mintlify:user` 事件。
 
-<div id="page-visibility">
-  ## 页面可见性
-</div>
+## 页面可见性
 
-通过在页面 frontmatter 中添加 `groups` 字段，可以将页面访问限制为特定用户组。用户必须至少属于其中一个列出的用户组才能访问该页面。
+通过在页面 frontmatter 中添加 `groups`，可根据用户组控制页面在导航中的显示。
+
+<Warning>
+  在个性化场景下，`groups` 只控制页面可见性，并不会限制对页面的访问。访客仍然可以通过直接访问 URL 打开一个被用户组过滤的页面。若要限制对敏感内容的访问，请使用[认证](/zh/deploy/authentication-setup)。
+</Warning>
 
 ```mdx
 ---
@@ -78,65 +147,58 @@ groups: ["admin"]
 ---
 ```
 
-如需了解 groups 与公共页面交互方式的更多详情，请参阅[使用 groups 控制访问](/zh/deploy/authentication-setup#control-access-with-groups)。
-
-<div id="openapi-content-filtering">
-  ## OpenAPI 内容过滤
-</div>
+## OpenAPI 内容过滤
 
 使用 OpenAPI 规范中的 `x-mint` 扩展，根据用户组过滤 API 参考内容。你可以过滤整个端点、单个 schema 属性、`oneOf` 变体以及枚举值。
 
-<div id="filter-endpoints">
-  ### 过滤端点
-</div>
+### 过滤端点
 
-在某个 operation 或 path 上添加 `x-mint.groups`，可以将端点页面限定为特定用户组可见。不在这些 groups 中的用户不会在导航中看到该端点，也无法访问对应页面。
+在某个 operation 或 path 上添加 `x-mint.groups`，可以仅在导航中向特定用户组显示该端点。在仅启用个性化（独立于认证）的场景下，不在所列用户组中的用户仍然可以通过直接 URL 打开该端点页面。
 
 <CodeGroup>
-  ```json {6-8} 受限的操作
-  {
-    "paths": {
-      "/billing": {
-        "get": {
-          "summary": "获取账单详情",
-          "x-mint": {
-            "groups": ["admin", "billing"]
-          },
-          "responses": {
-            "200": {
-              "description": "账单详情"
-            }
+
+```json {6-8} Restricted operation
+{
+  "paths": {
+    "/billing": {
+      "get": {
+        "summary": "Get billing details",
+        "x-mint": {
+          "groups": ["admin", "billing"]
+        },
+        "responses": {
+          "200": {
+            "description": "Billing details"
           }
         }
       }
     }
   }
-  ```
+}
+```
 
-  ```json {3-5} 受限的路径
-  {
-    "paths": {
-      "x-mint": {
-        "groups": ["admin", "billing"]
-      },
-      "/billing": {
-        "get": {
-          "summary": "获取账单详情",
-        }
-      },
-      "/users": {
-        "get": {
-          "summary": "获取用户详情",
-        }
+```json {3-5} Restricted path
+{
+  "paths": {
+    "x-mint": {
+      "groups": ["admin", "billing"]
+    },
+    "/billing": {
+      "get": {
+        "summary": "Get billing details",
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "Get user details",
       }
     }
   }
-  ```
+}
+```
 </CodeGroup>
 
-<div id="filter-schema-properties">
-  ### 筛选 Schema 属性
-</div>
+### 筛选 Schema 属性
 
 为请求体、参数或响应中的各个属性添加 `x-mint.groups`。未包含 `x-mint.groups` 的属性将仍对所有用户可见。
 
@@ -165,9 +227,7 @@ groups: ["admin"]
 
 在本示例中，所有用户都可以看到 `name` 属性。只有属于 `admin` 组的用户可以看到 `internal_id` 属性。
 
-<div id="filter-oneof-variants">
-  ### 筛选 oneOf 变体
-</div>
+### 筛选 oneOf 变体
 
 为各个 `oneOf` 选项添加 `x-mint.groups`，以限制用户可见的架构变体。
 
@@ -197,9 +257,7 @@ groups: ["admin"]
 }
 ```
 
-<div id="filter-enum-values">
-  ### 筛选枚举值
-</div>
+### 筛选枚举值
 
 使用 `x-mint-enum` 扩展按分组来限制单个枚举值。将每个受限的枚举值作为一个 key，并将其允许访问的分组作为对应的值。未在 `x-mint-enum` 中列出的枚举值对所有用户可见。
 
@@ -220,17 +278,13 @@ groups: ["admin"]
   `x-mint-enum` 是 schema 对象上的一个单独的顶层扩展，而不是嵌套在 `x-mint` 下。
 </Note>
 
-<div id="user-data-format">
-  ## 用户数据格式
-</div>
+## 用户数据格式
 
-认证系统会返回用于控制个性化的用户数据。本页中描述的 `groups`、`content` 和 `apiPlaygroundInputs` 字段都是用户数据对象的一部分。
+你的识别或认证系统会返回用于控制个性化的用户数据。本页中描述的 `groups`、`content` 和 `apiPlaygroundInputs` 字段都是用户数据对象的一部分。
 
 有关完整的用户数据格式和字段说明，请参见[用户数据格式](/zh/deploy/authentication-setup#user-data-format)。
 
-<div id="logout-behavior">
-  ## 登出行为
-</div>
+## 登出行为
 
 登出操作在客户端完成。当用户点击登出按钮时，Mintlify 会清除他们在浏览器中存储的会话数据。
 

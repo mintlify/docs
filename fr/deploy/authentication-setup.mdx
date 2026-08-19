@@ -18,6 +18,8 @@ Vous pouvez configurer une authentification complète pour toutes les pages ou u
 
 L'authentification n'est disponible que pour les sites hébergés sur un domaine personnalisé ou un sous-domaine Mintlify. Par exemple, `docs.exemple.com` ou `exemple.mintlify.site`. L'authentification **n'est pas prise en charge** pour les sites avec un [sous-chemin personnalisé](/fr/deploy/docs-subpath). Par exemple, `exemple.com/docs`.
 
+Pour identifier les visiteurs tout en gardant les pages publiques, utilisez la [personnalisation](/fr/create/personalization). La personnalisation prend en charge les sous-chemins personnalisés et peut préremplir les entrées du bac à sable d'API sans obliger les visiteurs à s'authentifier avant de consulter une page.
+
 <div id="choose-an-authentication-method">
   ## Choisir une méthode d'authentification
 </div>
@@ -214,7 +216,7 @@ Utilisez ce comparatif pour choisir la méthode adaptée à votre cas d'usage. C
     ```json
     {
       "groups": ["engineering", "admin"],
-      "expiresAt": 1735689600,
+      "expiresAt": 1893456000,
       "apiPlaygroundInputs": {
         "header": {
           "Authorization": "Bearer user_abc123"
@@ -249,9 +251,10 @@ Utilisez ce comparatif pour choisir la méthode adaptée à votre cas d'usage. C
         3. Cliquez sur **Custom**.
         4. Cliquez sur **JWT**.
         5. Saisissez l’URL de votre flux de connexion existant.
-        6. Cliquez sur **Enregistrer les modifications**.
-        7. Cliquez sur **Générer une nouvelle clé**.
-        8. Stockez votre clé en toute sécurité, là où votre backend peut y accéder.
+        6. Pour proposer plusieurs flux de connexion, cliquez sur **Add login URL** et saisissez un nom d’affichage et une URL pour chaque option. Vous pouvez configurer jusqu’à 10 URL de connexion.
+        7. Cliquez sur **Enregistrer les modifications**.
+        8. Cliquez sur **Générer une nouvelle clé**.
+        9. Stockez votre clé en toute sécurité, là où votre backend peut y accéder.
 
         Après avoir généré une clé privée, votre site est redéployé. Une fois le déploiement terminé, toute personne qui visite votre site doit se connecter à votre système d’authentification JWT pour accéder à votre contenu.
       </Step>
@@ -264,6 +267,12 @@ Utilisez ce comparatif pour choisir la méthode adaptée à votre cas d'usage. C
         * Créez une URL de redirection vers le chemin `/login/jwt-callback` de votre documentation, en incluant le JWT comme hash.
       </Step>
     </Steps>
+
+    Lorsque l'authentification JWT n'a qu'une seule URL de connexion, les visiteurs non authentifiés y sont automatiquement redirigés. Avec au moins deux URL de connexion nommées, les visiteurs voient d'abord une page de sélection puis poursuivent vers le flux de connexion choisi. Mintlify transmet le paramètre `redirect` validé afin que le visiteur revienne à la page de documentation qu'il avait initialement demandée.
+
+    <Note>
+      Les URL de connexion multiples sont disponibles pour l'authentification JWT complète et partielle. La [personnalisation](/fr/create/personalization) JWT accepte une seule URL de connexion, car elle identifie les visiteurs sans exiger de connexion avant qu'ils puissent consulter le contenu public.
+    </Note>
 
     <div id="jwt-example">
       ### Exemple JWT
@@ -417,7 +426,7 @@ Gérez les groupes via les données utilisateur transmises lors de l’authentif
 ```json Example user info
 {
   "groups": ["admin", "beta-users"],
-  "expiresAt": 1735689600
+  "expiresAt": 1893456000
 }
 ```
 
@@ -467,7 +476,7 @@ Les utilisateurs doivent appartenir à au moins un des groupes répertoriés pou
   ## Format des données utilisateur
 </div>
 
-Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie des données utilisateur qui contrôlent la durée de la session et l’appartenance à des groupes pour le contrôle d’accès, ainsi que la [personnalisation du contenu](/fr/create/personalization).
+Lorsque vous utilisez l’authentification OAuth ou JWT, ou la personnalisation autonome, votre système renvoie des données utilisateur qui contrôlent la durée de la session et l’appartenance à des groupes, ainsi que la [personnalisation du contenu](/fr/create/personalization).
 
 <CodeGroup>
   ```tsx Format
@@ -489,7 +498,7 @@ Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie 
   ```json Example
   {
     "host": "docs.example.com",
-    "expiresAt": 1735689600,
+    "expiresAt": 1893456000,
     "groups": ["admin", "beta-users"],
     "content": {
       "firstName": "Jane",
@@ -512,15 +521,15 @@ Lorsque vous utilisez l’authentification OAuth ou JWT, votre système renvoie 
 </ParamField>
 
 <ParamField path="expiresAt" type="number">
-  Heure d’expiration de la session, en secondes depuis l’époque Unix. Lorsque l’heure actuelle dépasse cette valeur, l’utilisateur doit s’authentifier de nouveau.
+  Heure d’expiration de la session, en secondes depuis l’époque Unix. Lorsque l’heure actuelle dépasse cette valeur, Mintlify expire les données utilisateur stockées. Le visiteur doit alors s’authentifier à nouveau ou répéter le flux d’identification pour les actualiser.
 
   <Warning>**Pour les JWT :** cela diffère de la revendication `exp` d’un JWT, qui détermine le moment où un JWT est considéré comme invalide. Par mesure de sécurité, définissez la revendication `exp` du JWT sur une durée courte (10 secondes ou moins). Utilisez `expiresAt` pour la durée réelle de la session (de quelques heures à plusieurs semaines).</Warning>
 </ParamField>
 
 <ParamField path="groups" type="string[]">
-  Liste des groupes auxquels l’utilisateur appartient. Les pages dont le champ `groups` dans le frontmatter contient une valeur correspondante sont accessibles à cet utilisateur.
+  Liste des groupes auxquels l’utilisateur appartient. Avec l’authentification, les pages dont le frontmatter contient un `groups` correspondant sont accessibles à cet utilisateur. Avec la personnalisation autonome, les groupes contrôlent la visibilité des pages et du contenu, mais ne restreignent pas l’accès à l’URL directe d’une page.
 
-  **Exemple** : Un utilisateur avec `groups: ["admin", "engineering"]` peut accéder aux pages étiquetées avec `admin` ou `engineering` dans leur champ `groups` du frontmatter.
+  **Exemple** : Un utilisateur avec `groups: ["admin", "engineering"]` correspond aux contenus étiquetés avec les groupes `admin` ou `engineering`.
 </ParamField>
 
 <ParamField path="content" type="Record<string, any>">
