@@ -18,6 +18,8 @@ Puedes configurar autenticación completa para todas las páginas o autenticaci�
 
 La autenticación solo está disponible para sitios alojados en un dominio personalizado o subdominio de Mintlify. Por ejemplo, `docs.ejemplo.com` o `ejemplo.mintlify.site`. La autenticación **no es compatible** para sitios con una [subruta personalizada](/es/deploy/docs-subpath). Por ejemplo, `ejemplo.com/docs`.
 
+Para identificar a los visitantes sin dejar de mantener las páginas públicas, usa la [personalización](/es/create/personalization). La personalización admite subrutas personalizadas y puede rellenar previamente los campos del área de pruebas de la API sin exigir a los visitantes que se autentiquen antes de ver una página.
+
 <div id="choose-an-authentication-method">
   ## Elige un método de autenticación
 </div>
@@ -214,7 +216,7 @@ Usa esta comparación para elegir el método que se adapte a tu caso de uso. Con
     ```json
     {
       "groups": ["engineering", "admin"],
-      "expiresAt": 1735689600,
+      "expiresAt": 1893456000,
       "apiPlaygroundInputs": {
         "header": {
           "Authorization": "Bearer user_abc123"
@@ -249,9 +251,10 @@ Usa esta comparación para elegir el método que se adapte a tu caso de uso. Con
         3. Haz clic en **Custom**
         4. Haz clic en **JWT**.
         5. Introduce la URL de tu flujo de inicio de sesión existente.
-        6. Haz clic en **Save changes**.
-        7. Haz clic en **Generate new key**.
-        8. Almacena tu clave de forma segura donde tu backend pueda acceder a ella.
+        6. Para ofrecer más de un flujo de inicio de sesión, haz clic en **Add login URL** e introduce un nombre visible y una URL para cada opción. Puedes configurar hasta 10 URL de inicio de sesión.
+        7. Haz clic en **Save changes**.
+        8. Haz clic en **Generate new key**.
+        9. Almacena tu clave de forma segura donde tu backend pueda acceder a ella.
 
         Después de generar una clave privada, tu sitio se vuelve a implementar automáticamente. Cuando la implementación haya finalizado, cualquier persona que visite tu sitio debe iniciar sesión en tu sistema de autenticación JWT para acceder a tu contenido.
       </Step>
@@ -264,6 +267,12 @@ Usa esta comparación para elegir el método que se adapte a tu caso de uso. Con
         * Crea una URL de redirección de vuelta a la ruta `/login/jwt-callback` de tu documentación, incluyendo el JWT como el hash.
       </Step>
     </Steps>
+
+    Cuando la autenticación con JWT tiene una única URL de inicio de sesión, los visitantes no autenticados se redirigen a ella automáticamente. Con dos o más URL de inicio de sesión con nombre, los visitantes primero ven una página de selección y luego continúan al flujo de inicio de sesión elegido. Mintlify reenvía el parámetro `redirect` validado para que el visitante regrese a la página de documentación que solicitó originalmente.
+
+    <Note>
+      Las múltiples URL de inicio de sesión están disponibles para la autenticación JWT completa y parcial. La [personalización](/es/create/personalization) con JWT admite una única URL de inicio de sesión porque identifica a los visitantes sin exigirles iniciar sesión antes de ver contenido público.
+    </Note>
 
     <div id="jwt-example">
       ### Ejemplo de JWT
@@ -417,7 +426,7 @@ Administra los grupos mediante los datos del usuario enviados durante la autenti
 ```json Example user info
 {
   "groups": ["admin", "beta-users"],
-  "expiresAt": 1735689600
+  "expiresAt": 1893456000
 }
 ```
 
@@ -467,7 +476,7 @@ Los usuarios deben pertenecer al menos a uno de los groups enumerados para acced
   ## Formato de datos de usuario
 </div>
 
-Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuario que controlan la duración de la sesión, la pertenencia a grupos y la [personalización de contenido](/es/create/personalization).
+Cuando utilices autenticación OAuth o JWT o personalización independiente, tu sistema devolverá datos de usuario que controlan la duración de la sesión, la pertenencia a grupos y la [personalización de contenido](/es/create/personalization).
 
 <CodeGroup>
   ```tsx Format
@@ -489,7 +498,7 @@ Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuar
   ```json Ejemplo
   {
     "host": "docs.example.com",
-    "expiresAt": 1735689600,
+    "expiresAt": 1893456000,
     "groups": ["admin", "beta-users"],
     "content": {
       "firstName": "Jane",
@@ -512,15 +521,15 @@ Cuando utilices autenticación OAuth o JWT, tu sistema devolverá datos de usuar
 </ParamField>
 
 <ParamField path="expiresAt" type="number">
-  Momento de expiración de la sesión en segundos desde el epoch. Cuando la hora actual supera este valor, el usuario debe volver a autenticarse.
+  Momento de expiración de la sesión en segundos desde el epoch. Cuando la hora actual supera este valor, Mintlify expira los datos de usuario almacenados. El visitante debe autenticarse de nuevo o repetir el flujo de identificación para actualizarlos.
 
   <Warning>**Para JWT:** Esto es diferente del claim `exp` del JWT, que determina cuándo un JWT se considera inválido. Configura el claim `exp` del JWT con una duración corta (10 segundos o menos) por seguridad. Usa `expiresAt` para la duración real de la sesión (de horas a semanas).</Warning>
 </ParamField>
 
 <ParamField path="groups" type="string[]">
-  Lista de los grupos a los que pertenece el usuario. Las páginas cuyo frontmatter tenga un `groups` coincidente son accesibles para este usuario.
+  Lista de los grupos a los que pertenece el usuario. Con autenticación, las páginas cuyo frontmatter tenga un `groups` coincidente son accesibles para este usuario. Con la personalización independiente, `groups` controla la visibilidad de páginas y contenido, pero no restringe el acceso a la URL directa de una página.
 
-  **Ejemplo**: Un usuario con `groups: ["admin", "engineering"]` puede acceder a páginas etiquetadas con los grupos `admin` o `engineering`.
+  **Ejemplo**: Un usuario con `groups: ["admin", "engineering"]` coincide con el contenido etiquetado con los grupos `admin` o `engineering`.
 </ParamField>
 
 <ParamField path="content" type="Record<string, any>">
