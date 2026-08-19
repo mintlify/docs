@@ -1,0 +1,184 @@
+---
+title: "从 Docusaurus 迁移"
+description: "将 Docusaurus 文档迁移到 Mintlify，包括 MDX 页面、侧边栏、版本、本地化内容、资源和自定义组件。"
+keywords: ["Docusaurus 迁移", "Docusaurus 到 Mintlify", "sidebars.js", "versioned_docs"]
+---
+
+import MigrationLaunchChecklist from "/snippets/zh/migration-launch-checklist.mdx";
+
+使用 Mintlify 抓取工具迁移公开的 Docusaurus 2 或 3 站点。如果你需要对版本、本地化内容或自定义 React 组件进行更精确的控制，请从源仓库迁移。
+
+<div id="choose-a-method">
+  ## 选择一种方式
+</div>
+
+| 方式 | 适用场景 |
+| --- | --- |
+| 抓取工具 | 你的完整文档站点是公开的，且大多数内容使用标准的 Docusaurus 组件。 |
+| 从源代码迁移 | 你的站点是私有的，或使用了版本管理、本地化、自定义插件、自定义 React 组件或未发布的页面。 |
+
+对于复杂站点，可以同时使用两种方式。抓取公开站点以创建初始的 `docs.json` 并转换组件，然后将结果与源仓库进行比较以发现遗漏的内容。
+
+<div id="migrate-a-public-site">
+  ## 迁移公开站点
+</div>
+
+<Warning>
+  抓取工具可能会覆盖已有文件。
+
+  在空目录中运行抓取工具，以避免替换任何已有文件。
+</Warning>
+
+```bash
+mkdir mintlify-migration
+cd mintlify-migration
+npx @mintlify/scraping@latest section https://docs.example.com
+```
+
+如果你的 Docusaurus 文档使用了路由基础路径，请使用过滤器抓取该路径：
+
+```bash
+npx @mintlify/scraping@latest section https://example.com --filter=/docs
+```
+
+抓取工具会检测 Docusaurus、展开其侧边栏、下载可到达的图片、将常见的渲染组件转换为 Mintlify 组件，并根据已发布的导航创建 `docs.json`。
+
+抓取工具运行完成后，将生成的 Mintlify 导航与你的 `sidebars.js`、`sidebars.ts` 或其他 Docusaurus 导航结构进行比较。检查折叠的分类、外部链接、生成的分类索引页，以及从已发布侧边栏中排除的页面。
+
+<div id="migrate-from-source">
+  ## 从源代码迁移
+</div>
+
+将以下源内容复制到独立的迁移分支或工作目录中。
+
+- 你配置的文档内容目录，在 Docusaurus 中默认是 `docs/`
+- `sidebars.js`、`sidebars.ts` 或其他侧边栏配置文件
+- `docusaurus.config.js` 或 `docusaurus.config.ts`
+- `_category_.json`、`_category_.yml` 或 `_category_.yaml` 文件
+- `static/` 目录以及与文档页面一同存放的资源
+- `versioned_docs/`、`versioned_sidebars/` 和 `versions.json`
+- 位于 `i18n/<locale>/docusaurus-plugin-content-docs/<versionName>/` 下的本地化文档，例如 `current/`
+- 被 MDX 页面导入的 React 组件
+
+<Note>
+  Docusaurus 可以在文档插件配置中更改其文档目录、路由基础路径、侧边栏生成器和包含的文件。根据你的配置，你的内容可能位于不同于 `docs/` 的目录中。
+</Note>
+
+将 Markdown 和 MDX 页面复制到你的 Mintlify 项目中。每个页面至少需要包含 `title` 的 frontmatter。
+
+```mdx frontmatter 示例
+---
+title: "开始使用"
+description: "安装 SDK 并发起第一次请求。"
+---
+```
+
+<div id="recreate-navigation">
+  ## 重建导航
+</div>
+
+Docusaurus 的侧边栏是可执行的 JavaScript 或 TypeScript，而 Mintlify 的导航是 `docs.json` 中的数据。如果侧边栏使用了函数或自定义生成器，请转换已解析后的侧边栏，而不仅是其源文本。
+
+| Docusaurus | Mintlify |
+| --- | --- |
+| `doc` 条目或 doc ID | `pages` 数组中的页面路径 |
+| `category` | 使用 `group` 和 `pages` 的嵌套分组 |
+| 链接到某个 doc 的分类 | 带有 `root` 页面的分组 |
+| 生成的分类索引 | 创建一个概览页面，并将其用作分组的 `root` |
+| `link` 条目 | 一个 anchor、tab、menu item 或指向外部目标的页面 |
+| 多个侧边栏 | 独立的 tab、anchor、product 或 group |
+| 自动生成的侧边栏 | 镜像文件层级或显式列出生成的顺序 |
+
+Docusaurus 使用文件层级来自动生成侧边栏。Mintlify 允许你独立于文件位置来组织导航，因此你不需要仅为了匹配侧边栏而重命名页面。
+
+<div id="convert-docusaurus-mdx">
+  ## 转换 Docusaurus MDX
+</div>
+
+标准的 Markdown 通常无需修改即可使用。请检查 Docusaurus 特有的语法和导入。
+
+| Docusaurus 源 | Mintlify 替代方案 |
+| --- | --- |
+| `import Tabs from '@theme/Tabs'` 和 `TabItem` | 移除这些导入，并使用 [`Tabs` 和 `Tab`](/zh/components/tabs)。 |
+| `:::note`、`:::tip`、`:::info`、`:::warning`、`:::danger` | 使用 [`Note`、`Tip`、`Info`、`Warning` 或 `Danger`](/zh/components/callouts)。 |
+| `<details>` 和 `<summary>` | 使用 [`Accordion`](/zh/components/accordions)。 |
+| 分标签的代码示例 | 当每个标签都包含代码时，使用 [`CodeGroup`](/zh/components/code-groups)。 |
+| `@site/...` 导入和主题组件 | 用 Mintlify 组件、snippet 或标准 MDX 替换它们。 |
+| 自定义 Markdown 插件语法 | 转换生成后的语法，或在受支持的 MDX 中重新实现该行为。 |
+| Swizzled 主题组件 | 使用 Mintlify 的设置或组件重新实现面向用户的行为。 |
+
+自定义 React 组件不会从你的源仓库自动迁移。判断每个组件属于内容、表现层还是应用行为。
+
+- 使用 [Mintlify 组件](/zh/components) 替换内容型模式。
+- 将重复内容转换为 [可复用的 snippet](/zh/create/reusable-snippets)。
+- 当你需要内置组件都无法提供的交互时，添加一个 [React 组件](/zh/customize/react-components)。
+- 将完整的应用页面移出文档站点，或作为 [自定义页面布局](/zh/guides/custom-layouts) 重建。
+
+<div id="preserve-routes-and-links">
+  ## 保留路由和链接
+</div>
+
+Docusaurus 会结合文档插件的 `routeBasePath`、页面 frontmatter 的 `slug`、版本和语言环境来生成 URL。请根据已发布的 sitemap 建立清单，而不是仅从文件名推断每个 URL。
+
+当你重命名或重新组织页面时，将其旧的已发布路径添加到 [redirects](/zh/create/redirects)。分别使用和不使用旧的路由基础路径来测试链接，例如 `/docs/getting-started` 和 `/getting-started`。
+
+检查 Docusaurus 显式指定的标题 ID，例如：
+
+```mdx
+## Configure the client {/* #configure-client */}
+```
+
+当你必须保留入站锚点链接时，将它们转换为 Mintlify 的自定义标题 ID 语法：
+
+```mdx
+## Configure the client {#configure-client}
+```
+
+<div id="migrate-assets">
+  ## 迁移资源
+</div>
+
+Docusaurus 支持位于 `static/` 中的全局资源以及与带版本页面一同存放的资源。将这两类资源都复制到 Mintlify 仓库。
+
+- Docusaurus 中位于 `static/img/logo.png` 的文件通常被发布为 `/img/logo.png`。请保留这个公共路径，否则需要更新每一处引用。
+- 在移除 Docusaurus 导入之前，先解析 `@site/static/...` 导入。
+- 将带版本的相邻资源保留在对应版本中，或将其移至版本特定的资源目录。
+- 检查 CSS 背景图片和 React 组件的导入，仅基于 Markdown 的清单可能会遗漏它们。
+- 除非你在迁移后打算继续保留旧的托管环境，否则不要将必需的生产资源留在旧的部署上。
+
+<div id="migrate-versions-and-languages">
+  ## 迁移版本和语言
+</div>
+
+Docusaurus 将冻结的版本存放在 `versioned_docs/version-<name>` 下，并将其导航存放在 `versioned_sidebars/` 下。将每个维护的版本映射到 Mintlify 的 [版本](/zh/organize/navigation#versions)。决定 `current`、最新发布的版本，还是其他某个版本应作为默认版本。
+
+将 Docusaurus 的语言环境目录映射到 Mintlify 的 [语言导航](/zh/organize/navigation#languages)。当旧站点使用像 `/fr/docs/...` 这样的路径时，在重定向中保留语言环境前缀。
+
+如果你的源仓库包含未发布或受限的页面，请配置 [认证](/zh/deploy/authentication-setup) 和页面可见性，然后分别以未登录用户和各分组成员的身份测试你的站点。
+
+<div id="migrate-api-documentation">
+  ## 迁移 API 文档
+</div>
+
+定位被插件、自定义页面或构建脚本引用的 OpenAPI 或 AsyncAPI 文件。将原始规范添加到 Mintlify 仓库，并配置 [OpenAPI 生成的页面](/zh/api-playground/openapi-setup)。当源规范可用时，不要迁移已渲染的端点 HTML。
+
+<div id="review-your-migration">
+  ## 检查你的迁移
+</div>
+
+将迁移后的页面与侧边栏条目和已发布的 sitemap 进行比较，然后预览每个维护的版本和语言。
+
+在你转换后的文件中搜索遗留的 Docusaurus 语法，这些语法会被渲染为字面文本或导致构建失败：`@theme`、`@site`、`:::`、`DocCardList`、`useDocusaurusContext` 和自定义插件导入。
+
+<MigrationLaunchChecklist />
+
+<div id="docusaurus-references">
+  ## Docusaurus 参考资料
+</div>
+
+- [文档插件配置](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-docs)
+- [侧边栏](https://docusaurus.io/docs/sidebar)
+- [版本管理](https://docusaurus.io/docs/versioning)
+- [国际化](https://docusaurus.io/docs/i18n/introduction)
+- [静态资源](https://docusaurus.io/docs/static-assets)
+- [标题 ID](https://docusaurus.io/docs/markdown-features/toc#heading-ids)

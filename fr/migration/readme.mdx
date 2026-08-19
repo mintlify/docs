@@ -1,0 +1,186 @@
+---
+title: "Migrer depuis ReadMe"
+description: "Migrez les guides ReadMe, les références API, les recettes, les pages personnalisées, les versions, le contenu réutilisable et les ressources vers Mintlify."
+keywords: ["migration ReadMe", "ReadMe vers Mintlify", "export ReadMe", "rdme"]
+---
+
+import MigrationLaunchChecklist from "/snippets/fr/migration-launch-checklist.mdx";
+
+Migrez un projet ReadMe public avec le scraper Mintlify, ou exportez les fichiers du projet depuis ReadMe lorsque vous avez besoin de contenu privé, de spécifications OpenAPI ou de plusieurs versions.
+
+<div id="choose-a-method">
+  ## Choisir une méthode
+</div>
+
+| Méthode | À utiliser quand |
+| --- | --- |
+| Scraper | Votre site ReadMe complet est public et vous souhaitez la conversion la plus rapide des pages rendues et de la navigation. |
+| Export ZIP ou GitHub | Vous pouvez accéder à votre projet ReadMe et vous avez besoin de pages privées, de fichiers OpenAPI, de pages personnalisées, de recettes ou de plusieurs versions de documentation. |
+| API ReadMe | Vous avez besoin de données que votre export de fichiers n'inclut pas, comme des images hébergées ou d'autres données de projet. |
+
+Pour une migration complète, commencez par un export natif et utilisez un scrape de votre site public à titre de comparaison. Les deux inventaires aident à révéler vos pages non publiées et le contenu qui n'a pas de représentation sous forme de fichier.
+
+<div id="export-from-readme">
+  ## Exporter depuis ReadMe
+</div>
+
+Depuis le menu des branches dans ReadMe, exportez les fichiers de documentation au format ZIP. ReadMe envoie l'export terminé par e-mail. La structure de projet exportée peut inclure des guides, des recettes, des pages personnalisées, des blocs personnalisés, du contenu de référence API et des fichiers OpenAPI, mais elle n'inclut pas les fichiers image eux-mêmes.
+
+Si votre projet utilise l'intégration GitHub de ReadMe, vous pouvez exporter votre projet vers un référentiel. ReadMe indique que le référentiel contient le même contenu qu'un export de branche et peut inclure toutes les versions de documentation.
+
+Conservez votre export inchangé comme instantané de migration. Effectuez le travail de conversion dans une copie ou sur une branche Git distincte.
+
+<Warning>
+  Exportez chaque version maintenue avant de supprimer ou modifier quoi que ce soit dans ReadMe. Exportez ou téléchargez également les images hébergées séparément. Votre export de fichiers préserve leurs chemins, mais pas les fichiers image.
+</Warning>
+
+<div id="migrate-a-public-site">
+  ## Migrer un site public
+</div>
+
+<Warning>
+  Le scraper peut écraser des fichiers existants.
+
+  Exécutez le scraper dans un répertoire vide afin qu'il ne remplace aucun fichier existant.
+</Warning>
+
+```bash
+mkdir mintlify-migration
+cd mintlify-migration
+npx @mintlify/scraping@latest section https://your-project.readme.io
+```
+
+Si votre site contient de la documentation sous un chemin ou une version spécifique, utilisez un filtre pour limiter la migration initiale :
+
+```bash
+npx @mintlify/scraping@latest section https://your-project.readme.io --filter=/docs
+```
+
+Le scraper convertit les pages accessibles, les images, la navigation et les composants rendus courants. Il ne peut pas accéder à votre contenu privé ou non publié et ne remplace pas un export distinct de votre spécification OpenAPI source.
+
+<div id="understand-your-exported-files">
+  ## Comprendre vos fichiers exportés
+</div>
+
+La structure de fichiers de ReadMe sépare généralement le contenu par type.
+
+```text
+docs/             Guides organisés par catégorie
+reference/        Pages de référence API et fichiers OpenAPI
+recipes/          Recettes étape par étape
+custom_pages/     Pages personnalisées Markdown ou HTML
+custom_blocks/    Blocs personnalisés réutilisables
+_order.yaml       Ordre au sein d'un dossier ou d'une catégorie
+```
+
+Un dossier contenant des pages enfants peut inclure `index.md` pour la page parente et `_order.yaml` pour ses enfants. Traduisez cette structure en entrées `group` et `pages` imbriquées dans `docs.json`. Utilisez le `index.md` parent comme `root` du groupe lorsqu'il contient un contenu de présentation utile.
+
+| ReadMe | Mintlify |
+| --- | --- |
+| Catégorie de guide | Groupe de navigation |
+| `_order.yaml` | Ordre du tableau `pages` |
+| `index.md` de dossier | Page `root` de groupe |
+| Guide ou page enfant de référence | Groupe imbriqué ou page |
+| Version ou branche de projet | Version de navigation |
+| Page personnalisée | Page MDX standard ou mise en page personnalisée |
+| Page de lien | Lien de navigation ou page de redirection |
+
+Voir [Navigation](/fr/organize/navigation) pour plus d'informations sur la structuration des éléments de navigation.
+
+<div id="convert-pages-and-frontmatter">
+  ## Convertir les pages et le frontmatter
+</div>
+
+Conservez `title`, les métadonnées SEO, les descriptions et les mots-clés utiles. Convertissez les champs spécifiques à ReadMe.
+
+| Frontmatter ReadMe | Traitement Mintlify |
+| --- | --- |
+| `excerpt` | À utiliser comme `description` de page. |
+| `hidden: true` | Laissez la page en dehors de la navigation et évaluez si elle doit rester accessible. |
+| `deprecated: true` | Ajoutez un avertissement de dépréciation à la page. |
+| `metadata.title` et `metadata.description` | Comparez-les avec le `title` et l'`excerpt` visibles. Choisissez quelles valeurs utiliser pour les `title` et `description` Mintlify, et utilisez les champs Open Graph uniquement pour les aperçus sociaux. |
+| `metadata.robots: noindex` | Définissez `noindex: true`. |
+| `next.pages` | Ajoutez des liens explicites ou des cartes de pages liées lorsqu'elles aident le lecteur. |
+| `icon` avec des classes Font Awesome | Remplacez par un nom d'icône Font Awesome, Lucide ou Tabler pris en charge. |
+
+ReadMe prend en charge un dialecte Markdown personnalisé et des blocs magiques basés sur JSON. Le scraper convertit les composants rendus courants, mais les exports de fichiers peuvent conserver la syntaxe de la plateforme. Passez en revue les motifs suivants pour identifier le contenu qui doit être converti.
+
+- Callouts, onglets, accordéons, cartes et groupes de code
+- Contenu réutilisable et blocs personnalisés
+- Variables et termes du glossaire
+- Recettes interactives
+- Pages HTML personnalisées
+- Explorateurs d'API intégrés et contenu personnalisé
+
+Convertissez le matériel réutilisable en [snippets Mintlify](/fr/create/reusable-snippets). Votre export peut développer un bloc réutilisable dans chaque page, alors comparez les copies et consolidez uniquement le contenu identique.
+
+<div id="migrate-api-reference-content">
+  ## Migrer le contenu de référence API
+</div>
+
+Privilégiez votre fichier OpenAPI original par rapport aux pages d'endpoints rendues ou exportées.
+
+1. Trouvez chaque fichier OpenAPI JSON ou YAML dans `reference/` et dans tout référentiel source que vous avez utilisé avec `rdme` ou la synchronisation d'API de ReadMe.
+2. Identifiez le Markdown que les éditeurs ont ajouté dans ReadMe en dehors de la spécification. ReadMe associe ce contenu à une opération par son `operationId`.
+3. Ajoutez la spécification à votre référentiel Mintlify et configurez des [pages générées par OpenAPI](/fr/api-playground/openapi-setup).
+4. Déplacez le Markdown supplémentaire pertinent dans la description de l'opération concernée, la description du schéma ou un guide adjacent.
+5. Comparez l'authentification, les URL de serveur, les exemples de code, les exemples et l'ordre des endpoints avec votre référence originale.
+
+ReadMe peut également ingérer des Swagger 2.0 et des collections Postman. Récupérez la source OpenAPI convertie ou originale avant de configurer Mintlify plutôt que de copier la référence rendue.
+
+<div id="migrate-your-versions">
+  ## Migrer vos versions
+</div>
+
+Les versions et branches ReadMe s'appliquent aux Guides, aux Recettes et au contenu de référence API, tandis qu'une partie du contenu de votre projet reste partagée entre les versions. Inventoriez chaque version séparément et mappez les versions maintenues à la [navigation par version](/fr/organize/navigation#versions) Mintlify.
+
+Recherchez les motifs suivants.
+
+- Une version par défaut différente et un comportement d'URL différent
+- Versions cachées, bêta et dépréciées
+- Contenu réutilisable spécifique à une version
+- Pages qui existent dans une seule version
+- Spécifications API qui diffèrent selon la version
+- Pages personnalisées partagées ou contenu de changelog
+
+<div id="download-images-and-files">
+  ## Télécharger les images et les fichiers
+</div>
+
+Votre export ZIP ReadMe ne contient pas les images hébergées. Utilisez les URL d'images dans votre export ou l'API ReadMe pour télécharger les fichiers originaux, puis ajoutez-les à votre référentiel Mintlify.
+
+Ne comptez pas sur des URL de ressources ReadMe distantes pour votre site final. Copiez les fichiers dont vous êtes propriétaire, mettez à jour leurs références et vérifiez les textes alternatifs et les liens de fichiers téléchargeables.
+
+<div id="preserve-urls">
+  ## Préserver les URL
+</div>
+
+Vos URL ReadMe peuvent inclure la version du projet et le type de contenu, comme `/docs/`, `/reference/` ou `/page/`. Exportez un sitemap ou explorez votre site publié pour capturer les chemins réels.
+
+Ajoutez des [redirections](/fr/create/redirects) pour chaque chemin qui change. Portez une attention particulière à :
+
+- Les URL de la version par défaut qui omettent le segment de version
+- Les pages personnalisées sous `/page`
+- Les guides et pages de référence qui partagent le même slug
+- Les chemins d'endpoints dérivés des tags et résumés OpenAPI
+- Les pages dépréciées ou cachées qui reçoivent encore du trafic
+
+<div id="review-your-migration">
+  ## Vérifier votre migration
+</div>
+
+Comparez votre export ZIP, votre inventaire d'API et votre sitemap publié à vos fichiers migrés, puis prévisualisez chaque version maintenue.
+
+Recherchez dans vos fichiers convertis toute syntaxe ReadMe résiduelle : blocs magiques, variables, références de glossaire et directives de blocs personnalisés.
+
+<MigrationLaunchChecklist />
+
+<div id="readme-references">
+  ## Références ReadMe
+</div>
+
+- [Exporter les données](https://docs.readme.com/main/docs/exporting-data)
+- [Structure de la documentation](https://docs.readme.com/main/docs/documentation-structure)
+- [Gestion des versions](https://docs.readme.com/main/docs/versions)
+- [Prise en charge d'OpenAPI](https://docs.readme.com/main/docs/openapi)
+- [Contenu réutilisable](https://docs.readme.com/main/docs/reusable-content)

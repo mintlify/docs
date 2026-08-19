@@ -1,0 +1,186 @@
+---
+title: "从 ReadMe 迁移"
+description: "将 ReadMe 指南、API 参考、recipes、自定义页面、版本、可复用内容和资源迁移到 Mintlify。"
+keywords: ["ReadMe 迁移", "ReadMe 到 Mintlify", "ReadMe 导出", "rdme"]
+---
+
+import MigrationLaunchChecklist from "/snippets/zh/migration-launch-checklist.mdx";
+
+使用 Mintlify 抓取工具迁移公开的 ReadMe 项目，或者当你需要迁移私有内容、OpenAPI 规范或多个版本时，从 ReadMe 导出项目文件。
+
+<div id="choose-a-method">
+  ## 选择一种方式
+</div>
+
+| 方式 | 适用场景 |
+| --- | --- |
+| 抓取工具 | 你的完整 ReadMe 站点是公开的，并且希望以最快的速度转换已渲染的页面和导航。 |
+| ZIP 或 GitHub 导出 | 你可以访问自己的 ReadMe 项目，并且需要私有页面、OpenAPI 文件、自定义页面、recipes 或多个文档版本。 |
+| ReadMe API | 你需要的数据在文件导出中不包含，例如托管图片或其他项目数据。 |
+
+要完成完整迁移，请从原生导出开始，并使用对公开站点的抓取作为对比。这两份清单有助于发现你未发布的页面以及那些没有文件表示的内容。
+
+<div id="export-from-readme">
+  ## 从 ReadMe 导出
+</div>
+
+在 ReadMe 的分支菜单中，将文档文件导出为 ZIP。ReadMe 会通过邮件发送完成的导出。导出的项目结构可以包含 guides、recipes、自定义页面、自定义 blocks、API Reference 内容和 OpenAPI 文件，但不包含图片文件本身。
+
+如果你的项目使用了 ReadMe 的 GitHub 集成，你可以将项目导出到仓库中。ReadMe 文档说明该仓库包含与分支导出相同的内容，并可以包含所有文档版本。
+
+保持导出的内容不变，作为迁移快照。在副本或独立的 Git 分支中进行转换工作。
+
+<Warning>
+  在删除或修改 ReadMe 中的任何内容之前，导出所有维护的版本。同时，单独导出或下载托管的图片。你的文件导出会保留它们的路径，但不包括图片文件本身。
+</Warning>
+
+<div id="migrate-a-public-site">
+  ## 迁移公开站点
+</div>
+
+<Warning>
+  抓取工具可能会覆盖已有文件。
+
+  在空目录中运行抓取工具，以避免替换任何已有文件。
+</Warning>
+
+```bash
+mkdir mintlify-migration
+cd mintlify-migration
+npx @mintlify/scraping@latest section https://your-project.readme.io
+```
+
+如果你的站点在特定路径或版本下包含文档，请使用过滤器限制初始迁移：
+
+```bash
+npx @mintlify/scraping@latest section https://your-project.readme.io --filter=/docs
+```
+
+抓取工具会转换可到达的页面、图片、导航和常见的渲染组件。它无法访问你的私有或未发布内容，也不能替代对原始 OpenAPI 规范的单独导出。
+
+<div id="understand-your-exported-files">
+  ## 理解导出的文件
+</div>
+
+ReadMe 的文件结构通常按类型区分内容。
+
+```text
+docs/             按分类组织的 guides
+reference/        API 参考页面和 OpenAPI 文件
+recipes/          分步的 recipes
+custom_pages/     Markdown 或 HTML 自定义页面
+custom_blocks/    可复用的自定义 blocks
+_order.yaml       文件夹或分类内的顺序
+```
+
+包含子页面的文件夹可以有一个 `index.md` 作为父页面，并有一个 `_order.yaml` 定义其子项的顺序。将该结构转换为 `docs.json` 中嵌套的 `group` 和 `pages` 条目。当父级 `index.md` 包含有价值的概览内容时，将其用作分组的 `root`。
+
+| ReadMe | Mintlify |
+| --- | --- |
+| 指南分类 | 导航分组 |
+| `_order.yaml` | `pages` 数组的顺序 |
+| 文件夹 `index.md` | 分组的 `root` 页面 |
+| 指南或参考子页面 | 嵌套分组或页面 |
+| 项目版本或分支 | 导航版本 |
+| Custom Page | 标准 MDX 页面或自定义布局 |
+| 链接页面 | 导航链接或重定向页面 |
+
+有关如何构建导航元素的更多信息，请参见 [导航](/zh/organize/navigation)。
+
+<div id="convert-pages-and-frontmatter">
+  ## 转换页面和 frontmatter
+</div>
+
+保留 `title`、SEO 元数据、描述和有用的关键词。转换 ReadMe 特有的字段。
+
+| ReadMe frontmatter | Mintlify 处理方式 |
+| --- | --- |
+| `excerpt` | 用作页面的 `description`。 |
+| `hidden: true` | 将该页面排除在导航之外，并检查它是否应仍可访问。 |
+| `deprecated: true` | 在页面上添加弃用警告。 |
+| `metadata.title` 和 `metadata.description` | 将它们与可见的 `title` 和 `excerpt` 进行比较。选择用于 Mintlify `title` 和 `description` 的值，并仅将 Open Graph 字段用于社交预览。 |
+| `metadata.robots: noindex` | 设置 `noindex: true`。 |
+| `next.pages` | 在有助于读者的位置添加显式链接或相关页面卡片。 |
+| 使用 Font Awesome 类的 `icon` | 用受支持的 Font Awesome、Lucide 或 Tabler 图标名称替换。 |
+
+ReadMe 支持一种自定义的 Markdown 方言和基于 JSON 的 magic blocks。抓取工具会转换常见的渲染组件，但文件导出可能保留平台语法。请检查以下模式，识别必须转换的内容。
+
+- Callouts、tabs、accordions、cards 和 code groups
+- Reusable Content 和 Custom Blocks
+- 变量和词汇表术语
+- 交互式 recipes
+- 自定义 HTML 页面
+- 嵌入的 API explorer 和个性化内容
+
+将可复用素材转换为 [Mintlify snippet](/zh/create/reusable-snippets)。你的导出可能会将可复用 block 展开到每个页面中，请比较副本，仅合并完全相同的内容。
+
+<div id="migrate-api-reference-content">
+  ## 迁移 API 参考内容
+</div>
+
+优先使用原始的 OpenAPI 文件，而不是渲染后或导出的端点页面。
+
+1. 在 `reference/` 目录以及你曾经与 `rdme` 或 ReadMe API 同步一起使用的源仓库中，查找每个 JSON 或 YAML OpenAPI 文件。
+2. 识别编辑者在规范之外的 ReadMe 中添加的 Markdown。ReadMe 通过 `operationId` 将这类内容与操作关联起来。
+3. 将规范添加到你的 Mintlify 仓库中，并配置 [OpenAPI 生成的页面](/zh/api-playground/openapi-setup)。
+4. 将有价值的补充 Markdown 移入相关的操作描述、schema 描述或相邻的指南中。
+5. 将认证、服务器 URL、代码示例、示例和端点顺序与原始参考进行比较。
+
+ReadMe 也可以摄取 Swagger 2.0 和 Postman Collection。在配置 Mintlify 之前，请获取转换后或原始的 OpenAPI 源，而不要复制渲染后的参考。
+
+<div id="migrate-your-versions">
+  ## 迁移你的版本
+</div>
+
+ReadMe 的版本和分支适用于 Guides、Recipes 和 API Reference 内容，而你的一些项目内容会在多个版本之间共享。分别对每个版本建立清单，并将维护的版本映射到 Mintlify 的 [版本导航](/zh/organize/navigation#versions)。
+
+检查以下模式。
+
+- 不同的默认版本和 URL 行为
+- 隐藏、beta 和已弃用版本
+- 特定版本的 Reusable Content
+- 只在某一个版本中存在的页面
+- 因版本而异的 API 规范
+- 共享的 Custom Pages 或更新日志内容
+
+<div id="download-images-and-files">
+  ## 下载图片和文件
+</div>
+
+你的 ReadMe ZIP 导出不包含托管的图片。使用导出中的图片 URL 或 ReadMe API 下载原始文件，然后将它们添加到 Mintlify 仓库中。
+
+不要在最终站点上依赖远程 ReadMe 资源 URL。复制你拥有的文件，更新其引用，并验证 alt 文本和可下载文件的链接。
+
+<div id="preserve-urls">
+  ## 保留 URL
+</div>
+
+你的 ReadMe URL 可能包含项目版本和内容类型，例如 `/docs/`、`/reference/` 或 `/page/`。导出 sitemap 或抓取已发布的站点，以获取实际路径。
+
+为每个变更的路径添加 [redirects](/zh/create/redirects)。特别注意：
+
+- 省略了版本段的默认版本 URL
+- 位于 `/page` 下的 Custom Pages
+- 具有相同 slug 的 guides 和 reference 页面
+- 从 OpenAPI 标签和摘要派生的端点路径
+- 仍在接收流量的已弃用或隐藏页面
+
+<div id="review-your-migration">
+  ## 检查你的迁移
+</div>
+
+将 ZIP 导出、API 清单和已发布的 sitemap 与迁移后的文件进行比较，然后预览每个维护的版本。
+
+在你转换后的文件中搜索遗留的 ReadMe 语法：magic blocks、变量、词汇表引用和 Custom Block 指令。
+
+<MigrationLaunchChecklist />
+
+<div id="readme-references">
+  ## ReadMe 参考资料
+</div>
+
+- [导出数据](https://docs.readme.com/main/docs/exporting-data)
+- [文档结构](https://docs.readme.com/main/docs/documentation-structure)
+- [版本管理](https://docs.readme.com/main/docs/versions)
+- [OpenAPI 支持](https://docs.readme.com/main/docs/openapi)
+- [Reusable Content](https://docs.readme.com/main/docs/reusable-content)
