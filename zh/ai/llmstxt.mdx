@@ -24,10 +24,17 @@ Mintlify 会在项目根目录自动托管一个 `llms.txt` 文件，列出文�
 
 <PreviewButton href="https://mintlify.com/docs/llms.txt">打开此站点的 llms.txt。</PreviewButton>
 
-Mintlify 会在每个页面的响应中添加 HTTP 标头，以便 AI 工具无需事先知道位置即可发现你的 `llms.txt` 文件：
+Mintlify 会在每个页面的响应中添加 HTTP 标头，以便 AI 工具无需事先知道位置即可发现你的 `llms.txt` 文件以及其他代理资源：
 
-- `Link: </llms.txt>; rel="llms-txt", </llms-full.txt>; rel="llms-full-txt"`：遵循标准 HTTP `Link` 标头格式，用于资源发现。
-- `X-Llms-Txt: /llms.txt`：一个便捷标头，供检查 `llms.txt` 支持情况的工具使用。
+- `Link`：遵循标准 HTTP `Link` 标头格式，用于资源发现。会公布 `llms.txt`、`llms-full.txt`、你的 API 目录、[MCP 服务器卡片](/zh/ai/model-context-protocol#discovery-endpoint)、[代理卡片](/zh/ai/skillmd#agent-card)以及[代理技能索引](/zh/ai/skillmd#skills-discovery-endpoints)。
+- `X-Llms-Txt`：一个便捷标头，供检查 `llms.txt` 支持情况的工具使用。
+
+```http Response headers
+Link: </llms.txt>; rel="llms-txt", </llms-full.txt>; rel="llms-full-txt", </.well-known/api-catalog>; rel="api-catalog", </.well-known/mcp/server-card.json>; rel="mcp-server-card", </.well-known/agent-card.json>; rel="agent-card", </.well-known/agent-skills/index.json>; rel="agent-skills"
+X-Llms-Txt: /llms.txt
+```
+
+使用认证的站点还会通过 `rel="oauth-protected-resource"` 公布其 OAuth 受保护资源元数据。如果你在某个基础路径下提供文档，公布的每个路径都会包含该前缀。
 
 <div id="llmstxt-structure">
   ## llms.txt 文件结构
@@ -40,15 +47,18 @@ Mintlify 会在每个页面的响应中添加 HTTP 标头，以便 AI 工具无�
 * **自定义代理指令**，如果你在 `docs.json` 中设置了 [`markdown.instructions`](/zh/ai/markdown-export#custom-agent-instructions)，则会作为 `Agent Instructions` 块出现在描述之后。
 * **结构化内容部分**，包含链接以及文档中每个页面的说明。
 * 指向 OpenAPI 和 AsyncAPI 规范的 **API 规范链接** (如果文档中包含这些规范) 。
+* **外部链接**放在 `Optional` 部分，用于导航中的任何绝对 URL。
 
-`llms.txt` 文件会按照页面在存储库中的位置，以字母顺序列出，从根目录开始。`llms.txt` 文件中的页面链接包含 `.md` 扩展名，以便 AI 工具可以直接获取每个页面的 Markdown 版本。
+`llms.txt` 文件会按照页面在 `docs.json` 导航中出现的顺序列出。未列入导航但因你设置了 `seo.indexing: "all"` 而被索引的页面会排在最后，并按字母顺序排列。`llms.txt` 文件中的页面链接包含 `.md` 扩展名，以便 AI 工具可以直接获取每个页面的 Markdown 版本。
 
-每个页面的说明来自其 frontmatter 中的 `description` 字段。说明会在达到 300 个字符或遇到第一个换行符时被截断。对于 API 参考页面，说明中还会包含来自 `openapi` 或 `api` frontmatter 字段的规范信息。没有 `description` 字段的页面将在 `llms.txt` 中显示，但不含说明。
+每个页面的说明来自其 frontmatter 中的 `description` 字段。Mintlify 会使用说明的第一段，并在达到 300 个字符时截断。没有 `description` 字段的页面将在 `llms.txt` 中显示，但不含说明。
+
+`llms.txt` 和 `llms-full.txt` 都会列出你默认语言和默认版本中的页面。它们会排除[隐藏页面](/zh/organize/hidden-pages)以及 frontmatter 中带有 `noindex: true` 的页面，除非你在 `docs.json` 中设置了 `seo.indexing: "all"`。
 
 这种结构化方法使 LLM 能够高效地从宏观层面处理你的文档，并为用户查询定位相关内容，从而提升 AI 辅助文档搜索的准确性和速度。
 
 <Note>
-  自动生成的 `llms.txt` 文件上限为 100,000 个字符。如果你的文档超过此限制，Mintlify 会截断该文件，并附加一条说明列出被省略的页面数量。若要不经截断列出所有页面，请在项目根目录添加一个[自定义 `llms.txt` 文件](#custom-files)。
+  自动生成的 `llms.txt` 文件上限为 100,000 个字符。当文件接近此限制时，Mintlify 会先缩短页面说明，然后再删除条目，并附加一条说明列出被省略的内容。此限制不适用于 `llms-full.txt`。若要不经截断列出所有页面，请在项目根目录添加一个[自定义 `llms.txt` 文件](#custom-files)。
 </Note>
 
 ```mdx Example llms.txt
@@ -69,13 +79,17 @@ Mintlify 会在每个页面的响应中添加 HTTP 标头，以便 AI 工具无�
 ## AsyncAPI Specs
 
 - [asyncapi](https://example.com/docs/asyncapi.yaml)
+
+## Optional
+
+- [Community](https://example.com/community)
 ```
 
 <div id="llms-fulltxt">
   ## llms-full.txt
 </div>
 
-`llms-full.txt` 文件会将你的整个文档站点整合为一个文件，供 AI 工具作为 context 使用，并用于 LLM 索引。
+`llms-full.txt` 文件会将你的整个文档站点整合为一个文件，供 AI 工具作为 context 使用，并用于 LLM 索引。每个页面都会以其标题、源 URL、说明以及完整的 Markdown 内容形式呈现。
 
 Mintlify 会在你的项目根目录自动托管一个 `llms-full.txt` 文件。你可以在文档站点的 URL 末尾追加 `/llms-full.txt` 来查看该文件。Mintlify 还会在 `/.well-known/llms-full.txt` 托管该文件，以兼容采用 `.well-known` 约定的工具。
 
