@@ -1,0 +1,138 @@
+---
+title: "Migrate from Fern"
+description: "Migrate Fern MDX content, docs.yml navigation, products, versions, assets, API references, and components to Mintlify."
+keywords: ["Fern migration", "Fern to Mintlify", "docs.yml", "Fern Docs"]
+---
+
+import MigrationLaunchChecklist from "/snippets/migration-launch-checklist.mdx";
+
+Migrate a Fern site from its Git repository. Fern stores documentation as Markdown or MDX alongside `docs.yml`, assets, and API specifications, so the source repository is more complete and reliable than the published HTML.
+
+<Note>
+  The Mintlify scraper does not currently support Fern.
+</Note>
+
+## Collect your source content
+
+Create a migration branch or copy of your documentation repository.
+
+Locate all of the following items:
+
+- `fern/docs.yml`, which defines site settings and navigation
+- MDX pages, commonly in `fern/docs/pages/`
+- Image, video, favicon, and logo assets, commonly in `fern/docs/assets/`
+- Reusable MDX snippets, commonly in `fern/docs/snippets/`
+- Changelog entries in `fern/docs/changelog/`
+- `fern/styles.css` and any other custom CSS or JavaScript
+- `fern/fern.config.json` and the pinned Fern CLI version
+- OpenAPI, AsyncAPI, and Fern definition files
+- `generators.yml` and scripts that retrieve or generate API specifications
+- Product, version, and tab configuration files referenced by `docs.yml`
+- Custom MDX components
+- Any environment variables, remote specifications, generated files, or private packages required when you run `fern check` or `fern docs dev`
+
+<Note>
+  Fern reserves the `fern` and `changelog` folder names. Every other folder name is configurable, so confirm your directory names against `docs.yml` before you move files.
+</Note>
+
+## Recreate navigation
+
+Fern defines navigation in `docs.yml` or in separate files for products and versions. Mintlify defines navigation in `docs.json`.
+
+| Fern | Mintlify |
+| --- | --- |
+| `page` with `path` | Page path in a `pages` array |
+| `section` | Navigation group |
+| Section with `path` | Group with a `root` page |
+| `folder` | Navigation group with its pages listed explicitly |
+| `link` | Navigation link, anchor, menu item, or card |
+| `tabs` | Tabs in `docs.json` |
+| `products` | Products in `docs.json` |
+| Site-wide versions | Versions in `docs.json` |
+| `hidden: true` | `hidden: true` in page frontmatter or a hidden navigation entry |
+
+Fern constructs routes from the slugs of sections, folders, tabs, versions, products, and pages. Do not infer the old URL from the source filename alone. Export the published sitemap and resolve `slug`, `skip-slug`, and page-level path overrides before creating redirects.
+
+When a Fern folder uses `index.mdx` as its overview, use that page as the Mintlify group's `root`. Preserve deliberate navigation order rather than relying on Fern's alphabetical folder discovery.
+
+## Convert pages and frontmatter
+
+Most standard Markdown and MDX can move directly. Every Mintlify page needs a `title`. Retain descriptions, keywords, and other useful SEO metadata.
+
+Review Fern-specific frontmatter such as:
+
+- `slug` and path overrides
+- `availability` badges
+- Page layout and table-of-contents settings
+- Visibility and indexing controls
+- API reference associations
+
+Recreate behavior with Mintlify frontmatter, navigation, or content. Add a callout for availability states that do not have an equivalent presentation.
+
+## Convert components
+
+Fern and Mintlify both use MDX components, but component names and properties are not interchangeable. Search every page for JSX tags and imports instead of assuming they render unchanged.
+
+| Fern content | Mintlify treatment |
+| --- | --- |
+| Callouts | Convert to [`Note`, `Tip`, `Info`, `Warning`, or `Danger`](/components/callouts). |
+| `Tabs` and `Tab` | Convert properties and labels to [`Tabs` and `Tab`](/components/tabs). |
+| Steps | Convert to [`Steps` and `Step`](/components/steps). |
+| Accordions | Convert to [`AccordionGroup` and `Accordion`](/components/accordions). |
+| Cards and buttons | Map to [Mintlify cards](/components/cards) and supported links. |
+| `Versions` blocks | Use tabs or separate versioned pages, depending on whether the selection should affect one block or the site. |
+| `If` blocks | Split content by product or version, or use a supported custom component when conditional rendering is essential. |
+| API schema and endpoint snippet components | Generate the reference from the original API specification and move supplemental prose into guides or operation descriptions. |
+| Reusable MDX snippets from `fern/docs/snippets/` | Convert to [Mintlify snippets](/create/reusable-snippets) and update each import path. |
+| Custom MDX components | Rebuild with a [React component](/customize/react-components) or replace with a built-in component. |
+
+Remove Fern-only imports after conversion. Preview pages that use nested components because valid syntax and supported properties can differ even when both platforms use the same component name.
+
+## Migrate API references
+
+Use your API specification to create your new API reference pages.
+
+1. Trace each `api` navigation entry to its OpenAPI, AsyncAPI, or Fern definition source.
+2. Download specifications that the build retrieves from a URL or another repository.
+3. Preserve overlays, generated examples, authentication configuration, and custom endpoint prose.
+4. Add the source specification to the Mintlify repository and configure [API reference pages](/api-playground/openapi-setup).
+5. Compare endpoint grouping, servers, security schemes, examples, and SDK snippets with the Fern site.
+
+Fern definitions can contain information that is not represented directly in an OpenAPI document. Review the generated OpenAPI output and move any missing descriptions or examples before retiring your Fern build.
+
+## Migrate products and versions
+
+Fern can place navigation in product-specific or version-specific YAML files. Inventory every referenced file and map each maintained product and version to the corresponding Mintlify [navigation structure](/organize/navigation).
+
+Check for:
+
+- A landing page outside the product navigation
+- Products or versions with different page trees
+- Slugs added by product, version, or tab levels
+- Version-specific API specifications
+- Hidden, deprecated, or pre-release sections
+- External products that link to another site
+
+## Migrate assets and site settings
+
+Copy files from the configured asset directories and update relative paths after moving pages. Do not leave required production assets on your former deployment unless you plan to keep that hosting after your migration. Review `docs.yml` for logos, favicons, social images, fonts, colors, navbar links, announcement banners, redirects, analytics, custom CSS, and custom JavaScript.
+
+Recreate supported settings in `docs.json`. Treat CSS and JavaScript as requirements to evaluate, not files to copy blindly, because their selectors and runtime assumptions are platform-specific.
+
+## Review your migration
+
+Compare every `docs.yml` navigation entry and discovered folder page against `docs.json`, then validate every product, version, and tab.
+
+Search your converted files for leftover Fern syntax: component imports, unsupported JSX properties, and `Versions` or `If` blocks.
+
+<MigrationLaunchChecklist />
+
+## Fern references
+
+- [Project structure](https://buildwithfern.com/learn/docs/getting-started/project-structure)
+- [Navigation](https://buildwithfern.com/learn/docs/configuration/navigation)
+- [Products](https://buildwithfern.com/learn/docs/configuration/products)
+- [Versions](https://buildwithfern.com/learn/docs/configuration/versions)
+- [Components](https://buildwithfern.com/learn/docs/writing-content/components/overview)
+- [Custom CSS and JavaScript](https://buildwithfern.com/learn/docs/customization/custom-css-js)
+- [CLI commands](https://buildwithfern.com/learn/cli-api-reference/cli-reference/commands)
