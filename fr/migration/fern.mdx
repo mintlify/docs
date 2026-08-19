@@ -1,0 +1,156 @@
+---
+title: "Migrer depuis Fern"
+description: "Migrez le contenu MDX de Fern, la navigation docs.yml, les produits, les versions, les ressources, les références API et les composants vers Mintlify."
+keywords: ["migration Fern", "Fern vers Mintlify", "docs.yml", "Fern Docs"]
+---
+
+import MigrationLaunchChecklist from "/snippets/fr/migration-launch-checklist.mdx";
+
+Migrez un site Fern depuis son référentiel Git. Fern stocke la documentation sous forme de Markdown ou MDX aux côtés de `docs.yml`, des ressources et des spécifications d'API : le référentiel source est donc plus complet et plus fiable que le HTML publié.
+
+<Note>
+  Le scraper Mintlify ne prend pas actuellement en charge Fern.
+</Note>
+
+<div id="collect-your-source-content">
+  ## Rassembler votre contenu source
+</div>
+
+Créez une branche de migration ou une copie de votre référentiel de documentation.
+
+Localisez tous les éléments suivants :
+
+- `fern/docs.yml`, qui définit les paramètres du site et la navigation
+- Les pages MDX, généralement dans `fern/docs/pages/`
+- Les ressources d'image, vidéo, favicon et logo, généralement dans `fern/docs/assets/`
+- Les snippets MDX réutilisables, généralement dans `fern/docs/snippets/`
+- Les entrées de changelog dans `fern/docs/changelog/`
+- `fern/styles.css` et tout autre CSS ou JavaScript personnalisé
+- `fern/fern.config.json` et la version épinglée du CLI Fern
+- Les fichiers de définition OpenAPI, AsyncAPI et Fern
+- `generators.yml` et les scripts qui récupèrent ou génèrent des spécifications d'API
+- Les fichiers de configuration de produit, de version et d'onglet référencés par `docs.yml`
+- Les composants MDX personnalisés
+- Toute variable d'environnement, spécification distante, fichier généré ou package privé requis lorsque vous exécutez `fern check` ou `fern docs dev`
+
+<Note>
+  Fern réserve les noms de dossier `fern` et `changelog`. Tous les autres noms de dossier sont configurables : confirmez donc les noms de vos répertoires par rapport à `docs.yml` avant de déplacer des fichiers.
+</Note>
+
+<div id="recreate-navigation">
+  ## Recréer la navigation
+</div>
+
+Fern définit la navigation dans `docs.yml` ou dans des fichiers séparés pour les produits et les versions. Mintlify définit la navigation dans `docs.json`.
+
+| Fern | Mintlify |
+| --- | --- |
+| `page` avec `path` | Chemin de page dans un tableau `pages` |
+| `section` | Groupe de navigation |
+| Section avec `path` | Groupe avec une page `root` |
+| `folder` | Groupe de navigation avec ses pages listées explicitement |
+| `link` | Lien de navigation, ancrage, élément de menu ou carte |
+| `tabs` | Onglets dans `docs.json` |
+| `products` | Produits dans `docs.json` |
+| Versions à l'échelle du site | Versions dans `docs.json` |
+| `hidden: true` | `hidden: true` dans le frontmatter de la page ou une entrée de navigation masquée |
+
+Fern construit les routes à partir des slugs des sections, dossiers, onglets, versions, produits et pages. N'inférez pas l'ancienne URL uniquement à partir du nom de fichier source. Exportez le sitemap publié et résolvez `slug`, `skip-slug` et les remplacements de chemin au niveau de la page avant de créer des redirections.
+
+Lorsqu'un dossier Fern utilise `index.mdx` comme présentation, utilisez cette page comme `root` du groupe Mintlify. Préservez l'ordre de navigation délibéré plutôt que de vous appuyer sur la découverte alphabétique des dossiers par Fern.
+
+<div id="convert-pages-and-frontmatter">
+  ## Convertir les pages et le frontmatter
+</div>
+
+La plupart du Markdown et du MDX standard peut être déplacé directement. Chaque page Mintlify nécessite un `title`. Conservez les descriptions, les mots-clés et les autres métadonnées SEO utiles.
+
+Passez en revue le frontmatter spécifique à Fern tel que :
+
+- `slug` et les remplacements de chemin
+- Les badges `availability`
+- Les paramètres de mise en page et de table des matières
+- Les contrôles de visibilité et d'indexation
+- Les associations de référence API
+
+Recréez le comportement avec le frontmatter, la navigation ou le contenu Mintlify. Ajoutez un callout pour les états de disponibilité qui n'ont pas de présentation équivalente.
+
+<div id="convert-components">
+  ## Convertir les composants
+</div>
+
+Fern et Mintlify utilisent tous deux des composants MDX, mais les noms et les propriétés des composants ne sont pas interchangeables. Recherchez sur chaque page les balises JSX et les imports plutôt que de supposer qu'ils s'affichent sans modification.
+
+| Contenu Fern | Traitement Mintlify |
+| --- | --- |
+| Callouts | Convertir en [`Note`, `Tip`, `Info`, `Warning` ou `Danger`](/fr/components/callouts). |
+| `Tabs` et `Tab` | Convertir les propriétés et les libellés en [`Tabs` et `Tab`](/fr/components/tabs). |
+| Étapes | Convertir en [`Steps` et `Step`](/fr/components/steps). |
+| Accordéons | Convertir en [`AccordionGroup` et `Accordion`](/fr/components/accordions). |
+| Cartes et boutons | Mapper à des [cartes Mintlify](/fr/components/cards) et des liens pris en charge. |
+| Blocs `Versions` | Utilisez des onglets ou des pages versionnées séparées, selon que la sélection doit affecter un bloc ou le site. |
+| Blocs `If` | Divisez le contenu par produit ou par version, ou utilisez un composant personnalisé pris en charge lorsque le rendu conditionnel est essentiel. |
+| Composants de schéma d'API et de snippet d'endpoint | Générez la référence à partir de la spécification d'API originale et déplacez la prose supplémentaire vers des guides ou des descriptions d'opération. |
+| Snippets MDX réutilisables de `fern/docs/snippets/` | Convertir en [snippets Mintlify](/fr/create/reusable-snippets) et mettre à jour chaque chemin d'import. |
+| Composants MDX personnalisés | Reconstruire avec un [composant React](/fr/customize/react-components) ou remplacer par un composant intégré. |
+
+Supprimez les imports propres à Fern après la conversion. Prévisualisez les pages qui utilisent des composants imbriqués, car la syntaxe valide et les propriétés prises en charge peuvent différer même lorsque les deux plateformes utilisent le même nom de composant.
+
+<div id="migrate-api-references">
+  ## Migrer les références API
+</div>
+
+Utilisez votre spécification d'API pour créer vos nouvelles pages de référence API.
+
+1. Retracez chaque entrée de navigation `api` jusqu'à sa source OpenAPI, AsyncAPI ou de définition Fern.
+2. Téléchargez les spécifications que le build récupère depuis une URL ou un autre référentiel.
+3. Préservez les overlays, les exemples générés, la configuration d'authentification et la prose personnalisée des endpoints.
+4. Ajoutez la spécification source au référentiel Mintlify et configurez les [pages de référence API](/fr/api-playground/openapi-setup).
+5. Comparez le regroupement des endpoints, les serveurs, les schémas de sécurité, les exemples et les snippets SDK avec le site Fern.
+
+Les définitions Fern peuvent contenir des informations qui ne sont pas représentées directement dans un document OpenAPI. Vérifiez la sortie OpenAPI générée et déplacez toute description ou exemple manquant avant de retirer votre build Fern.
+
+<div id="migrate-products-and-versions">
+  ## Migrer les produits et les versions
+</div>
+
+Fern peut placer la navigation dans des fichiers YAML spécifiques à un produit ou à une version. Inventoriez chaque fichier référencé et mappez chaque produit et version maintenue à la [structure de navigation](/fr/organize/navigation) Mintlify correspondante.
+
+Vérifiez :
+
+- Une page d'accueil en dehors de la navigation du produit
+- Des produits ou versions avec des arborescences de pages différentes
+- Des slugs ajoutés par niveaux de produit, de version ou d'onglet
+- Des spécifications d'API spécifiques à une version
+- Des sections cachées, dépréciées ou en pré-version
+- Des produits externes qui pointent vers un autre site
+
+<div id="migrate-assets-and-site-settings">
+  ## Migrer les ressources et les paramètres du site
+</div>
+
+Copiez les fichiers depuis les répertoires de ressources configurés et mettez à jour les chemins relatifs après avoir déplacé les pages. Ne laissez pas de ressources de production requises sur votre ancien déploiement, sauf si vous prévoyez de conserver cet hébergement après la migration. Examinez `docs.yml` pour les logos, les favicons, les images sociales, les polices, les couleurs, les liens de la barre de navigation, les bannières d'annonce, les redirections, l'analytique, le CSS personnalisé et le JavaScript personnalisé.
+
+Recréez les paramètres pris en charge dans `docs.json`. Traitez le CSS et le JavaScript comme des exigences à évaluer, et non comme des fichiers à copier aveuglément, car leurs sélecteurs et leurs hypothèses d'exécution sont spécifiques à la plateforme.
+
+<div id="review-your-migration">
+  ## Vérifier votre migration
+</div>
+
+Comparez chaque entrée de navigation `docs.yml` et chaque page de dossier découverte à `docs.json`, puis validez chaque produit, version et onglet.
+
+Recherchez dans vos fichiers convertis toute syntaxe Fern résiduelle : imports de composants, propriétés JSX non prises en charge et blocs `Versions` ou `If`.
+
+<MigrationLaunchChecklist />
+
+<div id="fern-references">
+  ## Références Fern
+</div>
+
+- [Structure du projet](https://buildwithfern.com/learn/docs/getting-started/project-structure)
+- [Navigation](https://buildwithfern.com/learn/docs/configuration/navigation)
+- [Produits](https://buildwithfern.com/learn/docs/configuration/products)
+- [Versions](https://buildwithfern.com/learn/docs/configuration/versions)
+- [Composants](https://buildwithfern.com/learn/docs/writing-content/components/overview)
+- [CSS et JavaScript personnalisés](https://buildwithfern.com/learn/docs/customization/custom-css-js)
+- [Commandes CLI](https://buildwithfern.com/learn/cli-api-reference/cli-reference/commands)

@@ -1,0 +1,198 @@
+---
+title: "从 GitBook 迁移"
+description: "将 GitBook 的 sections、Markdown、导航、可复用内容、variants、资源和 OpenAPI 文档迁移到 Mintlify。"
+keywords: ["GitBook 迁移", "GitBook 到 Mintlify", "Git Sync", "SUMMARY.md", "GitBook sections"]
+---
+
+import MigrationLaunchChecklist from "/snippets/zh/migration-launch-checklist.mdx";
+
+使用 Git Sync 将 GitBook 内容导出到 Git 仓库以获得最完整的迁移，或抓取公开的 GitBook 站点来创建初始的 Mintlify 项目。
+
+<div id="choose-a-method">
+  ## 选择一种方式
+</div>
+
+| 方式 | 适用场景 |
+| --- | --- |
+| Git Sync 导出 | 你是 GitBook 站点的管理员，或需要源 Markdown、可复用内容、私有页面或稳定的迁移快照。 |
+| 自动抓取工具 | 你的 GitBook 站点是公开的，并希望快速转换已渲染的页面、常见 block、资源和导航。 |
+
+在可能的情况下，将 Git Sync 用作主要迁移方式。一个 GitBook 站点由多个 section 组成，每个 section 可以有多个 variant，而 Git Sync 在 section 级别上运行。请导出出现在已发布站点上的每个 section。
+
+<Note>
+  GitBook 现在将站点内的内容容器称为 section。较旧的 GitBook 文档和社区脚本称其为 space。
+</Note>
+
+<div id="export-a-section-with-git-sync">
+  ## 使用 Git Sync 导出 section
+</div>
+
+GitBook 不为单个页面提供直接的 Markdown 下载。要将 section 导出为 Markdown：
+
+1. 创建一个空的 GitHub 或 GitLab 仓库，或者在迁移仓库中创建一个空分支。
+2. 在你要导出的 section 中，点击 section 标题旁 **Git Sync** 下方的 **Set up**。
+3. 从提供商列表中，点击 **GitHub Sync** 或 **GitLab Sync**，如果尚未连接提供商，请先进行身份验证。
+4. 选择空仓库和用于导出的分支。
+5. 对于初始同步方向，选择 **GitBook → GitHub** 或 **GitBook → GitLab**。
+6. 开始初始同步。完成后，克隆或下载该仓库。
+7. 对需要迁移的每个 section、语言或版本重复上述步骤。
+
+<Warning>
+  初始同步方向很重要。选择 **GitHub → GitBook** 或 **GitLab → GitBook** 会用所选分支的内容替换你的 section 内容，而不是导出 section。请确认方向从 GitBook 出发，指向你的空仓库。如果你选错了方向，请在该 section 的版本历史中回滚到 Git Sync 操作之前的修订版本。
+</Warning>
+
+保持已同步的仓库不变，作为迁移快照。为你的 Mintlify 转换创建一个分支或副本。
+
+<div id="migrate-a-public-site">
+  ## 迁移公开站点
+</div>
+
+<Warning>
+  抓取工具会覆盖目录中已有的文件。
+
+  请在空目录中运行抓取工具。
+</Warning>
+
+```bash
+mkdir mintlify-migration
+cd mintlify-migration
+npx @mintlify/scraping@latest section https://docs.example.com
+```
+
+抓取工具会加载 GitBook 已渲染的导航、下载可到达的图片、转换常见的 block，并创建 `docs.json`。它无法检索私有 section、未发布的更改、权限、评论或修订历史。
+
+在两者都可用时，将生成的项目与 Git Sync 导出进行比较。抓取对于检查渲染 block 的转换很有用，而导出则是源内容更完整的清单。
+
+<div id="understand-the-git-sync-export">
+  ## 理解 Git Sync 导出
+</div>
+
+GitBook 通常创建或使用以下文件和目录：
+
+{/* vale Vale.Terms = NO */}
+
+- `README.md`：Section 主页
+- `SUMMARY.md`：目录
+- `.gitbook.yaml`：内容根、结构和 section 重定向
+- `.gitbook/assets/`：上传的图片和文件
+- `.gitbook/includes/`：可复用内容
+
+{/* vale Vale.Terms = YES */}
+
+当 GitBook 配置定义了其他内容根、主页或摘要文件时，路径可能有所不同。在移动任何文件之前，请确认你的具体配置。
+
+<div id="convert-summarymd-navigation">
+  ## 转换 `SUMMARY.md` 导航
+</div>
+
+`SUMMARY.md` 是一个嵌套的 Markdown 列表。将其标题和链接转换为 `docs.json` 导航：
+
+| GitBook `SUMMARY.md` | Mintlify |
+| --- | --- |
+| 标题 | 导航分组或其他分区 |
+| 顶级链接项 | 页面路径 |
+| 带子项的链接项 | 带 `root` 和嵌套 `pages` 的分组 |
+| 嵌套链接项 | 页面或嵌套分组 |
+| `README.md` | Section 或分组的概览页面 |
+| 外部链接 | 在支持的位置使用导航链接，或使用指向外部资源的普通页面 |
+
+从导航路径中移除 `.md` 扩展名，但不要在检查链接之前重命名所有文件。像 `guides/README.md` 这样的页面可以变成 `guides/index.mdx`，也可以保留为具有不同导航路径的 Markdown 文件。
+
+每个 Mintlify 页面也需要至少包含 `title` 的 frontmatter。在迁移每个页面时，添加或转换 frontmatter。
+
+<Note>
+  社区脚本可以自动完成 `SUMMARY.md` 的递归映射。在运行之前，请检查它们生成的文件移动和 shell 命令。转换器必须能处理缺失链接、外部 URL、重复页面、嵌套分组和 GitBook 内容根，且不能覆盖源文件。
+</Note>
+
+<div id="convert-gitbook-blocks">
+  ## 转换 GitBook block
+</div>
+
+GitBook 使用许多 `{% ... %}` 指令来表示 block。将这些指令转换为 Mintlify 组件。
+
+| GitBook 源 | Mintlify 替代方案 |
+| --- | --- |
+| `{% hint style="info" %}` | [`Info`](/zh/components/callouts) |
+| `hint` 样式 `success` | [`Check`](/zh/components/callouts) 或 `Tip` |
+| `hint` 样式 `warning` | [`Warning`](/zh/components/callouts) |
+| `hint` 样式 `danger` | [`Danger`](/zh/components/callouts) |
+| `{% tabs %}` 和 `{% tab title="..." %}` | [`Tabs` 和 `Tab`](/zh/components/tabs) |
+| 可展开 block | [`Accordion`](/zh/components/accordions) |
+| 代码 tab | [`CodeGroup`](/zh/components/code-groups) |
+| Cards 和 columns | [`Card`、`CardGroup`](/zh/components/cards) 或 [`Columns`](/zh/components/columns) |
+| 嵌入的媒体或集成 block | 受支持的 [嵌入](/zh/create/image-embeds)、链接、图片或自定义 React 组件 |
+
+GitBook 将一些自定义 block 导出为 HTML，因为它们没有 Markdown 表示。请检查每个 HTML block，确认它在 MDX 中的表现一致。
+
+<div id="convert-reusable-content">
+  ## 转换可复用内容
+</div>
+
+GitBook 将可复用内容导出到 `.gitbook/includes/` 目录，并通过 include 指令引用它们。将每个可复用文件转换为 [Mintlify snippet](/zh/create/reusable-snippets)，然后将 GitBook 的 include 替换为 MDX 导入和组件。
+
+例如：
+
+```mdx
+import Authentication from "/snippets/authentication.mdx";
+
+<Authentication />
+```
+
+检查跨多个 section 共享的可复用内容。GitBook 会指定一个拥有该内容的父 section，且这是它可被编辑的唯一位置，因此单独的 section 导出可能包含需要合并为单一共享 snippet 的重复内容或跨 section 引用。
+
+<div id="migrate-sections-variants-and-translations">
+  ## 迁移 section、variant 和翻译
+</div>
+
+GitBook 站点会发布一个或多个 section，将相关的 section 组织成 group，并使用 variant 表示版本或语言。选择最接近的 Mintlify 导航模型：
+
+- 将产品或受众 section 映射到 [products](/zh/organize/navigation#products)、tabs 或 anchors。
+- 将发布 variant 映射到 [versions](/zh/organize/navigation#versions)。
+- 将翻译的 section 映射到 [languages](/zh/organize/navigation#languages)。
+- 当用户不需要选择器时，将独立的内容集合映射到独立分组。
+
+在更改域名之前，记录默认 variant 和每个 variant 的 slug。GitBook 可以从其公共 URL 中省略默认 variant 的 slug，因此重定向必须同时考虑默认路径和显式命名的路径。
+
+<div id="migrate-assets-and-links">
+  ## 迁移资源和链接
+</div>
+
+将 `.gitbook/assets/` 复制到你的 Mintlify 仓库中，并在移动页面后更新相对图片和下载路径。检查使用 HTML 设置尺寸或对齐方式的内联图片。除非你在迁移后打算继续保留 GitBook 托管，否则不要将必需的生产资源留在 GitBook 上。
+
+GitBook 的重定向可以存在于配置文件和站点级设置中。收集这两个来源并将其转换为 Mintlify 的 [重定向](/zh/create/redirects)。GitBook 会将其配置文件中的重定向限定在单个 section 内，而 Mintlify 的重定向适用于整个已发布站点，因此必要时请包含以前的 section 或 variant 前缀。
+
+<div id="migrate-openapi-documentation">
+  ## 迁移 OpenAPI 文档
+</div>
+
+GitBook 可以在组织级别存储 OpenAPI 规范，并在 section 中放置生成的 OpenAPI block。Markdown section 导出可能不是这些规范的真实来源。
+
+1. 清点你的 GitBook 组织中的所有 OpenAPI 规范。
+2. 通过 GitBook API 获取原始文件、托管源 URL 或规范。
+3. 将 JSON 或 YAML 文件添加到你的 Mintlify 仓库。
+4. 配置 [OpenAPI 生成的页面](/zh/api-playground/openapi-setup)。
+5. 用普通 GitBook block 中的说明重建相邻的解释性内容。
+6. 将认证、服务器 URL、示例和 GitBook 特有的 OpenAPI 扩展与你的 Mintlify API 页面进行比较。
+
+<div id="review-your-migration">
+  ## 检查你的迁移
+</div>
+
+将每个导出的 section 和 `SUMMARY.md` 条目与 `docs.json` 进行比较，然后验证每个 section、group、variant 和语言。
+
+在你转换后的文件中搜索遗留的 GitBook 语法：`{%`、`{% end`、`.gitbook/includes`，以及 GitBook 用来替代 Markdown 导出的原始 HTML block。
+
+<MigrationLaunchChecklist />
+
+<div id="gitbook-references">
+  ## GitBook 参考资料
+</div>
+
+- [Git Sync](https://gitbook.com/docs/getting-started/git-sync)
+- [启用 GitHub Sync](https://gitbook.com/docs/getting-started/git-sync/enabling-github-sync)
+- [内容配置](https://gitbook.com/docs/getting-started/git-sync/content-configuration)
+- [内容结构](https://gitbook.com/docs/creating-content/content-structure)
+- [可复用内容](https://gitbook.com/docs/creating-content/reusable-content)
+- [内容 variants](https://gitbook.com/docs/publishing-documentation/site-structure/variants)
+- [OpenAPI](https://gitbook.com/docs/api-references/openapi)
+- [添加 OpenAPI 规范](https://gitbook.com/docs/api-references/openapi/add-an-openapi-specification)

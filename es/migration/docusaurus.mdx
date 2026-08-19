@@ -1,0 +1,184 @@
+---
+title: "Migrar desde Docusaurus"
+description: "Migra documentación de Docusaurus a Mintlify, incluidas páginas MDX, barras laterales, versiones, contenido localizado, recursos y componentes personalizados."
+keywords: ["migración de Docusaurus", "Docusaurus a Mintlify", "sidebars.js", "versioned_docs"]
+---
+
+import MigrationLaunchChecklist from "/snippets/es/migration-launch-checklist.mdx";
+
+Migra un sitio público de Docusaurus 2 o 3 con el scraper de Mintlify. Si necesitas un control más preciso sobre las versiones, el contenido localizado o los componentes personalizados de React, migra desde tu repositorio fuente.
+
+<div id="choose-a-method">
+  ## Elige un método
+</div>
+
+| Método | Cuándo usarlo |
+| --- | --- |
+| Scraper | Todo tu sitio de documentación es público y la mayor parte del contenido utiliza componentes estándar de Docusaurus. |
+| Migración desde el código fuente | Tu sitio es privado o usa versionado, localización, plugins personalizados, componentes personalizados de React o páginas no publicadas. |
+
+Para sitios complejos, combina ambos métodos. Haz scraping de tu sitio público para crear un `docs.json` inicial y convertir componentes, y luego compara el resultado con el repositorio fuente para detectar contenido faltante.
+
+<div id="migrate-a-public-site">
+  ## Migrar un sitio público
+</div>
+
+<Warning>
+  El scraper puede sobrescribir archivos existentes.
+
+  Ejecuta el scraper en un directorio vacío para que no reemplace ningún archivo existente.
+</Warning>
+
+```bash
+mkdir mintlify-migration
+cd mintlify-migration
+npx @mintlify/scraping@latest section https://docs.example.com
+```
+
+Si tu documentación de Docusaurus utiliza una ruta base, filtra para hacer scraping de esa ruta:
+
+```bash
+npx @mintlify/scraping@latest section https://example.com --filter=/docs
+```
+
+El scraper detecta Docusaurus, expande su barra lateral, descarga las imágenes alcanzables, convierte componentes renderizados comunes en componentes de Mintlify y crea un `docs.json` a partir de la navegación publicada.
+
+Cuando el scraper termine, compara la navegación de Mintlify generada con tu `sidebars.js`, `sidebars.ts` u otra estructura de navegación de Docusaurus. Comprueba las categorías contraídas, los enlaces externos, las páginas índice de categorías generadas y las páginas excluidas de la barra lateral publicada.
+
+<div id="migrate-from-source">
+  ## Migrar desde el código fuente
+</div>
+
+Copia el siguiente contenido fuente en una rama de migración o directorio de trabajo separados.
+
+- Tu directorio de contenido de documentación configurado, que en Docusaurus es `docs/` por defecto
+- `sidebars.js`, `sidebars.ts` u otros archivos de configuración de la barra lateral
+- `docusaurus.config.js` o `docusaurus.config.ts`
+- Archivos `_category_.json`, `_category_.yml` o `_category_.yaml`
+- El directorio `static/` y los recursos almacenados junto a las páginas de documentación
+- `versioned_docs/`, `versioned_sidebars/` y `versions.json`
+- Documentación localizada bajo `i18n/<locale>/docusaurus-plugin-content-docs/<versionName>/`, como `current/`
+- Componentes de React importados por las páginas MDX
+
+<Note>
+  Docusaurus puede cambiar su directorio de docs, su ruta base, su generador de barra lateral y los archivos incluidos en la configuración del plugin de docs. Según tu configuración, tu contenido puede estar en un directorio distinto de `docs/`.
+</Note>
+
+Copia las páginas Markdown y MDX en tu proyecto de Mintlify. Cada página necesita frontmatter con al menos un `title`.
+
+```mdx Ejemplo de frontmatter
+---
+title: "Comenzar"
+description: "Instala el SDK y realiza tu primera solicitud."
+---
+```
+
+<div id="recreate-navigation">
+  ## Recrear la navegación
+</div>
+
+Las barras laterales de Docusaurus son JavaScript o TypeScript ejecutable, mientras que la navegación de Mintlify son datos en `docs.json`. Convierte la barra lateral resuelta, no solo su texto fuente, si la barra lateral utiliza funciones o generadores personalizados.
+
+| Docusaurus | Mintlify |
+| --- | --- |
+| Elemento `doc` o ID de doc | Ruta de página en un array `pages` |
+| `category` | Grupo anidado con `group` y `pages` |
+| Categoría enlazada a un doc | Grupo con una página `root` |
+| Índice de categoría generado | Crea una página de resumen y úsala como `root` del grupo |
+| Elemento `link` | Un ancla, pestaña, elemento de menú o página que enlaza al destino externo |
+| Múltiples barras laterales | Pestañas, anclas, productos o grupos separados |
+| Barra lateral autogenerada | Reproduce la jerarquía de archivos o lista el orden generado de forma explícita |
+
+Docusaurus utiliza la jerarquía de archivos para las barras laterales autogeneradas. Mintlify te permite organizar la navegación independientemente de las ubicaciones de los archivos, por lo que no necesitas renombrar páginas únicamente para que coincidan con la barra lateral.
+
+<div id="convert-docusaurus-mdx">
+  ## Convertir MDX de Docusaurus
+</div>
+
+El Markdown estándar suele funcionar sin cambios. Revisa la sintaxis y las importaciones específicas de Docusaurus.
+
+| Fuente de Docusaurus | Reemplazo en Mintlify |
+| --- | --- |
+| `import Tabs from '@theme/Tabs'` y `TabItem` | Elimina las importaciones y usa [`Tabs` y `Tab`](/es/components/tabs). |
+| `:::note`, `:::tip`, `:::info`, `:::warning`, `:::danger` | Usa [`Note`, `Tip`, `Info`, `Warning` o `Danger`](/es/components/callouts). |
+| `<details>` y `<summary>` | Usa un [`Accordion`](/es/components/accordions). |
+| Ejemplos de código con pestañas | Usa un [`CodeGroup`](/es/components/code-groups) cuando cada pestaña contenga código. |
+| Importaciones `@site/...` y componentes de tema | Sustitúyelas por componentes de Mintlify, snippets o MDX estándar. |
+| Sintaxis de plugins Markdown personalizados | Convierte la sintaxis generada o recrea el comportamiento en MDX compatible. |
+| Componentes de tema personalizados (swizzled) | Recrea el comportamiento visible para el usuario con ajustes o componentes de Mintlify. |
+
+Los componentes personalizados de React no se migran automáticamente desde tu repositorio fuente. Determina si cada componente es contenido, presentación o comportamiento de aplicación.
+
+- Sustituye los patrones de contenido por un [componente de Mintlify](/es/components).
+- Convierte el contenido repetido en un [snippet reutilizable](/es/create/reusable-snippets).
+- Añade un [componente de React](/es/customize/react-components) cuando necesites una interacción que ningún componente integrado ofrezca.
+- Traslada las páginas de aplicación completas fuera del sitio de documentación o recréalas como [diseños de página personalizados](/es/guides/custom-layouts).
+
+<div id="preserve-routes-and-links">
+  ## Conservar rutas y enlaces
+</div>
+
+Docusaurus combina el `routeBasePath` del plugin de docs, el `slug` del frontmatter de la página, la versión y el idioma para crear una URL. Crea un inventario a partir del sitemap publicado en lugar de inferir cada URL a partir de los nombres de archivo.
+
+Cuando renombres o reorganices una página, añade su ruta publicada anterior a [redirecciones](/es/create/redirects). Prueba los enlaces con y sin la ruta base anterior, por ejemplo `/docs/getting-started` y `/getting-started`.
+
+Revisa los IDs de encabezado explícitos de Docusaurus como:
+
+```mdx
+## Configure the client {/* #configure-client */}
+```
+
+Conviértelos a la sintaxis de ID de encabezado personalizada de Mintlify cuando debas conservar los enlaces de ancla entrantes:
+
+```mdx
+## Configure the client {#configure-client}
+```
+
+<div id="migrate-assets">
+  ## Migrar recursos
+</div>
+
+Docusaurus admite recursos globales en `static/` y recursos almacenados junto a las páginas versionadas. Copia ambos tipos al repositorio de Mintlify.
+
+- Un archivo de Docusaurus en `static/img/logo.png` normalmente se publica como `/img/logo.png`. Conserva esa ruta pública o actualiza todas las referencias.
+- Resuelve las importaciones `@site/static/...` antes de eliminar las importaciones de Docusaurus.
+- Mantén los recursos versionados colocados junto a la página con la versión correcta, o muévelos a directorios de recursos específicos por versión.
+- Revisa las imágenes de fondo CSS y las importaciones de componentes React, que un inventario basado solo en Markdown puede pasar por alto.
+- No dejes recursos requeridos en producción en tu despliegue anterior a menos que planees mantener ese hosting después de la migración.
+
+<div id="migrate-versions-and-languages">
+  ## Migrar versiones e idiomas
+</div>
+
+Docusaurus almacena las versiones congeladas en `versioned_docs/version-<name>` y su navegación en `versioned_sidebars/`. Asocia cada versión mantenida a una [versión](/es/organize/navigation#versions) de Mintlify. Decide si `current`, la última versión lanzada u otra versión debe ser la predeterminada.
+
+Asocia los directorios de idiomas de Docusaurus a la [navegación por idiomas](/es/organize/navigation#languages) de Mintlify. Conserva el prefijo de idioma en las redirecciones cuando el sitio anterior usaba rutas como `/fr/docs/...`.
+
+Si tu repositorio fuente contenía páginas no publicadas o restringidas, configura la [autenticación](/es/deploy/authentication-setup) y la visibilidad de las páginas, y luego prueba tu sitio como usuario no autenticado y como miembro de cada grupo.
+
+<div id="migrate-api-documentation">
+  ## Migrar documentación de API
+</div>
+
+Localiza los archivos OpenAPI o AsyncAPI referenciados por plugins, páginas personalizadas o scripts de compilación. Añade la especificación original al repositorio de Mintlify y configura las [páginas generadas a partir de OpenAPI](/es/api-playground/openapi-setup). No migres el HTML renderizado de los endpoints cuando la especificación fuente esté disponible.
+
+<div id="review-your-migration">
+  ## Revisa tu migración
+</div>
+
+Compara las páginas migradas con las entradas de tu barra lateral y con el sitemap publicado, y luego previsualiza cada versión e idioma que mantengas.
+
+Busca en tus archivos convertidos restos de sintaxis de Docusaurus, que se renderizan como texto literal o hacen fallar la compilación: `@theme`, `@site`, `:::`, `DocCardList`, `useDocusaurusContext` e importaciones de plugins personalizados.
+
+<MigrationLaunchChecklist />
+
+<div id="docusaurus-references">
+  ## Referencias de Docusaurus
+</div>
+
+- [Configuración del plugin de docs](https://docusaurus.io/docs/api/plugins/@docusaurus/plugin-content-docs)
+- [Barras laterales](https://docusaurus.io/docs/sidebar)
+- [Versionado](https://docusaurus.io/docs/versioning)
+- [Internacionalización](https://docusaurus.io/docs/i18n/introduction)
+- [Recursos estáticos](https://docusaurus.io/docs/static-assets)
+- [IDs de encabezado](https://docusaurus.io/docs/markdown-features/toc#heading-ids)
