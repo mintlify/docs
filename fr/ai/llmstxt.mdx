@@ -24,10 +24,17 @@ Affichez votre `llms.txt` en ajoutant `/llms.txt` à l'URL de votre site de docu
 
 <PreviewButton href="https://mintlify.com/docs/llms.txt">Ouvrir le llms.txt de ce site.</PreviewButton>
 
-Mintlify ajoute des en-têtes HTTP à chaque réponse de page afin que les outils d'IA puissent découvrir vos fichiers `llms.txt` sans connaître au préalable leur emplacement :
+Mintlify ajoute des en-têtes HTTP à chaque réponse de page afin que les outils d'IA puissent découvrir vos fichiers `llms.txt` et autres ressources d'agent sans connaître au préalable leur emplacement :
 
-- `Link: </llms.txt>; rel="llms-txt", </llms-full.txt>; rel="llms-full-txt"` : Suit le format standard de l'en-tête HTTP `Link` pour la découverte de ressources.
-- `X-Llms-Txt: /llms.txt` : Un en-tête pratique pour les outils qui vérifient la prise en charge de `llms.txt`.
+- `Link` : Suit le format standard de l'en-tête HTTP `Link` pour la découverte de ressources. Annonce `llms.txt`, `llms-full.txt`, votre catalogue d'API, la [carte du serveur MCP](/fr/ai/model-context-protocol#discovery-endpoint), l'[agent card](/fr/ai/skillmd#agent-card) et l'[index des agent skills](/fr/ai/skillmd#skills-discovery-endpoints).
+- `X-Llms-Txt` : Un en-tête pratique pour les outils qui vérifient la prise en charge de `llms.txt`.
+
+```http Response headers
+Link: </llms.txt>; rel="llms-txt", </llms-full.txt>; rel="llms-full-txt", </.well-known/api-catalog>; rel="api-catalog", </.well-known/mcp/server-card.json>; rel="mcp-server-card", </.well-known/agent-card.json>; rel="agent-card", </.well-known/agent-skills/index.json>; rel="agent-skills"
+X-Llms-Txt: /llms.txt
+```
+
+Les sites qui utilisent l'authentification annoncent également leurs métadonnées de ressource protégée OAuth avec `rel="oauth-protected-resource"`. Si vous servez votre documentation sous un chemin de base, chaque chemin annoncé inclut ce préfixe.
 
 <div id="llmstxt-structure">
   ## Structure du fichier llms.txt
@@ -40,15 +47,18 @@ Un fichier `llms.txt` est un simple fichier Markdown qui contient :
 * **Des instructions personnalisées pour les agents** sous forme de bloc `Agent Instructions` après la description, si vous définissez [`markdown.instructions`](/fr/ai/markdown-export#custom-agent-instructions) dans votre `docs.json`.
 * **Des sections de contenu structurées** avec des liens et une description de chaque page de votre documentation.
 * **Des liens vers les spécifications d'API** pointant vers vos spécifications OpenAPI et AsyncAPI, si votre documentation en inclut.
+* **Des liens externes** dans une section `Optional`, pour toute URL absolue de votre navigation.
 
-Le fichier `llms.txt` répertorie vos pages par ordre alphabétique selon leur emplacement dans votre référentiel, en commençant au répertoire racine. Les liens des pages dans le fichier `llms.txt` incluent une extension `.md` afin que les outils d'IA puissent récupérer directement la version Markdown de chaque page.
+Le fichier `llms.txt` répertorie vos pages dans l'ordre où elles apparaissent dans la navigation de votre `docs.json`. Les pages qui ne figurent pas dans votre navigation mais qui sont indexées parce que vous avez défini `seo.indexing: "all"` apparaissent en dernier, par ordre alphabétique. Les liens des pages dans le fichier `llms.txt` incluent une extension `.md` afin que les outils d'IA puissent récupérer directement la version Markdown de chaque page.
 
-La description de chaque page provient du champ `description` de son frontmatter. Les descriptions sont tronquées à 300 caractères et au premier saut de ligne. Pour les pages de référence d'API, la description inclut également les informations de spécification issues du champ de frontmatter `openapi` ou `api`. Les pages sans champ `description` apparaissent dans le fichier `llms.txt` sans description.
+La description de chaque page provient du champ `description` de son frontmatter. Mintlify utilise le premier paragraphe de la description et le tronque à 300 caractères. Les pages sans champ `description` apparaissent dans le fichier `llms.txt` sans description.
+
+Les fichiers `llms.txt` et `llms-full.txt` répertorient les pages de votre langue par défaut et de votre version par défaut. Ils excluent les [pages masquées](/fr/organize/hidden-pages) et les pages dont le frontmatter contient `noindex: true`, sauf si vous définissez `seo.indexing: "all"` dans votre `docs.json`.
 
 Cette approche structurée permet aux LLMs de traiter efficacement votre documentation à un niveau global et de repérer le contenu pertinent pour les requêtes des utilisateurs, améliorant ainsi la précision et la rapidité des recherches documentaires assistées par l'IA.
 
 <Note>
-  Le fichier `llms.txt` généré automatiquement est limité à 100 000 caractères. Si votre documentation dépasse cette limite, Mintlify tronque le fichier et ajoute une note indiquant le nombre de pages omises. Pour lister toutes les pages sans troncature, ajoutez un [fichier `llms.txt` personnalisé](#custom-files) à la racine de votre projet.
+  Le fichier `llms.txt` généré automatiquement est limité à 100 000 caractères. Lorsqu'un fichier approche de cette limite, Mintlify raccourcit d'abord les descriptions des pages, puis supprime des entrées et ajoute une note indiquant ce qui a été omis. Cette limite ne s'applique pas à `llms-full.txt`. Pour lister toutes les pages sans troncature, ajoutez un [fichier `llms.txt` personnalisé](#custom-files) à la racine de votre projet.
 </Note>
 
 ```mdx Example llms.txt
@@ -69,13 +79,17 @@ Cette approche structurée permet aux LLMs de traiter efficacement votre documen
 ## AsyncAPI Specs
 
 - [asyncapi](https://example.com/docs/asyncapi.yaml)
+
+## Optional
+
+- [Community](https://example.com/community)
 ```
 
 <div id="llms-fulltxt">
   ## llms-full.txt
 </div>
 
-Le fichier `llms-full.txt` regroupe l'intégralité de votre site de documentation en un seul fichier servant de contexte pour les outils d'IA et l'indexation par les LLM.
+Le fichier `llms-full.txt` regroupe l'intégralité de votre site de documentation en un seul fichier servant de contexte pour les outils d'IA et l'indexation par les LLM. Chaque page apparaît sous la forme de son titre, de son URL source, de sa description et de son contenu Markdown complet.
 
 Mintlify héberge automatiquement un fichier `llms-full.txt` à la racine de votre projet. Affichez votre `llms-full.txt` en ajoutant `/llms-full.txt` à l'URL de votre site de documentation. Mintlify héberge également le fichier à l'emplacement `/.well-known/llms-full.txt` pour assurer la compatibilité avec les outils qui suivent la convention `.well-known`.
 
