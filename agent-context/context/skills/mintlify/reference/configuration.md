@@ -60,9 +60,9 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
 | `iconType` | string | Font Awesome icon style: `regular`, `solid`, `light`, `thin`, `sharp-solid`, `duotone`, `brands`. |
 | `tag` | string | Label next to page title in sidebar (e.g., "NEW"). |
-| `hidden` | boolean | Remove from sidebar. Page still accessible by URL. Do not set to `false`; remove the field entirely to make a page visible again. |
+| `hidden` | boolean | Remove from sidebar. Page still accessible by URL. Also excludes the page from search, sitemaps, external indexing, AI context, and `llms.txt`. Remove the field (or set `false`) to make a page visible again. |
 | `noindex` | boolean | Exclude from site search, sitemaps, search engine indexing, and AI assistant context. Still visible in navigation. |
-| `searchable` | boolean | Defaults to `true`. Set `false` to exclude the page from site search and AI assistant context while keeping it indexable externally and visible in navigation. |
+| `searchable` | boolean | At the page level, only `searchable: false` has an effect: excludes the page from site search and AI assistant context while keeping it indexable externally and visible in navigation. Does not override `hidden: true`. Pages with `searchable: false` still appear in `llms.txt` and `llms-full.txt`. |
 | `boost` | number | Multiply the page's in-product search ranking. Values above 1 prioritize, between 0 and 1 de-prioritize. No effect when `searchable: false`. |
 | `deprecated` | boolean | Show a "deprecated" label next to the page title. |
 | `hideFooterPagination` | boolean | Hide the previous/next navigation links at the bottom of the page. |
@@ -558,7 +558,7 @@ hidden: true
 ---
 ```
 
-Or omit the page from `docs.json` navigation entirely.
+Or omit the page from `docs.json` navigation entirely. The two approaches differ for external search engines: `hidden: true` adds a `noindex` meta tag to the page, while leaving the page out of `docs.json` only removes it from `sitemap.xml`, so a crawler that finds the URL elsewhere can still index it. Add `hidden: true` or `noindex: true` to the frontmatter when you need the meta tag.
 
 ## .mintignore
 
