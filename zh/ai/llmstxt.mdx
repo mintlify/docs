@@ -58,8 +58,26 @@ X-Llms-Txt: /llms.txt
 这种结构化方法使 LLM 能够高效地从宏观层面处理你的文档，并为用户查询定位相关内容，从而提升 AI 辅助文档搜索的准确性和速度。
 
 <Note>
-  自动生成的 `llms.txt` 索引文件不能超过 100,000 个字符。对于大型文档站点，Mintlify 会将索引拆分为位于 `/_llms/` 下的多个链接文件，使代理无需加载单个超大文件即可发现所有页面。此限制不适用于 `llms-full.txt`。
+  任何单个 `llms.txt` 索引文件都不能超过 100,000 个字符。当完整索引会超出该预算时，Mintlify 会将其拆分为按范围划分的子索引文件，而不是丢弃页面。所有页面都仍可通过拆分后的索引访问。此限制不适用于 `llms-full.txt`。
 </Note>
+
+### 大型站点的按范围索引
+
+当完整索引超出字符预算时，Mintlify 会将你的文档划分为按范围划分的索引：
+
+- 每个按范围划分的索引都提供在 `/_llms/<scope>.md`，其中 `<scope>` 标识其所覆盖的子树。
+- Mintlify 首先按导航子树（`docs.json` 中的分组、标签页以及其他结构性容器）进行拆分。对于没有子结构的大型扁平部分，则再按 URL 路径段进行拆分，以使任何单个索引都不超过预算。
+- 根 `llms.txt` 文件会新增一个 `## Indexes` 部分，列出可从根直接访问的每个按范围划分的索引，包含面包屑、唯一页面数量以及每个索引的描述。该目录之前会附上一条说明，指示 AI 工具递归地跟随链接，直到到达文档页面。
+- 按范围划分的索引与根文件采用相同的格式，因此某个按范围划分的索引本身也可以包含另一个 `## Indexes` 部分。AI 工具应递归遍历这些链接以到达每个页面。
+
+```mdx llms.txt 中 Indexes 部分示例
+> Follow every linked index under `/_llms/` recursively until you reach documentation pages.
+
+## Indexes
+
+- [API reference (128 pages)](https://example.com/_llms/api-reference.md): REST endpoints, authentication, and webhooks.
+- [Guides / Integrations (42 pages)](https://example.com/_llms/guides/integrations.md): Third-party integration walkthroughs.
+```
 
 如果你使用反向代理或维护路径允许列表，请在转发 `/llms.txt` 的同时转发 `/_llms/*`，以便代理能够跟随生成的索引链接。对于托管在基础路径下的文档，改为转发 `<base-path>/_llms/*`。由 Mintlify 管理的自定义域名无需额外配置。有关路由指引，请参见[反向代理](/zh/deploy/reverse-proxy#routing-configuration)。
 

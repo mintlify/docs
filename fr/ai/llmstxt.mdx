@@ -58,8 +58,26 @@ Les fichiers `llms.txt` et `llms-full.txt` répertorient les pages de votre lang
 Cette approche structurée permet aux LLMs de traiter efficacement votre documentation à un niveau global et de repérer le contenu pertinent pour les requêtes des utilisateurs, améliorant ainsi la précision et la rapidité des recherches documentaires assistées par l'IA.
 
 <Note>
-  Les fichiers d'index `llms.txt` générés automatiquement ne peuvent pas dépasser 100 000 caractères. Pour les sites de documentation volumineux, Mintlify scinde l'index en fichiers liés sous `/_llms/` afin que les agents puissent découvrir chaque page sans charger un seul fichier trop volumineux. Cette limite ne s'applique pas à `llms-full.txt`.
+  Aucun fichier d'index `llms.txt` ne peut dépasser 100 000 caractères. Lorsque l'index complet dépasserait ce budget, Mintlify le divise en fichiers d'index enfants scopés au lieu de supprimer des pages. Toutes les pages restent accessibles via les index divisés. Cette limite ne s'applique pas à `llms-full.txt`.
 </Note>
+
+### Index scopés pour les sites volumineux
+
+Lorsque l'index complet dépasse le budget de caractères, Mintlify partitionne votre documentation en index scopés :
+
+- Chaque index scopé est servi à l'adresse `/_llms/<scope>.md`, où `<scope>` identifie le sous-arbre qu'il couvre.
+- Mintlify divise d'abord par sous-arbre de navigation (groupes, onglets et autres conteneurs structurels de votre `docs.json`). Les grandes sections plates sans sous-structure sont ensuite divisées par segment de chemin d'URL, afin qu'aucun index ne dépasse le budget.
+- Le fichier `llms.txt` racine ajoute une section `## Indexes` qui répertorie chaque index scopé accessible directement depuis la racine, avec un fil d'Ariane, le nombre de pages uniques et la description de chaque index. Ce répertoire est précédé d'une instruction indiquant aux outils d'IA de suivre les liens de manière récursive jusqu'aux pages de documentation.
+- Les index scopés suivent le même format que le fichier racine, de sorte qu'un index scopé peut lui-même contenir une autre section `## Indexes`. Les outils d'IA doivent parcourir ces liens de manière récursive pour atteindre chaque page.
+
+```mdx Exemple de section Indexes dans llms.txt
+> Follow every linked index under `/_llms/` recursively until you reach documentation pages.
+
+## Indexes
+
+- [API reference (128 pages)](https://example.com/_llms/api-reference.md): REST endpoints, authentication, and webhooks.
+- [Guides / Integrations (42 pages)](https://example.com/_llms/guides/integrations.md): Third-party integration walkthroughs.
+```
 
 Si vous utilisez un reverse proxy ou maintenez une liste d'autorisation de chemins, transférez `/_llms/*` en plus de `/llms.txt` pour que les agents puissent suivre les liens de l'index généré. Pour une documentation hébergée sous un chemin de base, transférez `<base-path>/_llms/*` à la place. Les domaines personnalisés gérés par Mintlify ne nécessitent aucune configuration supplémentaire. Consultez [Reverse proxy](/fr/deploy/reverse-proxy#routing-configuration) pour des conseils de routage.
 

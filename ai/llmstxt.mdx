@@ -56,8 +56,26 @@ Both `llms.txt` and `llms-full.txt` list pages from your default language and de
 This structured approach allows LLMs to efficiently process your documentation at a high level and locate relevant content for user queries, improving the accuracy and speed of AI-assisted documentation searches.
 
 <Note>
-  Automatically generated `llms.txt` index files cannot exceed 100,000 characters. For large documentation sites, Mintlify splits the index into linked files under `/_llms/` so agents can discover every page without loading one oversized file. This limit does not apply to `llms-full.txt`.
+  Any single `llms.txt` index file cannot exceed 100,000 characters. When the full index would exceed that budget, Mintlify splits it into scoped child index files instead of dropping pages. Every page remains reachable through the split indexes. This limit does not apply to `llms-full.txt`.
 </Note>
+
+### Scoped indexes for large sites
+
+When the full index exceeds the character budget, Mintlify partitions your documentation into scoped indexes:
+
+- Each scoped index is served at `/_llms/<scope>.md`, where `<scope>` identifies the subtree it covers.
+- Mintlify first splits by navigation subtree (groups, tabs, and other structural containers in your `docs.json`). Large flat sections that have no substructure are then split by URL path segment so no single index exceeds the budget.
+- The root `llms.txt` file adds an `## Indexes` section that lists every scoped index directly reachable from the root, with a breadcrumb, a unique page count, and each index's description. This directory is preceded by an instruction telling AI tools to follow the links recursively until they reach documentation pages.
+- Scoped indexes follow the same format as the root file, so a scoped index can itself contain another `## Indexes` section. AI tools should recurse through those links to reach every page.
+
+```mdx Example Indexes section in llms.txt
+> Follow every linked index under `/_llms/` recursively until you reach documentation pages.
+
+## Indexes
+
+- [API reference (128 pages)](https://example.com/_llms/api-reference.md): REST endpoints, authentication, and webhooks.
+- [Guides / Integrations (42 pages)](https://example.com/_llms/guides/integrations.md): Third-party integration walkthroughs.
+```
 
 If you use a reverse proxy or maintain a path allowlist, forward `/_llms/*` in addition to `/llms.txt` so agents can follow the generated index links. For documentation hosted at a base path, forward `<base-path>/_llms/*` instead. Mintlify-managed custom domains do not require additional configuration. See [Reverse proxy](/deploy/reverse-proxy#routing-configuration) for routing guidance.
 

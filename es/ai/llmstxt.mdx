@@ -58,8 +58,26 @@ Tanto `llms.txt` como `llms-full.txt` listan las páginas de tu idioma predeterm
 Este enfoque estructurado permite a los LLM procesar tu documentación de forma eficiente a un alto nivel y localizar contenido relevante para las consultas de los usuarios, mejorando la precisión y la velocidad de las búsquedas de documentación asistidas por IA.
 
 <Note>
-  Los archivos de índice `llms.txt` generados automáticamente no pueden superar los 100.000 caracteres. Para sitios de documentación grandes, Mintlify divide el índice en archivos enlazados bajo `/_llms/` para que los agentes puedan descubrir cada página sin cargar un único archivo demasiado grande. Este límite no se aplica a `llms-full.txt`.
+  Ningún archivo de índice `llms.txt` puede superar los 100.000 caracteres. Cuando el índice completo excede ese presupuesto, Mintlify lo divide en archivos de índice secundarios con alcance acotado en lugar de descartar páginas. Todas las páginas siguen siendo accesibles a través de los índices divididos. Este límite no se aplica a `llms-full.txt`.
 </Note>
+
+### Índices con alcance para sitios grandes
+
+Cuando el índice completo supera el presupuesto de caracteres, Mintlify particiona tu documentación en índices con alcance acotado:
+
+- Cada índice con alcance se sirve en `/_llms/<scope>.md`, donde `<scope>` identifica el subárbol que cubre.
+- Mintlify divide primero por subárbol de navegación (grupos, pestañas y otros contenedores estructurales en tu `docs.json`). Las secciones planas grandes que no tienen subestructura se dividen a continuación por segmento de ruta de URL, de modo que ningún índice único supere el presupuesto.
+- El archivo `llms.txt` raíz añade una sección `## Indexes` que enumera cada índice con alcance directamente accesible desde la raíz, con una migaja de pan, el recuento de páginas únicas y la descripción de cada índice. Este directorio va precedido de una instrucción que indica a las herramientas de IA que sigan los enlaces de forma recursiva hasta llegar a las páginas de documentación.
+- Los índices con alcance siguen el mismo formato que el archivo raíz, por lo que un índice con alcance puede contener a su vez otra sección `## Indexes`. Las herramientas de IA deben recorrer esos enlaces de forma recursiva para llegar a todas las páginas.
+
+```mdx Ejemplo de sección Indexes en llms.txt
+> Follow every linked index under `/_llms/` recursively until you reach documentation pages.
+
+## Indexes
+
+- [API reference (128 pages)](https://example.com/_llms/api-reference.md): REST endpoints, authentication, and webhooks.
+- [Guides / Integrations (42 pages)](https://example.com/_llms/guides/integrations.md): Third-party integration walkthroughs.
+```
 
 Si utilizas un proxy inverso o mantienes una lista de rutas permitidas, reenvía `/_llms/*` además de `/llms.txt` para que los agentes puedan seguir los enlaces del índice generado. Para documentación alojada en una ruta base, reenvía `<base-path>/_llms/*` en su lugar. Los dominios personalizados gestionados por Mintlify no requieren configuración adicional. Consulta [Proxy inverso](/es/deploy/reverse-proxy#routing-configuration) para obtener orientación sobre el enrutamiento.
 
