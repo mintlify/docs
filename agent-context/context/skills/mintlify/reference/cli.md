@@ -35,9 +35,21 @@ Available on all commands.
 - `mint signup [flags]` — Create a new Mintlify account from the terminal. Flags: `--firstName`, `--lastName`, `--company`, `--email`; omit any to enter it interactively. Waits until you click the emailed verification link before it logs you in — run as a background process in scripts.
 - `mint add-domain <domain> [--basePath <path>]` — Add a custom domain to the current deployment. Requires `mint login`. Pass `--basePath` to serve the documentation from a subpath such as `/docs`.
 
+## Analytics
+
+Query documentation analytics from the terminal. Requires `mint login`. All `mint analytics` subcommands share these flags: `--subdomain`, `--from <YYYY-MM-DD>` (default: seven days ago, or `mint config set dateFrom`), `--to <YYYY-MM-DD>` (default: today, or `mint config set dateTo`), `--format` (`table`, `plain`, `json`, or `graph`; default: `plain`, or `json` in AI/CI environments).
+
+- `mint analytics stats` — Top-line KPIs for a date range: views, visitors, searches, feedback, assistant usage. Human and agent traffic reported separately. `--page` filters to a page path.
+- `mint analytics search` — Search queries with hit counts, click-through rates, top clicked page, and last searched date. `--query` filters by substring; `--page` filters to queries where the given page was the top clicked result.
+- `mint analytics feedback` — User feedback entries. `--type page` aggregates by page path; `--type code` limits to code snippet feedback; `--page` filters to a page path.
+- `mint analytics conversation list` — Recent assistant conversations. `--page` filters to conversations whose sources reference the page path.
+- `mint analytics conversation view <id>` — Full message thread for one conversation.
+- `mint analytics conversation buckets list` — Conversation clusters grouped by topic.
+- `mint analytics conversation buckets view <id>` — Threads in a bucket. `--limit` (1-100), `--cursor` for pagination.
+
 ## Configuration
 
-- `mint config set <key> <value>` — Persist a config value. Valid keys: `subdomain`.
+- `mint config set <key> <value>` — Persist a config value. Valid keys: `subdomain`, plus `dateFrom` and `dateTo` (defaults for `mint analytics`).
 - `mint config get <key>` — Read a stored config value.
 - `mint config clear <key>` — Remove a stored config value.
 
