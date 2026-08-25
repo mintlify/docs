@@ -57,11 +57,36 @@ X-Llms-Txt: /llms.txt
 
 这种结构化方法使 LLM 能够高效地从宏观层面处理你的文档，并为用户查询定位相关内容，从而提升 AI 辅助文档搜索的准确性和速度。
 
-<Note>
-  自动生成的 `llms.txt` 索引文件不能超过 100,000 个字符。对于大型文档站点，Mintlify 会将索引拆分为位于 `/_llms/` 下的多个链接文件，使代理无需加载单个超大文件即可发现所有页面。此限制不适用于 `llms-full.txt`。
-</Note>
+<div id="split-indexes-under-_llms">
+  ## `/_llms` 下的拆分索引
+</div>
 
-如果你使用反向代理或维护路径允许列表，请在转发 `/llms.txt` 的同时转发 `/_llms/*`，以便代理能够跟随生成的索引链接。对于托管在基础路径下的文档，改为转发 `<base-path>/_llms/*`。由 Mintlify 管理的自定义域名无需额外配置。有关路由指引，请参见[反向代理](/zh/deploy/reverse-proxy#routing-configuration)。
+自动生成的 `llms.txt` 索引文件不能超过 100,000 个字符。当索引超过此限制时，Mintlify 会将主 `llms.txt` 文件保留为目录形式，并将成组的页面链接移入位于 `/_llms/` 下的生成 Markdown 文件中。所有页面仍然可被发现：拆分绝不会从索引中省略页面。此限制不适用于 `llms-full.txt`。
+
+指向生成索引的链接会出现在 `Indexes` 部分。每个链接都包含该分组的面包屑路径、页面数量和描述：
+
+```mdx
+> The links below point to documentation indexes. Follow each `/_llms/` index recursively until you reach documentation pages.
+
+## Indexes
+
+- [API reference (250 pages)](https://docs.example.com/_llms/api-reference.md): Endpoint documentation for the example API
+```
+
+生成的索引可以链接到更深层的索引。例如，当某个分组过大而无法放入单个文件时，`/_llms/api-reference.md` 可以链接到 `/_llms/api-reference/admin.md`。代理应递归跟随这些索引链接，直至到达文档页面链接。Mintlify 可能会缩短拆分索引中的页面描述，以使每个文件保持在字符限制以内。
+
+这些生成的文件属于 `llms.txt` 的一部分，无需存在于你的仓库中。它们与 `llms-full.txt` 相互独立。
+
+`/_llms/` 路由使用与你的文档相同的基础路径：
+
+- 托管在根路径下的站点会在 `https://docs.example.com/_llms/api-reference.md` 提供索引。
+- 托管在 `/docs` 下的站点会在 `https://example.com/docs/_llms/api-reference.md` 提供索引。
+
+如果你使用反向代理或路径允许列表，请在转发 `llms.txt` 的同时转发生成的路由。宽泛的 `<base-path>/*` 规则已经包含 `<base-path>/_llms/*`。如果使用细粒度规则，请显式添加 `<base-path>/_llms/*`。有关路由指引，请参见[反向代理](/zh/deploy/reverse-proxy#routing-configuration)。
+
+<Warning>
+  仓库中诸如 `/docs` 之类的目录不会设置站点的公开基础路径。请在 Mintlify 控制台中配置基础路径，并在反向代理中使用相同的前缀。否则，`llms.txt` 可能可以通过公开前缀访问，而其生成的 `/_llms/` 链接却指向其他位置。
+</Warning>
 
 ```mdx Example llms.txt
 # 站点标题

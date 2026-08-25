@@ -16,6 +16,8 @@ Al implementar un proxy inverso, supervisa posibles problemas con la verificaci�
 
 Configura tu ruta base en la página de [configuración de dominio personalizado](https://app.mintlify.com/settings/deployment/custom-domain) en tu dashboard y, luego, configura tu proxy inverso para enrutar esa ruta a Mintlify. La ruta base predeterminada es `/docs`, pero puedes usar cualquier ruta base que elijas, como `/help` o `/resources`.
 
+El directorio que contiene tu documentación en tu repositorio no configura la ruta base pública. Por ejemplo, almacenar la documentación en un directorio `/docs` no sustituye establecer `/docs` como ruta base en tu dashboard.
+
 En todas las configuraciones, usa `mintlify.site` como destino del proxy.
 
 <div id="host-at-docs-subpath">
@@ -46,6 +48,7 @@ Redirige mediante proxy estas rutas a tu subdominio de Mintlify:
 | --------------------------------- | ------------------------------------ | -------- |
 | `/docs`                           | `<your-subdomain>.mintlify.site/docs` | Sin caché |
 | `/docs/*`                         | `<your-subdomain>.mintlify.site/docs/*` | Sin caché |
+| `/docs/_llms/*`                   | `<your-subdomain>.mintlify.site/docs/_llms/*` | Sin caché |
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site/.well-known/vercel/*` | Sin caché |
 | `/.well-known/skills/*` (opcional)        | `<your-subdomain>.mintlify.site/docs/.well-known/skills/*` | Sin caché |
 | `/.well-known/agent-skills/*` (opcional)  | `<your-subdomain>.mintlify.site/docs/.well-known/agent-skills/*` | Sin caché |
@@ -56,6 +59,10 @@ Redirige mediante proxy estas rutas a tu subdominio de Mintlify:
 Tu proxy debe reenviar todos los métodos HTTP en las rutas de documentación. Mintlify envía eventos de analítica como solicitudes `POST` a `/docs/_mintlify/api/v1/e`, por lo que un proxy que solo permita solicitudes `GET` y `HEAD` interrumpirá silenciosamente las analíticas en tu panel.
 
 Mintlify sirve estos archivos bajo tu ruta base, como `<your-subdomain>.mintlify.site/docs/llms.txt`, de modo que están disponibles en tu dominio bajo tu subruta, como `your-domain.com/docs/llms.txt`, a través de tu ruta de subruta principal.
+
+La ruta `/docs/*` también cubre los índices `llms.txt` generados bajo `/docs/_llms/*`. Si tu proxy usa una lista de rutas permitidas más granular en lugar de reenviar todas las solicitudes de `/docs/*`, incluye `/docs/_llms/*` para que los agentes puedan seguir todos los índices enlazados desde `/docs/llms.txt`.
+
+No reescribas solo `/docs/llms.txt` hacia un `/llms.txt` alojado en la raíz. Establece `/docs` como la ruta base del despliegue y reenvía la ruta completa `/docs/*`. Esto mantiene los enlaces de las páginas y los enlaces de índice generados bajo `/docs/_llms/*` en el mismo prefijo público.
 
 Las rutas `/.well-known/skills/*`, `/.well-known/agent-skills/*`, `/skill.md`, `/llms.txt` y `/llms-full.txt` son opcionales. Inclúyelas solo si también quieres servir estos archivos en rutas raíz de tu dominio, como `your-domain.com/llms.txt`. Ten en cuenta que cada ruta raíz se mapea al archivo bajo tu ruta base en tu subdominio de Mintlify.
 
@@ -219,6 +226,20 @@ Configura tu proxy inverso usando la misma [configuración de enrutamiento](#rou
 
 - Elimina el reenvío del encabezado `Host`
 - Configura el encabezado `Origin` con tu subdominio de Mintlify (`<your-subdomain>.mintlify.site`)
+
+<div id="generated-_llms-links-return-404">
+  ### Los enlaces generados bajo `/_llms/` devuelven 404
+</div>
+
+**Síntomas**: Tu archivo `llms.txt` carga, pero los enlaces bajo `/_llms/` devuelven 404 u omiten tu subruta pública.
+
+**Causa**: La subruta pública no coincide con la ruta base configurada en Mintlify, o el proxy solo reenvía `llms.txt` y no sus rutas de índice generadas.
+
+**Solución**:
+
+- Establece la subruta pública como ruta base en tu dashboard de Mintlify. Un directorio del repositorio con el mismo nombre no la configura.
+- Reenvía la ruta completa `<base-path>/*` o añade `<base-path>/_llms/*` a una lista de rutas permitidas granular.
+- Vuelve a desplegar tu documentación y luego verifica tanto `<base-path>/llms.txt` como una URL enlazada `<base-path>/_llms/*.md`.
 
 <div id="performance-issues">
   ### Problemas de rendimiento
