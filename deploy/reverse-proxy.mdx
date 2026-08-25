@@ -14,6 +14,8 @@ When you implement a reverse proxy, monitor for potential issues with domain ver
 
 Set your base path on the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard. Then configure your reverse proxy to route that path to Mintlify. The default base path is `/docs`, but you can use any base path you choose, like `/help` or `/resources`.
 
+The directory that contains your documentation in your repository does not configure the public base path. For example, storing documentation under a `/docs` directory does not replace setting `/docs` as the base path in your dashboard.
+
 In all configurations, use `mintlify.site` as the proxy target.
 
 ## Host at `/docs` subpath
@@ -40,6 +42,7 @@ Proxy these paths to your Mintlify subdomain:
 | --------------------------------- | ------------------------------------ | -------- |
 | `/docs`                           | `<your-subdomain>.mintlify.site/docs` | No cache |
 | `/docs/*`                         | `<your-subdomain>.mintlify.site/docs/*` | No cache |
+| `/docs/_llms/*`                   | `<your-subdomain>.mintlify.site/docs/_llms/*` | No cache |
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site/.well-known/vercel/*` | No cache |
 | `/.well-known/skills/*` (optional)        | `<your-subdomain>.mintlify.site/docs/.well-known/skills/*` | No cache |
 | `/.well-known/agent-skills/*` (optional)  | `<your-subdomain>.mintlify.site/docs/.well-known/agent-skills/*` | No cache |
@@ -52,6 +55,8 @@ Your proxy must forward all HTTP methods on documentation paths. Mintlify sends 
 Mintlify serves these files under your base path, like `<your-subdomain>.mintlify.site/docs/llms.txt`. They are available on your domain under your subpath, like `your-domain.com/docs/llms.txt`, through your main subpath route.
 
 The `/docs/*` route also covers generated `llms.txt` indexes under `/docs/_llms/*`. If your proxy uses a more granular path allowlist instead of forwarding all `/docs/*` requests, include `/docs/_llms/*` so agents can follow every index linked from `/docs/llms.txt`.
+
+Do not rewrite only `/docs/llms.txt` to a root-hosted `/llms.txt`. Set `/docs` as the deployment base path and forward the full `/docs/*` route. This keeps page links and generated `/docs/_llms/*` index links on the same public prefix.
 
 The `/.well-known/skills/*`, `/.well-known/agent-skills/*`, `/skill.md`, `/llms.txt`, and `/llms-full.txt` routes are optional. Include them only if you also want to serve these files at root paths on your domain, like `your-domain.com/llms.txt`. Each root path maps to the file under your base path on your Mintlify subdomain.
 
@@ -203,6 +208,18 @@ Configure your reverse proxy using the same [routing configuration](#routing-con
 
 - Remove `Host` header forwarding.
 - Set the `Origin` header to your Mintlify subdomain (`<your-subdomain>.mintlify.site`).
+
+### Generated `/_llms/` links return 404
+
+**Symptoms**: Your `llms.txt` file loads, but links under `/_llms/` return 404 or omit your public subpath.
+
+**Cause**: The public subpath does not match the base path configured in Mintlify, or the proxy only forwards `llms.txt` and not its generated index routes.
+
+**Solution**:
+
+- Set the public subpath as the base path in your Mintlify dashboard. A repository directory with the same name does not configure it.
+- Forward the full `<base-path>/*` route, or add `<base-path>/_llms/*` to a granular allowlist.
+- Redeploy your documentation, then verify both `<base-path>/llms.txt` and one linked `<base-path>/_llms/*.md` URL.
 
 ### Performance issues
 
