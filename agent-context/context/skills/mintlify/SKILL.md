@@ -51,7 +51,7 @@ Key tools:
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`diff`** — See all changes relative to `main`.
 - **`get_session_state`** — Check the current session's status.
-- **`save`** — Flush changes to Git. `mode: "auto"` (default) follows the deployment's **Push directly to your deploy branch** publishing setting: off opens a pull request, on pushes straight to the deploy branch (branch protection forces a PR either way). `mode: "pr"` always opens a PR; `mode: "commit"` pushes to an existing PR branch.
+- **`save`** — Flush changes to Git. `mode: "auto"` (default) follows the deployment's **Push directly to your deploy branch** publishing setting: when off, `save` opens a pull request; when on, it pushes straight to the deploy branch. Branch protection forces a PR either way. `mode: "pr"` always opens a PR; `mode: "commit"` pushes to an existing PR branch.
 - **`discard_session`** — Drop all in-session changes.
 
 Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live.
