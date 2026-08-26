@@ -37,9 +37,9 @@ Tools:
 
 Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
-Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. All changes happen on a branch and must be reviewed before merging.
+Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. All changes happen on a session branch until `save` publishes them.
 
-Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to open a PR (or `discard_session` to abandon).
+Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
 Key tools:
 - **`checkout`** — Start a session on a branch (required first call). Returns an `editorUrl` to preview changes live.
@@ -51,7 +51,7 @@ Key tools:
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`diff`** — See all changes relative to `main`.
 - **`get_session_state`** — Check the current session's status.
-- **`save`** — Open a PR (`mode: "pr"`) or push to the branch (`mode: "commit"`).
+- **`save`** — Flush changes to Git. `mode: "auto"` (default) follows the deployment's **Push directly to your deploy branch** publishing setting: off opens a pull request, on pushes straight to the deploy branch (branch protection forces a PR either way). `mode: "pr"` always opens a PR; `mode: "commit"` pushes to an existing PR branch.
 - **`discard_session`** — Drop all in-session changes.
 
 Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live.
@@ -238,3 +238,4 @@ Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint va
 - Forgetting to add new pages to `docs.json` navigation.
 - Images without alt text.
 - Adding file extensions to internal links (`/page.mdx` instead of `/page`).
+- Unescaped pipes in table cells. Write `\|` for a literal `|`, even inside inline code.
