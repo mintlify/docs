@@ -1,6 +1,6 @@
 ---
 title: "Exportation statique"
-description: "Générez une exportation statique autonome de votre documentation et téléchargez-la sous forme d'un unique bundle via l'API REST Mintlify."
+description: "Générez une exportation statique autonome de votre documentation et téléchargez-la comme un unique bundle via l'API REST Mintlify pour l'auto-hébergement."
 keywords: ["static export", "static site", "bundle", "self-host", "enterprise"]
 ---
 
@@ -11,36 +11,31 @@ keywords: ["static export", "static site", "bundle", "self-host", "enterprise"]
 Utilisez l'API d'exportation statique pour pré-rendre votre site par programmation en un ensemble autonome de fichiers statiques et télécharger le résultat sous forme d'un unique bundle. Le bundle exporté est composé de HTML, CSS et JavaScript purs, sans dépendances d'exécution, afin que vous puissiez l'héberger sur n'importe quel stockage de fichiers statiques ou CDN.
 
 <div id="page-urls-in-static-bundles">
-  ## URL des pages exportées
+  ## URL des pages dans les bundles statiques
 </div>
 
-Les bundles d’exportation statique utilisent des URL de pages explicites avec l’extension `.html`. Ainsi, `/guides/getting-started` devient `/guides/getting-started.html`, et la page d’accueil devient `/index.html`.
-
-Cette structure correspond aux fichiers du bundle. Elle permet un hébergement S3 ou statique simple, sans nécessiter la réécriture d’URL sans extension. Conservez les noms de fichiers `.html` lors du téléversement. L’API d’exportation statique active automatiquement ce format, vous n’avez donc pas besoin de modifier la configuration de votre documentation.
-
-Les déploiements avec CloudFront préservent la navigation côté client et le préchargement des pages. Les hébergeurs de fichiers simples prennent en charge la navigation par pages complètes grâce aux liens `.html` générés. Les sites de production hébergés normalement dans le cloud restent inchangés.
-
-La navigation interne intégrée utilise également des destinations en `.html`. Cela concerne notamment les sélecteurs de version et de langue, les résultats de recherche, les cartes, les citations de l’assistant et les liens du playground d’API. Les chaînes de requête sont conservées. Les liens du playground d’API continuent donc de fonctionner.
+Les exportations statiques utilisent des URL en `.html` qui correspondent aux fichiers du bundle. Par exemple, `/guides/getting-started` devient `/guides/getting-started.html`. Cela se produit automatiquement et ne nécessite aucune configuration.
 
 <Note>
-  Les URL canoniques et celles du sitemap restent sans extension. Vos URL personnalisées de navigation côté client peuvent également rester sans extension. Les déploiements reposant sur CloudFront les résolvent, mais les hébergeurs qui servent uniquement des fichiers peuvent nécessiter des réécritures.
+  Les URL canoniques et celles du sitemap restent sans extension. CloudFront résout ces URL automatiquement, mais d'autres hébergeurs statiques peuvent nécessiter des règles de réécriture.
 </Note>
 
 <div id="how-static-export-works">
   ## Fonctionnement de l'exportation statique
 </div>
 
-Une exportation statique s'exécute sous forme de tâche asynchrone. Vous démarrez la tâche, interrogez son statut, puis générez un bundle téléchargeable une fois la tâche terminée.
+Une exportation statique s'exécute sous forme de tâche asynchrone. Vous démarrez la tâche pour un projet, puis interrogez son statut jusqu'à ce que le bundle soit prêt à être téléchargé.
 
 <Steps>
   <Step title="Démarrer une tâche d'exportation statique">
-    Appelez [Démarrer une tâche d'exportation statique](/fr/api/static-export/start-job) avec le domaine que vous souhaitez exporter. L'API met la tâche en file d'attente et renvoie un `jobId`.
+    Appelez [Démarrer une tâche d'exportation statique](/fr/api/static-export/start-job) avec l'identifiant de votre projet. L'API met la tâche en file d'attente et renvoie un `jobId`.
+
+    Un déploiement ne peut avoir qu'une seule tâche active à la fois. Si une tâche est déjà `queued` ou `running` pour le déploiement, l'endpoint retourne `409`. L'endpoint est limité à 10 démarrages de tâche par organisation et par heure.
   </Step>
-  <Step title="Interroger le statut de la tâche">
-    Interrogez [Obtenir le statut d'une tâche d'exportation statique](/fr/api/static-export/get-job-status) avec le `jobId` jusqu'à ce que `status` soit `completed`. La réponse inclut `progress` et `pageCount` en direct pendant l'exécution de la tâche.
-  </Step>
-  <Step title="Générer le bundle">
-    Appelez [Générer le bundle d'exportation](/fr/api/static-export/generate-bundle) avec le `jobId`. L'API empaquète l'exportation dans une seule archive et renvoie `bundleUrl`, un lien S3 présigné vers le bundle d'exportation statique, ainsi qu'un horodatage `expiresAt`. Téléchargez le bundle avant `expiresAt` — passé ce délai, rappelez [Générer le bundle d'exportation](/fr/api/static-export/generate-bundle) pour obtenir un nouveau lien. La tâche sous-jacente et ses fichiers restent réutilisables ; seul le lien est limité dans le temps.
+  <Step title="Interroger la tâche et télécharger le bundle">
+    Interrogez [Obtenir le statut d'une tâche d'exportation statique](/fr/api/static-export/get-job-status) avec le `jobId` jusqu'à ce que `status` soit `completed`. La réponse d'une tâche terminée inclut `bundleUrl`, un lien S3 présigné limité dans le temps vers le bundle, ainsi que `sizeBytes` et un horodatage `expiresAt`.
+
+    Téléchargez le bundle avant `expiresAt`. Une fois le lien expiré, rappelez l'endpoint de statut pour obtenir une nouvelle `bundleUrl`. Les fichiers d'exportation sous-jacents restent réutilisables. Seul le lien est limité dans le temps.
   </Step>
 </Steps>
 
@@ -62,9 +57,8 @@ Les fonctionnalités disponibles dépendent de la manière dont vous hébergez v
   ## Endpoints
 </div>
 
-- [Démarrer une tâche d'exportation statique](/fr/api/static-export/start-job) : démarrer une tâche d'exportation statique pour un déploiement.
-- [Obtenir le statut d'une tâche d'exportation statique](/fr/api/static-export/get-job-status) : interroger le statut et la progression d'une tâche en cours.
-- [Générer le bundle d'exportation](/fr/api/static-export/generate-bundle) : empaqueter une tâche terminée et renvoyer un unique lien S3 vers le bundle.
+- [Démarrer une tâche d'exportation statique](/fr/api/static-export/start-job) : mettre en file d'attente une tâche d'exportation statique pour un projet.
+- [Obtenir le statut d'une tâche d'exportation statique](/fr/api/static-export/get-job-status) : interroger l'état de la tâche et, une fois terminée, récupérer un lien présigné de téléchargement du bundle.
 
 <div id="authentication">
   ## Authentification
@@ -72,21 +66,23 @@ Les fonctionnalités disponibles dépendent de la manière dont vous hébergez v
 
 Authentifiez les requêtes avec votre clé d'API admin. Générez une clé d'API admin sur la [page des clés d'API](https://app.mintlify.com/settings/organization/api-keys) de votre tableau de bord. Les clés d'API admin commencent par le préfixe `mint_` et sont des secrets côté serveur — ne les exposez pas dans du code côté client.
 
+Copiez l'identifiant de votre projet depuis la même page et utilisez-le comme paramètre de chemin `projectId`.
+
 <div id="deploy-the-bundle-to-your-enterprise-helm-chart">
   ## Déployer le bundle sur votre chart Helm Enterprise
 </div>
 
-Mintlify auto-hébergé se déploie avec le chart Helm du dépôt [`mintlify/enterprise`](https://github.com/mintlify/enterprise). Une fois qu'une tâche d'exportation statique produit un bundle, vous pointez le chart vers le bundle et le déploiement le sert depuis votre propre infrastructure.
+Mintlify auto-hébergé se déploie avec le chart Helm du dépôt [`mintlify/enterprise`](https://github.com/mintlify/enterprise). Une fois qu'une tâche d'exportation statique est terminée, vous pointez le chart vers la `bundleUrl` et le déploiement le sert depuis votre propre infrastructure.
 
 <Steps>
   <Step title="Ajouter la référence du bundle à vos valeurs">
-    Définissez les champs d'exportation statique dans votre `values.yaml` sur la `bundleUrl` renvoyée par [Générer le bundle d'exportation](/fr/api/static-export/generate-bundle). Le chart récupère le bundle au démarrage et le sert comme version active.
+    Définissez les champs d'exportation statique dans votre `values.yaml` sur la `bundleUrl` renvoyée par [Obtenir le statut d'une tâche d'exportation statique](/fr/api/static-export/get-job-status). Le chart récupère le bundle au démarrage et le sert comme version active.
 
     ```yaml values.yaml
     staticExport:
       enabled: true
-      # Presigned S3 link returned by the Generate export bundle endpoint.
-      bundleUrl: "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz"
+      # Presigned S3 link returned by the Get static export job status endpoint.
+      bundleUrl: "https://mintlify-static-export-outputs-prod.s3.amazonaws.com/6520f3a1c9b1a20012ab34cd/export.tar.gz"
       # Optional: pin to a specific export version for reproducible rollouts.
       version: "2024-06-01"
     ```
@@ -103,13 +99,13 @@ Mintlify auto-hébergé se déploie avec le chart Helm du dépôt [`mintlify/ent
   </Step>
 </Steps>
 
-Comme les liens présignés expirent, régénérez le bundle et relancez la mise à niveau chaque fois que vous publiez du nouveau contenu, ou automatisez la boucle avec GitHub Actions.
+Comme les liens présignés expirent, récupérez à nouveau le statut de la tâche et relancez la mise à niveau chaque fois que vous publiez du nouveau contenu, ou automatisez la boucle avec GitHub Actions.
 
 <div id="automate-with-a-github-action">
   ## Automatiser avec une GitHub Action
 </div>
 
-Le workflow modèle suivant exécute la boucle complète d'exportation selon un calendrier ou à la demande. Il démarre une tâche, interroge jusqu'à la fin de l'exportation, génère un bundle et déploie la nouvelle `bundleUrl` dans le chart Helm.
+Le workflow modèle suivant exécute la boucle complète d'exportation selon un calendrier ou à la demande. Il démarre une tâche, interroge jusqu'à la fin de l'exportation, puis déploie la nouvelle `bundleUrl` dans le chart Helm.
 
 ```yaml .github/workflows/static-export.yml
 name: Publish static export
@@ -119,6 +115,9 @@ on:
   schedule:
     - cron: "0 6 * * *" # Daily at 06:00 UTC
 
+env:
+  PROJECT_ID: proj_your_project_id
+
 jobs:
   export:
     runs-on: ubuntu-latest
@@ -126,32 +125,30 @@ jobs:
       - name: Start static export job
         id: start
         run: |
-          JOB_ID=$(curl -s -X POST https://api.mintlify.com/v1/static-export/jobs \
-            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"domain": "docs.example.com"}' | jq -r '.jobId')
+          JOB_ID=$(curl -s -X POST \
+            https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.jobId')
           echo "job_id=$JOB_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for the job to complete
+      - name: Wait for the job to complete and capture the bundle URL
+        id: bundle
         run: |
           for i in $(seq 1 60); do
-            STATUS=$(curl -s https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }} \
-              -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.status')
+            RESPONSE=$(curl -s \
+              https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs/${{ steps.start.outputs.job_id }} \
+              -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}")
+            STATUS=$(echo "$RESPONSE" | jq -r '.status')
             echo "status=$STATUS"
-            [ "$STATUS" = "completed" ] && exit 0
+            if [ "$STATUS" = "completed" ]; then
+              BUNDLE_URL=$(echo "$RESPONSE" | jq -r '.bundleUrl')
+              echo "bundle_url=$BUNDLE_URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
             [ "$STATUS" = "failed" ] && exit 1
             sleep 10
           done
           echo "Timed out waiting for the export job to complete." >&2
           exit 1
-
-      - name: Generate the bundle
-        id: bundle
-        run: |
-          BUNDLE_URL=$(curl -s -X POST \
-            https://api.mintlify.com/v1/static-export/jobs/${{ steps.start.outputs.job_id }}/bundle \
-            -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.bundleUrl')
-          echo "bundle_url=$BUNDLE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to the Helm chart
         run: |
@@ -161,4 +158,4 @@ jobs:
             --set staticExport.bundleUrl="${{ steps.bundle.outputs.bundle_url }}"
 ```
 
-Stockez votre clé d'API admin sous forme de secret de dépôt `MINTLIFY_ADMIN_KEY`, et configurez les identifiants du cluster (par exemple, avec `azure/setup-helm` et votre kubeconfig) avant l'étape de déploiement.
+Stockez votre clé d'API admin sous forme de secret de dépôt `MINTLIFY_ADMIN_KEY` et définissez `PROJECT_ID` sur l'identifiant de votre projet. Avant le déploiement, configurez les identifiants du cluster, par exemple avec `azure/setup-helm` et votre fichier de configuration Kubernetes (`kubeconfig`).

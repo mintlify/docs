@@ -16,21 +16,16 @@
     }
   ],
   "paths": {
-    "/static-export/jobs": {
+    "/static-export/{projectId}/jobs": {
       "post": {
         "summary": "启动静态导出任务",
-        "description": "为部署启动一个静态导出任务。该任务会将你的文档预渲染为一组自包含的静态 HTML、RSC 及资源文件。返回一个任务 ID，可用于轮询状态；任务完成后，还可用它生成可下载的软件包。\n\n静态导出仅适用于 Enterprise 套餐。\n\n使用管理员 API 密钥进行身份验证。",
+        "description": "为部署启动一个静态导出任务。该任务会将你的文档预渲染为一组自包含的静态 HTML、RSC 及资源文件，然后将结果打包为单个可下载的归档文件。\n\n每个部署同一时间只能有一个处于活动状态的静态导出任务。当已有任务处于 `queued` 或 `running` 状态时启动新任务，将返回 `409`。速率限制为每个组织每小时最多启动 10 个任务。\n\n静态导出仅适用于 Enterprise 套餐。\n\n使用管理员 API 密钥进行身份验证。",
         "operationId": "startStaticExportJob",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartStaticExportRequest"
-              }
-            }
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
           }
-        },
+        ],
         "responses": {
           "202": {
             "description": "导出任务已被接受并加入队列。",
@@ -52,8 +47,8 @@
               }
             }
           },
-          "400": {
-            "description": "请求体无效。请检查 `domain` 是否为可访问的主机名，并确认 `paths` 中的条目是有效的页面路径。",
+          "403": {
+            "description": "该部署未启用静态导出。请联系 sales@mintlify.com 进行升级。",
             "content": {
               "application/json": {
                 "schema": {
@@ -62,8 +57,18 @@
               }
             }
           },
-          "403": {
-            "description": "该组织未启用静态导出。请联系销售团队在 Enterprise 套餐上启用此功能。",
+          "409": {
+            "description": "该部署已存在正在进行的静态导出任务。请等待当前任务完成后再启动新任务。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "已超出速率限制。静态导出 API 允许每个组织每小时最多启动 10 个任务。",
             "content": {
               "application/json": {
                 "schema": {
@@ -75,12 +80,15 @@
         }
       }
     },
-    "/static-export/jobs/{jobId}": {
+    "/static-export/{projectId}/jobs/{jobId}": {
       "get": {
         "summary": "获取静态导出任务状态",
-        "description": "获取静态导出任务的当前状态和进度。启动任务后，可以轮询此端点，直到 `status` 变为 `completed`（或 `failed`）。\n\n静态导出仅适用于 Enterprise 套餐。\n\n使用管理员 API 密钥进行身份验证。",
+        "description": "获取静态导出任务的当前状态。启动任务后，可以轮询此端点，直到 `status` 变为 `completed`（或 `failed`）。\n\n任务完成后，响应中会包含 `bundleUrl`、`sizeBytes` 和 `expiresAt`。`bundleUrl` 是一个有时限的预签名 S3 链接。请在 `expiresAt` 时间戳之前下载该软件包。可再次调用此端点获取新的链接，底层的导出文件仍可复用。\n\n静态导出仅适用于 Enterprise 套餐。\n\n使用管理员 API 密钥进行身份验证。",
         "operationId": "getStaticExportJob",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
           {
             "name": "jobId",
             "in": "path",
@@ -112,48 +120,8 @@
               }
             }
           },
-          "404": {
-            "description": "不存在使用所提供 ID 的任务。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/static-export/jobs/{jobId}/bundle": {
-      "post": {
-        "summary": "生成导出软件包",
-        "description": "将已完成的静态导出任务打包为单个归档文件，并返回一个下载链接。该链接为预签名的 S3 URL —— 请在 `expiresAt` 之前下载。\n\n任务的 `status` 必须为 `completed` 才能生成软件包。\n\n静态导出仅适用于 Enterprise 套餐。\n\n使用管理员 API 密钥进行身份验证。",
-        "operationId": "generateStaticExportBundle",
-        "parameters": [
-          {
-            "name": "jobId",
-            "in": "path",
-            "description": "已完成的静态导出任务的 ID。",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "指向静态导出软件包的预签名 S3 链接。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BundleResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "身份验证失败。",
+          "403": {
+            "description": "该部署未启用静态导出。请联系 sales@mintlify.com 进行升级。",
             "content": {
               "application/json": {
                 "schema": {
@@ -163,17 +131,7 @@
             }
           },
           "404": {
-            "description": "不存在使用所提供 ID 的任务。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "任务尚未完成，因此无法生成软件包。",
+            "description": "该部署下不存在使用所提供 ID 的任务。",
             "content": {
               "application/json": {
                 "schema": {
@@ -191,60 +149,35 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "Authorization 请求头需要使用 Bearer 令牌。请使用管理员 API 密钥。这是仅供服务端使用的机密密钥。你可以在控制台的 [API 密钥页面](https://dashboard.mintlify.com/settings/organization/api-keys) 中生成一个。"
+        "description": "Authorization 请求头需要使用 Bearer 令牌。请使用管理员 API 密钥。这是仅供服务端使用的机密密钥。你可以在控制台的 [API 密钥页面](https://app.mintlify.com/settings/organization/api-keys) 中生成一个。"
+      }
+    },
+    "parameters": {
+      "projectId": {
+        "schema": {
+          "type": "string",
+          "description": "你的项目 ID。可以从控制台的 [API 密钥](https://app.mintlify.com/settings/organization/api-keys) 页面复制。"
+        },
+        "required": true,
+        "name": "projectId",
+        "in": "path"
       }
     },
     "schemas": {
-      "StartStaticExportRequest": {
-        "type": "object",
-        "required": ["domain"],
-        "properties": {
-          "domain": {
-            "type": "string",
-            "description": "要导出的部署的主域名。使用你在 Mintlify 控制台中为项目配置的自定义域名（例如 `docs.example.com`）。如果尚未配置自定义域名，则使用你的 Mintlify 子域名（例如 `acme.mintlify.app`）。仅提供主机名——不要包含协议、结尾斜杠或诸如 `/docs` 之类的路径前缀。",
-            "example": "docs.example.com"
-          },
-          "version": {
-            "type": "string",
-            "description": "用于标记此次导出的可选版本标签。默认为最新发布的版本。",
-            "example": "2024-06-01"
-          },
-          "paths": {
-            "type": "array",
-            "description": "要包含的页面路径的可选列表。省略时，将导出所有已发布的页面。",
-            "items": {
-              "type": "string"
-            },
-            "example": ["index", "guides/getting-started", "api-reference/introduction"]
-          }
-        }
-      },
       "StaticExportJob": {
         "type": "object",
-        "required": ["jobId", "status", "progress", "pageCount", "createdAt", "updatedAt"],
+        "required": ["jobId", "status", "createdAt", "updatedAt"],
         "properties": {
           "jobId": {
             "type": "string",
             "description": "静态导出任务的唯一标识符。",
-            "example": "se_3f9a2c1b8e7d4a06"
+            "example": "6520f3a1c9b1a20012ab34cd"
           },
           "status": {
             "type": "string",
             "description": "任务的当前状态。",
             "enum": ["queued", "running", "completed", "failed"],
-            "example": "running"
-          },
-          "progress": {
-            "type": "number",
-            "description": "完成百分比，范围为 0 到 100。",
-            "minimum": 0,
-            "maximum": 100,
-            "example": 42
-          },
-          "pageCount": {
-            "type": "integer",
-            "description": "目前已导出的页面数量。",
-            "example": 128
+            "example": "completed"
           },
           "createdAt": {
             "type": "string",
@@ -254,39 +187,28 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time",
-            "description": "任务的最后更新时间。"
+            "description": "任务上次状态变更的时间。"
           },
           "error": {
             "type": "string",
-            "description": "人类可读的错误消息。仅当 `status` 为 `failed` 时才会出现。",
+            "description": "人类可读的错误消息。仅当 `status` 为 `failed` 时才会出现，否则为 `null`。",
             "nullable": true
-          }
-        }
-      },
-      "BundleResponse": {
-        "type": "object",
-        "required": ["jobId", "bundleUrl", "sizeBytes", "expiresAt"],
-        "properties": {
-          "jobId": {
-            "type": "string",
-            "description": "生成此软件包所对应的任务 ID。",
-            "example": "se_3f9a2c1b8e7d4a06"
           },
           "bundleUrl": {
             "type": "string",
             "format": "uri",
-            "description": "指向静态导出软件包归档的预签名 S3 链接。请在链接过期前下载。",
-            "example": "https://mintlify-static-exports.s3.amazonaws.com/se_3f9a2c1b8e7d4a06/bundle.tar.gz?X-Amz-Signature=..."
+            "description": "指向静态导出软件包归档的有时限预签名 S3 链接。仅当 `status` 为 `completed` 时才会出现。请在 `expiresAt` 之前下载该软件包。可再次调用此端点获取新的链接。",
+            "example": "https://mintlify-static-exports.s3.amazonaws.com/6520f3a1c9b1a20012ab34cd/export.zip?X-Amz-Signature=..."
           },
           "sizeBytes": {
             "type": "integer",
-            "description": "软件包大小（字节）。",
+            "description": "软件包大小（字节）。仅当 `status` 为 `completed` 时才会出现。",
             "example": 18432000
           },
           "expiresAt": {
             "type": "string",
             "format": "date-time",
-            "description": "预签名链接的过期时间。"
+            "description": "当前 `bundleUrl` 的过期时间。仅当 `status` 为 `completed` 时才会出现。"
           }
         }
       },
