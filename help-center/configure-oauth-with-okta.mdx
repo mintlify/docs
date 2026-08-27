@@ -1,0 +1,54 @@
+---
+title: "Configure OAuth 2.0 authentication with Okta"
+description: "Set up Okta as the OAuth 2.0 identity provider for a private Mintlify docs site: endpoint URLs, callback registration, and group-based access."
+keywords: ["Okta", "OAuth", "OAuth 2.0", "OIDC", "identity provider", "SSO", "private docs", "authentication"]
+---
+
+Okta is an OAuth 2.0 and OIDC-compliant identity provider, so it plugs directly into Mintlify's built-in OAuth 2.0 support. This page maps Okta's endpoints and settings onto the fields in [Authentication setup](/deploy/authentication-setup#oauth-2-0). Use the canonical setup page for the full flow and refer here for the Okta-specific values.
+
+OAuth 2.0 authentication is available on the Enterprise plan.
+
+## Prerequisites
+
+- An Okta org. Note your Okta domain, for example `your-org.okta.com`.
+- An OIDC **Web Application** app integration created for your documentation site. In the Okta Admin Console, go to **Applications → Applications → Create App Integration** and choose **OIDC - OpenID Connect** with the **Web Application** type.
+- The client ID and client secret for that app integration.
+- Users or groups assigned to the app integration. Okta blocks sign-in for users who are not assigned to the app.
+
+## Map Okta to Mintlify's OAuth fields
+
+In your Mintlify dashboard, go to [Authentication](https://app.mintlify.com/products/authentication), set site visibility to **Private**, and choose **Custom** → **OAuth**. Fill in the fields with the following Okta values. Replace `YOUR_OKTA_DOMAIN` with your Okta domain.
+
+| Mintlify field | Okta value |
+|---|---|
+| Authorization URL | `https://YOUR_OKTA_DOMAIN/oauth2/default/v1/authorize` |
+| Token URL | `https://YOUR_OKTA_DOMAIN/oauth2/default/v1/token` |
+| Client ID | Client ID from your Okta app integration |
+| Client Secret | Client secret from your Okta app integration |
+| Scopes | `openid profile email` (add more if your app needs them) |
+| Info API URL (optional) | `https://YOUR_OKTA_DOMAIN/oauth2/default/v1/userinfo` |
+
+These URLs use Okta's `default` custom authorization server. If your org uses a different custom authorization server, replace `default` with its ID. If your org uses the org authorization server instead, omit the `/default` segment: `https://YOUR_OKTA_DOMAIN/oauth2/v1/authorize`.
+
+Leave the **Logout URL** field blank. Okta's OIDC logout endpoint requires a per-session `id_token_hint` parameter, and Mintlify does not append query parameters to the logout redirect. When the field is blank, users redirect to `/login` after logging out.
+
+Save the settings. Mintlify redeploys your site with the new authentication configuration.
+
+## Register the redirect URL in Okta
+
+Copy the **Redirect URL** shown in your Mintlify authentication settings and add it to your Okta app integration under **General Settings → Sign-in redirect URIs**. Save the app integration. Without this step, Okta rejects the login flow.
+
+## Group-based access control
+
+To restrict pages to specific Okta users, you have two options.
+
+- **Token claims (recommended).** Add a groups claim to your authorization server so Okta includes group membership in the ID token. In the Okta Admin Console, go to **Security → API → Authorization Servers**, select your authorization server, and add a claim named `groups` with the value type **Groups**, included in the ID token. Then configure Mintlify to read it with `groupsClaim: groups` and `source: id_token`. See [Use groups from OAuth token claims](/deploy/authentication-setup#use-groups-from-oauth-token-claims). Keep `openid` in your scopes when sourcing groups from the ID token.
+- **Info API URL.** Point Mintlify at your own endpoint that returns user data in the [User data format](/deploy/authentication-setup#user-data-format). The endpoint must accept `Authorization: Bearer <access_token>` and return groups in the response.
+
+Then tag pages or navigation groups with a matching `groups` value so only members of that group can see them.
+
+## Troubleshooting
+
+- **Redirect URI mismatch.** Okta blocks the login and shows a `400 Bad Request` error. Confirm the redirect URL in your app integration's **Sign-in redirect URIs** exactly matches the one shown in your Mintlify authentication settings, including protocol and trailing path.
+- **"User is not assigned to the client application."** Okta returns a `403` error when a user who is not assigned to the app tries to log in. Assign the user or their group to the app integration under the app's **Assignments** tab.
+- **Users log in but see no restricted content.** Your groups claim is not reaching Mintlify. Confirm the claim exists on the authorization server you use in your URLs, that `source` in Mintlify matches the token you set it on (`id_token` or `access_token`), and that `groupsClaim` matches the claim name.
