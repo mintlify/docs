@@ -2,7 +2,7 @@
 title: "Déployer sur un sous-chemin avec Vercel"
 sidebarTitle: "Vercel"
 description: "Servez votre site Mintlify sur un sous-chemin de votre domaine principal grâce aux rewrites Vercel, avec un guide pas à pas de la configuration vercel.json."
-keywords: ["vercel.json", "déploiement Vercel", "configuration des rewrites", "routage par sous-chemin"]
+keywords: ["vercel.json", "déploiement Vercel", "configuration des rewrites", "routage par sous-chemin", "proxy externe", "CloudFront", "vérification de domaine", "certificats SSL"]
 boost: 3
 ---
 
@@ -73,3 +73,41 @@ Utilisez ensuite le générateur ci-dessous pour créer votre configuration de r
 Mintlify reconstruit votre documentation pour la servir sur votre chemin de base, vos fichiers de documentation n’ont donc pas besoin de se trouver dans un répertoire correspondant à votre sous-chemin.
 
 <VercelJsonGenerator />
+
+<div id="external-proxies-in-front-of-vercel">
+  ## Proxys externes devant Vercel
+</div>
+
+Si vous utilisez un proxy externe comme Cloudflare ou AWS CloudFront devant votre déploiement Vercel, configurez-le correctement. Cela permet d'éviter les conflits avec la vérification de domaine de Vercel et l'approvisionnement des certificats SSL.
+
+Une mauvaise configuration du proxy peut empêcher Vercel d'approvisionner des certificats SSL Let's Encrypt et entraîner des échecs de vérification de domaine.
+
+Consultez les [fournisseurs pris en charge](https://vercel.com/guides/how-to-setup-verified-proxy#supported-providers-verified-proxy-lite) dans la documentation Vercel.
+
+<div id="required-path-allowlist">
+  ### Liste d'autorisation de chemins obligatoire
+</div>
+
+Votre proxy externe doit autoriser le trafic vers ces chemins spécifiques sans le bloquer, le rediriger ni le mettre en cache de manière agressive :
+
+- `/.well-known/acme-challenge/*` : requis pour la vérification de certificat Let's Encrypt.
+- `/.well-known/vercel/*` : requis pour la vérification de domaine Vercel.
+- `/mintlify-assets/_next/static/*` : requis pour les ressources statiques.
+
+Votre proxy doit transmettre ces chemins directement à votre déploiement Vercel sans modification.
+
+<div id="header-forwarding-requirements">
+  ### Exigences relatives au transfert des en-têtes
+</div>
+
+Assurez-vous que votre proxy transfère correctement l'en-tête `Host`. Sans un transfert correct des en-têtes, les requêtes de vérification échouent.
+
+<div id="test-your-proxy-setup">
+  ### Tester la configuration de votre proxy
+</div>
+
+Pour vérifier que votre proxy est correctement configuré :
+
+1. Vérifiez que `https://[yourdomain].com/.well-known/vercel/` renvoie une réponse.
+2. Assurez-vous que les certificats SSL sont correctement provisionnés dans votre dashboard Vercel.
+3. Vérifiez que la vérification du domaine se termine avec succès.
