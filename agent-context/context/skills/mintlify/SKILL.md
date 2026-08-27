@@ -37,9 +37,9 @@ Tools:
 
 Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
-Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. All changes happen on a branch and must be reviewed before merging.
+Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. All changes buffer on a session branch; nothing touches the deploy branch until `save`.
 
-Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to open a PR (or `discard_session` to abandon).
+Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
 Key tools:
 - **`checkout`** — Start a session on a branch (required first call). Returns an `editorUrl` to preview changes live.
@@ -51,7 +51,7 @@ Key tools:
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`diff`** — See all changes relative to `main`.
 - **`get_session_state`** — Check the current session's status.
-- **`save`** — Open a PR (`mode: "pr"`) or push to the branch (`mode: "commit"`).
+- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the deployment's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
 - **`discard_session`** — Drop all in-session changes.
 
 Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live.
