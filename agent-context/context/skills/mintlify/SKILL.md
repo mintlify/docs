@@ -13,7 +13,7 @@ Read these files **only when your task requires them**. They are in the `referen
 
 | File | When to read |
 |------|-------------|
-| `reference/components.md` | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, panels, prompts, colors, tiles, updates, views). |
+| `reference/components.md` | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, MDX, panels, prompts, colors, tiles, updates, views). |
 | `reference/configuration.md` | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
 | `reference/navigation.md` | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
@@ -134,7 +134,7 @@ For the complete list including `searchable`, `boost`, `deprecated`, `related`, 
 
 ## Quick component reference
 
-Below are the most commonly used components. For full props and all 25 components, read `reference/components.md`.
+Below are the most commonly used components. For full props and all 26 components, read `reference/components.md`.
 
 ### Callouts
 
