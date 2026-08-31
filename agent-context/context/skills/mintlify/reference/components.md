@@ -423,7 +423,7 @@ Only the active branch renders on the page.
 Notes:
 - Block form at the top level of a page: leave a blank line after the opening tag so content parses as block-level Markdown.
 - Inside expressions, `<MDX>` strips the common leading indentation from its content.
-- Headings inside `<MDX>` do not appear in the page's table of contents.
+- Headings inside `<MDX>` appear in the page's table of contents, including headings in branches that never render (such as the inactive side of a conditional).
 - Limits: nest `<MDX>` up to 8 levels deep; a page can expand up to 500 `<MDX>` fragments inside expressions. Exceeding either limit fails the build.
 
 ## Panel
