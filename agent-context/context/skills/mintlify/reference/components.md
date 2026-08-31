@@ -290,6 +290,8 @@ response = requests.post(
 </ResponseExample>
 ````
 
+The sidebar example panel has a fixed width that you cannot configure. For a code example that spans the full content width, use a regular code block or `<CodeGroup>` in the main content instead.
+
 ## Frames
 
 Styled container for images with optional captions.
@@ -391,6 +393,38 @@ flowchart LR
     B -->|No| D[Other action]
 ```
 ````
+
+## MDX
+
+Render content between `<MDX>` tags as MDX so headings, code fences, tables, and components compile like the rest of the page. Use it to put Markdown inside JSX expressions and conditionals.
+
+````mdx
+export const platform = "ios";
+
+{platform === "ios" ? (
+  <MDX>
+    ## Install on iOS
+
+    ```bash
+    pod install
+    ```
+  </MDX>
+) : (
+  <MDX>
+    ## Install on Android
+
+    Add the SDK to your Gradle dependencies.
+  </MDX>
+)}
+````
+
+Only the active branch renders on the page.
+
+Notes:
+- Block form at the top level of a page: leave a blank line after the opening tag so content parses as block-level Markdown.
+- Inside expressions, `<MDX>` strips the common leading indentation from its content.
+- Headings inside `<MDX>` do not appear in the page's table of contents.
+- Limits: nest `<MDX>` up to 8 levels deep; a page can expand up to 500 `<MDX>` fragments inside expressions. Exceeding either limit fails the build.
 
 ## Panel
 
