@@ -56,6 +56,7 @@ For OpenAPI 3.1 specs, describe a file upload field as a string schema with a bi
 - `x-hidden`: Creates page but hides from navigation.
 - `x-excluded`: Completely excludes endpoint from docs.
 - `x-codeSamples`: Custom code examples per endpoint.
+- `x-mint.playground.expand`: Set to `false` on an operation to collapse nested object fields in the playground by default. Request sections (Authorization, Headers, Query, Path, Body) and the top-level body object stay expanded. Defaults to expanded when unset.
 
 ```yaml
 paths:
