@@ -563,3 +563,31 @@ Embed a card that links to a public GitHub repository. The card fetches the repo
 - `repo` (string, required): `owner/name` slug (for example, `mintlify/docs`) or a full GitHub URL.
 - `variant` (string, default: `"inset"`): Card layout. Options: `inset`, `flat`.
 - `className` (string): Additional CSS classes applied to the card.
+
+## Table column widths
+
+Markdown tables size columns automatically based on content. To control column widths, write the table in HTML and add a `<colgroup>` element that sets a width on every `<col>` (through the `width` attribute or an inline style). If any `<col>` is missing a width, Mintlify ignores the declared widths and sizes columns based on content. Tables too wide for the page scroll horizontally.
+
+```html
+<table>
+  <colgroup>
+    <col width="25%" />
+    <col width="15%" />
+    <col width="60%" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>name</td>
+      <td>string</td>
+      <td>Full name of the user</td>
+    </tr>
+  </tbody>
+</table>
+```
