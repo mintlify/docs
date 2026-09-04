@@ -26,6 +26,7 @@ Available on all commands.
 - `mint a11y` — Accessibility checks (alt text, color contrast). `--skip-contrast` or `--skip-alt-text` to narrow scope.
 - `mint score [url]` — Score a docs site's AI/agent readiness. Checks llms.txt, MCP discoverability, robots.txt, sitemap, structured data, response latency, and more. Requires `mint login`. Defaults to your configured subdomain. `--format` accepts `table` (default), `plain`, or `json`.
 - `mint format` — Format every `.mdx` file in the current directory and its subdirectories in place. Respects `.gitignore` and Mintlify ignore rules. Commit or stash changes first so you can review the rewrite.
+- `mint test` — Scan content for code blocks and generate unit tests that validate them. Interactive; only pages in the `docs.json` navigation appear for selection. Writes generated test projects to `tests/mint-test/<run-id>/` (one directory per agent and page) and run reports to `.mintlify/test/` (including `runs/<run-id>.json`). Add both paths to `.gitignore` to avoid committing test artifacts.
 
 ## Authentication
 
