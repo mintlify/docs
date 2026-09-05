@@ -13,7 +13,7 @@ Read these files **only when your task requires them**. They are in the `referen
 
 | File | When to read |
 |------|-------------|
-| `reference/components.md` | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, MDX, panels, prompts, colors, tiles, updates, views). |
+| `reference/components.md` | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, MDX, panels, prompts, colors, tiles, updates, views). Also covers table column widths. |
 | `reference/configuration.md` | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
 | `reference/navigation.md` | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
@@ -37,7 +37,7 @@ Tools:
 
 Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
-Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. All changes buffer on a session branch; nothing touches the deploy branch until `save`.
+Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Deployment management changes made through code mode apply immediately to the live deployment without a branch or pull request.
 
 Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
@@ -49,6 +49,7 @@ Key tools:
 - **`edit_page`** / **`write_page`** — Apply targeted edits or overwrite a page.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
+- **`search_code_operations`** / **`execute_code`** — Code mode for deployment-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live deployment, so confirm the intended change first.
 - **`diff`** — See all changes relative to `main`.
 - **`get_session_state`** — Check the current session's status.
 - **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the deployment's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
