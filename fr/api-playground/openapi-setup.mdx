@@ -206,19 +206,19 @@ Vous pouvez également utiliser `x-default` sur d’autres propriétés de sché
   ## Transformez votre spécification avec des overlays
 </div>
 
-Les overlays sont des fichiers JSON ou YAML distincts qui décrivent des modifications à appliquer à votre spécification OpenAPI. Utilisez des overlays pour modifier une spécification sans éditer son fichier source. Cela est utile lorsque la spécification est générée par un autre outil ou maintenue par une autre équipe. Les usages courants incluent le renommage de chemins, la définition d’URL de serveur, la suppression d’endpoints internes et l’amélioration des descriptions pour la documentation.
+Utilisez les [overlays OpenAPI](https://spec.openapis.org/overlay/v1.1.0.html) pour modifier une spécification OpenAPI sans éditer son fichier source. Les overlays sont des fichiers JSON ou YAML distincts qui décrivent une liste ordonnée de modifications, ce qui est utile lorsqu’une spécification est générée par un autre outil ou maintenue par une autre équipe. Les usages courants incluent le renommage de chemins, le remplacement d’URL de serveur et la suppression d’endpoints internes.
 
-Mintlify prend en charge les versions 1.0 et 1.1 de la [spécification OpenAPI Overlay](https://spec.openapis.org/overlay/v1.1.0.html). Mintlify applique les overlays après l’analyse d’une spécification et avant sa validation. Les pages d’endpoints générées, la navigation, les références `openapi` dans le frontmatter et `mint validate` utilisent tous le document transformé.
+Les overlays s’appliquent après l’analyse d’une spécification et avant sa validation, de sorte que les pages d’endpoints générées, la navigation, les références `openapi` dans le frontmatter et `mint validate` utilisent tous le document transformé. Les versions 1.0 et 1.1 de la spécification Overlay sont prises en charge.
 
 <div id="create-an-overlay-document">
   ### Créer un document d’overlay
 </div>
 
-Un document d’overlay comporte un champ de version `overlay` de premier niveau, un objet `info` avec un `title` et une `version`, et un tableau `actions`. Chaque action sélectionne des nœuds de la spécification avec une expression `target` au format [JSONPath RFC 9535](https://www.rfc-editor.org/rfc/rfc9535) et applique un modificateur :
+Un document d’overlay comporte une version `overlay`, un objet `info` avec un `title` et une `version`, et un tableau `actions`. Chaque action sélectionne des nœuds avec une expression `target` au format [JSONPath RFC 9535](https://www.rfc-editor.org/rfc/rfc9535) et applique un modificateur :
 
 * `update` : fusionne une valeur dans chaque nœud ciblé. Les objets fusionnent de manière récursive, les tableaux ajoutent la valeur à la fin et les primitives sont remplacées.
 * `remove` : supprime chaque nœud ciblé lorsque défini sur `true`.
-* `copy` : copie le nœud sélectionné par une autre expression JSONPath dans chaque nœud ciblé. Le modificateur `copy` nécessite Overlay 1.1.
+* `copy` : copie le nœud sélectionné par une autre expression JSONPath dans chaque nœud ciblé. Nécessite Overlay 1.1.
 
 ```yaml docs-overlay.yaml
 overlay: 1.1.0
@@ -233,13 +233,13 @@ actions:
     remove: true
 ```
 
-Le champ facultatif `extends` associe un overlay à une spécification pour la [découverte automatique](#auto-discover-overlays). Définissez `extends` sur un chemin relatif au fichier d’overlay ou sur l’URL exacte que votre `docs.json` utilise pour référencer une spécification hébergée.
+Le champ facultatif `extends` associe un overlay à une spécification pour la [découverte automatique](#auto-discover-overlays). Définissez-le sur un chemin relatif au fichier d’overlay, ou sur l’URL exacte que votre `docs.json` utilise pour une spécification hébergée.
 
 <div id="reference-overlays-in-your-docsjson">
   ### Référencer les overlays dans votre docs.json
 </div>
 
-Listez explicitement les overlays en utilisant la forme objet du champ `openapi`. La forme objet fonctionne partout où le champ `openapi` est accepté, y compris à l’intérieur de tableaux. Les overlays s’appliquent dans l’ordre où vous les listez.
+Listez les overlays avec la forme objet du champ `openapi`, qui fonctionne partout où `openapi` est accepté, y compris à l’intérieur de tableaux. Les overlays s’appliquent dans l’ordre où vous les listez.
 
 ```json {6-9}
 "navigation": {
@@ -258,20 +258,20 @@ Listez explicitement les overlays en utilisant la forme objet du champ `openapi`
 }
 ```
 
-Les chemins d’overlay doivent pointer vers des fichiers situés dans votre dépôt de documentation. Les URL d’overlay doivent utiliser `https`. Si deux entrées `openapi` référencent la même spécification avec des listes `overlays` différentes, la génération échoue.
+Les chemins d’overlay doivent pointer vers des fichiers situés dans votre dépôt de documentation, et les URL d’overlay doivent utiliser `https`. Référencer la même spécification avec des listes `overlays` différentes à plusieurs endroits fait échouer la génération.
 
 <div id="auto-discover-overlays">
   ### Découverte automatique des overlays
 </div>
 
-Mintlify traite tout fichier JSON ou YAML de votre dépôt comportant une clé `overlay` de premier niveau comme un document d’overlay. Un overlay dont le champ `extends` correspond à une spécification de votre documentation s’applique automatiquement à cette spécification. Les overlays découverts automatiquement s’appliquent dans l’ordre alphabétique de leurs chemins de fichier. Les overlays sans champ `extends` ne s’appliquent jamais automatiquement.
+Tout fichier JSON ou YAML de votre dépôt comportant une clé `overlay` de premier niveau est traité comme un document d’overlay. Si son champ `extends` correspond à l’une de vos spécifications, l’overlay s’applique automatiquement à cette spécification. Les overlays découverts automatiquement s’appliquent dans l’ordre alphabétique de leurs chemins de fichier. Les overlays sans champ `extends` ne s’appliquent jamais automatiquement.
 
-Une liste `overlays` explicite pour une spécification remplace la découverte automatique pour cette spécification. Définissez `"overlays": []` pour désactiver tous les overlays d’une spécification, y compris ceux découverts automatiquement.
+Une liste `overlays` explicite remplace la découverte automatique pour cette spécification. Définissez `"overlays": []` pour désactiver tous les overlays d’une spécification, y compris ceux découverts automatiquement.
 
-Les overlays explicites et découverts automatiquement échouent différemment. Si un overlay d’une liste `overlays` explicite ne peut pas être chargé ou appliqué, la spécification échoue à la validation et le déploiement signale une erreur de spécification. Si un overlay découvert automatiquement échoue, Mintlify l’ignore et publie la spécification sans lui.
+Les overlays explicites et découverts automatiquement échouent différemment. Si un overlay explicite ne peut pas être chargé ou appliqué, la spécification échoue à la validation et le déploiement signale une erreur de spécification. Si un overlay découvert automatiquement échoue, il est ignoré et la spécification est publiée sans lui.
 
-<div id="example-rename-a-path">
-  ### Exemple : renommer un chemin
+<div id="rename-a-path">
+  ### Renommer un chemin
 </div>
 
 La spécification Overlay ne comporte pas d’action de déplacement. Pour renommer un chemin, créez le nouveau chemin avec `update`, copiez-y l’élément de chemin existant avec `copy`, puis supprimez l’ancien chemin avec `remove`.
@@ -292,9 +292,9 @@ actions:
     remove: true
 ```
 
-Référencez la spécification transformée partout dans votre documentation. Par exemple, une référence dans le frontmatter d’une page doit utiliser le chemin post-overlay : `openapi: "POST /credit/accounts"`.
+Référencez la spécification transformée partout dans votre documentation. Par exemple, le frontmatter d’une page doit utiliser le chemin post-overlay : `openapi: "POST /credit/accounts"`.
 
-Lorsque vous exécutez `mint dev`, la modification ou la suppression d’un fichier d’overlay reconstruit les spécifications concernées. `mint validate` et `mint openapi-check` valident le document transformé, de sorte que les erreurs de validation référencent votre spécification après l’application des overlays.
+Dans `mint dev`, la modification ou la suppression d’un fichier d’overlay reconstruit les spécifications concernées. `mint validate` et `mint openapi-check` valident le document transformé, de sorte que les erreurs référencent votre spécification après l’application des overlays.
 
 <div id="let-visitors-download-your-spec">
   ## Permettez aux visiteurs de télécharger votre spécification

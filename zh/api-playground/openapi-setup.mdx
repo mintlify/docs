@@ -206,19 +206,19 @@ API playground 会使用这些服务器 URL 来确定请求的发送目标。如
   ## 使用 Overlay 转换你的规范
 </div>
 
-Overlay 是独立的 JSON 或 YAML 文件，用于描述要应用到 OpenAPI 规范的更改。使用 Overlay 可以在不编辑源文件的情况下修改规范。当规范由其他工具生成或由其他团队维护时，这非常有用。常见用途包括重命名路径、设置服务器 URL、移除内部端点，以及改进用于文档的描述。
+使用 [OpenAPI Overlay](https://spec.openapis.org/overlay/v1.1.0.html) 可以在不编辑源文件的情况下修改 OpenAPI 规范。Overlay 是独立的 JSON 或 YAML 文件，用于描述一组有序的更改；当规范由其他工具生成或由其他团队维护时，这非常有用。常见用途包括重命名路径、替换服务器 URL 以及移除内部端点。
 
-Mintlify 支持 [OpenAPI Overlay 规范](https://spec.openapis.org/overlay/v1.1.0.html)的 1.0 和 1.1 版本。Mintlify 会在解析规范之后、验证之前应用 Overlay。生成的端点页面、导航、`openapi` frontmatter 引用以及 `mint validate` 都使用转换后的文档。
+Overlay 会在解析规范之后、验证之前应用，因此生成的端点页面、导航、`openapi` frontmatter 引用以及 `mint validate` 都使用转换后的文档。支持 Overlay 规范的 1.0 和 1.1 版本。
 
 <div id="create-an-overlay-document">
   ### 创建 Overlay 文档
 </div>
 
-Overlay 文档包含一个顶层 `overlay` 版本字段、一个带有 `title` 和 `version` 的 `info` 对象，以及一个 `actions` 数组。每个 action 使用 `target` [RFC 9535 JSONPath](https://www.rfc-editor.org/rfc/rfc9535) 表达式选择规范中的节点，并应用一个修改器：
+Overlay 文档包含一个 `overlay` 版本、一个带有 `title` 和 `version` 的 `info` 对象，以及一个 `actions` 数组。每个 action 使用 `target` [RFC 9535 JSONPath](https://www.rfc-editor.org/rfc/rfc9535) 表达式选择节点，并应用一个修改器：
 
 * `update`：将一个值合并到每个目标节点。对象会递归合并，数组会追加该值，基本类型会被替换。
 * `remove`：设置为 `true` 时删除每个目标节点。
-* `copy`：将另一个 JSONPath 表达式选中的节点复制到每个目标节点。`copy` 修改器需要 Overlay 1.1。
+* `copy`：将另一个 JSONPath 表达式选中的节点复制到每个目标节点。需要 Overlay 1.1。
 
 ```yaml docs-overlay.yaml
 overlay: 1.1.0
@@ -233,13 +233,13 @@ actions:
     remove: true
 ```
 
-可选的 `extends` 字段将 Overlay 关联到某个规范，以便进行[自动发现](#auto-discover-overlays)。将 `extends` 设置为相对于 Overlay 文件的路径，或设置为你的 `docs.json` 引用托管规范时使用的确切 URL。
+可选的 `extends` 字段将 Overlay 关联到某个规范，以便进行[自动发现](#auto-discover-overlays)。将其设置为相对于 Overlay 文件的路径，或设置为你的 `docs.json` 中托管规范所使用的确切 URL。
 
 <div id="reference-overlays-in-your-docsjson">
   ### 在 docs.json 中引用 Overlay
 </div>
 
-使用 `openapi` 字段的对象形式显式列出 Overlay。对象形式可用于任何接受 `openapi` 字段的位置，包括数组内部。Overlay 会按照你列出的顺序应用。
+使用 `openapi` 字段的对象形式列出 Overlay，该形式可用于任何接受 `openapi` 的位置，包括数组内部。Overlay 会按照你列出的顺序应用。
 
 ```json {6-9}
 "navigation": {
@@ -258,20 +258,20 @@ actions:
 }
 ```
 
-Overlay 路径必须指向文档仓库内的文件。Overlay URL 必须使用 `https`。如果两个 `openapi` 条目使用不同的 `overlays` 列表引用同一个规范，构建将会失败。
+Overlay 路径必须指向文档仓库内的文件，Overlay URL 必须使用 `https`。在不同位置使用不同的 `overlays` 列表引用同一个规范会导致构建失败。
 
 <div id="auto-discover-overlays">
   ### 自动发现 Overlay
 </div>
 
-Mintlify 会将仓库中任何带有顶层 `overlay` 键的 JSON 或 YAML 文件视为 Overlay 文档。如果某个 Overlay 的 `extends` 字段解析为你文档中的某个规范，该 Overlay 会自动应用到该规范。自动发现的 Overlay 按其文件路径的字母顺序应用。没有 `extends` 字段的 Overlay 永远不会自动应用。
+仓库中任何带有顶层 `overlay` 键的 JSON 或 YAML 文件都会被视为 Overlay 文档。如果其 `extends` 字段解析为你的某个规范，该 Overlay 会自动应用到该规范。自动发现的 Overlay 按其文件路径的字母顺序应用。没有 `extends` 字段的 Overlay 永远不会自动应用。
 
-为某个规范显式指定 `overlays` 列表会取代该规范的自动发现。将 `"overlays": []` 设置为空数组，可禁用该规范的所有 Overlay，包括自动发现的 Overlay。
+显式的 `overlays` 列表会取代该规范的自动发现。设置 `"overlays": []` 可禁用该规范的所有 Overlay，包括自动发现的 Overlay。
 
-显式 Overlay 与自动发现的 Overlay 的失败方式不同。如果显式 `overlays` 列表中的某个 Overlay 无法加载或应用，该规范将无法通过验证，部署会报告规范错误。如果自动发现的 Overlay 失败，Mintlify 会跳过它并发布未应用该 Overlay 的规范。
+显式 Overlay 与自动发现的 Overlay 的失败方式不同。如果显式 Overlay 无法加载或应用，该规范将无法通过验证，部署会报告规范错误。如果自动发现的 Overlay 失败，则会跳过它并发布未应用该 Overlay 的规范。
 
-<div id="example-rename-a-path">
-  ### 示例：重命名路径
+<div id="rename-a-path">
+  ### 重命名路径
 </div>
 
 Overlay 规范没有移动 (move) 操作。要重命名路径，请使用 `update` 创建新路径，使用 `copy` 将现有路径项复制到新路径中，然后使用 `remove` 删除旧路径。
@@ -292,9 +292,9 @@ actions:
     remove: true
 ```
 
-在文档中的所有位置都应引用转换后的规范。例如，页面 frontmatter 引用必须使用应用 Overlay 之后的路径：`openapi: "POST /credit/accounts"`。
+在文档中的所有位置都应引用转换后的规范。例如，页面 frontmatter 必须使用应用 Overlay 之后的路径：`openapi: "POST /credit/accounts"`。
 
-运行 `mint dev` 时，编辑或删除 Overlay 文件会重新构建受影响的规范。`mint validate` 和 `mint openapi-check` 会验证转换后的文档，因此验证错误引用的是应用 Overlay 之后的规范。
+在 `mint dev` 中，编辑或删除 Overlay 文件会重新构建受影响的规范。`mint validate` 和 `mint openapi-check` 会验证转换后的文档，因此错误引用的是应用 Overlay 之后的规范。
 
 <div id="let-visitors-download-your-spec">
   ## 让访客下载你的规范
