@@ -460,8 +460,8 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 }
 ```
 
-- `openapi`: Single file, array, or object with `source` and `directory`.
-- `asyncapi`: Same format as `openapi` for AsyncAPI specs.
+- `openapi`: Single path or URL, array of paths/URLs/objects, or object with `source`, `directory`, and `overlays` (array of OpenAPI Overlay paths or URLs applied in order; `[]` disables all overlays, including auto-discovered ones).
+- `asyncapi`: Single file, array, or object with `source` and `directory` for AsyncAPI specs.
 - `playground.display`: `"interactive"`, `"simple"`, `"none"`, or `"auth"`.
 - `playground.proxy`: Route requests through Mintlify's proxy. Default: `true`.
 - `playground.credentials`: Include cookies and auth headers for cross-origin requests when proxy is `false`. Default: `false`.

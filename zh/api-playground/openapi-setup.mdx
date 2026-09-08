@@ -1,6 +1,6 @@
 ---
 title: "OpenAPI 设置"
-description: "从 OpenAPI 3.0 和 3.1 规范文件生成交互式 API 文档，自动创建端点页面、请求构建器和导航结构，并配置身份验证、服务器 URL、请求参数与文件上传，帮助你快速发布完整且易于测试的 API 参考文档。了解如何设置规范文件、服务器地址、安全方案和文件字段。"
+description: "从 OpenAPI 3.0 和 3.1 规范文件生成交互式 API 文档，自动创建端点页面，并支持身份验证、服务器 URL 和 Overlay 配置。"
 keywords: ["OpenAPI", "API 规范", "Swagger"]
 ---
 
@@ -201,6 +201,100 @@ API playground 会使用这些服务器 URL 来确定请求的发送目标。如
 <Note>
   API playground 目前不支持从数组类型 schema 属性上的 `x-default` 进行预填，即使已启用 `api.examples.prefill` 也是如此。
 </Note>
+
+<div id="transform-your-spec-with-overlays">
+  ## 使用 Overlay 转换你的规范
+</div>
+
+使用 [OpenAPI Overlay](https://spec.openapis.org/overlay/v1.1.0.html) 可以在不编辑源文件的情况下修改 OpenAPI 规范。Overlay 是独立的 JSON 或 YAML 文件，用于描述一组有序的更改；当规范由其他工具生成或由其他团队维护时，这非常有用。常见用途包括重命名路径、替换服务器 URL 以及移除内部端点。
+
+Overlay 会在解析规范之后、验证之前应用，因此生成的端点页面、导航、`openapi` frontmatter 引用以及 `mint validate` 都使用转换后的文档。支持 Overlay 规范的 1.0 和 1.1 版本。
+
+<div id="create-an-overlay-document">
+  ### 创建 Overlay 文档
+</div>
+
+Overlay 文档包含一个 `overlay` 版本、一个带有 `title` 和 `version` 的 `info` 对象，以及一个 `actions` 数组。每个 action 使用 `target` [RFC 9535 JSONPath](https://www.rfc-editor.org/rfc/rfc9535) 表达式选择节点，并应用一个修改器：
+
+* `update`：将一个值合并到每个目标节点。对象会递归合并，数组会追加该值，基本类型会被替换。
+* `remove`：设置为 `true` 时删除每个目标节点。
+* `copy`：将另一个 JSONPath 表达式选中的节点复制到每个目标节点。需要 Overlay 1.1。
+
+```yaml docs-overlay.yaml
+overlay: 1.1.0
+info:
+  title: Docs adjustments
+  version: 1.0.0
+extends: ./openapi.json
+actions:
+  - target: $.info.description
+    update: "The public API for Example, Inc."
+  - target: $.paths['/internal-metrics']
+    remove: true
+```
+
+可选的 `extends` 字段将 Overlay 关联到某个规范，以便进行[自动发现](#auto-discover-overlays)。将其设置为相对于 Overlay 文件的路径，或设置为你的 `docs.json` 中托管规范所使用的确切 URL。
+
+<div id="reference-overlays-in-your-docsjson">
+  ### 在 docs.json 中引用 Overlay
+</div>
+
+使用 `openapi` 字段的对象形式列出 Overlay，该形式可用于任何接受 `openapi` 的位置，包括数组内部。Overlay 会按照你列出的顺序应用。
+
+```json {6-9}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "openapi": {
+        "source": "openapi.json",
+        "overlays": [
+          "overlays/rename-paths.yaml",
+          "https://example.com/overlays/servers.yaml"
+        ]
+      }
+    }
+  ]
+}
+```
+
+Overlay 路径必须指向文档仓库内的文件，Overlay URL 必须使用 `https`。在不同位置使用不同的 `overlays` 列表引用同一个规范会导致构建失败。
+
+<div id="auto-discover-overlays">
+  ### 自动发现 Overlay
+</div>
+
+仓库中任何带有顶层 `overlay` 键的 JSON 或 YAML 文件都会被视为 Overlay 文档。如果其 `extends` 字段解析为你的某个规范，该 Overlay 会自动应用到该规范。自动发现的 Overlay 按其文件路径的字母顺序应用。没有 `extends` 字段的 Overlay 永远不会自动应用。
+
+显式的 `overlays` 列表会取代该规范的自动发现。设置 `"overlays": []` 可禁用该规范的所有 Overlay，包括自动发现的 Overlay。
+
+显式 Overlay 与自动发现的 Overlay 的失败方式不同。如果显式 Overlay 无法加载或应用，该规范将无法通过验证，部署会报告规范错误。如果自动发现的 Overlay 失败，则会跳过它并发布未应用该 Overlay 的规范。
+
+<div id="rename-a-path">
+  ### 重命名路径
+</div>
+
+Overlay 规范没有移动 (move) 操作。要重命名路径，请使用 `update` 创建新路径，使用 `copy` 将现有路径项复制到新路径中，然后使用 `remove` 删除旧路径。
+
+```yaml rename-overlay.yaml
+overlay: 1.1.0
+info:
+  title: Move accounts under credit
+  version: 1.0.0
+extends: ./openapi.json
+actions:
+  - target: $.paths
+    update:
+      /credit/accounts: {}
+  - target: $.paths['/credit/accounts']
+    copy: $.paths['/accounts']
+  - target: $.paths['/accounts']
+    remove: true
+```
+
+在文档中的所有位置都应引用转换后的规范。例如，页面 frontmatter 必须使用应用 Overlay 之后的路径：`openapi: "POST /credit/accounts"`。
+
+在 `mint dev` 中，编辑或删除 Overlay 文件会重新构建受影响的规范。`mint validate` 和 `mint openapi-check` 会验证转换后的文档，因此错误引用的是应用 Overlay 之后的规范。
 
 <div id="let-visitors-download-your-spec">
   ## 让访客下载你的规范
