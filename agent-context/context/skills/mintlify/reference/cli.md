@@ -2,7 +2,7 @@
 
 Condensed reference for common `mint` CLI commands and their key flags.
 
-Install with `npm i -g mint`.
+Install with `npm i -g mint`. The npm package is `mint`; do not install the legacy `mintlify` package.
 
 ## Global flags
 
@@ -10,15 +10,15 @@ Available on all commands.
 
 | Flag | Description |
 |------|-------------|
-| `--telemetry`, `-t` | Enable or disable anonymous usage telemetry. |
+| `--telemetry`, `-t` | Enable or disable usage telemetry. |
 | `--help`, `-h` | Display help for the command. |
 | `--version`, `-v` | Display the CLI version. Alias for `mint version`. |
 
 ## Local development
 
-- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups <names>` mocks user groups. `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP.
-- `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups <names>` mocks user groups. `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files.
-- `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups <names>` includes restricted pages. `--disable-openapi` skips OpenAPI processing.
+- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP.
+- `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups` mocks user groups (space-separated). `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files.
+- `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups` includes restricted pages (space-separated). `--disable-openapi` skips OpenAPI processing.
 
 ## Content quality
 
@@ -93,7 +93,7 @@ All `mint automations` subcommands share these flags: `--subdomain`, `--format` 
 
 ## Telemetry
 
-The CLI collects anonymous usage telemetry by default. Opt out with `--telemetry false` or by setting either environment variable:
+The CLI collects usage telemetry by default (command name, CLI version, OS, architecture). When you are logged in, telemetry events also include your account email; logged-out usage stays anonymous. Opt out with `--telemetry false` or by setting either environment variable:
 
 | Variable | Value | Description |
 |----------|-------|-------------|
