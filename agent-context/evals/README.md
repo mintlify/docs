@@ -19,7 +19,7 @@ cp -R evals ../../mintlify-claude-plugin/evals
 claude plugin eval ../../mintlify-claude-plugin --case page-mode-values --runs 1 --ablation none
 
 # what CI runs (~$3)
-claude plugin eval ../../mintlify-claude-plugin --runs 3 --ablation none --threshold 0.8 \
+claude plugin eval ../../mintlify-claude-plugin --ablation none --threshold 0.8 \
   --model claude-sonnet-5 --judge-model claude-haiku-4-5 --allow-tools Write -j 4
 
 # with the no-plugin baseline, to see what the skill contributes (~$5)
@@ -77,9 +77,12 @@ servers. Tools whose answers don't depend on input are `fixed` files. `_server.m
 is a single agent mock for the content tools (`read`, `search`, `list_nodes`, ...)
 and carries the deployment's pages verbatim; `execute_code.md` is an agent mock
 that plays the code-mode runtime. Agent mocks cost a small model call per tool
-call and can vary; after a clean run, adopt the recordings listed in
-`results/<ts>/mock-recordings/ADOPT.txt` into `mocks/.replay/` to make them free
-and deterministic.
+call and can vary between runs.
+
+Do not adopt `mock-recordings/` for stateful tools. A replay is keyed on the
+call's input only, so a recorded `read` of the original page would also answer a
+`read` made after `write_page`, silently breaking read-after-write. `search` and
+`list_nodes` recordings are safe to adopt if the variance becomes a problem.
 
 Known gaps:
 
@@ -96,7 +99,9 @@ Known gaps:
 
 ## Iterating
 
-Run one case, one arm, one run while fixing a grader; confirm at the default three
-runs before trusting a number. A single run flipped `docs-json-not-mint-json`
+Run one case, one arm, one run while fixing a grader; confirm at the case's full
+run count before trusting a number. The `admin-*` cases use five runs because
+their scores swing more: one pass scored `admin-confirms-live-writes` 1.00 and the
+next 0.42 with no change to the suite. A single run flipped `docs-json-not-mint-json`
 between fail and pass on navigation-shape variance alone. Pass `--keep-temp` to
 preserve each run's workspace and `trace.jsonl`.
