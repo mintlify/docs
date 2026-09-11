@@ -11,7 +11,7 @@ let result;
 try {
   result = JSON.parse(await readFile(resultPath, 'utf8'));
 } catch {
-  console.log('## Claude plugin eval\n');
+  console.log('## Shared content eval (via Claude Code plugin)\n');
   console.log(
     'No eval result was produced. Either `ANTHROPIC_API_KEY` is not set for this repository, or the run failed before writing results.',
   );
@@ -22,7 +22,10 @@ const twoArm = result.cases.some((c) => c.aggregates?.delta !== undefined);
 const fmt = (n) => (typeof n === 'number' ? n.toFixed(2) : '-');
 const signed = (n) => (typeof n === 'number' ? `${n >= 0 ? '+' : ''}${n.toFixed(2)}` : '-');
 
-console.log('## Claude plugin eval\n');
+console.log('## Shared content eval (via Claude Code plugin)\n');
+console.log(
+  '> Measures the agent context that all four plugins ship, using the generated Claude Code plugin. Codex, Cursor, and Kiro receive identical content but their agents are not exercised here.\n',
+);
 if (result.partial) {
   console.log(`> **Partial run** (${result.partialReason}). Do not trust these scores.\n`);
 }

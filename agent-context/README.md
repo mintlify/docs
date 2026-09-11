@@ -53,7 +53,7 @@ Treat the Kiro and Claude manifest versions as release versions. Whenever a chan
 
 `evals/` holds the eval suite for the generated Claude Code plugin, run with `claude plugin eval`. Only the Claude target has an eval harness; because all four targets are generated from the same `context/`, it measures the shared content, not the other clients' agents.
 
-On every pull request that touches `agent-context/`, the `eval-claude-plugin` job generates the Claude plugin, copies `evals/` into it, and runs the suite with pinned models. It is a soft gate: results appear in the job summary and as an artifact, but a low score does not fail the check. It needs an `ANTHROPIC_API_KEY` Actions secret; without one the job reports that and skips.
+On every pull request that touches `agent-context/`, the `eval-shared-content-via-claude` job generates the Claude plugin, copies `evals/` into it, and runs the suite with pinned models. The name is deliberate: it evaluates the shared content, through the one client that has an eval harness. It does not exercise the Codex, Cursor, or Kiro agents. It is a soft gate: results appear in the job summary and as an artifact, but a low score does not fail the check. It needs an `ANTHROPIC_API_KEY` Actions secret; without one the job reports that and skips.
 
 Run it locally against a generated plugin:
 
