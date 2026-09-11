@@ -1,12 +1,12 @@
 ---
 title: "Mintlify MDX 扩展"
-description: "安装 Mintlify MDX 扩展，在本地编写 MDX 时获得自动补全、内联诊断、悬停文档和编辑器内预览。"
-keywords: ["Cursor", "MDX", "自动补全", "诊断", "IntelliSense", "预览", "编辑器"]
+description: "安装 Mintlify MDX 扩展，在本地编写 MDX 时获得自动补全、内联诊断、悬停文档、可视化编辑器和编辑器内预览。"
+keywords: ["Cursor", "MDX", "自动补全", "诊断", "IntelliSense", "预览", "编辑器", "可视化模式"]
 ---
 
 Mintlify MDX 扩展为 VS Code、Cursor、Devin Desktop 以及其他支持 VS Code 扩展 API 的编辑器提供 Mintlify 项目的语言支持。该扩展了解每个内置组件和属性，因此你在输入时可以获得自动补全，它还会报告未知组件、无效属性和无法解析的 snippet 导入。
 
-该扩展还会在编辑器内运行实时预览，让你无需切换到浏览器即可边写作边查看渲染结果。
+该扩展还会在可视化编辑器中打开 `.mdx` 文件，并在编辑器内运行实时预览，让你无需切换到浏览器即可边写作边查看渲染结果。
 
 <div id="prerequisites">
   ## 前提条件
@@ -40,9 +40,9 @@ code --install-extension mintlify.mintlify-snippets
   ## 自动补全
 </div>
 
-输入 `<` 即可查看所有内置组件。自动补全会在标签内提示组件的属性和值。
+输入 `<` 即可查看所有内置组件。自动补全会在标签内提示组件的属性和值、在 `</` 后匹配闭合标签，以及像 `<Badge color="…">` 这样的枚举属性值。
 
-除内置组件外，扩展还会提示你从[可复用 snippet](/zh/create/reusable-snippets) 导入的组件。
+除内置组件外，扩展还会提示你从[可复用 snippet](/zh/create/reusable-snippets) 导入的组件。`className`、`id` 和 `style` 会在所有组件和 HTML 元素上提供，在 `className="…"` 内输入时会提示 Tailwind 实用类，包括像 `md:` 和 `hover:` 这样的变体。
 
 <div id="diagnostics">
   ## 诊断
@@ -97,6 +97,73 @@ code --install-extension mintlify.mintlify-snippets
 
 扩展会根据 [Mintlify 架构](https://mintlify.com/docs.json)校验 `docs.json`。
 
+<div id="visual-mode">
+  ## 可视化模式
+</div>
+
+在可视化模式下打开任意 `.mdx` 文件，即可像在 Mintlify 仪表板中那样在富文本编辑器中编辑页面，标题、列表、表格、链接、提示框、卡片、步骤、选项卡、折叠面板、代码块和图片都可以就地编辑。
+
+在可视化模式和文本编辑器之间切换：
+
+- 按 <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>（macOS）或 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>（Windows）。
+- 或使用面包屑行右端的编辑器选择器。
+
+使用标题栏中的齿轮图标可选择 `.mdx` 文件默认使用哪个编辑器打开。
+
+输入时 Markdown 快捷方式生效（`#` 表示标题，`-` 表示列表项，`**bold**`、`` `code` ``），工具栏和 `/` 菜单可用于插入组件。编辑内容会通过与 [`mint format`](/zh/cli/commands#mint-format) 相同的转换器写回为 MDX。可视化模式无法识别的组件会按原样保留。
+
+<div id="snippet-forms">
+  ### Snippet 表单
+</div>
+
+在可视化模式下，从 snippet 导入的组件会显示为一个表单，每个 prop 对应一个输入，而不是一个不透明的标签。字段根据组件解构后的 prop 和默认值推断，因此默认值为 `true` 会变成复选框，`2` 会变成数字框，`icon` 或 `logo` 会变成带缩略图的图片路径，`href` 或 `url` 会变成链接。
+
+要控制输入项，请在导出前使用 JSDoc `@param` 注释来对组件进行文档说明。在 `.jsx` 和 `.tsx` 文件中使用 `/** … */` 块。在 `.mdx` snippet 中，使用 MDX 注释（`{/* … */}`），这样它不会被渲染：
+
+```mdx
+{/*
+  A product tile with a price and a call to action.
+  @param {string} name - Product name, shown as the title
+  @param {image} [icon] - Path to a square icon under /images
+  @param {'Free' | 'Pro' | 'Enterprise'} [tier=Free] - Which plan it belongs to
+  @param {number} [seats=1] - Seats included
+  @param {boolean} [featured] - Highlight the card
+  @param {url} [href] - Where the button goes
+  @param {text} [summary] - One or two sentences under the title
+*/}
+export const ProductCard = ({ name, icon, tier = 'Free', seats = 1, featured = false, href, summary, children }) => ( ... );
+```
+
+以下类型会生成对应的表单输入：
+
+| Type              | Input                        |
+| ----------------- | ---------------------------- |
+| `string`          | 文本框                       |
+| `text` (or `markdown`) | 多行文本框              |
+| `boolean`         | 复选框                       |
+| `number`          | 数字框                       |
+| `'a' \| 'b'`      | 这些值的下拉框               |
+| `image`           | 带缩略图的路径框             |
+| `url`             | 链接框                       |
+| `color`           | 带色块的文本框               |
+| anything else     | 原始 `{…}` 表达式            |
+
+方括号（`[name]`）表示 prop 为可选。没有方括号的已文档化 prop 会显示必填标记。`[name=value]` 在解构没有默认值时提供一个默认值。注释的第一行是显示在表单头部和 **Insert** 菜单中的描述。
+
+`children` 永远不会作为字段：标签的主体会按原样保留，并在表单下方作摘要展示。切换到文本编辑器进行编辑。
+
+导入的 snippet 也会出现在 **+ Insert** 菜单和 `/` 菜单中。
+
+<div id="docs-sidebar">
+  ## 文档侧边栏
+</div>
+
+活动栏中的 Mintlify 视图会镜像你的 `docs.json` 导航树。顶层的 products 和 tabs 保持在根部，其导航嵌套在可展开的行中。侧边栏使用 `docs.json` 和页面 frontmatter 中的图标，页面标签取自 `sidebarTitle` 或 `title`。选中某个页面会在可视化模式下打开它。
+
+使用 **+** 操作可以添加 groups、tabs、dropdowns、anchors、languages、products 和 versions。拖动行可以重新排序，或将一个页面拖放到某个 group 上，将其移动到该 group 的顶部。树会立即变动，然后 Mintlify 会将更改保存到 `docs.json`。
+
+树会跟随当前活动页面，并在 `docs.json` 或页面变化时重新加载。
+
 <div id="preview-in-your-editor">
   ## 在编辑器中预览
 </div>
@@ -105,7 +172,9 @@ code --install-extension mintlify.mintlify-snippets
 
 预览工具栏包含后退、前进和重新加载按钮、地址框，以及 **Follow editor** 开关。在地址框中输入类似 `/quickstart` 的路径并按 <kbd>Enter</kbd> 即可跳转到该页面。开启 **Follow editor** 后，预览会随着你在编辑器中切换文件而切换页面。
 
-编辑器内预览在 iframe 中渲染，因此浏览器的查找功能和开发者工具无法访问它。选择预览工具栏中的 **Open in browser** 按钮，或运行 **Mintlify: Open preview in browser**，改为在浏览器中打开页面。
+在预览内按 <kbd>Cmd</kbd>+<kbd>F</kbd>（macOS）或 <kbd>Ctrl</kbd>+<kbd>F</kbd>（Windows）可打开针对已渲染页面的查找栏。<kbd>Enter</kbd> 和 <kbd>Shift</kbd>+<kbd>Enter</kbd> 可在匹配项之间切换。<kbd>Esc</kbd> 关闭查找栏。
+
+编辑器内预览在 iframe 中渲染，因此浏览器开发者工具无法访问它。选择预览工具栏中的 **Open in browser** 按钮，或运行 **Mintlify: Open preview in browser**，改为在浏览器中打开页面。
 
 编辑器内预览需要 [Mintlify CLI](/zh/cli/install)。预览服务器默认在端口 `3939` 上运行，以避免与端口 3000 上的应用冲突。可通过 `mintlify.preview.port` 设置更改端口。
 

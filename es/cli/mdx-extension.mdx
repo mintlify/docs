@@ -1,12 +1,12 @@
 ---
 title: "Extensión Mintlify MDX"
-description: "Instala la extensión Mintlify MDX para obtener autocompletado, diagnósticos en línea, documentación al pasar el cursor y vista previa en el editor."
-keywords: ["Cursor", "MDX", "autocompletado", "diagnósticos", "IntelliSense", "previsualización", "editor"]
+description: "Instala la extensión Mintlify MDX para autocompletado, diagnósticos, documentación al pasar el cursor, editor visual y previsualización en el editor."
+keywords: ["Cursor", "MDX", "autocompletado", "diagnósticos", "IntelliSense", "previsualización", "editor", "modo visual"]
 ---
 
 La extensión Mintlify MDX agrega compatibilidad de lenguaje para proyectos de Mintlify a VS Code, Cursor, Devin Desktop y otros editores compatibles con la API de extensiones de VS Code. La extensión conoce todos los componentes y propiedades integrados, por lo que obtienes autocompletado mientras escribes, y reporta componentes desconocidos, propiedades inválidas e importaciones de snippets sin resolver.
 
-La extensión también ejecuta una previsualización en vivo dentro de tu editor, para que puedas escribir y ver el resultado renderizado sin cambiar a un navegador.
+La extensión también abre archivos `.mdx` en un editor visual y ejecuta una previsualización en vivo dentro de tu editor, para que puedas escribir y ver el resultado renderizado sin cambiar a un navegador.
 
 <div id="prerequisites">
   ## Requisitos previos
@@ -40,9 +40,9 @@ La extensión se activa cuando abres un archivo `.mdx` o un espacio de trabajo q
   ## Autocompletado
 </div>
 
-Escribe `<` para ver todos los componentes integrados. El autocompletado sugiere las propiedades y los valores de los componentes dentro de las etiquetas.
+Escribe `<` para ver todos los componentes integrados. El autocompletado sugiere las propiedades y los valores de los componentes dentro de las etiquetas, sugerencias de etiquetas de cierre después de `</` y valores enumerados de propiedades como `<Badge color="…">`.
 
-La extensión sugiere los componentes que importas desde [snippets reutilizables](/es/create/reusable-snippets) junto con los integrados.
+La extensión sugiere los componentes que importas desde [snippets reutilizables](/es/create/reusable-snippets) junto con los integrados. `className`, `id` y `style` se ofrecen en todos los componentes y elementos HTML, y al escribir dentro de `className="…"` se sugieren clases de utilidad de Tailwind, incluidas variantes como `md:` y `hover:`.
 
 <div id="diagnostics">
   ## Diagnósticos
@@ -97,6 +97,73 @@ Usa los chevrones del margen para plegar regiones de una página:
 
 La extensión valida `docs.json` contra el [esquema de Mintlify](https://mintlify.com/docs.json).
 
+<div id="visual-mode">
+  ## Modo visual
+</div>
+
+Abre cualquier archivo `.mdx` en Modo visual para editar la página en un editor enriquecido como el del panel de Mintlify, con encabezados, listas, tablas, enlaces, avisos, tarjetas, pasos, pestañas, acordeones, bloques de código e imágenes editables en el sitio.
+
+Para alternar entre el Modo visual y el editor de texto:
+
+- Presiona <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (macOS) o <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (Windows).
+- O usa el selector de editor en el extremo derecho de la fila de migas de pan.
+
+Usa el icono de engranaje en la barra de título para elegir con qué editor se abren de forma predeterminada los archivos `.mdx`.
+
+Los atajos de Markdown funcionan mientras escribes (`#` para un encabezado, `-` para un elemento de lista, `**negrita**`, `` `código` ``), y la barra de herramientas y el menú `/` insertan componentes. Las ediciones se escriben de vuelta como MDX a través del mismo conversor que [`mint format`](/es/cli/commands#mint-format). Los componentes que el Modo visual no conoce se conservan tal como están escritos.
+
+<div id="snippet-forms">
+  ### Formularios de snippets
+</div>
+
+En el Modo visual, un componente importado desde un snippet se muestra como un formulario con una entrada por prop en lugar de una etiqueta opaca. Los campos se infieren a partir de los props desestructurados del componente y sus valores predeterminados, de modo que un valor predeterminado de `true` se convierte en una casilla, `2` en un cuadro numérico, `icon` o `logo` en una ruta de imagen con miniatura, y `href` o `url` en un enlace.
+
+Para controlar las entradas, documenta el componente con un comentario JSDoc `@param` justo antes del export. En archivos `.jsx` y `.tsx`, usa un bloque `/** … */`. En snippets `.mdx`, usa un comentario MDX (`{/* … */}`) para que no se renderice:
+
+```mdx
+{/*
+  A product tile with a price and a call to action.
+  @param {string} name - Product name, shown as the title
+  @param {image} [icon] - Path to a square icon under /images
+  @param {'Free' | 'Pro' | 'Enterprise'} [tier=Free] - Which plan it belongs to
+  @param {number} [seats=1] - Seats included
+  @param {boolean} [featured] - Highlight the card
+  @param {url} [href] - Where the button goes
+  @param {text} [summary] - One or two sentences under the title
+*/}
+export const ProductCard = ({ name, icon, tier = 'Free', seats = 1, featured = false, href, summary, children }) => ( ... );
+```
+
+Los siguientes tipos producen las entradas de formulario correspondientes:
+
+| Tipo              | Entrada                                |
+| ----------------- | -------------------------------------- |
+| `string`          | Cuadro de texto                        |
+| `text` (o `markdown`) | Cuadro de texto multilínea         |
+| `boolean`         | Casilla de verificación                |
+| `number`          | Cuadro numérico                        |
+| `'a' \| 'b'`      | Menú desplegable con esos valores      |
+| `image`           | Cuadro de ruta con miniatura           |
+| `url`             | Cuadro de enlace                       |
+| `color`           | Cuadro de texto con una muestra        |
+| cualquier otro    | Expresión `{…}` sin procesar           |
+
+Los corchetes (`[name]`) marcan un prop como opcional. Un prop documentado sin corchetes muestra un marcador de requerido. `[name=value]` proporciona un valor predeterminado cuando la desestructuración no tiene ninguno. La primera línea del comentario es la descripción que se muestra en el encabezado del formulario y en el menú **Insert**.
+
+`children` nunca es un campo: el cuerpo de la etiqueta se deja tal como está escrito y se resume debajo del formulario. Cambia al editor de texto para editarlo.
+
+Los snippets importados también aparecen en los menús **+ Insert** y `/`.
+
+<div id="docs-sidebar">
+  ## Barra lateral de documentación
+</div>
+
+La vista de Mintlify en la barra de actividad refleja el árbol de navegación de tu `docs.json`. Los productos y las pestañas de nivel superior permanecen en la raíz, con su navegación anidada en filas expandibles. La barra lateral usa iconos de `docs.json` y del frontmatter de las páginas, y las etiquetas de las páginas provienen de `sidebarTitle` o `title`. Al seleccionar una página se abre en el Modo visual.
+
+Usa la acción **+** para agregar grupos, pestañas, menús desplegables, anclas, idiomas, productos y versiones. Arrastra filas para reordenarlas o suelta una página sobre un grupo para moverla al inicio de ese grupo. El árbol se mueve de inmediato y luego Mintlify guarda el cambio en `docs.json`.
+
+El árbol sigue a la página activa y se recarga cuando cambian `docs.json` o una página.
+
 <div id="preview-in-your-editor">
   ## Previsualización en tu editor
 </div>
@@ -105,7 +172,9 @@ Abre un archivo `.mdx` y selecciona el icono de previsualización en la barra de
 
 La barra de herramientas de la previsualización tiene botones de atrás, adelante y recargar, un cuadro de dirección y un interruptor **Follow editor**. Escribe una ruta como `/quickstart` en el cuadro de dirección y presiona <kbd>Enter</kbd> para navegar a esa página. Con **Follow editor** activado, la previsualización cambia de página a medida que cambias de archivo en tu editor.
 
-La previsualización en el editor se renderiza en un iframe, por lo que la búsqueda del navegador y las herramientas de desarrollo no pueden acceder a ella. Selecciona el botón **Open in browser** en la barra de herramientas de la previsualización, o ejecuta **Mintlify: Open preview in browser**, para abrir la página en tu navegador.
+Presiona <kbd>Cmd</kbd>+<kbd>F</kbd> (macOS) o <kbd>Ctrl</kbd>+<kbd>F</kbd> (Windows) dentro de la previsualización para abrir una barra de búsqueda de la página renderizada. <kbd>Enter</kbd> y <kbd>Shift</kbd>+<kbd>Enter</kbd> permiten recorrer las coincidencias. <kbd>Esc</kbd> cierra la barra de búsqueda.
+
+La previsualización en el editor se renderiza en un iframe, por lo que las herramientas de desarrollo del navegador no pueden acceder a ella. Selecciona el botón **Open in browser** en la barra de herramientas de la previsualización, o ejecuta **Mintlify: Open preview in browser**, para abrir la página en tu navegador.
 
 Las previsualizaciones en el editor requieren la [CLI de Mintlify](/es/cli/install). El servidor de previsualización se ejecuta en el puerto `3939` de forma predeterminada para no entrar en conflicto con aplicaciones en el puerto 3000. Cambia el puerto con la configuración `mintlify.preview.port`.
 
