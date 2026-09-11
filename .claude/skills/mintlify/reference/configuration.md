@@ -31,9 +31,10 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `title` | string | Yes | Page title in navigation and browser tabs. |
+| `title` | string | Yes | Page title in navigation and as the on-page heading. |
 | `description` | string | No | Brief description for SEO. Displays under the title. |
 | `sidebarTitle` | string | No | Short title for sidebar navigation. |
+| `documentTitle` | string | No | Browser tab title. Falls back to `title`. |
 | `icon` | string | No | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
 | `iconType` | string | No | Font Awesome icon style: `regular`, `solid`, `light`, `thin`, `sharp-solid`, `duotone`, `brands`. |
 | `tag` | string | No | Label next to page title in sidebar (e.g., "NEW"). |
