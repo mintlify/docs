@@ -62,6 +62,8 @@ export async function loadTargets(selectedIds = []) {
       (target.skillReferenceDirectory !== undefined &&
         !['reference', 'references'].includes(target.skillReferenceDirectory)) ||
       (target.mcpSchema !== undefined && typeof target.mcpSchema !== 'string') ||
+      (target.pluginManifestFile !== undefined &&
+        !['plugin.json', '.claude-plugin/plugin.json'].includes(target.pluginManifestFile)) ||
       (target.mcpTypeOverrides !== undefined &&
         (target.mcpTypeOverrides === null ||
           typeof target.mcpTypeOverrides !== 'object' ||
@@ -176,10 +178,9 @@ export async function buildTarget(target, outputRoot) {
   );
 
   if (target.pluginManifest !== undefined) {
-    await writeFile(
-      path.join(targetRoot, 'plugin.json'),
-      `${JSON.stringify(target.pluginManifest, null, 2)}\n`,
-    );
+    const manifestPath = path.join(targetRoot, target.pluginManifestFile ?? 'plugin.json');
+    await mkdir(path.dirname(manifestPath), { recursive: true });
+    await writeFile(manifestPath, `${JSON.stringify(target.pluginManifest, null, 2)}\n`);
   }
 
   const provenance = {
@@ -219,7 +220,9 @@ export async function copyTargetToRepository(targetId, destination, outputRoot) 
     path.join(destination, target.mcpConfigFile),
   );
   if (target.pluginManifest !== undefined) {
-    await cp(path.join(sourceRoot, 'plugin.json'), path.join(destination, 'plugin.json'));
+    const manifestFile = target.pluginManifestFile ?? 'plugin.json';
+    await mkdir(path.dirname(path.join(destination, manifestFile)), { recursive: true });
+    await cp(path.join(sourceRoot, manifestFile), path.join(destination, manifestFile));
   }
   await cp(
     path.join(sourceRoot, '.mintlify-agent-context.json'),

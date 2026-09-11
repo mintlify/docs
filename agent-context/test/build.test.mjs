@@ -79,6 +79,12 @@ test('builds all client variants from one canonical skill', async () => {
     );
     assert.equal(kiroManifest.name, 'mintlify');
     assert.ok(kiroManifest.keywords.includes('mintlify'));
+    // Claude Code only reads the manifest from .claude-plugin/, not the repository root.
+    const claudeManifest = JSON.parse(
+      await readFile(path.join(outputRoot, 'claude', '.claude-plugin', 'plugin.json'), 'utf8'),
+    );
+    assert.equal(claudeManifest.name, 'mintlify');
+    await assert.rejects(readFile(path.join(outputRoot, 'claude', 'plugin.json')));
     assert.deepEqual(Object.keys(cursorMcp.mcpServers), [
       'Mintlify Search',
       'Mintlify Admin',
