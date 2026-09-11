@@ -1,6 +1,8 @@
 ---
 type: fixed
 ---
+<!-- The operation names below (deployment.integrations.*, aiChat.enabled) are
+     illustrative stand-ins for this mock, not the real Admin code-mode API. -->
 2 matching operations:
 
 1. `deployment.integrations.get()` -> IntegrationsSettings
