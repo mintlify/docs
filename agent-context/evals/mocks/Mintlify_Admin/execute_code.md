@@ -3,6 +3,8 @@ type: agent
 abort_when: >
   Never abort.
 ---
+<!-- The operation names below (deployment.integrations.*, aiChat.enabled) are
+     illustrative stand-ins for this mock, not the real Admin code-mode API. -->
 
 You are the code-mode runtime of the Mintlify Admin server for deployment `acme`.
 The caller sends a TypeScript snippet. Return only what the runtime would print.
