@@ -1,0 +1,75 @@
+---
+title: "Advertise a second, externally-hosted MCP server on your docs domain"
+description: "Options for exposing an additional MCP server (hosted outside Mintlify) alongside the built-in search MCP server on your docs domain, since Mintlify's discovery endpoints only advertise MCP servers it hosts."
+keywords: ["MCP discovery", "external MCP server", "well-known mcp", "second MCP server", "self-hosted MCP", "reverse proxy", "api-catalog"]
+---
+
+Mintlify hosts a search MCP server for every site and advertises it through the `/.well-known/mcp`, `/.well-known/mcp.json`, `/.well-known/mcp/server-card.json`, and `/.well-known/mcp/server-cards.json` endpoints described in [Search MCP server](/ai/model-context-protocol#discovery-endpoint). These endpoints are generated automatically and only list the MCP servers Mintlify hosts for your site (the public `/mcp` endpoint, and `/authed/mcp` if you use authentication). There is no `docs.json` field for adding a second, externally-hosted MCP server to those responses.
+
+The same applies to the `/.well-known/api-catalog` endpoint that Mintlify advertises through the [agent `Link` header](/ai/llmstxt#link-header): that catalog lists OpenAPI documents ingested from your `docs.json`, not MCP servers.
+
+If you run your own MCP server outside Mintlify and want it discoverable alongside the built-in one on your docs domain, use one of the options below.
+
+## Option 1: Serve your own discovery document through a reverse proxy
+
+If your docs are already served through a [reverse proxy](/deploy/reverse-proxy) on your own domain, you own the `/.well-known/*` paths at that domain. Intercept the MCP discovery paths in your proxy and return a JSON document that lists both servers instead of forwarding them to Mintlify.
+
+Use the same shape Mintlify returns for `/.well-known/mcp` so existing MCP clients keep working:
+
+```json
+{
+  "version": "1.0.0",
+  "transport": "http",
+  "url": "https://your-docs.com/mcp",
+  "servers": [
+    {
+      "name": "public",
+      "url": "https://your-docs.com/mcp",
+      "transport": "http",
+      "authentication": "none"
+    },
+    {
+      "name": "external",
+      "url": "https://mcp.your-domain.com",
+      "transport": "http",
+      "authentication": "oauth2"
+    }
+  ]
+}
+```
+
+Example nginx snippet that serves a static file instead of proxying to Mintlify for the MCP discovery paths:
+
+```nginx
+location = /.well-known/mcp {
+    default_type application/json;
+    alias /etc/nginx/well-known/mcp.json;
+}
+
+location = /.well-known/mcp.json {
+    default_type application/json;
+    alias /etc/nginx/well-known/mcp.json;
+}
+```
+
+Notes:
+
+- Serve `Content-Type: application/json` and disable caching (`Cache-Control: no-store`) so agents pick up updates immediately.
+- Overriding the discovery paths hides the built-in Mintlify response. Include the Mintlify-hosted `/mcp` (and `/authed/mcp` if applicable) entries in the file you serve so clients that read discovery still find the built-in search server.
+- If you also override `/.well-known/mcp/server-card.json` or `/.well-known/mcp/server-cards.json`, mirror the [server-card format](/ai/model-context-protocol#server-card-endpoints) so tools that pre-populate metadata from those endpoints still work.
+
+## Option 2: Publish the external MCP URL directly
+
+If you don't run a reverse proxy, or you don't want to maintain a static discovery file, publish the external MCP server URL to your users the same way you publish the built-in one. See [Use your MCP server](/ai/model-context-protocol#use-your-mcp-server) for patterns that work with the built-in server and apply equally to a second URL:
+
+- Add a page to your docs that lists both MCP server URLs and how to connect each one in Claude, Cursor, VS Code, or another client.
+- Add [contextual menu](/ai/contextual-menu) entries for the built-in server so users can copy the URL or install commands in one click. The contextual menu options only cover the Mintlify-hosted MCP server, so document the external URL manually alongside them.
+
+Clients that support multiple MCP servers can be pointed at the built-in `/mcp` endpoint and the external URL independently; they do not need to be listed in a single discovery document to be usable.
+
+## What Mintlify does not currently support
+
+- Adding an external MCP server URL to a `docs.json` field so Mintlify includes it in `/.well-known/mcp*` responses.
+- Listing MCP servers under `/.well-known/api-catalog`. That endpoint is scoped to OpenAPI documents.
+
+If either of these would unblock your setup, contact [support@mintlify.com](mailto:support@mintlify.com) with your use case.
