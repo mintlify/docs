@@ -1,0 +1,39 @@
+---
+title: "修复子路径下主页 404 与 /docs/docs/ URL"
+description: "当内容位于仓库顶层 docs/ 文件夹时，Mintlify 站点子路径根返回 404，且所有页面都在 /docs/docs/ 下。"
+keywords: ["docs docs subpath", "host at 404", "subpath duplication", "base path 404", "docs folder subpath", "double docs path"]
+---
+
+如果你在 `/docs` 这样的子路径上启用了 **Host at**，而你的文档内容位于仓库中顶层的 `docs/` 文件夹里，那么每个页面都会在 `/docs/docs/...` 下提供。子路径根（`your-domain.com/docs`）会返回 `404`。本文解释了原因及修复方法。关于子路径托管的背景，参见 [在子路径托管文档](/zh/deploy/docs-subpath) 和 [自定义域名](/zh/customize/custom-domain)。
+
+## 现象
+
+- `your-domain.com/docs` 返回 `404`。
+- 单个页面只能在 `your-domain.com/docs/docs/<page>` 加载。
+- 在启用 **Host at** 之前，站点在域名根下能正常工作；或在本地使用 `mint dev` 时可以正常工作（本地不会应用 base path）。
+
+## 原因
+
+**Host at** base path 是 Mintlify 在部署时加在每个页面 slug 前面的 URL 前缀。页面 slug 来源于每个文件相对于仓库根目录的路径，因此 `docs/quickstart.mdx` 文件的 slug 是 `docs/quickstart`。当你把 base path 设为 `/docs` 时，Mintlify 会把它前置到每个 slug 上，于是该文件会在 `/docs/docs/quickstart` 提供。子路径根没有映射到任何页面，因此 `/docs` 本身返回 `404`。
+
+任何与你的内容文件夹同名的 base path 都会出现同样的重复问题，例如 `guides/` 文件夹搭配 `/guides` base path。
+
+## 修复
+
+从下面几种方案中选择其一。移动内容是推荐的修复方式，因为它更符合 Mintlify 子路径托管所期望的仓库结构。
+
+### 将内容移出 `docs/` 文件夹（推荐）
+
+1. 在你的文档仓库中，把 `docs/` 内的所有文件和文件夹上移一级到仓库根目录。`docs.json` 及顶层内容（如 `index.mdx`、`quickstart.mdx` 以及任何内容分组文件夹）都应位于仓库根目录。
+2. 更新 `docs.json` 中任何引用了旧 `docs/` 前缀的内部链接、图片路径或导航条目。
+3. 提交并推送。构建完成后，页面将在 `your-domain.com/docs/<page>` 加载，且子路径根会解析到你的主页。
+
+### 让 base path 与内容文件夹保持一致
+
+如果你无法把内容移出 `docs/`，就修改 base path，避免再加一个 `/docs` 段：
+
+1. 在控制台中打开 [自定义域名设置](https://app.mintlify.com/settings/deployment/custom-domain) 页面。
+2. 将 **Host at** base path 设为 `/`（或关闭开关），这样就让仓库中的 `docs/` 文件夹自己提供 `/docs` 前缀。
+3. 保存更改并等待重新部署完成。在新部署上线之前，Mintlify 会继续从当前路径提供服务。之后流量会切换到新路径。参见 [修改你的 base path](/zh/customize/custom-domain#change-your-base-path)。
+
+如果你的托管服务将子路径代理到 Mintlify（Cloudflare Workers、Vercel rewrites 或自定义反向代理），请在 Mintlify 侧保持 base path 与内容文件夹一致。你的服务提供商仍会把 `your-domain.com/docs/*` 路由到 Mintlify。代理配置参见 [Cloudflare](/zh/deploy/cloudflare)、[Vercel](/zh/deploy/vercel) 和 [自定义反向代理](/zh/deploy/reverse-proxy)。

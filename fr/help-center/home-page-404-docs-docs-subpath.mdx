@@ -1,0 +1,39 @@
+---
+title: "Corriger le 404 d'accueil et /docs/docs/ sur un sous-chemin"
+description: "Résolvez un site Mintlify qui renvoie 404 à la racine de son sous-chemin et sert chaque page sous /docs/docs/ quand le contenu vit dans un dossier docs/."
+keywords: ["docs docs subpath", "host at 404", "subpath duplication", "base path 404", "docs folder subpath", "double docs path"]
+---
+
+Si vous activez **Host at** sur un sous-chemin comme `/docs` et que le contenu de votre documentation se trouve dans un dossier `docs/` à la racine de votre dépôt, chaque page est servie à `/docs/docs/...`. La racine du sous-chemin (`your-domain.com/docs`) renvoie `404`. Cet article explique pourquoi cela se produit et comment le corriger. Pour le contexte sur l'hébergement sur sous-chemin, consultez [Héberger la documentation sur un sous-chemin](/fr/deploy/docs-subpath) et [Domaine personnalisé](/fr/customize/custom-domain).
+
+## Symptôme
+
+- `your-domain.com/docs` renvoie `404`.
+- Les pages individuelles ne se chargent qu'à `your-domain.com/docs/docs/<page>`.
+- Le site fonctionnait à la racine du domaine avant que vous n'activiez **Host at**, ou fonctionne en local avec `mint dev` où le chemin de base n'est pas appliqué.
+
+## Cause
+
+Le chemin de base **Host at** est un préfixe d'URL que Mintlify applique devant chaque slug de page au moment du déploiement. Les slugs de page proviennent du chemin de chaque fichier relatif à la racine du dépôt, donc un fichier situé à `docs/quickstart.mdx` a le slug `docs/quickstart`. Lorsque vous définissez le chemin de base à `/docs`, Mintlify le préfixe à chaque slug et le fichier est servi à `/docs/docs/quickstart`. Aucune page n'est mappée à la racine du sous-chemin, donc `/docs` lui-même renvoie `404`.
+
+La même duplication se produit avec tout chemin de base qui correspond au nom de votre dossier de contenu, par exemple un dossier `guides/` combiné à un chemin de base `/guides`.
+
+## Correction
+
+Choisissez l'une des options suivantes. Déplacer le contenu est la correction recommandée car elle correspond à la structure de dépôt attendue par l'hébergement sur sous-chemin de Mintlify.
+
+### Déplacez votre contenu hors du dossier `docs/` (recommandé)
+
+1. Dans votre dépôt de documentation, déplacez chaque fichier et dossier situé dans `docs/` d'un niveau vers le haut, à la racine du dépôt. `docs.json` et votre contenu de haut niveau (comme `index.mdx`, `quickstart.mdx` et les dossiers de groupes de contenu) doivent se trouver à la racine du dépôt.
+2. Mettez à jour tous les liens internes, chemins d'images ou entrées de navigation dans `docs.json` qui référençaient l'ancien préfixe `docs/`.
+3. Commitez et poussez. Une fois la build terminée, les pages se chargent à `your-domain.com/docs/<page>` et la racine du sous-chemin se résout sur votre page d'accueil.
+
+### Alignez le chemin de base avec votre dossier de contenu
+
+Si vous ne pouvez pas déplacer le contenu hors de `docs/`, modifiez le chemin de base pour qu'il n'ajoute pas un segment `/docs` supplémentaire :
+
+1. Dans votre tableau de bord, ouvrez la page [Configuration du domaine personnalisé](https://app.mintlify.com/settings/deployment/custom-domain).
+2. Définissez le chemin de base **Host at** sur `/` (ou désactivez le bouton) afin que le dossier `docs/` de votre dépôt fournisse le préfixe `/docs` de lui-même.
+3. Enregistrez la modification et attendez la fin du redéploiement. Mintlify continue de servir depuis le chemin actuel jusqu'à ce que le nouveau déploiement soit en ligne. Le trafic bascule ensuite vers le nouveau chemin. Consultez [Modifier votre chemin de base](/fr/customize/custom-domain#change-your-base-path).
+
+Si votre fournisseur d'hébergement redirige le sous-chemin vers Mintlify (Cloudflare Workers, réécritures Vercel ou un reverse proxy personnalisé), gardez le chemin de base aligné avec votre dossier de contenu côté Mintlify. Votre fournisseur continue de router `your-domain.com/docs/*` vers Mintlify. Consultez [Cloudflare](/fr/deploy/cloudflare), [Vercel](/fr/deploy/vercel) et [Reverse proxy personnalisé](/fr/deploy/reverse-proxy) pour la configuration du proxy.
