@@ -57,6 +57,9 @@ jobs:
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # sticky results comment
     env:
       PLUGIN_DIR: mintlify-claude-plugin
       HAS_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
@@ -104,7 +107,32 @@ jobs:
 
       - name: Summarize
         if: always()
-        run: node agent-context/scripts/eval-summary.mjs eval-results.json >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          node agent-context/scripts/eval-summary.mjs eval-results.json > eval-summary.md
+          cat eval-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment per PR, updated in place on every run, found by its marker.
+      - name: Comment on the pull request
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          marker='<!-- eval-shared-content-via-claude -->'
+          {
+            echo "$marker"
+            cat eval-summary.md
+            echo
+            echo "[Run log, and the full HTML report under Artifacts]($RUN_URL)"
+          } > comment.md
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@comment.md > /dev/null
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always() && env.HAS_API_KEY == 'true'
