@@ -547,7 +547,7 @@ import { Counter } from "/snippets/counter.jsx";
 
 JSX components can live in any directory, not just `/snippets/`. Nested imports between snippet files are not supported.
 
-MDX expressions (imported variables like `{myName}` and inline expressions like `{1 + 1}`) are evaluated client-side in the browser. Their values are absent from a page's initial HTML and from offline exports, so crawlers, LLMs, and other tools that do not run JavaScript do not see them. Write values as plain text when they must be visible in those situations.
+MDX expressions (imported variables like `{myName}` and inline expressions like `{1 + 1}`) are evaluated client-side. Their values are absent from a page's initial HTML and from offline exports. Crawlers, LLMs, and other tools that do not run JavaScript do not see them. Write values as plain text when they must be visible in those situations.
 
 ## Hidden pages
 
