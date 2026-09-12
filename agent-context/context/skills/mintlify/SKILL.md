@@ -123,7 +123,7 @@ keywords: ["relevant", "search", "terms"]
 | `title` | string | Page title in navigation and browser tabs. Auto-generated from the path if omitted. |
 | `description` | string | Brief description for SEO. Displays under the title. |
 | `sidebarTitle` | string | Short title for sidebar navigation. |
-| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
+| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a single emoji, a URL, or a file path. |
 | `tag` | string | Label next to page title in sidebar (e.g., "NEW"). |
 | `hidden` | boolean | Remove from sidebar. Page still accessible by URL. |
 | `mode` | string | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |

@@ -323,10 +323,10 @@ Text with <Icon icon="check" iconType="solid" /> inline icon.
 ```
 
 Props:
-- `icon` (string, required): Icon name, URL, or file path.
+- `icon` (string, required): Font Awesome, Lucide, or Tabler icon name, a single emoji, a URL, or a file path.
 - `iconType` (string): Font Awesome style.
 - `size` (number): Pixel size.
-- `color` (string): Hex color.
+- `color` (string): Hex color. Not applied to emoji icons.
 
 ## Tooltips
 
