@@ -1,18 +1,20 @@
 ---
 title: "_cf-custom-hostname TXT 记录一直未验证"
-description: "解释当你自己的反向代理为文档子路径提供服务时，控制台中的验证 TXT 记录为何一直未验证，以及为何可以安全地忽略这一状态。"
+description: "解释当你的子路径代理运行在 Cloudflare 上时，控制台中的验证 TXT 记录为何一直未验证，以及为何可以安全地忽略这一状态。"
 keywords: ["_cf-custom-hostname", "_acme-challenge", "TXT record unverified", "域名验证卡住", "pending validation", "代理子路径", "Cloudflare Worker", "反向代理"]
 ---
 
-如果你通过自己的反向代理在子路径下托管文档（例如使用 Cloudflare Worker 将 `example.com/docs` 转发到 `<your-subdomain>.mintlifysite.com`），[Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) 页面仍会显示 `_cf-custom-hostname` 和 `_acme-challenge` 验证 `TXT` 记录。在这种设置下，即使你在 DNS 提供商处添加了这些记录并点击 **Retry validation**，它们也永远不会显示为已验证。
+如果你在运行于 Cloudflare 上的反向代理后面的子路径下托管文档（例如使用 Cloudflare Worker 将 `example.com/docs` 转发到 `<your-subdomain>.mintlifysite.com`），[Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) 页面仍会显示 `_cf-custom-hostname` 和 `_acme-challenge` 验证 `TXT` 记录。在这种设置下，即使你在 DNS 提供商处添加了这些记录并点击 **Retry validation**，它们也永远不会显示为已验证。
+
+这种情况仅针对运行在 Cloudflare 上的代理。如果你的子路径代理运行在其他平台上，例如 Vercel 或自定义的 nginx 反向代理，`TXT` 记录会通过标准的 DNS 查询进行验证，与你的流量路由到哪里无关。如果在这种情况下记录仍未验证，请确认你已按照页面显示的内容在域名的权威 DNS 提供商处准确添加了这些记录。
 
 <div id="why-the-records-never-verify">
   ## 为什么这些记录永远无法验证
 </div>
 
-验证 `TXT` 记录仅在你域名的流量通过指向 `cname.mintlify.builders` 的 `CNAME` 记录路由到 Mintlify 时才起作用。它们用于验证你对域名的控制权，并授权 Let's Encrypt 签发由 Mintlify 提供服务的 TLS 证书。
+你的域名已经通过 Cloudflare 代理，而这正是 Mintlify 用来验证自定义主机名的同一网络。在这种配置下，Cloudflare 无法仅通过 DNS 查询完成 `TXT` 记录的验证。它要求该主机名的流量必须先通过其网络路由到 Mintlify，这与[通过 Cloudflare 代理的域名](/zh/customize/custom-domain#cloudflare-proxied-domains)中描述的要求相同。
 
-当由你自己的代理为子路径提供服务时，你域名的流量永远不会到达 Mintlify 的边缘节点。你的代理使用自己的证书终止 TLS，并将请求转发到已经拥有有效证书的 `<your-subdomain>.mintlifysite.com`。Mintlify 对你的域名没有任何需要验证或签发的内容，因此这些记录会无限期地保持未验证状态。
+当由你自己基于 Cloudflare 的代理为子路径提供服务时，你域名的流量会在你的代理处终止，永远无法到达 Mintlify 的边缘节点，因此你的设置永远无法满足这一要求。你的代理使用自己的证书终止 TLS，并将请求转发到已经拥有有效证书的 `<your-subdomain>.mintlifysite.com`，因此这些记录会无限期地保持未验证状态。
 
 <div id="what-to-do">
   ## 该怎么做
