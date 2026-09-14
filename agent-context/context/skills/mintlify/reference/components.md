@@ -2,6 +2,12 @@
 
 Full syntax and props for all Mintlify components.
 
+## Styling with className
+
+All built-in components accept a `className` prop (string) except Banner, MDX, and Visibility. Mintlify merges your classes with the component's own styles. Use Tailwind CSS v3 classes, including arbitrary values such as `w-[350px]`, or class names defined in a custom CSS file. Write class names out in full. Mintlify generates CSS only for class names found in the page source, so runtime-assembled names like `` bg-${color}-500 `` produce no CSS. On `<Tab>`, `className` styles the tab's content panel, not its label in the tab bar.
+
+Component `title` props (for example on Accordion, Step, and Tab) support inline Markdown formatting such as `**bold**`, `_italic_`, and `` `code` ``.
+
 ## Callouts
 
 Styled alert boxes for important information.
@@ -424,6 +430,7 @@ Notes:
 - Block form at the top level of a page: leave a blank line after the opening tag so content parses as block-level Markdown.
 - Inside expressions, `<MDX>` strips the common leading indentation from its content.
 - Headings inside `<MDX>` appear in the page's table of contents, including headings in branches that never render (such as the inactive side of a conditional).
+- Code fences and inline code inside `<MDX>` compile like code at the page root. Raw `<`, `>`, `{`, and `}` need no escaping. Character references decode to their characters (`&lt;` renders as `<`; write `&amp;lt;` for a literal `&lt;`).
 - Limits: nest `<MDX>` up to 8 levels deep; a page can expand up to 500 `<MDX>` fragments inside expressions. Exceeding either limit fails the build.
 
 ## Panel
@@ -563,3 +570,31 @@ Embed a card that links to a public GitHub repository. The card fetches the repo
 - `repo` (string, required): `owner/name` slug (for example, `mintlify/docs`) or a full GitHub URL.
 - `variant` (string, default: `"inset"`): Card layout. Options: `inset`, `flat`.
 - `className` (string): Additional CSS classes applied to the card.
+
+## Table column widths
+
+Markdown tables size columns automatically based on content. To control column widths, write the table in HTML and add a `<colgroup>` element that sets a width on every `<col>` (through the `width` attribute or an inline style). If any `<col>` is missing a width, Mintlify ignores the declared widths and sizes columns based on content. Tables too wide for the page scroll horizontally.
+
+```html
+<table>
+  <colgroup>
+    <col width="25%" />
+    <col width="15%" />
+    <col width="60%" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>name</td>
+      <td>string</td>
+      <td>Full name of the user</td>
+    </tr>
+  </tbody>
+</table>
+```
