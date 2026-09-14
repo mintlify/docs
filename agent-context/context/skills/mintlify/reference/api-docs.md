@@ -30,6 +30,24 @@ Reference individual endpoints in navigation:
 }
 ```
 
+### Overlays
+
+Transform an OpenAPI spec without editing its source file using [OpenAPI Overlay](https://spec.openapis.org/overlay/v1.1.0.html) documents (Overlay versions 1.0 and 1.1). List overlays with the object form of `openapi`, which works anywhere `openapi` is accepted, including navigation elements and arrays:
+
+```json
+"openapi": {
+  "source": "openapi.json",
+  "overlays": ["overlays/rename-paths.yaml", "https://example.com/overlays/servers.yaml"]
+}
+```
+
+An overlay document has an `overlay` version, an `info` object with `title` and `version`, an optional `extends` field linking it to a spec, and an `actions` array. Each action selects nodes with an RFC 9535 JSONPath `target` and applies one modifier: `update` (merge value into node), `remove` (delete node when `true`), or `copy` (copy node from another JSONPath; Overlay 1.1 only).
+
+- Overlays apply in listed order, after parsing and before validation. Generated pages, navigation, `openapi` frontmatter references, and `mint validate` all use the transformed document, so frontmatter must reference post-overlay paths.
+- Overlay paths must point to files inside the docs repo; overlay URLs must use `https`. Referencing the same spec with different `overlays` lists in different places fails the build.
+- Auto-discovery: any JSON or YAML file with a top-level `overlay` key whose `extends` field resolves to one of your specs applies automatically, in alphabetical order of file paths. An explicit `overlays` list replaces auto-discovery for that spec. Set `"overlays": []` to disable all overlays for a spec.
+- Explicit overlays that fail to load or apply fail the spec's validation; failed auto-discovered overlays are skipped and the spec publishes without them.
+
 ### File uploads
 
 For OpenAPI 3.1 specs, describe a file upload field as a string schema with a binary `contentMediaType` inside a `multipart/form-data` request body. The playground renders it as a file input and sends the request as multipart form data.
