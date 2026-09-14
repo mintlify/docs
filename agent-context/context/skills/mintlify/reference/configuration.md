@@ -57,7 +57,7 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `title` | string | Page title in navigation and browser tabs. Auto-generated from the path if omitted. |
 | `description` | string | Brief description for SEO. Displays under the title. |
 | `sidebarTitle` | string | Short title for sidebar navigation. |
-| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
+| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a single emoji, a URL, or a file path. |
 | `iconType` | string | Font Awesome icon style: `regular`, `solid`, `light`, `thin`, `sharp-solid`, `duotone`, `brands`. |
 | `tag` | string | Label next to page title in sidebar (e.g., "NEW"). |
 | `hidden` | boolean | Remove from sidebar. Page still accessible by URL. Also excludes the page from search, sitemaps, external indexing, AI context, and `llms.txt`. Remove the field (or set `false`) to make a page visible again. |
@@ -180,7 +180,7 @@ Single file or light/dark variants:
 }
 ```
 
-Options: `"fontawesome"` (default), `"lucide"`, or `"tabler"`. You can only use one library per project. Individual icons can still use URLs or file paths regardless of this setting.
+Options: `"fontawesome"` (default), `"lucide"`, or `"tabler"`. You can only use one library per project. Individual icons can still use a single emoji, a URL, or a file path regardless of this setting.
 
 ## Fonts
 
@@ -546,6 +546,8 @@ import { Counter } from "/snippets/counter.jsx";
 ```
 
 JSX components can live in any directory, not just `/snippets/`. Nested imports between snippet files are not supported.
+
+MDX expressions (imported variables like `{myName}` and inline expressions like `{1 + 1}`) are evaluated client-side. Their values are absent from a page's initial HTML and from offline exports. Crawlers, LLMs, and other tools that do not run JavaScript do not see them. Write values as plain text when they must be visible in those situations.
 
 ## Hidden pages
 
