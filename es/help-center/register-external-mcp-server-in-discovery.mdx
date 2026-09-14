@@ -1,0 +1,75 @@
+---
+title: "Anunciar un servidor MCP alojado externamente"
+description: "Expón un MCP autoalojado junto al MCP de búsqueda integrado en tu dominio de docs, ya que los endpoints de descubrimiento de Mintlify solo listan los suyos."
+keywords: ["MCP discovery", "external MCP server", "well-known mcp", "second MCP server", "self-hosted MCP", "reverse proxy", "api-catalog"]
+---
+
+Mintlify aloja un servidor MCP de búsqueda para cada sitio y lo anuncia a través de los endpoints `/.well-known/mcp`, `/.well-known/mcp.json`, `/.well-known/mcp/server-card.json` y `/.well-known/mcp/server-cards.json` descritos en [Servidor MCP de búsqueda](/es/ai/model-context-protocol#discovery-endpoint). Estos endpoints se generan automáticamente y solo listan los servidores MCP que Mintlify aloja para tu sitio (el endpoint público `/mcp` y `/authed/mcp` si usas autenticación). No existe un campo en `docs.json` para añadir un segundo servidor MCP alojado externamente a esas respuestas.
+
+Lo mismo aplica al endpoint `/.well-known/api-catalog` que Mintlify anuncia mediante el [encabezado `Link` para agentes](/es/ai/llmstxt#link-header): ese catálogo lista los documentos OpenAPI ingeridos desde tu `docs.json`, no servidores MCP.
+
+Si ejecutas tu propio servidor MCP fuera de Mintlify y quieres que sea descubrible junto al integrado en tu dominio de documentación, usa una de las opciones siguientes.
+
+## Opción 1: Servir tu propio documento de descubrimiento a través de un proxy inverso
+
+Si tus documentos ya se sirven a través de un [proxy inverso](/es/deploy/reverse-proxy) en tu propio dominio, tú controlas las rutas `/.well-known/*` de ese dominio. Intercepta las rutas de descubrimiento MCP en tu proxy y devuelve un documento JSON que liste ambos servidores en lugar de reenviarlas a Mintlify.
+
+Usa la misma forma que Mintlify devuelve para `/.well-known/mcp` para que los clientes MCP existentes sigan funcionando:
+
+```json
+{
+  "version": "1.0.0",
+  "transport": "http",
+  "url": "https://your-docs.com/mcp",
+  "servers": [
+    {
+      "name": "public",
+      "url": "https://your-docs.com/mcp",
+      "transport": "http",
+      "authentication": "none"
+    },
+    {
+      "name": "external",
+      "url": "https://mcp.your-domain.com",
+      "transport": "http",
+      "authentication": "oauth2"
+    }
+  ]
+}
+```
+
+Ejemplo de fragmento de nginx que sirve un archivo estático en lugar de reenviar a Mintlify las rutas de descubrimiento MCP:
+
+```nginx
+location = /.well-known/mcp {
+    default_type application/json;
+    alias /etc/nginx/well-known/mcp.json;
+}
+
+location = /.well-known/mcp.json {
+    default_type application/json;
+    alias /etc/nginx/well-known/mcp.json;
+}
+```
+
+Notas:
+
+- Sirve `Content-Type: application/json` y desactiva el caché (`Cache-Control: no-store`) para que los agentes recojan las actualizaciones de inmediato.
+- Sobrescribir las rutas de descubrimiento oculta la respuesta integrada de Mintlify. Incluye las entradas de `/mcp` alojado por Mintlify (y `/authed/mcp` si aplica) en el archivo que sirvas para que los clientes que leen el descubrimiento sigan encontrando el servidor de búsqueda integrado.
+- Si también sobrescribes `/.well-known/mcp/server-card.json` o `/.well-known/mcp/server-cards.json`, replica el [formato de server-card](/es/ai/model-context-protocol#server-card-endpoints) para que las herramientas que rellenan metadatos desde esos endpoints sigan funcionando.
+
+## Opción 2: Publicar directamente la URL del MCP externo
+
+Si no usas un proxy inverso, o no quieres mantener un archivo estático de descubrimiento, publica la URL del servidor MCP externo a tus usuarios de la misma forma que publicas la del integrado. Consulta [Usa tu servidor MCP](/es/ai/model-context-protocol#use-your-mcp-server) para ver patrones que funcionan con el servidor integrado y se aplican igual a una segunda URL:
+
+- Añade una página a tu documentación que liste ambas URL de servidor MCP y explique cómo conectarse a cada una en Claude, Cursor, VS Code u otro cliente.
+- Añade entradas del [menú contextual](/es/ai/contextual-menu) para el servidor integrado, de modo que los usuarios puedan copiar la URL o los comandos de instalación con un clic. Las opciones del menú contextual solo cubren el servidor MCP alojado por Mintlify, así que documenta la URL externa manualmente junto a ellas.
+
+Los clientes que admiten varios servidores MCP pueden apuntar al endpoint integrado `/mcp` y a la URL externa por separado; no necesitan estar listados en un único documento de descubrimiento para ser utilizables.
+
+## Lo que Mintlify no admite actualmente
+
+- Añadir la URL de un servidor MCP externo a un campo de `docs.json` para que Mintlify la incluya en las respuestas de `/.well-known/mcp*`.
+- Listar servidores MCP bajo `/.well-known/api-catalog`. Ese endpoint está limitado a documentos OpenAPI.
+
+Si cualquiera de estas opciones desbloquearía tu configuración, contacta con [support@mintlify.com](mailto:support@mintlify.com) explicando tu caso de uso.
