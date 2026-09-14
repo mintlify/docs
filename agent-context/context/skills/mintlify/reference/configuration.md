@@ -587,7 +587,7 @@ Add `.css` files to your repository. Class names become available in all MDX fil
 }
 ```
 
-Built-in Tailwind CSS v3 classes are available. Arbitrary values (e.g., `w-[350px]`) are not supported — use inline `style` instead.
+Built-in Tailwind CSS v3 classes are available, including arbitrary values (e.g., `w-[350px]`) and variants (`sm:`, `hover:`, `dark:`). All built-in components except Banner, MDX, and Visibility accept a `className` prop. Write class names out in full: Mintlify generates CSS only for class names found in the page source, so runtime-assembled names produce no CSS. Avoid the inline `style` prop; it can cause layout shift on page load.
 
 ### JavaScript
 

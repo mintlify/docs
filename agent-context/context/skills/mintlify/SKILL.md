@@ -50,7 +50,7 @@ Key tools:
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`search_code_operations`** / **`execute_code`** — Code mode for deployment-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live deployment, so confirm the intended change first.
-- **`diff`** — See all changes relative to `main`.
+- **`diff`** — See all changes relative to the deploy branch.
 - **`get_session_state`** — Check the current session's status.
 - **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the deployment's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
 - **`discard_session`** — Drop all in-session changes.
