@@ -202,6 +202,100 @@ Vous pouvez également utiliser `x-default` sur d’autres propriétés de sché
   Le pré-remplissage depuis `x-default` sur des propriétés de schéma de type array n’est pas pris en charge actuellement dans le playground de l’API, même lorsque `api.examples.prefill` est activé.
 </Note>
 
+<div id="transform-your-spec-with-overlays">
+  ## Transformez votre spécification avec des overlays
+</div>
+
+Utilisez les [overlays OpenAPI](https://spec.openapis.org/overlay/v1.1.0.html) pour modifier une spécification OpenAPI sans éditer son fichier source. Les overlays sont des fichiers JSON ou YAML distincts qui décrivent une liste ordonnée de modifications, ce qui est utile lorsqu’une spécification est générée par un autre outil ou maintenue par une autre équipe. Les usages courants incluent le renommage de chemins, le remplacement d’URL de serveur et la suppression d’endpoints internes.
+
+Les overlays s’appliquent après l’analyse d’une spécification et avant sa validation, de sorte que les pages d’endpoints générées, la navigation, les références `openapi` dans le frontmatter et `mint validate` utilisent tous le document transformé. Les versions 1.0 et 1.1 de la spécification Overlay sont prises en charge.
+
+<div id="create-an-overlay-document">
+  ### Créer un document d’overlay
+</div>
+
+Un document d’overlay comporte une version `overlay`, un objet `info` avec un `title` et une `version`, et un tableau `actions`. Chaque action sélectionne des nœuds avec une expression `target` au format [JSONPath RFC 9535](https://www.rfc-editor.org/rfc/rfc9535) et applique un modificateur :
+
+* `update` : fusionne une valeur dans chaque nœud ciblé. Les objets fusionnent de manière récursive, les tableaux ajoutent la valeur à la fin et les primitives sont remplacées.
+* `remove` : supprime chaque nœud ciblé lorsque défini sur `true`.
+* `copy` : copie le nœud sélectionné par une autre expression JSONPath dans chaque nœud ciblé. Nécessite Overlay 1.1.
+
+```yaml docs-overlay.yaml
+overlay: 1.1.0
+info:
+  title: Docs adjustments
+  version: 1.0.0
+extends: ./openapi.json
+actions:
+  - target: $.info.description
+    update: "The public API for Example, Inc."
+  - target: $.paths['/internal-metrics']
+    remove: true
+```
+
+Le champ facultatif `extends` associe un overlay à une spécification pour la [découverte automatique](#auto-discover-overlays). Définissez-le sur un chemin relatif au fichier d’overlay, ou sur l’URL exacte que votre `docs.json` utilise pour une spécification hébergée.
+
+<div id="reference-overlays-in-your-docsjson">
+  ### Référencer les overlays dans votre docs.json
+</div>
+
+Listez les overlays avec la forme objet du champ `openapi`, qui fonctionne partout où `openapi` est accepté, y compris à l’intérieur de tableaux. Les overlays s’appliquent dans l’ordre où vous les listez.
+
+```json {6-9}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "openapi": {
+        "source": "openapi.json",
+        "overlays": [
+          "overlays/rename-paths.yaml",
+          "https://example.com/overlays/servers.yaml"
+        ]
+      }
+    }
+  ]
+}
+```
+
+Les chemins d’overlay doivent pointer vers des fichiers situés dans votre dépôt de documentation, et les URL d’overlay doivent utiliser `https`. Référencer la même spécification avec des listes `overlays` différentes à plusieurs endroits fait échouer la génération.
+
+<div id="auto-discover-overlays">
+  ### Découverte automatique des overlays
+</div>
+
+Tout fichier JSON ou YAML de votre dépôt comportant une clé `overlay` de premier niveau est traité comme un document d’overlay. Si son champ `extends` correspond à l’une de vos spécifications, l’overlay s’applique automatiquement à cette spécification. Les overlays découverts automatiquement s’appliquent dans l’ordre alphabétique de leurs chemins de fichier. Les overlays sans champ `extends` ne s’appliquent jamais automatiquement.
+
+Une liste `overlays` explicite remplace la découverte automatique pour cette spécification. Définissez `"overlays": []` pour désactiver tous les overlays d’une spécification, y compris ceux découverts automatiquement.
+
+Les overlays explicites et découverts automatiquement échouent différemment. Si un overlay explicite ne peut pas être chargé ou appliqué, la spécification échoue à la validation et le déploiement signale une erreur de spécification. Si un overlay découvert automatiquement échoue, il est ignoré et la spécification est publiée sans lui.
+
+<div id="rename-a-path">
+  ### Renommer un chemin
+</div>
+
+La spécification Overlay ne comporte pas d’action de déplacement. Pour renommer un chemin, créez le nouveau chemin avec `update`, copiez-y l’élément de chemin existant avec `copy`, puis supprimez l’ancien chemin avec `remove`.
+
+```yaml rename-overlay.yaml
+overlay: 1.1.0
+info:
+  title: Move accounts under credit
+  version: 1.0.0
+extends: ./openapi.json
+actions:
+  - target: $.paths
+    update:
+      /credit/accounts: {}
+  - target: $.paths['/credit/accounts']
+    copy: $.paths['/accounts']
+  - target: $.paths['/accounts']
+    remove: true
+```
+
+Référencez la spécification transformée partout dans votre documentation. Par exemple, le frontmatter d’une page doit utiliser le chemin post-overlay : `openapi: "POST /credit/accounts"`.
+
+Dans `mint dev`, la modification ou la suppression d’un fichier d’overlay reconstruit les spécifications concernées. `mint validate` et `mint openapi-check` valident le document transformé, de sorte que les erreurs référencent votre spécification après l’application des overlays.
+
 <div id="let-visitors-download-your-spec">
   ## Permettez aux visiteurs de télécharger votre spécification
 </div>

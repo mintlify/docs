@@ -1,0 +1,75 @@
+---
+title: "在发现端点中宣告外部托管的 MCP 服务器"
+description: "在你的文档域名上与内置搜索 MCP 服务器一同公开自托管的 MCP 服务器，因为 Mintlify 的发现端点仅列出其自身托管的服务器。"
+keywords: ["MCP discovery", "external MCP server", "well-known mcp", "second MCP server", "self-hosted MCP", "reverse proxy", "api-catalog"]
+---
+
+Mintlify 为每个站点托管一个搜索 MCP 服务器，并通过 [搜索 MCP 服务器](/zh/ai/model-context-protocol#discovery-endpoint) 中描述的 `/.well-known/mcp`、`/.well-known/mcp.json`、`/.well-known/mcp/server-card.json` 和 `/.well-known/mcp/server-cards.json` 端点进行宣告。这些端点会自动生成，且只列出 Mintlify 为你的站点托管的 MCP 服务器（公共的 `/mcp` 端点，以及在使用认证时的 `/authed/mcp`）。`docs.json` 中没有可用来在这些响应中添加第二个外部托管 MCP 服务器的字段。
+
+Mintlify 通过[代理 `Link` 头部](/zh/ai/llmstxt#link-header)宣告的 `/.well-known/api-catalog` 端点也是如此：该目录列出从 `docs.json` 中提取的 OpenAPI 文档，而不是 MCP 服务器。
+
+如果你在 Mintlify 之外运行自己的 MCP 服务器，并希望它在文档域名上与内置服务器一同可被发现，请使用下面的一种方案。
+
+## 方案 1：通过反向代理提供你自己的发现文档
+
+如果你的文档已经通过位于自有域名上的[反向代理](/zh/deploy/reverse-proxy)提供，则该域名下的 `/.well-known/*` 路径由你掌控。在代理中拦截 MCP 发现路径，并返回一个同时列出两个服务器的 JSON 文档，而不是将请求转发给 Mintlify。
+
+使用与 Mintlify 为 `/.well-known/mcp` 返回的相同结构，以便现有 MCP 客户端继续工作：
+
+```json
+{
+  "version": "1.0.0",
+  "transport": "http",
+  "url": "https://your-docs.com/mcp",
+  "servers": [
+    {
+      "name": "public",
+      "url": "https://your-docs.com/mcp",
+      "transport": "http",
+      "authentication": "none"
+    },
+    {
+      "name": "external",
+      "url": "https://mcp.your-domain.com",
+      "transport": "http",
+      "authentication": "oauth2"
+    }
+  ]
+}
+```
+
+一个 nginx 片段示例：为 MCP 发现路径提供静态文件，而不是转发给 Mintlify：
+
+```nginx
+location = /.well-known/mcp {
+    default_type application/json;
+    alias /etc/nginx/well-known/mcp.json;
+}
+
+location = /.well-known/mcp.json {
+    default_type application/json;
+    alias /etc/nginx/well-known/mcp.json;
+}
+```
+
+注意事项：
+
+- 使用 `Content-Type: application/json` 提供内容，并禁用缓存（`Cache-Control: no-store`），以便代理立即获取更新。
+- 覆盖发现路径会隐藏 Mintlify 的内置响应。请在你所提供的文件中包含 Mintlify 托管的 `/mcp`（以及在适用时的 `/authed/mcp`）条目，这样读取发现文档的客户端仍然可以找到内置搜索服务器。
+- 如果你还覆盖了 `/.well-known/mcp/server-card.json` 或 `/.well-known/mcp/server-cards.json`，请遵循 [server-card 格式](/zh/ai/model-context-protocol#server-card-endpoints)，以便从这些端点预填元数据的工具继续工作。
+
+## 方案 2：直接公布外部 MCP URL
+
+如果你不使用反向代理，或者不想维护一个静态发现文件，可以像公布内置服务器一样，将外部 MCP 服务器的 URL 公布给用户。参见 [使用你的 MCP 服务器](/zh/ai/model-context-protocol#use-your-mcp-server) 中适用于内置服务器、也同样适用于第二个 URL 的模式：
+
+- 在文档中添加一页，列出两个 MCP 服务器的 URL，并说明如何在 Claude、Cursor、VS Code 或其他客户端中分别连接。
+- 为内置服务器添加[上下文菜单](/zh/ai/contextual-menu)条目，方便用户一键复制 URL 或安装命令。上下文菜单选项仅涵盖 Mintlify 托管的 MCP 服务器，因此请在旁边手动记录外部 URL。
+
+支持多个 MCP 服务器的客户端可以分别指向内置的 `/mcp` 端点和外部 URL；无需列在同一个发现文档中即可使用。
+
+## Mintlify 当前不支持的行为
+
+- 将外部 MCP 服务器 URL 加入 `docs.json` 中某个字段，让 Mintlify 在 `/.well-known/mcp*` 响应中一并返回。
+- 在 `/.well-known/api-catalog` 下列出 MCP 服务器。该端点仅面向 OpenAPI 文档。
+
+如果上述任一功能能解决你的场景，请联系 [support@mintlify.com](mailto:support@mintlify.com)，说明你的用例。
