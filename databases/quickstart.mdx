@@ -1,0 +1,121 @@
+---
+title: "Databases quickstart"
+sidebarTitle: "Quickstart"
+description: "Create your first database, define its columns, add rows from the dashboard and the API, and render them on a docs page."
+keywords: ["databases", "quickstart", "create database", "add rows"]
+---
+
+<Info>
+  Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
+</Info>
+
+This quickstart builds a small app catalog: a `Apps` database with a name, a version, a status, and a download count, rendered as a table on a docs page.
+
+## Prerequisites
+
+- A project with Databases enabled.
+- An [admin API key](https://app.mintlify.com/settings/organization/api-keys) if you want to write rows from a script. Admin API keys begin with `mint_` and are server-side secrets.
+
+<Steps>
+  <Step title="Create a database">
+    In your dashboard, open **Databases** for the project and select **Create**. Give it a name such as `Apps`.
+
+    The slug is derived from the name, `apps` here. You use the slug when you render the database on a page.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://api.mintlify.com/v1/databases/$PROJECT_ID \
+      -H "Authorization: Bearer $MINT_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{ "name": "Apps" }'
+    ```
+    ```json Response
+    {
+      "id": "0b50b639-bff9-43d2-8e62-b3bd93e9a41c",
+      "name": "Apps",
+      "slug": "apps",
+      "status": "ready",
+      "createdBy": "you@example.com",
+      "createdAt": "2026-09-16T06:52:05.737Z",
+      "updatedAt": "2026-09-16T06:52:05.737Z"
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Add columns">
+    Add the columns your rows need. Mark the ones you filter or sort on as **indexed**, and the ones every row must have as **required**.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/col \
+      -H "Authorization: Bearer $MINT_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "columns": [
+          { "name": "app", "type": "text", "required": true, "indexed": true },
+          { "name": "version", "type": "text" },
+          { "name": "status", "type": "select", "options": ["draft", "published"], "indexed": true },
+          { "name": "downloads", "type": "number" }
+        ]
+      }'
+    ```
+    ```json Response
+    {
+      "columns": [
+        { "id": "col_ua6ithuj", "name": "app", "type": "text", "position": 0, "indexed": true, "required": true },
+        { "id": "col_nzdoc64z", "name": "version", "type": "text", "position": 1, "indexed": false, "required": false },
+        { "id": "col_qtxj9tuf", "name": "status", "type": "select", "position": 2, "indexed": true, "required": false, "options": ["draft", "published"] },
+        { "id": "col_8f2k1a0p", "name": "downloads", "type": "number", "position": 3, "indexed": false, "required": false }
+      ]
+    }
+    ```
+    </CodeGroup>
+
+    Note the column ids. Rows are keyed by id, not by name, so you can rename `downloads` to `installs` later without touching a single row.
+  </Step>
+
+  <Step title="Add rows">
+    Add rows in the dashboard grid, or send them from a script. Values are keyed by column id.
+
+    ```bash curl
+    curl -X POST https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/row \
+      -H "Authorization: Bearer $MINT_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "columns": {
+          "col_ua6ithuj": "Alpha",
+          "col_nzdoc64z": "1.2.0",
+          "col_qtxj9tuf": "published",
+          "col_8f2k1a0p": 4200
+        }
+      }'
+    ```
+
+    Loading many rows at once? Use [bulk upsert](/databases/api#bulk-upsert-rows) with up to 500 rows per call.
+
+    <Check>
+      Every write is validated against the schema. A wrong type, an unknown column id, or a missing required value returns `422` with one reason per column and writes nothing.
+    </Check>
+  </Step>
+
+  <Step title="Render the database on a page">
+    Add the component to any MDX page. It reads the schema for headers and the rows for content.
+
+    ```mdx catalog/apps.mdx
+    ---
+    title: "App catalog"
+    ---
+
+    <Database name="apps" sort="downloads:desc" where={{ status: "published" }} />
+    ```
+
+    See [`<Database />`](/databases/component) for column selection, filtering, and per-row pages.
+  </Step>
+</Steps>
+
+## Next steps
+
+- Read about each [column type](/databases/columns) and how values are validated.
+- Wire your release pipeline to the [REST API](/databases/api).
+- Keep a portal or dashboard current with [live updates](/databases/live-updates).
