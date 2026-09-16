@@ -1,0 +1,75 @@
+---
+title: "How Mintlify classifies traffic"
+sidebarTitle: "Traffic classification"
+description: "Learn when Mintlify serves Markdown instead of HTML and how the analytics dashboard separates human page views from AI agent views."
+keywords: ["analytics", "agent views", "human views", "markdown", "content negotiation", "user agent", "classification"]
+hidden: true
+---
+
+The [Traffic](/analytics/traffic) view reports **Humans** and **Agents** as separate counts, and [traffic exports](/analytics/export#interpret-traffic-exports) break views into five columns. This page explains the two decisions behind those numbers: when Mintlify serves a page as Markdown, and how each view is assigned a category.
+
+## When Mintlify serves Markdown
+
+Every page is available as HTML and as Markdown. Mintlify's edge picks one per request, before rendering. A request receives Markdown when any of the following is true:
+
+1. **The path ends in `.md`.** For example, `/analytics/traffic.md` always returns Markdown.
+2. **The `Accept` header prefers Markdown.** Mintlify orders the header's media types by quality value and compares the first Markdown type (`text/markdown`, `text/x-markdown`, or `text/plain`) with the first HTML type (`text/html` or `application/xhtml+xml`). If a Markdown type is present and either no HTML type is present or Markdown ranks higher, the response is Markdown.
+3. **The user agent is a known AI agent and does not ask for HTML.** If the user agent contains one of the identifiers below and the `Accept` header does not rank HTML above Markdown, the response is Markdown even when the request never mentions Markdown.
+
+The identifiers that trigger rule 3 are `Claude-User`, `ChatGPT-User`, `OAI-SearchBot`, `PerplexityBot`, `Perplexity-User`, `Google-Agent`, `MistralAI-User`, `DuckAssistBot`, and `cohere-ai`. Matching is a case-insensitive substring check.
+
+Negotiation applies only to documentation pages. Static assets, `llms.txt`, `skill.md`, RSS, PDF exports, MCP endpoints, login pages, and internal `/_mintlify/` routes are never negotiated.
+
+HTML and Markdown responses are cached as separate variants keyed on the `Accept` and `User-Agent` headers, so a browser is never served a cached Markdown response.
+
+## How a request becomes a view
+
+Mintlify records two kinds of page view.
+
+| View | Recorded by | When |
+|------|-------------|------|
+| HTML page view | The docs site in the browser | JavaScript runs after a page renders and sends a page view event. Clients that do not run JavaScript never produce this event. |
+| Markdown view | Mintlify's edge | A page is served as Markdown by any rule above, or `llms.txt`, `llms-full.txt`, or `skill.md` is fetched. The edge also records a Markdown view when a known AI agent from the list above requests an HTML page. |
+
+Each view carries the request path, referrer, IP address, and user agent. Timestamps are stored in UTC.
+
+## How views are categorized
+
+Classification uses only the user agent string. Mintlify checks it, case-insensitively, against four ordered lists of known bot and agent identifiers. The first list that matches sets the category. No match means `human`.
+
+| Order | Category | Export column | What it represents | Examples |
+|-------|----------|---------------|--------------------|----------|
+| 1 | AI answers | `aiViews` | An AI assistant fetching a page live for a person | `ChatGPT-User`, `Claude-User`, `claude-code`, `Cursor`, `Perplexity-User`, `Copilot`, `Google-Agent`, `MistralAI-User` |
+| 2 | Search index | `searchIndexViews` | Search engines and AI search products building an index | `Googlebot`, `Bingbot`, `OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Baiduspider`, `YandexBot` |
+| 3 | Training | `trainingViews` | Crawlers collecting model training data | `GPTBot`, `ClaudeBot`, `Google-Extended`, `Amazonbot`, `Bytespider`, `CCBot`, `Applebot` |
+| 4 | Other AI | `otherAiViews` | Other automated traffic, including SEO tools and headless browsers | `AhrefsBot`, `SemrushBot`, `facebookexternalhit`, `Scrapy`, `HeadlessChrome`, `PhantomJS` |
+| 5 | Human | `humanViews` | No match | Standard browser user agents |
+
+Mintlify's own traffic, such as cache revalidation and link checking, is excluded before counting.
+
+## How the dashboard counts humans and agents
+
+The dashboard combines the view type with the category:
+
+- **Humans** are HTML page views in the human category.
+- **Agents** are every view in the AI answers category, plus Markdown views in the human category.
+
+Markdown views count as agent traffic even when the user agent looks like a browser or a generic HTTP client. Requesting Markdown is how agents read documentation, so the request itself is the signal. These views appear in the agent breakdown under the **Browser** and **HTTP clients** buckets.
+
+Search index, training, and other AI views appear in neither count. They are visible only in exports.
+
+<Note>
+  Classification trusts the user agent a client sends. An agent that identifies itself with a standard browser user agent and fetches HTML counts as a human view. A person who opens a `.md` URL directly counts as an agent view.
+</Note>
+
+## Reproduce dashboard numbers
+
+When you query your event data directly, apply the same definitions so your numbers match the dashboard. In SQL terms:
+
+```sql Dashboard definitions
+humans = event = 'docs.content.view' AND category = 'human'
+agents = category = 'ai_answers'
+      OR (event = 'docs.content.md.view' AND category = 'human')
+```
+
+When querying raw events rather than hourly aggregates, count distinct event IDs instead of rows. Raw storage can hold the same event more than once, and the dashboard deduplicates before counting.
