@@ -502,7 +502,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 
 ## Reusable snippets
 
-Store reusable content in the `/snippets/` directory. Snippet files must be `.mdx`, `.md`, `.js`, or `.jsx`. You cannot import `.json` or `.yaml` files directly; keep data in a `.js` snippet with a named export, or generate one from a JSON or YAML source.
+Store reusable content in the `/snippets/` directory. Snippet files must be `.mdx`, `.md`, `.js`, or `.jsx`. You cannot import `.json` or `.yaml` files directly. Keep data in a `.js` snippet with a named export, or generate one from a JSON or YAML source.
 
 ### MDX snippets
 
