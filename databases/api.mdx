@@ -1,218 +1,57 @@
 ---
 title: "Databases REST API"
 sidebarTitle: "REST API"
-description: "Create databases, manage columns, and read and write rows with the Mintlify REST API."
+description: "Create databases, manage columns, and read and write rows with the Mintlify REST API from a pipeline, a partner portal, or any server-side script."
 keywords: ["databases", "REST API", "rows", "columns", "bulk upsert", "If-Match", "cursor"]
 ---
 
 <Info>
-  Databases are in early access and must be enabled for your project.
+  Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
 </Info>
 
-Use the Databases API from a release pipeline, a partner portal, or any server-side script to keep a database current.
+Use the Databases API to keep a database current from wherever the data lives: a release pipeline, a partner portal, a spreadsheet export.
 
 ## Authentication
 
 Authenticate with your admin API key. Generate one on the [API keys page](https://app.mintlify.com/settings/organization/api-keys) in your dashboard. Admin API keys begin with `mint_` and are server-side secrets. Do not expose them in client-side code.
 
-```bash
-Authorization: Bearer mint_xxxxxxxxxxxxxxxx
-```
+Copy your project ID from the same page and use it as the `projectId` path parameter. All endpoints are under `https://api.mintlify.com/v1/databases/{projectId}`.
 
-Copy your project ID from the same page. All paths below start with:
+Writes are attributed to the API key. Rows show `createdBy` and `updatedBy` as `key:<keyId>`.
 
-```text
-https://api.mintlify.com/v1/databases/{projectId}
-```
+## Endpoints
 
-Writes are attributed to the API key. Row records show `createdBy` and `updatedBy` as `key:<keyId>`.
+Databases
 
-## Databases
+- [List databases](/api/databases/list-databases)
+- [Create database](/api/databases/create-database)
+- [Get database](/api/databases/get-database)
+- [Delete database](/api/databases/delete-database)
 
-### List databases
+Columns
 
-```bash
-GET /v1/databases/{projectId}
-```
+- [Get schema](/api/databases/get-schema)
+- [Add columns](/api/databases/add-columns)
+- [Update column](/api/databases/update-column)
+- [Delete column](/api/databases/delete-column)
 
-Returns `{ "databases": [ … ] }` ordered by creation time.
+Rows
 
-### Create a database
+- [List rows](/api/databases/list-rows): filter with `where[columnId]`, sort, and page with a cursor.
+- [Bulk upsert rows](/api/databases/upsert-rows): up to 500 rows per call, atomic.
+- [Create row](/api/databases/create-row)
+- [Get row](/api/databases/get-row)
+- [Update row](/api/databases/update-row): conditional with `If-Match`.
+- [Delete row](/api/databases/delete-row)
 
-```bash
-POST /v1/databases/{projectId}
-```
+Changes
 
-<ParamField body="name" type="string" required>
-  Display name, 1 to 120 characters.
-</ParamField>
-<ParamField body="slug" type="string">
-  Lowercase identifier used by the `<Database />` component. Derived from the name when omitted. Must match `^[a-z0-9][a-z0-9_-]{0,62}$`.
-</ParamField>
+- [Get changes](/api/databases/get-changes): read the change log in batches.
+- [Live updates](/databases/live-updates): subscribe to the same events over server-sent events.
 
-Returns `201` with the database, or `409` if the slug is already used on this project, or `422` if a slug cannot be derived from the name.
+## Ids, not names
 
-### Get or delete a database
-
-```bash
-GET    /v1/databases/{projectId}/{databaseId}
-DELETE /v1/databases/{projectId}/{databaseId}
-```
-
-Delete removes the database and every row in it.
-
-## Columns
-
-### Add columns
-
-```bash
-POST /v1/databases/{projectId}/{databaseId}/col
-```
-
-<ParamField body="columns" type="array" required>
-  One or more column definitions. A database can have at most 100 columns.
-</ParamField>
-<ParamField body="columns[].name" type="string" required>
-  Display name.
-</ParamField>
-<ParamField body="columns[].type" type="string" required>
-  One of the [column types](/databases/columns).
-</ParamField>
-<ParamField body="columns[].indexed" type="boolean">
-  Index this column for filtering and sorting. Not allowed for `multi_select` or `json`.
-</ParamField>
-<ParamField body="columns[].required" type="boolean">
-  Every row must have a value. Not allowed when the database already has rows.
-</ParamField>
-<ParamField body="columns[].options" type="string[]">
-  Allowed values. Required for `select` and `multi_select`.
-</ParamField>
-
-Returns `201` with the full column list, including the new ids.
-
-### Update a column
-
-```bash
-PATCH /v1/databases/{projectId}/{databaseId}/col/{columnId}
-```
-
-Any of `name`, `indexed`, `required`, `options`, and `position`. Renames never touch rows.
-
-### Delete a column
-
-```bash
-DELETE /v1/databases/{projectId}/{databaseId}/col/{columnId}
-```
-
-Removes the column and its value from every row.
-
-## Rows
-
-### List rows
-
-```bash
-GET /v1/databases/{projectId}/{databaseId}/rows
-```
-
-<ParamField query="where[columnId]" type="string">
-  Equality filter. Repeat for several columns. For `multi_select` columns, matches rows whose array contains the value.
-</ParamField>
-<ParamField query="sort" type="string">
-  `columnId` or `columnId:desc`. Defaults to newest first.
-</ParamField>
-<ParamField query="limit" type="integer" default="50">
-  1 to 200.
-</ParamField>
-<ParamField query="cursor" type="string">
-  The `nextCursor` from the previous page.
-</ParamField>
-
-```bash curl
-curl "https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/rows?where\[col_qtxj9tuf\]=published&sort=col_8f2k1a0p:desc&limit=50" \
-  -H "Authorization: Bearer $MINT_API_KEY"
-```
-
-<ResponseField name="rows" type="Row[]">
-  The page of rows.
-</ResponseField>
-<ResponseField name="nextCursor" type="string | null">
-  Pass as `cursor` to fetch the next page. `null` on the last page.
-</ResponseField>
-
-Cursors are stable under concurrent writes: a row inserted between two page requests is never skipped or repeated.
-
-### Create a row
-
-```bash
-POST /v1/databases/{projectId}/{databaseId}/row
-```
-
-<ParamField body="columns" type="object" required>
-  Values keyed by column id. Omit a column to leave it empty.
-</ParamField>
-
-Returns `201` with the row.
-
-### Get, update, or delete a row
-
-```bash
-GET    /v1/databases/{projectId}/{databaseId}/row/{rowId}
-PATCH  /v1/databases/{projectId}/{databaseId}/row/{rowId}
-DELETE /v1/databases/{projectId}/{databaseId}/row/{rowId}
-```
-
-`PATCH` merges `columns` into the row and increments `rev`. Set a column to `null` to clear it.
-
-Send `If-Match: <rev>` on `PATCH` or `DELETE` to make the write conditional. If the row changed since you read it, the response is `409` with `code: "stale_revision"` and the current `rev`.
-
-```bash curl
-curl -X PATCH https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/row/$ROW_ID \
-  -H "Authorization: Bearer $MINT_API_KEY" \
-  -H "If-Match: 3" \
-  -H "Content-Type: application/json" \
-  -d '{ "columns": { "col_8f2k1a0p": 4300 } }'
-```
-
-### Bulk upsert rows
-
-```bash
-PUT /v1/databases/{projectId}/{databaseId}/rows
-```
-
-<ParamField body="rows" type="array" required>
-  1 to 500 entries.
-</ParamField>
-<ParamField body="rows[].id" type="string">
-  A UUID. When it matches an existing row, the entry is merged into it; otherwise a row is created with this id. Omit to let Mintlify assign one.
-</ParamField>
-<ParamField body="rows[].columns" type="object" required>
-  Values keyed by column id.
-</ParamField>
-
-The batch is atomic. If any entry fails validation, nothing is written and the response names the failing column. Returns `{ "rows": [...], "created": n, "updated": m }`.
-
-<Tip>
-  Choose your own row ids, such as a UUID derived from your product's primary key, so repeated pipeline runs update rows instead of duplicating them.
-</Tip>
-
-## The row object
-
-```json
-{
-  "id": "502e5c75-4c3d-435e-943b-053938c4b226",
-  "rev": 2,
-  "columns": {
-    "col_ua6ithuj": "Alpha",
-    "col_nzdoc64z": "1.2.0",
-    "col_qtxj9tuf": "published",
-    "col_8f2k1a0p": 4300
-  },
-  "createdAt": "2026-09-16T06:52:05.442Z",
-  "updatedAt": "2026-09-16T07:01:12.108Z",
-  "createdBy": "key:key_2f8a",
-  "updatedBy": "key:key_2f8a"
-}
-```
+Rows are keyed by column id, such as `col_ua6ithuj`, not by column name. Read the ids once from [Get schema](/api/databases/get-schema) and keep them in your integration. Renaming a column in the dashboard then changes nothing for your code.
 
 ## Errors
 
@@ -220,12 +59,12 @@ Every error is JSON with a stable `code`.
 
 | Status | `code` | Meaning |
 | --- | --- | --- |
-| `400` | `bad_request` | Malformed JSON, bad `If-Match`, or a missing header. |
-| `401` | | Missing or invalid API key, or the project does not have Databases enabled. |
+| `400` | `bad_request` | Malformed JSON, a bad `If-Match`, or a missing header. |
+| `401` | | Missing or invalid API key, or Databases is not enabled for the project. |
 | `404` | `not_found` | Unknown database, column, or row. |
-| `409` | `conflict` | Slug already in use. |
+| `409` | `conflict` | Slug already in use on this project. |
 | `409` | `stale_revision` | `If-Match` did not match the current `rev`. Includes `currentRev`. |
-| `413` | `too_large` | Row over 2 MB. |
+| `413` | `too_large` | Row over 2 MB of JSON. |
 | `422` | `invalid` | Validation failed. `fields` maps each column id or query key to a reason. |
 | `422` | `limit` | A limit would be exceeded. Includes `current` and `limit`. |
 
