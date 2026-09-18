@@ -1,0 +1,1568 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Mintlify Databases API",
+    "description": "Create databases, manage their columns, and read and write rows. Databases are in early access and enabled per project.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.mintlify.com/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/databases/{projectId}": {
+      "get": {
+        "summary": "List databases",
+        "operationId": "listDatabases",
+        "description": "List the databases on a project, oldest first.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The project's databases.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "databases"
+                  ],
+                  "properties": {
+                    "databases": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Database"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create database",
+        "operationId": "createDatabase",
+        "description": "Create a database. The slug is derived from the name unless you pass one. It is used by the `<Database />` component to reference the database from a page.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDatabase"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The database. `status` is `ready` once storage is initialised.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Database"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A database with this slug already exists on the project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The name is empty or no slug can be derived from it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{projectId}/{databaseId}": {
+      "get": {
+        "summary": "Get database",
+        "operationId": "getDatabase",
+        "description": "Get a database. If the database is still `initializing`, this call retries initialisation.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The database.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Database"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete database",
+        "operationId": "deleteDatabase",
+        "description": "Delete a database and every row in it. There is no undo.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{projectId}/{databaseId}/col": {
+      "get": {
+        "summary": "Get schema",
+        "operationId": "getSchema",
+        "description": "Get the database's columns and the latest change sequence.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The schema.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add columns",
+        "operationId": "addColumns",
+        "description": "Add one or more columns. A database can have at most 100 columns and 60 indexed columns. A new column cannot be `required` when the database already has rows; add it optional, backfill, then set `required`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "columns"
+                ],
+                "properties": {
+                  "columns": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "$ref": "#/components/schemas/ColumnInput"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The full column list, including the new ids.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{projectId}/{databaseId}/col/{columnId}": {
+      "patch": {
+        "summary": "Update column",
+        "operationId": "updateColumn",
+        "description": "Rename, reorder, toggle `indexed` or `required`, or change `options`. Renames never touch rows. `required` can only be turned on when every row has a value.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          },
+          {
+            "$ref": "#/components/parameters/columnId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateColumn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated column.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Column"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete column",
+        "operationId": "deleteColumn",
+        "description": "Delete a column and remove its value from every row.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          },
+          {
+            "$ref": "#/components/parameters/columnId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The remaining columns.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColumnList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{projectId}/{databaseId}/rows": {
+      "get": {
+        "summary": "List rows",
+        "operationId": "listRows",
+        "description": "List rows with optional equality filters, a sort, and cursor pagination. Filter with `where[<columnId>]=<value>`; for `multi_select` columns the filter matches rows whose array contains the value. Cursors are stable under concurrent writes.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "`<columnId>` or `<columnId>:desc`. Defaults to newest first. `json` and `multi_select` columns cannot be sorted."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The `nextCursor` from the previous page."
+          },
+          {
+            "name": "where[columnId]",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Equality filter. Replace `columnId` with a real column id and repeat for several columns."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Bulk upsert rows",
+        "operationId": "upsertRows",
+        "description": "Create or update up to 500 rows in one atomic call. An entry whose `id` matches an existing row is merged into it; any other entry becomes a new row with that id, or a generated one. If any entry fails validation, nothing is written.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "rows"
+                ],
+                "properties": {
+                  "rows": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "items": {
+                      "$ref": "#/components/schemas/UpsertRow"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The written rows and counts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "rows",
+                    "created",
+                    "updated"
+                  ],
+                  "properties": {
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Row"
+                      }
+                    },
+                    "created": {
+                      "type": "integer"
+                    },
+                    "updated": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "A row exceeds 2 MB of JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{projectId}/{databaseId}/row": {
+      "post": {
+        "summary": "Create row",
+        "operationId": "createRow",
+        "description": "Create a row. Values are keyed by column id and validated against each column's type. Missing required columns and unknown column ids are rejected.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RowInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The row, with `rev` 1.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Row"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The row exceeds 2 MB of JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{projectId}/{databaseId}/row/{rowId}": {
+      "get": {
+        "summary": "Get row",
+        "operationId": "getRow",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          },
+          {
+            "$ref": "#/components/parameters/rowId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Row"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update row",
+        "operationId": "updateRow",
+        "description": "Merge `columns` into the row and increment `rev`. Set a column to `null` to clear it. Send `If-Match` with the `rev` you last read to make the write conditional.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          },
+          {
+            "$ref": "#/components/parameters/rowId"
+          },
+          {
+            "$ref": "#/components/parameters/ifMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RowInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Row"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`If-Match` did not match the current `rev`. `currentRev` is included.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleRevisionError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The row exceeds 2 MB of JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete row",
+        "operationId": "deleteRow",
+        "description": "Delete a row. Send `If-Match` to refuse the delete if the row changed since you read it.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          },
+          {
+            "$ref": "#/components/parameters/rowId"
+          },
+          {
+            "$ref": "#/components/parameters/ifMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`If-Match` did not match the current `rev`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaleRevisionError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/{projectId}/{databaseId}/changes": {
+      "get": {
+        "summary": "Get changes",
+        "operationId": "getChanges",
+        "description": "Read the change log after a sequence number, up to 500 changes. For a live stream, see the `events` endpoint on the live updates page.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/projectId"
+          },
+          {
+            "$ref": "#/components/parameters/databaseId"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Return changes with `seq` greater than this."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Changes after `since`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeBatch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, database, column, or row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The Authorization header expects a Bearer token. Use an admin API key. This is a server-side secret key. Generate one on the [API keys page](https://app.mintlify.com/settings/organization/api-keys) in your dashboard."
+      }
+    },
+    "parameters": {
+      "projectId": {
+        "name": "projectId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Your project ID, from the API keys page in the dashboard."
+      },
+      "databaseId": {
+        "name": "databaseId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The database `id`."
+      },
+      "columnId": {
+        "name": "columnId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^col_[a-z0-9]{8}$"
+        },
+        "description": "The column `id`."
+      },
+      "rowId": {
+        "name": "rowId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "The row `id`."
+      },
+      "ifMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "description": "The `rev` you last read. The write is refused with `409` if the row has changed since."
+      }
+    },
+    "schemas": {
+      "ColumnType": {
+        "type": "string",
+        "enum": [
+          "text",
+          "number",
+          "boolean",
+          "date",
+          "select",
+          "multi_select",
+          "url",
+          "email",
+          "json"
+        ]
+      },
+      "Column": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type",
+          "position",
+          "indexed",
+          "required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "col_ua6ithuj"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ColumnType"
+          },
+          "position": {
+            "type": "integer"
+          },
+          "indexed": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed values. Present for `select` and `multi_select` columns."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ColumnInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "type"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "type": {
+            "$ref": "#/components/schemas/ColumnType"
+          },
+          "indexed": {
+            "type": "boolean",
+            "description": "Index for filtering and sorting. Not allowed for `multi_select` or `json`."
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Every row must have a value. Not allowed when the database already has rows."
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed values. Required for `select` and `multi_select`."
+          }
+        }
+      },
+      "UpdateColumn": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "indexed": {
+            "type": "boolean"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "New index in the column order. Other columns shift to keep positions contiguous."
+          }
+        }
+      },
+      "ColumnList": {
+        "type": "object",
+        "required": [
+          "columns"
+        ],
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Column"
+            }
+          }
+        }
+      },
+      "Schema": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "columns",
+          "latestSeq"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Column"
+            }
+          },
+          "latestSeq": {
+            "type": "integer",
+            "description": "Sequence number of the most recent change."
+          }
+        }
+      },
+      "Database": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "example": "apps"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "initializing",
+              "ready"
+            ]
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "The user email or `key:<keyId>` that created the database."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateDatabase": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "example": "Apps"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$",
+            "description": "Derived from the name when omitted."
+          }
+        }
+      },
+      "ColumnValues": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Values keyed by column id.",
+        "example": {
+          "col_ua6ithuj": "Alpha",
+          "col_8f2k1a0p": 4200
+        }
+      },
+      "RowInput": {
+        "type": "object",
+        "required": [
+          "columns"
+        ],
+        "properties": {
+          "columns": {
+            "$ref": "#/components/schemas/ColumnValues"
+          }
+        }
+      },
+      "UpsertRow": {
+        "type": "object",
+        "required": [
+          "columns"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Merge into this row if it exists, otherwise create it with this id."
+          },
+          "columns": {
+            "$ref": "#/components/schemas/ColumnValues"
+          }
+        }
+      },
+      "Row": {
+        "type": "object",
+        "required": [
+          "id",
+          "rev",
+          "columns",
+          "createdAt",
+          "updatedAt",
+          "createdBy",
+          "updatedBy"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rev": {
+            "type": "integer",
+            "description": "Increments on every update. Use with `If-Match`."
+          },
+          "columns": {
+            "$ref": "#/components/schemas/ColumnValues"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "updatedBy": {
+            "type": "string"
+          }
+        }
+      },
+      "RowPage": {
+        "type": "object",
+        "required": [
+          "rows",
+          "nextCursor"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Row"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass as `cursor` for the next page. `null` on the last page."
+          }
+        }
+      },
+      "Change": {
+        "type": "object",
+        "required": [
+          "seq",
+          "kind",
+          "actor",
+          "at"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "database.updated",
+              "column.added",
+              "column.updated",
+              "column.deleted",
+              "row.created",
+              "row.updated",
+              "row.deleted"
+            ]
+          },
+          "rowId": {
+            "type": "string",
+            "nullable": true
+          },
+          "columnId": {
+            "type": "string",
+            "nullable": true
+          },
+          "rev": {
+            "type": "integer",
+            "nullable": true
+          },
+          "actor": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChangeBatch": {
+        "type": "object",
+        "required": [
+          "epoch",
+          "changes",
+          "latestSeq",
+          "oldestSeq"
+        ],
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifies this incarnation of the log. Changes when the database is deleted and recreated."
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            }
+          },
+          "latestSeq": {
+            "type": "integer"
+          },
+          "oldestSeq": {
+            "type": "integer",
+            "description": "Oldest retained sequence. The log keeps the most recent 10,000 changes."
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "bad_request",
+              "unauthorized",
+              "not_found",
+              "conflict",
+              "stale_revision",
+              "too_large",
+              "invalid",
+              "limit",
+              "upstream"
+            ]
+          }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid",
+              "limit"
+            ]
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "col_8f2k1a0p": "expected a number",
+              "col_zzzzzzzz": "unknown column"
+            }
+          },
+          "current": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "StaleRevisionError": {
+        "type": "object",
+        "required": [
+          "error",
+          "code",
+          "currentRev"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "stale_revision"
+            ]
+          },
+          "currentRev": {
+            "type": "integer"
+          },
+          "ifMatch": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}
