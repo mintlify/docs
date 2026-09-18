@@ -280,6 +280,7 @@ Version properties:
 - `version` (required): Version label shown in the selector.
 - `default`: Set `true` to make this the default version (otherwise the first entry is the default).
 - `tag`: Badge label displayed in the version selector dropdown (e.g., `"Latest"`, `"Recommended"`, `"Beta"`).
+- `hidden`: Set `true` to remove this version from the selector and exclude every page beneath it from site search, sitemaps, search engine indexing, and AI context. `navigation.tabs`, `navigation.anchors`, `navigation.dropdowns`, `navigation.languages`, and `navigation.products` accept the same `hidden` flag with the same effect. Versions do not support `searchable: true`; to keep hidden versions discoverable, set `seo.indexing: "all"` in `docs.json`.
 
 ## Languages
 

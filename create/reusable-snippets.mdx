@@ -12,7 +12,7 @@ One of the core principles of software development is DRY (Don't Repeat Yourself
 
 ## How snippets work
 
-Snippets are any `.mdx`, `.md`, or `.jsx` files imported into another file. You can place snippet files anywhere in your project. 
+Snippets are any `.mdx`, `.md`, `.js`, or `.jsx` files imported into another file. You can place snippet files anywhere in your project. 
 
 When you import a snippet into another file, the snippet only appears where you import it and does not render as a standalone page. Any file in the `/snippets/` folder is always a snippet even if it is not imported into another file.
 
@@ -140,6 +140,10 @@ Reference variables from a snippet in a page.
   </Step>
 </Steps>
 
+<Note>
+  Browsers evaluate MDX expressions, such as imported variables like `{myName}` and inline expressions like `{1 + 1}`. Their values do not appear in a page's initial HTML or in [offline exports](/deploy/export), so crawlers, LLMs, and other tools that do not run JavaScript see the surrounding text without them. Write values as plain text if they must be visible in those situations.
+</Note>
+
 ### Import snippets with variables
 
 Use variables to pass data to a snippet when you import it.
@@ -219,3 +223,163 @@ import InstallSnippet from "/shared/install-snippet.mdx";
     ```
   </Step>
 </Steps>
+
+## Render content from structured data
+
+Keep data such as a list of SDK components, a support matrix, or a set of plans in one snippet and render it on multiple pages. When you modify the data, every table, list, or card built from it updates.
+
+Store the data as a plain JSON object in a `.js` snippet with a named export. Then write a `.jsx` snippet that turns the data into markup.
+
+<Note>
+  Snippets must be `.mdx`, `.md`, `.js`, or `.jsx` files. You cannot import a `.json` or `.yaml` file directly. Keep the data in a `.js` snippet, or [generate one from your JSON or YAML source](#generate-snippets-and-pages-from-json-or-yaml).
+</Note>
+
+<Steps>
+  <Step title="Export the data from a snippet">
+    ```js snippets/sdk-components.js
+    export const sdkComponents = [
+      { "name": "CardForm", "version": "2.4.0", "status": "Stable", "docs": "/components/card-form" },
+      { "name": "PinReveal", "version": "1.9.2", "status": "Beta", "docs": "/components/pin-reveal" }
+    ];
+    ```
+  </Step>
+  <Step title="Create a snippet that renders the data">
+    Loop over the data with `map()` and return HTML elements or Mintlify components.
+
+    ```jsx snippets/components-table.jsx
+    export const ComponentsTable = ({ rows }) => (
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Version</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name}>
+              <td><a href={row.docs}>{row.name}</a></td>
+              <td><code>{row.version}</code></td>
+              <td>{row.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+    ```
+  </Step>
+  <Step title="Import both snippets and pass the data as a property">
+    Filter or sort the data in the page to show a subset without duplicating it.
+
+    ```mdx destination-file.mdx
+    ---
+    title: "SDK components"
+    description: "Every component in the SDK, with its current version and status."
+    ---
+
+    import { sdkComponents } from "/snippets/sdk-components.js";
+    import { ComponentsTable } from "/snippets/components-table.jsx";
+
+    The SDK includes {sdkComponents.length} components.
+
+    <ComponentsTable rows={sdkComponents} />
+
+    ## Stable components
+
+    <ComponentsTable rows={sdkComponents.filter((row) => row.status === "Stable")} />
+    ```
+  </Step>
+</Steps>
+
+### Generate snippets and pages from JSON or YAML
+
+If you store data in a JSON or YAML file, generate snippets from that source data. Use a script to write the data snippet with one page per entry and create the matching navigation group. Run the script in CI whenever the source file changes and commit the result.
+
+<Steps>
+  <Step title="Write the generator">
+    This script reads `sdk-components.yaml`, writes the snippet from the previous example, creates a page for each component, and replaces the pages of the navigation group named "Components" in `docs.json`.
+
+    ```js scripts/generate-docs.mjs
+    import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+    import { parse } from "yaml";
+
+    const components = parse(readFileSync("sdk-components.yaml", "utf8"));
+    const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+    // One snippet with all the data, for tables and lists anywhere in the docs.
+    writeFileSync("snippets/sdk-components.js", `export const sdkComponents = ${JSON.stringify(components, null, 2)};\n`);
+
+    // One page per component.
+    mkdirSync("components", { recursive: true });
+    for (const component of components) {
+      const page = `---
+    title: ${JSON.stringify(component.name)}
+    description: ${JSON.stringify(component.description)}
+    ---
+
+    {/* Generated from sdk-components.yaml by scripts/generate-docs.mjs. Edit the YAML, not this file. */}
+
+    | Field | Value |
+    | --- | --- |
+    | Version | \`${component.version}\` |
+    | Status | ${component.status} |
+    `;
+      writeFileSync(`components/${slug(component.name)}.mdx`, page);
+    }
+
+    // Keep the navigation in sync: replace the pages of the group named "Components", wherever it sits.
+    const docs = JSON.parse(readFileSync("docs.json", "utf8"));
+    const findGroup = (node) => (Array.isArray(node) ? node.map(findGroup).find(Boolean) : node && typeof node === "object" ? (node.group === "Components" ? node : findGroup(Object.values(node))) : undefined);
+    const group = findGroup(docs.navigation);
+    if (group) {
+      group.pages = components.map((component) => `components/${slug(component.name)}`);
+      writeFileSync("docs.json", `${JSON.stringify(docs, null, 2)}\n`);
+    }
+    ```
+
+    For a JSON source, replace `parse()` with `JSON.parse()` and skip the `yaml` dependency. Running the script twice produces identical files, so it is safe to run on every push.
+  </Step>
+  <Step title="Run it in a GitHub Action">
+    The workflow runs when the source file or the script changes, then commits whatever the script produced. The default `GITHUB_TOKEN` does not trigger other workflows when it pushes, so the job cannot loop. Mintlify deploys the push like any other commit.
+
+    ```yaml .github/workflows/generate-docs.yml
+    name: Generate docs from YAML
+
+    on:
+      push:
+        paths:
+          - sdk-components.yaml
+          - scripts/generate-docs.mjs
+      workflow_dispatch:
+
+    permissions:
+      contents: write
+
+    jobs:
+      generate:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-node@v4
+            with:
+              node-version: 22
+          - run: npm install yaml
+          - run: node scripts/generate-docs.mjs
+          - name: Commit generated files
+            run: |
+              git add -A
+              if git diff --cached --quiet; then
+                echo "Nothing changed."
+                exit 0
+              fi
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git commit -m "docs: regenerate from sdk-components.yaml"
+              git push
+    ```
+
+    If you store the source file in another repository, run the workflow there instead. Check out the docs repository with a token that can push to it, run the script, and commit.
+  </Step>
+</Steps>
+

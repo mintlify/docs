@@ -1,0 +1,107 @@
+---
+title: "Mintlify 如何对流量进行分类"
+sidebarTitle: "流量分类"
+description: "了解 Mintlify 何时提供 Markdown 而非 HTML,以及分析仪表板如何区分人类页面浏览量和 AI agent 浏览量。"
+keywords: ["analytics", "agent views", "human views", "markdown", "content negotiation", "user agent", "classification"]
+hidden: true
+---
+
+[流量](/zh/analytics/traffic)视图将 **Humans** 和 **Agents** 作为独立的计数呈现,而[流量导出](/zh/analytics/export#interpret-traffic-exports)会将浏览量拆分为五列。本页解释这些数字背后的两个决策:Mintlify 何时将页面作为 Markdown 提供,以及浏览量如何归入各个类别。
+
+<div id="when-mintlify-serves-markdown">
+  ## Mintlify 何时提供 Markdown
+</div>
+
+每个页面都同时以 HTML 和 Markdown 形式提供。Mintlify 的边缘节点会在渲染之前为每个请求选择其中之一。当以下任一条件为真时,请求将收到 Markdown 响应:
+
+1. **路径以 `.md` 结尾。** 例如,`/analytics/traffic.md` 始终返回 Markdown。
+2. **`Accept` 头首选 Markdown。** Mintlify 按质量值对 header 中的媒体类型排序,并将首个 Markdown 类型(`text/markdown`、`text/x-markdown` 或 `text/plain`)与首个 HTML 类型(`text/html` 或 `application/xhtml+xml`)进行比较。如果存在某个 Markdown 类型,并且没有 HTML 类型或 Markdown 排名更靠前,则响应为 Markdown。
+3. **user agent 是已知的 AI agent,且未请求 HTML。** 如果 user agent 包含以下某个标识符,且 `Accept` 头没有将 HTML 排在 Markdown 之上,则即使请求中从未提及 Markdown,响应也将是 Markdown。
+
+触发规则 3 的标识符包括 `Claude-User`、`ChatGPT-User`、`OAI-SearchBot`、`PerplexityBot`、`Perplexity-User`、`Google-Agent`、`MistralAI-User`、`DuckAssistBot` 和 `cohere-ai`。匹配采用不区分大小写的子串检查。
+
+协商仅适用于文档页面。静态资源、`llms.txt`、`skill.md`、RSS、PDF 导出、MCP 端点、登录页面以及内部 `/_mintlify/` 路由永远不进行协商。
+
+HTML 和 Markdown 响应作为独立的变体缓存,以 `Accept` 和 `User-Agent` 头为键,因此浏览器永远不会收到缓存的 Markdown 响应。
+
+<div id="how-a-request-becomes-a-view">
+  ## 请求如何成为一次浏览
+</div>
+
+Mintlify 记录两种页面浏览。
+
+| 浏览类型 | 记录者 | 时机 |
+|------|-------------|------|
+| HTML 页面浏览 | 浏览器中的 docs 站点 | JavaScript 在页面渲染后运行并发送页面浏览事件。不运行 JavaScript 的客户端永远不会产生该事件。 |
+| Markdown 浏览 | Mintlify 的边缘节点 | 页面根据上述任一规则以 Markdown 形式提供,或获取了 `llms.txt`、`llms-full.txt` 或 `skill.md`。当上述列表中的已知 AI agent 请求 HTML 页面时,边缘节点也会记录一次 Markdown 浏览。 |
+
+每次浏览都携带请求路径、referrer、IP 地址和 user agent。时间戳以 UTC 存储。
+
+<div id="how-views-are-categorized">
+  ## 浏览量如何归类
+</div>
+
+分类仅使用 user agent 字符串。Mintlify 会不区分大小写地将其与四组已知 bot 和 agent 标识符的有序列表进行比较。第一个匹配的列表决定其类别。若无匹配,则归为 `human`。有关每个类别中的所有标识符,请参阅[完整的 user agent 列表](#full-user-agent-list)。
+
+| 顺序 | 类别 | 导出列 | 代表含义 | 示例 |
+|-------|----------|---------------|--------------------|----------|
+| 1 | AI answers | `aiViews` | AI 助手为某人实时抓取页面 | `ChatGPT-User`、`Claude-User`、`claude-code`、`Cursor`、`Perplexity-User`、`Copilot`、`Google-Agent`、`MistralAI-User` |
+| 2 | Search index | `searchIndexViews` | 搜索引擎和 AI 搜索产品构建索引 | `Googlebot`、`Bingbot`、`OAI-SearchBot`、`Claude-SearchBot`、`PerplexityBot`、`Baiduspider`、`YandexBot` |
+| 3 | Training | `trainingViews` | 采集模型训练数据的爬虫 | `GPTBot`、`ClaudeBot`、`Google-Extended`、`Amazonbot`、`Bytespider`、`CCBot`、`Applebot` |
+| 4 | Other AI | `otherAiViews` | 其他自动化流量,包括 SEO 工具和无头浏览器 | `AhrefsBot`、`SemrushBot`、`facebookexternalhit`、`Scrapy`、`HeadlessChrome`、`PhantomJS` |
+| 5 | Human | `humanViews` | 无匹配 | 标准浏览器 user agent |
+
+Mintlify 自身的流量,例如缓存重新验证和链接检查,会在计数前排除。
+
+<div id="how-the-dashboard-counts-humans-and-agents">
+  ## 仪表板如何统计人类和 agent
+</div>
+
+仪表板将浏览类型与类别相结合:
+
+- **Humans** 是归入 human 类别的 HTML 页面浏览。
+- **Agents** 是 AI answers 类别中的所有浏览,加上 human 类别中的 Markdown 浏览。
+
+即使 user agent 看起来像浏览器或通用 HTTP 客户端,Markdown 浏览仍计为 agent 流量。请求 Markdown 就是 agent 阅读文档的方式,因此该请求本身就是信号。这些浏览会出现在 agent 明细中的 **Browser** 和 **HTTP clients** 分组下。
+
+Search index、Training 和 Other AI 的浏览量不计入任何一项。它们仅在导出中可见。
+
+<Note>
+  分类会信任客户端发送的 user agent。以标准浏览器 user agent 自我标识并抓取 HTML 的 agent 会被计为 human 浏览。直接打开 `.md` URL 的人会被计为 agent 浏览。
+</Note>
+
+<div id="full-user-agent-list">
+  ## 完整的 user agent 列表
+</div>
+
+Mintlify 按下述顺序对照这些标识符检查 user agent。匹配采用不区分大小写的子串检查,因此 `chatgpt` 会匹配 `ChatGPT-User` 以及任何包含该文本的 user agent。
+
+<div id="ai-answers">
+  ### AI answers
+</div>
+
+`ChatGPT-User`、`chatgpt`、`Claude-User`、`claude-code`、`Cursor`、`Opencode`、`WarpBot`、`Perplexity-User`、`Google-Agent`、`GoogleAgent`、`Google-NotebookLM`、`Google-Read-Aloud`、`MistralAI-User`、`Copilot`、`Amzn-User`、`DuckAssistBot`、`xAI-SearchBot`、`Grok-DeepSearch`、`Meta-ExternalFetcher`、`Kimi-User`、`Qwen-User`、`Amazon-Bedrock-AgentCore-Browser`、`Shap-User`
+
+<div id="search-index">
+  ### Search index
+</div>
+
+`OAI-SearchBot`、`Claude-SearchBot`、`PerplexityBot`、`Google-InspectionTool`、`Googlebot`、`MistralAI-Index`、`Bingbot`、`msnbot`、`Amzn-SearchBot`、`meta-webindexer`、`Kimi-SearchBot`、`TikTokSpider`、`Baiduspider`、`YouBot`、`Petalbot`、`YisouSpider`、`Sogou web spider`、`Coveobot`、`amazon-kendra`、`Algolia Crawler`、`ref-tools-crawler`、`ShapBot`、`AteveSearchSourceUrlDiscovery`、`YandexBot`、`YandexMobileBot`、`YandexAccessibilityBot`、`YandexRenderResourcesBot`、`YandexImages`、`YandexNews`、`YandexWebmaster`、`Yeti/`、`360Spider`、`SeznamBot`、`Exabot`
+
+<div id="training">
+  ### Training
+</div>
+
+`GPTBot`、`ClaudeBot`、`GoogleOther`、`Google-Extended`、`Google-CloudVertexBot`、`Applebot-Extended`、`Applebot`、`Amazonbot`、`Meta-ExternalAgent`、`KimiBot`、`Bytespider`、`ERNIEBot`、`QwenBot`、`ChatGLM-Spider`、`DeepSeekBot`、`Deepseek`、`cohere-ai`、`cohere-training-data-crawler`、`AI2Bot`、`AI2Bot-Dolma`、`CCBot`、`PanguBot`、`ClueWeb-Crawler`
+
+<div id="other-ai">
+  ### Other AI
+</div>
+
+`OAI-AdsBot`、`GrokBot`、`xAI-Bot`、`xAI-Grok`、`xAI-Web-Crawler`、`Grok`、`meta-externalads`、`facebookexternalhit`、`FacebookBot`、`Facebookbot`、`Doubaobot`、`YiyanBot`、`TongyiBot`、`AliyunBot`、`diffbot`、`FirecrawlAgent`、`SemrushBot-OCOB`、`SERankingBacklinksBot`、`Omgili`、`Omgilibot`、`webzio-extended`、`ImagesiftBot`、`VelenPublicWebCrawler`、`TurnitinBot`、`Timpibot`、`ICC-Crawler`、`DataForSeoBot`、`AwarioBot`、`AwarioSmartBot`、`AwarioRssBot`、`Kangaroo Bot`、`Sentibot`、`img2dataset`、`Meltwater`、`Seekr`、`peer39_crawler`、`Scrapy`、`Cotoyogi`、`aiHitBot`、`Factset_spyderbot`、`Barkrowler`、`HubSpot Crawler`、`AhrefsBot`、`SemrushBot`、`SiteAuditBot`、`AdsBot-Google`、`YaDirectFetcher`、`Google-Adwords`、`Screaming Frog`、`DotBot`、`MJ12bot`、`BLEXBot`、`serpstatbot`、`SEOkicks`、`trendictionbot`、`archive.org_bot`、`Decimal Bot`、`WebThreeCrawler`、`scopy-docs-crawler`、`quigon-manifest-fetcher`、`HeadlessChrome`、`PhantomJS`
+
+<div id="excluded-internal-traffic">
+  ### 排除的内部流量
+</div>
+
+user agent 中包含 `mintlify-revalidation` 或 `Mintlify-LinkChecker` 的请求来自 Mintlify 自己的基础设施,会在任何计数之前被移除。
