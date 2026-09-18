@@ -1,0 +1,171 @@
+---
+title: "Audiences"
+description: "Show each kind of reader the pages written for them by tagging pages and navigation groups with an audience."
+keywords: ["audience", "audiences", "internal documentation", "groups", "personalization", "hide pages"]
+---
+
+<Warning>
+  Audiences are in closed beta. To use them, email [sales@mintlify.com](mailto:sales@mintlify.com).
+</Warning>
+
+<Info>
+  Audiences require [OAuth or JWT authentication](/deploy/authentication-setup), or [personalization](/create/personalization) with JWT or OAuth, on an [Enterprise plan](https://mintlify.com/pricing?ref=audiences).
+</Info>
+
+Audiences let one site serve more than one kind of reader. Tag a page or a navigation group with an audience, and only readers in that audience see it in the sidebar, in search, in the assistant, and through the MCP server. Other readers see the site as if the page were not there.
+
+An audience is a group name. A reader whose user data includes the group `internal` is in the `internal` audience. You do not declare audiences anywhere. You use the group names your identity provider already sends.
+
+<Note>
+  Audiences change what a reader sees. They do not change what a reader can open. A tagged page can still be opened by URL by anyone who could open it before. To restrict access, use [groups](/deploy/authentication-setup#control-access-with-groups).
+</Note>
+
+## Tag a navigation group
+
+Add `audience` to a group in `docs.json`. Every page in the group gets that audience unless the page sets its own.
+
+```json Two groups, one per audience highlight={6,11}
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Feature flags",
+        "audience": "default",
+        "pages": ["platform/feature-flags", "platform/rollouts"]
+      },
+      {
+        "group": "Feature flags",
+        "audience": "internal",
+        "pages": ["internal/feature-flags", "internal/legacy-config"]
+      }
+    ]
+  }
+}
+```
+
+Two groups can have the same name. Readers in the `internal` audience see the second group. Everyone else sees the first. The sidebar looks the same to both readers, and the pages behind it differ.
+
+## Tag a page
+
+Add `audience` to a page's frontmatter to tag one page or to override its group.
+
+```mdx Page with two audiences highlight={3}
+---
+title: "Unreleased features"
+audience: ["internal", "beta"]
+---
+```
+
+A page can list more than one audience. Readers in any of them see it.
+
+## Leave shared pages untagged
+
+Pages without an `audience` appear for everyone. Keep quickstarts, authentication guides, and other shared content untagged. Each appears once, in every reader's view.
+
+## The default audience
+
+`default` is a reserved audience name. It means readers who are in none of the audiences your site uses. That includes everyone who is not signed in.
+
+Use it to keep a public page out of the view of readers who have their own version of it.
+
+```json Public pages that internal readers should not see highlight={3}
+{
+  "group": "Billing",
+  "audience": "default",
+  "pages": ["platform/billing", "platform/support-plans"]
+}
+```
+
+A reader in any of your audiences is not in `default`. A reader whose only matching group is `beta` sees `beta` pages and untagged pages, and does not see `default` pages. To show them the `default` pages as well, tag those pages with both audiences, for example `"audience": ["default", "beta"]`.
+
+## How readers get an audience
+
+Readers do not pick an audience. When a reader signs in, Mintlify reads the `groups` in their user data and keeps the ones your site uses as audiences. A reader with no matching group is in `default`. See [User data format](/deploy/authentication-setup#user-data-format).
+
+```json Example user data
+{
+  "groups": ["internal"],
+  "expiresAt": 1893456000
+}
+```
+
+Readers in more than one audience see the pages for all of them. A **Viewing as** control in the navbar lets them narrow the view to one audience, or to `default` to see the site as a visitor does.
+
+## Audiences and groups together
+
+Both properties use the group names from user data. They do different jobs.
+
+| Property | What it controls | Readers outside it |
+| :--- | :--- | :--- |
+| `groups` | Who can open a page | Get a 404 |
+| `audience` | Who sees a page in the sidebar, search, assistant, and MCP | Can still open it by URL |
+| `public` | Whether a page requires sign-in | Are asked to sign in |
+
+An internal page usually has both `groups` and `audience`. The first keeps it private. The second keeps its public counterpart out of internal readers' view.
+
+```mdx Internal page highlight={3,4}
+---
+title: "Feature flags"
+audience: internal
+groups: ["internal"]
+---
+```
+
+When a page has both, groups are checked first. A reader outside the listed groups gets a 404 no matter the audience.
+
+## Where audiences apply
+
+| Surface | What readers get |
+| :--- | :--- |
+| Navigation | Pages outside the reader's audience are removed. Empty groups and tabs are removed with them. |
+| Search | Only pages in the reader's audience and untagged pages. |
+| Assistant | Answers based only on pages in the reader's audience and untagged pages. |
+| MCP server | Authenticated sessions return only pages in the reader's audience and untagged pages. Client credentials carry groups, so an agent sees what a reader with those groups sees. |
+| `llms.txt` and sitemap | Built for the reader's audience when the reader is identified, and for `default` otherwise. |
+
+## Example
+
+A site with public product documentation and internal engineering documentation. The two share a quickstart, and each has its own feature flags pages.
+
+```json docs.json
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get started",
+        "public": true,
+        "pages": ["index", "quickstart", "authentication"]
+      },
+      {
+        "group": "Feature flags",
+        "audience": "default",
+        "public": true,
+        "pages": ["platform/feature-flags", "platform/rollouts"]
+      },
+      {
+        "group": "Feature flags",
+        "audience": "internal",
+        "pages": ["internal/feature-flags", "internal/legacy-config"]
+      },
+      {
+        "group": "Early access",
+        "audience": ["internal", "beta"],
+        "pages": ["internal/unreleased"]
+      }
+    ]
+  }
+}
+```
+
+Pages under the `internal` groups also have `groups: ["internal"]` in their frontmatter, and `internal/unreleased` has `groups: ["internal", "beta"]`.
+
+| Page | Visitor, not signed in | Reader with `internal` | Reader with `beta` |
+| :--- | :--- | :--- | :--- |
+| `index`, `quickstart`, `authentication` | Shown | Shown | Shown |
+| `platform/feature-flags`, `platform/rollouts` | Shown | Hidden, can open by URL | Hidden, can open by URL |
+| `internal/feature-flags`, `internal/legacy-config` | 404 | Shown | 404 |
+| `internal/unreleased` | 404 | Shown | Shown |
+
+<Tip>
+  Tag every page that has a counterpart in another audience. An untagged page is shared, so internal readers would see an untagged public page next to their own version of it.
+</Tip>
