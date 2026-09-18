@@ -1,0 +1,107 @@
+---
+title: "Cómo Mintlify clasifica el tráfico"
+sidebarTitle: "Clasificación de tráfico"
+description: "Aprende cuándo Mintlify sirve Markdown en lugar de HTML y cómo el panel de analíticas separa las vistas de página de humanos de las vistas de agentes de IA."
+keywords: ["analytics", "agent views", "human views", "markdown", "content negotiation", "user agent", "classification"]
+hidden: true
+---
+
+La vista [Tráfico](/es/analytics/traffic) reporta **Humans** y **Agents** como conteos separados, y las [exportaciones de tráfico](/es/analytics/export#interpret-traffic-exports) dividen las vistas en cinco columnas. Esta página explica las dos decisiones detrás de esos números: cuándo Mintlify sirve una página como Markdown y cómo las vistas se asignan a cada categoría.
+
+<div id="when-mintlify-serves-markdown">
+  ## Cuándo Mintlify sirve Markdown
+</div>
+
+Cada página está disponible como HTML y como Markdown. El edge de Mintlify elige uno por solicitud, antes de renderizar. Una solicitud recibe Markdown cuando alguna de las siguientes condiciones es verdadera:
+
+1. **La ruta termina en `.md`.** Por ejemplo, `/analytics/traffic.md` siempre devuelve Markdown.
+2. **El encabezado `Accept` prefiere Markdown.** Mintlify ordena los tipos de medio del encabezado por valor de calidad y compara el primer tipo Markdown (`text/markdown`, `text/x-markdown` o `text/plain`) con el primer tipo HTML (`text/html` o `application/xhtml+xml`). Si hay un tipo Markdown presente y no hay un tipo HTML, o Markdown tiene mayor prioridad, la respuesta es Markdown.
+3. **El user agent es un agente de IA conocido y no solicita HTML.** Si el user agent contiene uno de los siguientes identificadores y el encabezado `Accept` no clasifica HTML por encima de Markdown, la respuesta es Markdown incluso cuando la solicitud nunca mencione Markdown.
+
+Los identificadores que activan la regla 3 son `Claude-User`, `ChatGPT-User`, `OAI-SearchBot`, `PerplexityBot`, `Perplexity-User`, `Google-Agent`, `MistralAI-User`, `DuckAssistBot` y `cohere-ai`. La coincidencia es una comprobación de subcadena que no distingue mayúsculas de minúsculas.
+
+La negociación se aplica únicamente a las páginas de documentación. Los recursos estáticos, `llms.txt`, `skill.md`, RSS, exportaciones de PDF, endpoints de MCP, páginas de inicio de sesión y rutas internas `/_mintlify/` nunca se negocian.
+
+Las respuestas HTML y Markdown se almacenan en caché como variantes separadas, indexadas por los encabezados `Accept` y `User-Agent`, de modo que a un navegador nunca se le sirve una respuesta Markdown en caché.
+
+<div id="how-a-request-becomes-a-view">
+  ## Cómo una solicitud se convierte en una vista
+</div>
+
+Mintlify registra dos tipos de vista de página.
+
+| Vista | Registrada por | Cuándo |
+|------|-------------|------|
+| Vista de página HTML | El sitio de docs en el navegador | JavaScript se ejecuta después de que se renderiza una página y envía un evento de vista de página. Los clientes que no ejecutan JavaScript nunca producen este evento. |
+| Vista de Markdown | El edge de Mintlify | Una página se sirve como Markdown por cualquiera de las reglas anteriores, o se solicita `llms.txt`, `llms-full.txt` o `skill.md`. El edge también registra una vista de Markdown cuando un agente de IA conocido de la lista anterior solicita una página HTML. |
+
+Cada vista lleva la ruta de la solicitud, el referente, la dirección IP y el user agent. Las marcas de tiempo se almacenan en UTC.
+
+<div id="how-views-are-categorized">
+  ## Cómo se categorizan las vistas
+</div>
+
+La clasificación usa únicamente la cadena del user agent. Mintlify la compara, sin distinguir mayúsculas de minúsculas, contra cuatro listas ordenadas de identificadores conocidos de bots y agentes. La primera lista que coincida determina la categoría. Si no hay coincidencia, es `human`. Consulta la [lista completa de user agents](#full-user-agent-list) para ver todos los identificadores de cada categoría.
+
+| Orden | Categoría | Columna de exportación | Qué representa | Ejemplos |
+|-------|----------|---------------|--------------------|----------|
+| 1 | Respuestas de IA | `aiViews` | Un asistente de IA obtiene una página en vivo para una persona | `ChatGPT-User`, `Claude-User`, `claude-code`, `Cursor`, `Perplexity-User`, `Copilot`, `Google-Agent`, `MistralAI-User` |
+| 2 | Índice de búsqueda | `searchIndexViews` | Motores de búsqueda y productos de búsqueda con IA que construyen un índice | `Googlebot`, `Bingbot`, `OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Baiduspider`, `YandexBot` |
+| 3 | Entrenamiento | `trainingViews` | Rastreadores que recopilan datos para el entrenamiento de modelos | `GPTBot`, `ClaudeBot`, `Google-Extended`, `Amazonbot`, `Bytespider`, `CCBot`, `Applebot` |
+| 4 | Otras IA | `otherAiViews` | Otro tráfico automatizado, incluidas herramientas de SEO y navegadores headless | `AhrefsBot`, `SemrushBot`, `facebookexternalhit`, `Scrapy`, `HeadlessChrome`, `PhantomJS` |
+| 5 | Humano | `humanViews` | Sin coincidencia | User agents estándar de navegadores |
+
+El propio tráfico de Mintlify, como la revalidación de caché y la verificación de enlaces, se excluye antes del conteo.
+
+<div id="how-the-dashboard-counts-humans-and-agents">
+  ## Cómo el panel cuenta humanos y agentes
+</div>
+
+El panel combina el tipo de vista con la categoría:
+
+- **Humans** son las vistas de página HTML en la categoría de humanos.
+- **Agents** son todas las vistas en la categoría de respuestas de IA, más las vistas de Markdown en la categoría de humanos.
+
+Las vistas de Markdown cuentan como tráfico de agentes incluso cuando el user agent parece un navegador o un cliente HTTP genérico. Solicitar Markdown es la forma en que los agentes leen la documentación, así que la solicitud misma es la señal. Estas vistas aparecen en el desglose de agentes bajo los grupos **Browser** y **HTTP clients**.
+
+Las vistas de índice de búsqueda, entrenamiento y otras IA no aparecen en ninguno de los dos conteos. Solo son visibles en las exportaciones.
+
+<Note>
+  La clasificación confía en el user agent que envía un cliente. Un agente que se identifica con un user agent estándar de navegador y solicita HTML cuenta como una vista humana. Una persona que abre una URL `.md` directamente cuenta como una vista de agente.
+</Note>
+
+<div id="full-user-agent-list">
+  ## Lista completa de user agents
+</div>
+
+Mintlify compara el user agent con estos identificadores en el orden mostrado. La coincidencia es una comprobación de subcadena que no distingue mayúsculas de minúsculas, por lo que `chatgpt` coincide con `ChatGPT-User` y con cualquier otro user agent que contenga ese texto.
+
+<div id="ai-answers">
+  ### Respuestas de IA
+</div>
+
+`ChatGPT-User`, `chatgpt`, `Claude-User`, `claude-code`, `Cursor`, `Opencode`, `WarpBot`, `Perplexity-User`, `Google-Agent`, `GoogleAgent`, `Google-NotebookLM`, `Google-Read-Aloud`, `MistralAI-User`, `Copilot`, `Amzn-User`, `DuckAssistBot`, `xAI-SearchBot`, `Grok-DeepSearch`, `Meta-ExternalFetcher`, `Kimi-User`, `Qwen-User`, `Amazon-Bedrock-AgentCore-Browser`, `Shap-User`
+
+<div id="search-index">
+  ### Índice de búsqueda
+</div>
+
+`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Google-InspectionTool`, `Googlebot`, `MistralAI-Index`, `Bingbot`, `msnbot`, `Amzn-SearchBot`, `meta-webindexer`, `Kimi-SearchBot`, `TikTokSpider`, `Baiduspider`, `YouBot`, `Petalbot`, `YisouSpider`, `Sogou web spider`, `Coveobot`, `amazon-kendra`, `Algolia Crawler`, `ref-tools-crawler`, `ShapBot`, `AteveSearchSourceUrlDiscovery`, `YandexBot`, `YandexMobileBot`, `YandexAccessibilityBot`, `YandexRenderResourcesBot`, `YandexImages`, `YandexNews`, `YandexWebmaster`, `Yeti/`, `360Spider`, `SeznamBot`, `Exabot`
+
+<div id="training">
+  ### Entrenamiento
+</div>
+
+`GPTBot`, `ClaudeBot`, `GoogleOther`, `Google-Extended`, `Google-CloudVertexBot`, `Applebot-Extended`, `Applebot`, `Amazonbot`, `Meta-ExternalAgent`, `KimiBot`, `Bytespider`, `ERNIEBot`, `QwenBot`, `ChatGLM-Spider`, `DeepSeekBot`, `Deepseek`, `cohere-ai`, `cohere-training-data-crawler`, `AI2Bot`, `AI2Bot-Dolma`, `CCBot`, `PanguBot`, `ClueWeb-Crawler`
+
+<div id="other-ai">
+  ### Otras IA
+</div>
+
+`OAI-AdsBot`, `GrokBot`, `xAI-Bot`, `xAI-Grok`, `xAI-Web-Crawler`, `Grok`, `meta-externalads`, `facebookexternalhit`, `FacebookBot`, `Facebookbot`, `Doubaobot`, `YiyanBot`, `TongyiBot`, `AliyunBot`, `diffbot`, `FirecrawlAgent`, `SemrushBot-OCOB`, `SERankingBacklinksBot`, `Omgili`, `Omgilibot`, `webzio-extended`, `ImagesiftBot`, `VelenPublicWebCrawler`, `TurnitinBot`, `Timpibot`, `ICC-Crawler`, `DataForSeoBot`, `AwarioBot`, `AwarioSmartBot`, `AwarioRssBot`, `Kangaroo Bot`, `Sentibot`, `img2dataset`, `Meltwater`, `Seekr`, `peer39_crawler`, `Scrapy`, `Cotoyogi`, `aiHitBot`, `Factset_spyderbot`, `Barkrowler`, `HubSpot Crawler`, `AhrefsBot`, `SemrushBot`, `SiteAuditBot`, `AdsBot-Google`, `YaDirectFetcher`, `Google-Adwords`, `Screaming Frog`, `DotBot`, `MJ12bot`, `BLEXBot`, `serpstatbot`, `SEOkicks`, `trendictionbot`, `archive.org_bot`, `Decimal Bot`, `WebThreeCrawler`, `scopy-docs-crawler`, `quigon-manifest-fetcher`, `HeadlessChrome`, `PhantomJS`
+
+<div id="excluded-internal-traffic">
+  ### Tráfico interno excluido
+</div>
+
+Las solicitudes cuyo user agent contiene `mintlify-revalidation` o `Mintlify-LinkChecker` provienen de la propia infraestructura de Mintlify y se eliminan antes de cualquier conteo.
