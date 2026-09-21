@@ -4,11 +4,11 @@ description: "Generate interactive API documentation from OpenAPI specification 
 keywords: ["OpenAPI", "API specification", "Swagger"]
 ---
 
-OpenAPI is a specification for describing APIs. Mintlify supports OpenAPI 3.0 and 3.1 documents to generate interactive API documentation and keep it up to date.
+OpenAPI is a specification for describing APIs. Mintlify supports OpenAPI 3.0, 3.1, and 3.2 documents to generate interactive API documentation and keep it up to date.
 
 ## Add an OpenAPI specification file
 
-To document your endpoints with OpenAPI, you need one or more valid OpenAPI specifications in either JSON or YAML format that follow the [OpenAPI specification 3.0 or 3.1](https://swagger.io/specification/).
+To document your endpoints with OpenAPI, you need one or more valid OpenAPI specifications in either JSON or YAML format that follow the [OpenAPI specification 3.0, 3.1, or 3.2](https://spec.openapis.org/oas/latest.html).
 
 Add OpenAPI specifications to your documentation repository or host them online where you can access the specifications by URL. Mintlify serves specifications stored in your repository as [downloadable files](/create/files) at their path on your docs domain. For example, `https://your-domain/docs/openapi.json`.
 
@@ -78,7 +78,7 @@ Use the following resources to learn about and construct your OpenAPI specificat
 - [The Mint CLI](https://www.npmjs.com/package/mint) to validate your OpenAPI document with the command: `mint validate`.
 
 <Note>
-  Swagger's OpenAPI Guide is for OpenAPI v3.0, but nearly all of the information is applicable to v3.1. For more information on the differences between v3.0 and v3.1, see [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) in the OpenAPI blog.
+  Swagger's OpenAPI Guide is for OpenAPI v3.0, but nearly all of the information is applicable to v3.1 and v3.2. For more information on the differences between versions, see [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) in the OpenAPI blog and [OpenAPI 3.2 features](#openapi-32-features) below.
 </Note>
 
 ### Specify the base URL for your API
@@ -823,3 +823,116 @@ paths:
                 "200":
                   description: Callback received
 ```
+
+## OpenAPI 3.2 features
+
+OpenAPI 3.2 documents (`openapi: 3.2.0`) are validated against the official 3.2 schema and support every addition listed here. Documents written for 3.0 or 3.1 keep working unchanged.
+
+### Tag hierarchies
+
+Use the `parent` field on tags to nest generated navigation groups, `summary` for a short display name, and `kind` to mark tags as `nav`, `badge`, or `audience`. Only `nav` tags (the default) create navigation groups.
+
+```yaml
+tags:
+  - name: plants
+    summary: Plants
+  - name: plants.care
+    summary: Care
+    parent: plants
+  - name: beta
+    kind: badge
+```
+
+### QUERY and custom methods
+
+The `query` operation is a fixed Path Item field like `get` or `post`. Other methods go under `additionalOperations`, keyed by their uppercase method name. Both generate endpoint pages, playground requests, and code samples.
+
+```yaml
+paths:
+  /plants:
+    query:
+      summary: Search plants
+    additionalOperations:
+      PURGE:
+        summary: Purge the plant cache
+```
+
+Reference these operations in MDX frontmatter with the same method name you used in the specification. Fixed methods are case-insensitive, while custom methods are uppercase:
+
+```mdx
+---
+openapi: "openapi.yaml PURGE /plants"
+---
+```
+
+`WEBHOOK` cannot be used as a custom method because it identifies [webhook pages](#webhooks).
+
+### Whole query string parameters
+
+Describe the entire query string with a single `in: querystring` parameter whose `content` gives the media type. The playground renders it as its own **Query string** input and serializes `application/x-www-form-urlencoded`, `application/json`, and `text/*` content exactly once. An operation can have at most one `querystring` parameter and cannot combine it with `in: query` parameters.
+
+```yaml
+parameters:
+  - name: filter
+    in: querystring
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            color:
+              type: string
+```
+
+### Streaming responses
+
+Use `itemSchema` instead of `schema` on a sequential media type such as `text/event-stream`, `application/jsonl`, `application/x-ndjson`, `application/json-seq`, or `multipart/mixed` to describe each item in the stream. Endpoint pages show the item fields under **Each item in the stream**, and the playground displays the response incrementally as it arrives with a **Stop** control. Streams larger than 10 MB are truncated in the viewer.
+
+```yaml
+responses:
+  "200":
+    description: Plant events
+    content:
+      text/event-stream:
+        itemSchema:
+          type: object
+          properties:
+            event:
+              type: string
+```
+
+### Data and serialized example values
+
+Example Objects can carry `dataValue` for the logical value and `serializedValue` for the exact wire representation. Endpoint pages render `serializedValue` verbatim with syntax highlighting based on the media type, and the playground uses `dataValue` to prefill inputs. `externalValue` points to a hosted serialized document.
+
+### Security schemes
+
+- **Device authorization flow**: OAuth 2.0 schemes can declare `flows.deviceAuthorization` with a `deviceAuthorizationUrl` and `tokenUrl`. The playground shows a **Connect** panel that requests a device code, displays the user code and verification URL, polls the token endpoint, and applies the access token to the request. Public clients (`client_id` only) are supported.
+- **Metadata URL**: `oauth2MetadataUrl` is listed with the flow details on the endpoint page.
+- **Deprecated schemes**: Schemes marked `deprecated: true` show a deprecated pill and label in the authorization selector.
+- **URI references**: Security requirement keys can reference a scheme by URI fragment, such as `#/components/securitySchemes/oauth`, in addition to the component name. References to other documents are not supported.
+
+### Discriminator default mapping
+
+Set `discriminator.defaultMapping` to the schema used when the discriminating property is absent or unmapped. That variant is listed first in the docs, selected by default in the playground, and used for generated examples. The value must be a `mapping` value, a `components.schemas` name, or a same-document reference.
+
+### Parameter serialization
+
+- `style: cookie` on `in: cookie` parameters follows RFC 6265 and applies no percent-encoding.
+- `allowReserved: true` on query and path parameters keeps reserved characters unencoded in generated requests and code samples. Query delimiters (`&`, `=`, `#`) and `/` in path segments are still encoded.
+- `prefixEncoding` and `itemEncoding` on multipart Media Type Objects and Encoding Objects set per-part content types in code samples. They require `itemSchema` or an array `schema`.
+
+### Document-level fields
+
+- `$self` is preserved as the document's base URI.
+- `servers[].name` labels each entry in the base URL selector.
+- Responses can use `summary` alone or with `description`; the heading shows `description` when present, otherwise `summary`. Every server variable can appear at most once in a server URL.
+- Reusable Media Type Objects in `components.mediaTypes` can be referenced from any `content` map with `$ref`.
+
+### Limitations
+
+- Operations that live only under `components.pathItems` do not generate pages. Reference them from `paths` instead.
+- Browsers do not let the playground set a `Cookie` header, so `in: cookie` parameters appear in code samples but are not sent by live requests.
+- Positional multipart encodings set content types in code samples; live browser requests use `FormData`, which does not expose per-part content types for non-file values.
+- XML Object fields (`nodeType` and IRI namespaces) validate but are not rendered; the playground does not generate XML bodies.
+- Webhook pages resolve to the first operation on a webhook Path Item, so declare one operation per webhook.
