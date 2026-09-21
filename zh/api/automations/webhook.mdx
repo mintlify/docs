@@ -1,0 +1,53 @@
+---
+title: "触发自动化 webhook"
+openapi: "/zh/admin-openapi.json POST /v2/workflow/{projectId}/{workflowSchemaId}/webhook"
+keywords: ["automation", "workflow", "webhook", "trigger", "CI"]
+---
+
+使用此端点运行一个配置为 **Webhook** 触发器的自定义自动化。每次请求会将一次运行加入队列，该运行使用自动化保存的 prompt 并读取仓库的完整历史记录。请求体会被忽略。
+
+此端点仅支持配置了 webhook 触发器的[自定义自动化](/zh/automations/create)。预定义自动化以及使用其他任何触发器的自动化都会返回 `404` 响应。若要按需触发一个计划型自定义自动化，请改用[触发自动化](/zh/api/automations/trigger)。
+
+<div id="use-cases">
+  ## 用例
+</div>
+
+- **CI/CD 流水线**：在每次合并到 `main` 或发布之后运行自定义自动化，无需等待计划运行。
+- **发布事件**：在打出标签或发布新 SDK 版本时，从发布脚本运行自定义自动化。
+- **内部工具**：从内部仪表板、Slack 命令或已有的计划任务中触发自动化。
+
+<div id="find-the-automation-id">
+  ## 查找自动化 ID
+</div>
+
+在控制台中打开[自动化](https://app.mintlify.com/products/automations)页面，点击自动化上的 <Icon icon="settings-2" /> 设置按钮，然后从其设置面板复制 ID。
+
+<div id="example">
+  ## 示例
+</div>
+
+每当代码合并到 `main` 时，从 GitHub Action 触发一个 webhook 自动化：
+
+```yaml .github/workflows/trigger-docs.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v2/workflow/$PROJECT_ID/$WORKFLOW_ID/webhook" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          WORKFLOW_ID: ${{ vars.MINTLIFY_WORKFLOW_ID }}
+```
+
+<div id="rate-limits">
+  ## 速率限制
+</div>
+
+此端点与[触发更新](/zh/api/update/trigger)和[触发自动化](/zh/api/automations/trigger)共享速率限制：每个组织每 10 秒最多 10 次请求。每次入队运行消耗的额度与其他任何自定义自动化运行相同。请参见[额度定价](/zh/credits)。

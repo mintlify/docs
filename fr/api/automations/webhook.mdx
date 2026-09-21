@@ -1,0 +1,53 @@
+---
+title: "Déclencher un webhook d'automatisation"
+openapi: "/fr/admin-openapi.json POST /v2/workflow/{projectId}/{workflowSchemaId}/webhook"
+keywords: ["automation", "workflow", "webhook", "trigger", "CI"]
+---
+
+Utilisez cet endpoint pour exécuter une automatisation personnalisée configurée avec un déclencheur **Webhook**. Chaque requête met en file d'attente une exécution qui utilise le prompt enregistré de l'automatisation et lit l'historique complet du dépôt. Les corps de requête sont ignorés.
+
+Cet endpoint ne prend en charge que les [automatisations personnalisées](/fr/automations/create) avec un déclencheur webhook. Les automatisations prédéfinies et les automatisations avec tout autre déclencheur renvoient une réponse `404`. Pour déclencher à la demande une automatisation personnalisée planifiée, utilisez [Déclencher une automatisation](/fr/api/automations/trigger).
+
+<div id="use-cases">
+  ## Cas d'utilisation
+</div>
+
+- **Pipelines CI/CD** : Exécutez une automatisation personnalisée à chaque fusion dans `main` ou après une publication, sans attendre une exécution planifiée.
+- **Événements de publication** : Exécutez une automatisation personnalisée depuis un script de publication lorsque vous créez un tag ou publiez une nouvelle version de SDK.
+- **Outillage interne** : Déclenchez des automatisations depuis des dashboards internes, des commandes Slack ou des tâches planifiées que vous exécutez déjà.
+
+<div id="find-the-automation-id">
+  ## Trouver l'identifiant de l'automatisation
+</div>
+
+Ouvrez la page [Automatisations](https://app.mintlify.com/products/automations) dans votre dashboard, cliquez sur le bouton de paramètres <Icon icon="settings-2" /> de l'automatisation et copiez l'identifiant depuis son panneau de configuration.
+
+<div id="example">
+  ## Exemple
+</div>
+
+Déclenchez une automatisation webhook depuis une GitHub Action chaque fois que du code est fusionné dans `main` :
+
+```yaml .github/workflows/trigger-docs.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v2/workflow/$PROJECT_ID/$WORKFLOW_ID/webhook" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          WORKFLOW_ID: ${{ vars.MINTLIFY_WORKFLOW_ID }}
+```
+
+<div id="rate-limits">
+  ## Limites de débit
+</div>
+
+Cet endpoint partage une limite de débit avec [Trigger update](/fr/api/update/trigger) et [Déclencher une automatisation](/fr/api/automations/trigger) : jusqu'à 10 requêtes par tranche de 10 secondes et par organisation. Chaque exécution mise en file d'attente consomme des crédits au même rythme que n'importe quelle autre exécution d'automatisation personnalisée. Consultez [Tarification des crédits](/fr/credits).
