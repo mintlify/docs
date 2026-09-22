@@ -18,7 +18,7 @@ Available on all commands.
 
 - `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP.
 - `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups` mocks user groups (space-separated). `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files.
-- `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups` includes restricted pages (space-separated). `--disable-openapi` skips OpenAPI processing.
+- `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups` includes restricted pages (space-separated). `--disable-openapi` skips OpenAPI processing. Offline exports do not support search or the Mintlify assistant; index the exported HTML with a static search tool if the audience needs search.
 
 ## Content quality
 
