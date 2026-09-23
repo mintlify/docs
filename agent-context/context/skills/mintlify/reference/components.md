@@ -131,12 +131,17 @@ Numbered step-by-step procedures.
 </Steps>
 ```
 
+Steps props:
+- `titleSize` (string, default: "p"): Size of all step titles: `"p"`, `"h2"`, `"h3"`, or `"h4"`.
+
 Step props:
-- `title` (string): Step title.
+- `title` (string, required): Step title. Supports inline Markdown.
 - `icon` (string): Icon name.
 - `iconType` (string): Font Awesome style.
 - `stepNumber` (number): Override automatic numbering.
-- `titleSize` (string, default: "p"): `"p"`, `"h2"`, or `"h3"`.
+- `titleSize` (string, default: "p"): `"p"`, `"h2"`, `"h3"`, or `"h4"`.
+- `id` (string): Custom anchor ID.
+- `noAnchor` (boolean, default: false): Hide the step's anchor link.
 
 ## Tabs
 
@@ -320,10 +325,13 @@ Display icons inline.
 <Icon icon="rocket" size={24} color="#3B82F6" />
 
 Text with <Icon icon="check" iconType="solid" /> inline icon.
+
+<Icon src="/images/my-icon.svg" />
 ```
 
-Props:
-- `icon` (string, required): Font Awesome, Lucide, or Tabler icon name, a single emoji, a URL, or a file path.
+Props (one of `icon` or `src` is required):
+- `icon` (string): Font Awesome, Lucide, or Tabler icon name (matching `icons.library`), or a single emoji.
+- `src` (string): Path to an image in the project or an external image URL. Use instead of `icon` for custom images.
 - `iconType` (string): Font Awesome style.
 - `size` (number): Pixel size.
 - `color` (string): Hex color. Not applied to emoji icons.
