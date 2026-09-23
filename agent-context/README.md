@@ -63,4 +63,4 @@ Every qualifying push to `main` validates the source and opens or updates the `a
 
 Edit shared knowledge and MCP definitions in `context/`, not in generated plugin copies. Put a value in `targets/` only when a client requires a different packaging format.
 
-The build rejects retired CLI commands. Tests verify that the skill, detailed references, and MCP definitions remain semantically identical across targets.
+Tests verify that the skill, detailed references, and MCP definitions remain semantically identical across targets.

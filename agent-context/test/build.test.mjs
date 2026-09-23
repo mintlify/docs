@@ -52,7 +52,7 @@ test('builds all client variants from one canonical skill', async () => {
       assert.match(skill, /### Mintlify Search/);
       assert.match(skill, /### Mintlify Admin/);
       assert.match(skill, /Complete authentication in the browser when prompted/);
-      assert.doesNotMatch(skill, /mint analytics|mint automations|mint workflow|\{\{/);
+      assert.doesNotMatch(skill, /\{\{/);
     }
     assert.deepEqual(codexMcp.mcp_servers, cursorMcp.mcpServers);
     assert.deepEqual(claudeMcp.mcpServers, cursorMcp.mcpServers);

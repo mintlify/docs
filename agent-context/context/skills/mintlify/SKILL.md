@@ -220,7 +220,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint new`, `mint signup`, `mint index` (install the Mintlify Index MCP server in supported coding agents). Read `reference/cli.md` for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`, `mint index` (install the Mintlify Index MCP server in supported coding agents). Read `reference/cli.md` for full flags and subcommands.
 
 ## Writing standards
 
