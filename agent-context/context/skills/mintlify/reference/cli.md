@@ -78,14 +78,6 @@ Query documentation analytics from the terminal. Requires `mint login`. All `min
   | Windsurf | `~/.codeium/windsurf/mcp_config.json` | Global only |
   | Zed | User `settings.json` | `.zed/settings.json` |
 
-## Automations
-
-All `mint automations` subcommands share these flags: `--subdomain`, `--format` (table/json; default: table). `mint workflow` and `mint workflows` continue to work as aliases.
-
-- `mint automations create` — Create an automation. Requires exactly one trigger: `--cron <expr>` for scheduled or `--push-repo <owner/repo>` (repeatable) for push-triggered. Key flags: `--name`, `--type` (one of `changelog`, `source-code-agent`, `translations`, `writing-style`, `typo-check`, `broken-link-detection`, `seo-metadata-audit`, `assistant-docs-updates`, `contextual-feedback-docs-updates`; omit for custom), `--prompt`, `--context-repo` (repeatable, up to 10), `--automerge`, `--file <path>` (JSON/YAML file overrides inline flags).
-- `mint automations list` — List automations for the current deployment.
-- `mint automations delete <id>` — Delete an automation by ID. Use `mint automations list` to get the ID.
-
 ## Maintenance
 
 - `mint update` — Update the CLI to the latest version.
