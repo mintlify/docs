@@ -171,12 +171,12 @@ Appear on all pages regardless of active section:
         { "anchor": "Changelog", "icon": "list", "href": "/changelog" }
       ],
       "languages": [
-        { "language": "en", "default": true },
-        { "language": "es" }
+        { "language": "en", "default": true, "href": "https://example.com/docs" },
+        { "language": "es", "href": "https://example.com/es/docs" }
       ],
       "versions": [
-        { "version": "v2", "default": true },
-        { "version": "v1" }
+        { "version": "v2", "default": true, "href": "https://example.com/docs" },
+        { "version": "v1", "href": "https://v1.example.com/docs" }
       ],
       "products": [
         { "product": "Core API", "icon": "server" },
@@ -191,8 +191,8 @@ Global element properties:
 - `global.tabs`: Each entry requires `tab` (string) and `href`. Optional: `icon`, `iconType`, `hidden`.
 - `global.anchors`: Each entry requires `anchor` (string) and `href`. Optional: `icon`, `iconType`, `color.light`, `color.dark`, `hidden`.
 - `global.dropdowns`: Each entry requires `dropdown` (string) and `href`. Optional: `icon`, `iconType`, `hidden`.
-- `global.languages`: Each entry requires `language` (code string). Optional: `default`, `hidden`, `href`.
-- `global.versions`: Each entry requires `version` (string). Optional: `default`, `hidden`, `href`.
+- `global.languages`: Each entry requires `language` (code string) and `href`. Optional: `default`, `hidden`.
+- `global.versions`: Each entry requires `version` (string) and `href`. Optional: `default`, `hidden`.
 - `global.products`: Each entry requires `product` (string). Optional: `description`, `icon`, `iconType`.
 
 ## Dropdowns
