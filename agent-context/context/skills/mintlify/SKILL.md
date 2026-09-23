@@ -17,7 +17,7 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/configuration.md` | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
 | `reference/navigation.md` | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
-| `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, automations, analytics, score, broken-links, a11y, format, and config) and their key flags. |
+| `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | `reference/product-context.md` | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
 
 ## MCP servers
@@ -220,7 +220,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint automations`, `mint new`, `mint signup`, `mint index` (install the Mintlify Index MCP server in supported coding agents). Read `reference/cli.md` for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint new`, `mint signup`, `mint index` (install the Mintlify Index MCP server in supported coding agents). Read `reference/cli.md` for full flags and subcommands.
 
 ## Writing standards
 
