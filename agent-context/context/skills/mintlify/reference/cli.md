@@ -34,7 +34,7 @@ Available on all commands.
 - `mint logout` — Log out of your account.
 - `mint status` — Show current authentication status (CLI version, email, org, subdomain).
 - `mint signup [flags]` — Create a new Mintlify account from the terminal. Flags: `--firstName`, `--lastName`, `--company`, `--email`; omit any to enter it interactively. Waits until you click the emailed verification link before it logs you in — run as a background process in scripts.
-- `mint add-domain <domain> [--basePath <path>]` — Add a custom domain to the current deployment. Requires `mint login`. Pass `--basePath` to serve the documentation from a subpath such as `/docs`.
+- `mint add-domain <domain> [--basePath <path>]` — Add a custom domain to the current project. Requires `mint login`. Pass `--basePath` to serve the documentation from a subpath such as `/docs`.
 
 ## Analytics
 
