@@ -8,7 +8,7 @@ The `docs.json` file controls the entire site. Required fields: `theme`, `name`,
 
 ### Splitting configuration with `$ref`
 
-Use `$ref` at any level of `docs.json` to load configuration from another JSON file. Useful for splitting large configs or sharing navigation across deployments.
+Use `$ref` at any level of `docs.json` to load configuration from another JSON file. Useful for splitting large configs or sharing navigation across projects.
 
 ```json
 {
@@ -372,7 +372,7 @@ The current API version is {{apiVersion}}.
 
 Shows "Last modified on [date]" on all pages. Override per-page with `timestamp` frontmatter.
 
-Date precedence: (1) the page's `lastUpdatedDate` frontmatter, (2) the date of the last Git commit that modified the page (GitHub/GitLab deployments), (3) the most recent deployment timestamp. Set `lastUpdatedDate` when Git history doesn't reflect when content changed (e.g., imported or synced content).
+Date precedence: (1) the page's `lastUpdatedDate` frontmatter, (2) the date of the last Git commit that modified the page (GitHub/GitLab projects), (3) the most recent deployment timestamp. Set `lastUpdatedDate` when Git history doesn't reflect when content changed (e.g., imported or synced content).
 
 ## Interaction
 

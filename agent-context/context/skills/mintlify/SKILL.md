@@ -37,24 +37,24 @@ Tools:
 
 Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
-Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Deployment management changes made through code mode apply immediately to the live deployment without a branch or pull request.
+Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Project management changes made through code mode apply immediately to the live project without a branch or pull request.
 
 Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
 Key tools:
 - **`checkout`** — Start a session on a branch (required first call). Returns an `editorUrl` to preview changes live.
 - **`list_branches`** — List existing branches; call before `checkout` to attach to one.
-- **`list_deployments`** — Discover which deployment(s) this connection can access.
+- **`list_deployments`** — Discover which project(s) this connection can access.
 - **`read`** / **`search`** — Fetch a page's MDX or search across pages.
 - **`edit_page`** / **`write_page`** — Apply targeted edits or overwrite a page.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
-- **`search_code_operations`** / **`execute_code`** — Code mode for deployment-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics, private-page sharing). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live deployment, so confirm the intended change first.
+- **`search_code_operations`** / **`execute_code`** — Code mode for project-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics, private-page sharing). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live project, so confirm the intended change first.
 
 Private pages: `list_nodes` accepts `visibility: "private"` to list the private pages and folders the OAuth user can access (ignores other filters, returns each node's `role`). `read`, `edit_page`, `write_page`, `update_node`, and `delete_node` accept `private-page-<uuid>` or `private-folder-<uuid>` node ids; `create_node` accepts `visibility: "private"` with `data.type: "page"` or `"group"`. Private-page operations require an OAuth session (the admin MCP rejects client and machine-to-machine tokens), work without a `checkout`, and enforce role requirements: read for reads, editor or higher for writes and updates, manager for deletes. The caller becomes the manager of any node they create.
 - **`diff`** — See all changes relative to the deploy branch.
 - **`get_session_state`** — Check the current session's status.
-- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the deployment's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
+- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the project's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
 - **`discard_session`** — Drop all in-session changes.
 
 Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live.
