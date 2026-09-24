@@ -9,10 +9,10 @@ keywords: ["MCP", "write access", "AI", "editing", "Claude", "ChatGPT", "Cursor"
 
 The admin MCP server gives AI tools write access to your Mintlify content and settings. Use it to update content and access your dashboard. With the admin MCP, you can use your preferred AI tools to edit pages, restructure navigation, update `docs.json`, open pull requests, change settings, create workflows, and more.
 
-Connect an MCP client such as Claude, Claude Code, ChatGPT, or Cursor to the admin MCP server. Use it to collaborate on your Mintlify content and settings with the same tools you use to write code. Content edits happen on a branch and ship through a pull request or commit when you call `save`. [Deployment management](#deployment-management) changes, such as workflow and settings updates, apply immediately to the live deployment. If your organization has multiple deployments, a single admin MCP connection can access and switch between all of them.
+Connect an MCP client such as Claude, Claude Code, ChatGPT, or Cursor to the admin MCP server. Use it to collaborate on your Mintlify content and settings with the same tools you use to write code. Content edits happen on a branch and ship through a pull request or commit when you call `save`. [Project management](#project-management) changes, such as workflow and settings updates, apply immediately to the live project. If your organization has multiple projects, a single admin MCP connection can access and switch between all of them.
 
 <Note>
-  The admin MCP server allows AI tools to access your Mintlify dashboard. Treat it as a tool with write access. Connect it only from trusted AI tools, review every pull request before merging, and be aware that deployment management changes apply immediately without a pull request.
+  The admin MCP server allows AI tools to access your Mintlify dashboard. Treat it as a tool with write access. Connect it only from trusted AI tools, review every pull request before merging, and be aware that project management changes apply immediately without a pull request.
 </Note>
 
 The admin MCP is a hosted Mintlify service at `https://mcp.mintlify.com`. Every client connects to the same endpoint and authenticates with your Mintlify account.
@@ -38,7 +38,7 @@ Before connecting the admin MCP, confirm the following:
 
 ## Connect to the admin MCP
 
-You must have an interactive OAuth login against your Mintlify account to connect to the admin MCP. AI tools exchange that login for a session token scoped to one or more deployments, depending on how you grant access. A connection scoped to specific deployments can only check out those deployments. An organization-wide connection can check out any deployment in your organization.
+You must have an interactive OAuth login against your Mintlify account to connect to the admin MCP. AI tools exchange that login for a session token scoped to one or more projects, depending on how you grant access. A connection scoped to specific projects can only check out those projects. An organization-wide connection can check out any project in your organization.
 
 <Tabs>
   <Tab title="Claude">
@@ -104,13 +104,13 @@ You must have an interactive OAuth login against your Mintlify account to connec
 Every admin MCP session binds to a single Git branch. The flow is:
 
 <Steps>
-  <Step title="Discover deployments (optional)">
-    If your connection has access to more than one deployment, call `list_deployments` to see which `subdomain` values you can check out. Skip this step if your connection covers only a single deployment.
+  <Step title="Discover projects (optional)">
+    If your connection has access to more than one project, call `list_deployments` to see which `subdomain` values you can check out. Skip this step if your connection covers only a single project.
   </Step>
   <Step title="Check out a branch">
-    The first required call is `checkout {subdomain}`. It creates a fresh `admin-mcp/<slug>-<sha>` branch from that deployment's deploy branch (or attaches to an existing branch you name) and returns an `editorUrl` you can open to follow along in the dashboard editor.
+    The first required call is `checkout {subdomain}`. It creates a fresh `admin-mcp/<slug>-<sha>` branch from that project's deploy branch (or attaches to an existing branch you name) and returns an `editorUrl` you can open to follow along in the dashboard editor.
 
-    Call `list_branches` before `checkout` if you need to discover or filter existing branches in a deployment's repository.
+    Call `list_branches` before `checkout` if you need to discover or filter existing branches in a project's repository.
   </Step>
   <Step title="Read, search, and edit">
     The AI uses tools like `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node`, and `update_config` to make changes. All edits buffer on the session branch in real time—nothing touches your deploy branch yet.
@@ -119,7 +119,7 @@ Every admin MCP session binds to a single Git branch. The flow is:
     Call `diff` at any time to see exactly what changed since your deploy branch. Open the `editorUrl` in your dashboard to see the same changes rendered.
   </Step>
   <Step title="Save">
-    Call `save` to flush the branch to Git. `mode: "auto"` (default) opens a pull request. If the deployment's agent review setting is push-to-main and the deploy branch isn't protected, Mintlify merges the pull request immediately (the response includes `merged: true`). Use `mode: "pr"` to always open a pull request and leave it open for review. Use `mode: "commit"` to push directly to an existing PR branch without opening a new PR.
+    Call `save` to flush the branch to Git. `mode: "auto"` (default) opens a pull request. If the project's agent review setting is push-to-main and the deploy branch isn't protected, Mintlify merges the pull request immediately (the response includes `merged: true`). Use `mode: "pr"` to always open a pull request and leave it open for review. Use `mode: "commit"` to push directly to an existing PR branch without opening a new PR.
   </Step>
   <Step title="Discard if needed">
     Call `discard_session` to drop all in-session changes and release the branch.
@@ -127,7 +127,7 @@ Every admin MCP session binds to a single Git branch. The flow is:
 </Steps>
 
 <Tip>
-  If your connection has access to multiple deployments, each checked-out deployment keeps its own session and branch in memory at the same time.
+  If your connection has access to multiple projects, each checked-out project keeps its own session and branch in memory at the same time.
   
   Calling `checkout` again with a different `subdomain` or branch switches which session is active. It doesn't discard the others. To abandon an in-progress draft instead of switching away from it, call `discard_session`.
 </Tip>
@@ -141,7 +141,7 @@ This toggle shares the same `agentReviewProcess` setting as the Slack and dashbo
 The toggle is disabled in three cases:
 
 - **Your deploy branch requires a pull request.** If branch protection rules or required approvals prevent direct pushes, MCP changes always open a pull request regardless of this setting.
-- **Mintlify hosts your deployment.** For Mintlify-hosted sites, MCP changes always push directly, unless branch protection still requires a pull request.
+- **Mintlify hosts your project.** For Mintlify-hosted sites, MCP changes always push directly, unless branch protection still requires a pull request.
 - **You aren't an admin.** Changing this setting requires the [admin role](/dashboard/roles) on your project. Editors and viewers see the toggle disabled with a permission banner.
 
 You can also override the setting on a per-call basis by passing an explicit `mode` to `save`: `"pr"` always opens a pull request, and `"commit"` pushes to an existing PR branch without opening a new PR.
@@ -167,25 +167,25 @@ You can also override the setting on a per-call basis by passing an explicit `mo
 
 - **`update_config`**: Modify `docs.json` (theme, navigation roots, integrations, SEO settings).
 
-### Deployment management
+### Project management
 
-Code mode handles deployment-level operations that have no dedicated tool, such as managing workflows, deployment settings, members, billing, integrations, analytics, and [private page](/editor/pages#private-pages) sharing. Code mode tools don't require a `checkout`.
+Code mode handles project-level operations that have no dedicated tool, such as managing workflows, project settings, members, billing, integrations, analytics, and [private page](/editor/pages#private-pages) sharing. Code mode tools don't require a `checkout`.
 
-- **`search_code_operations`**: Search the deployment management methods available to code mode. Each result includes the method's full input schema.
-- **`execute_code`**: Run a TypeScript script against the deployment management methods. The connection's granted scopes gate every method, and any method you weren't granted returns an authorization error.
+- **`search_code_operations`**: Search the project management methods available to code mode. Each result includes the method's full input schema.
+- **`execute_code`**: Run a TypeScript script against the project management methods. The connection's granted scopes gate every method, and any method you weren't granted returns an authorization error.
 
 <Warning>
-  Code mode writes apply immediately to the live deployment. They don't create a branch or open a pull request. Confirm the intended change before prompting an AI tool to update workflows, settings, members, billing, or integrations.
+  Code mode writes apply immediately to the live project. They don't create a branch or open a pull request. Confirm the intended change before prompting an AI tool to update workflows, settings, members, billing, or integrations.
 </Warning>
 
 ### Session
 
-- **`list_deployments`**: List the deployments your connection can access, returning each `{subdomain, name}`. Call this to discover which `subdomain` to pass to `checkout`.
-- **`checkout`**: Bind a session to a branch for a given deployment `subdomain`, or switch which deployment's session is active.
-- **`list_branches`**: List Git branches available for a deployment's project, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Call this before `checkout` to attach to an existing branch by name.
+- **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name}`. Call this to discover which `subdomain` to pass to `checkout`.
+- **`checkout`**: Bind a session to a branch for a given project `subdomain`, or switch which project's session is active.
+- **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Call this before `checkout` to attach to an existing branch by name.
 - **`get_session_state`**: Inspect the current branch, edited files, and pending nav diff.
 - **`diff`**: List all changes between the session and your deploy branch.
-- **`save`**: Open a pull request or commit to the session branch. If your deployment allows the agent to push to main and you have no branch protection rules, auto-merges the PR.
+- **`save`**: Open a pull request or commit to the session branch. If your project allows the agent to push to main and you have no branch protection rules, auto-merges the PR.
 - **`discard_session`**: Drop the session and its in-flight changes.
 
 ## Example prompts
