@@ -4,29 +4,35 @@ Setting up API documentation with OpenAPI, AsyncAPI, and MDX manual pages.
 
 ## OpenAPI setup
 
-Add your OpenAPI spec to `docs.json`:
+Spec requirements:
+- OpenAPI 3.0 or 3.1, in JSON or YAML, stored in the repo or hosted at a public URL.
+- `$ref` supports internal references only. External references are not supported.
+- Include a `servers` field with the API base URL. Without it, the playground falls back to simple mode because it can't send requests.
+- Define `components.securitySchemes` and `security` to get auth inputs in the playground.
+
+Add an `openapi` field to a navigation element (tab, group, anchor, and so on) to generate endpoint pages there. With no `pages`, every endpoint in the spec gets a page:
 
 ```json
-"api": {
-  "openapi": "openapi.json"
+"navigation": {
+  "tabs": [
+    { "tab": "API reference", "openapi": "openapi.json" }
+  ]
 }
 ```
 
-Multiple specs:
-
-```json
-"api": {
-  "openapi": ["openapi/v1.json", "openapi/v2.json"]
-}
-```
-
-Reference individual endpoints in navigation:
+- The value can be a path, a URL, an array of specs, or an object: `{ "source": "openapi.json", "directory": "api-reference" }`. `directory` sets where generated pages live (default `api-reference`).
+- To mix endpoints with other pages, set `openapi` on the element and list endpoints in `pages` as `METHOD /path`. Child elements inherit the parent's spec unless they set their own.
+- To pull an endpoint from a specific spec without a default, use `"/path/to/spec.json POST /users"` as the page entry.
+- `api.openapi` in `docs.json` accepts the same values.
+- Hosted spec URLs don't trigger a redeploy when the spec changes. Call the trigger deployment API from the spec's CI to keep docs current.
+- Use `mint dev --local-schema` to preview a spec served from `http://localhost`. Production requires HTTPS URLs.
+- Generated pages take `title` from the operation `summary` (or method and path), `description` from `description`, and show a deprecated label when `deprecated: true`.
 
 ```json
 {
   "group": "Users",
   "openapi": "openapi.json",
-  "pages": ["GET /users", "POST /users", "GET /users/{id}"]
+  "pages": ["users/overview", "GET /users", "POST /users", "GET /users/{id}"]
 }
 ```
 
@@ -87,25 +93,49 @@ paths:
             curl https://api.example.com/users
 ```
 
+## MDX pages from an OpenAPI spec
+
+Create an MDX page per endpoint to control its metadata, content, and position while keeping the generated reference. The method and path must exactly match the spec.
+
+```yaml
+---
+title: "Get users"
+openapi: "openapi/users.json GET /users"
+---
+```
+
+- Always include the spec file path when the repo contains more than one spec. Mintlify uploads every spec in the repo, even unreferenced ones, and `openapi: "GET /users"` without a path can resolve to the wrong spec.
+- Webhooks (OpenAPI 3.1): `openapi: "openapi.json webhook orderUpdated"`, where the name matches a key in `webhooks`.
+- Data models: `openapi-schema: "openapi.json OrderItem"` renders a `components.schemas` entry. The file path is optional unless schema names collide across specs.
+- Generate MDX files from a spec with `npx @mintlify/scraping@latest openapi-file <path-to-spec> -o <folder>`.
+
 ## MDX manual API pages
 
-For endpoints without an OpenAPI spec:
+For endpoints without an OpenAPI spec, set `api` in frontmatter and document parameters and responses with `ParamField` and `ResponseField`:
 
-```yaml
+```mdx
 ---
 title: "Create user"
-api: "POST https://api.example.com/users"
+api: "POST /users/{userId}"
 ---
+
+<ParamField path="userId" type="string" required>
+  Unique identifier for the user.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address.
+</ParamField>
+
+<ResponseField name="id" type="string" required>
+  ID of the created user.
+</ResponseField>
 ```
 
-Or with a base URL configured in `docs.json`:
-
-```yaml
----
-title: "Create user"
-api: "POST /users"
----
-```
+- `api` takes a full URL (`POST https://api.example.com/users`, ignores `api.mdx.server`) or a relative path (requires `api.mdx.server` in `docs.json`). Wrap path parameters in `{}`.
+- Wrap request and response code samples in `<RequestExample>` and `<ResponseExample>` to show them in the right sidebar.
+- `playground` frontmatter (`interactive`, `simple`, `none`) overrides `api.playground.display` for the page.
+- `authMethod` frontmatter (`bearer`, `basic`, `key`, `none`) overrides `api.mdx.auth.method` for the page. `none` disables auth.
 
 ## AsyncAPI
 
@@ -162,6 +192,7 @@ Control the API playground behavior in `docs.json`:
 - `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
 - `examples.autogenerate`: Generate code samples from API specs. Default: `true`.
 - `mdx.auth.method`: `"bearer"`, `"basic"`, `"key"`, `"cobo"`.
+- `mdx.auth.name`: Header name for the API key, such as `x-api-key`. Required with `"key"`.
 
 ### Runtime server variables
 
@@ -191,4 +222,23 @@ Every parameter in the playground has a clickable anchor link. Hover over a para
 
 ## Custom endpoint pages
 
-Use the `x-mint` extension in your OpenAPI spec to customize individual endpoint pages (metadata, playground behavior, additional content) while keeping all API documentation in one file. Alternatively, create individual MDX pages for full per-page control.
+Use the `x-mint` extension on an operation to customize its generated page while keeping everything in the spec. For full per-page control, create MDX pages from the spec instead.
+
+- `x-mint.metadata`: Any frontmatter field except `openapi` (for example `title`, `sidebarTitle`, `description`). Includes `playground`, `groups`, and `public`, so `{"playground": "auth", "groups": ["admin"], "public": true}` makes the page public while limiting the playground to authenticated `admin` users.
+- `x-mint.content`: MDX (any Mintlify component) rendered before the generated reference.
+- `x-mint.href`: Custom URL for the generated page.
+- `x-mint.playground.expand`: `false` collapses nested object fields in the playground (see OpenAPI extensions above).
+- `x-mint.pre` / `x-mint.post` (on any schema): Arrays of strings rendered as pills before or after the parameter name.
+
+```json
+"/users": {
+  "get": {
+    "summary": "Get users",
+    "x-mint": {
+      "metadata": { "title": "List all users", "sidebarTitle": "List users" },
+      "content": "## Prerequisites\n\n<Note>Requires an admin API key.</Note>",
+      "href": "/api-reference/users/list"
+    }
+  }
+}
+```

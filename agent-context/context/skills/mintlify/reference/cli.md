@@ -24,7 +24,7 @@ Available on all commands.
 
 - `mint broken-links` — Check for broken internal links. `--files <paths...>` limits the check to specific files or globs. `--check-anchors` validates `#` anchors. `--check-external` checks external URLs. `--check-redirects` checks that redirect destinations in `docs.json` resolve. `--check-snippets` checks links inside `<Snippet>` components.
 - `mint a11y` — Accessibility checks (alt text, color contrast). `--skip-contrast` or `--skip-alt-text` to narrow scope.
-- `mint test` — Scan content for code blocks and generate unit tests that validate them. Requires `mint login`. Interactive; only pages in the `docs.json` navigation appear for selection. Writes generated test projects to `tests/mint-test/<run-id>/` and run reports/history to `.mintlify/test/`. Add both paths to `.gitignore` to avoid committing test artifacts. When a previous run report exists, the next interactive run offers **Update tests** (rerun the same pages with the same agent and model), **Review last test run** (browse saved results without running anything), or **Start a brand new test** (pick an agent and pages from scratch).
+- `mint test` — Scan content for code blocks and generate unit tests that validate them, run by a local coding agent. Requires `mint login` and the agent SDK installed in the project: `npm install @anthropic-ai/claude-agent-sdk @anthropic-ai/sdk @modelcontextprotocol/sdk` (Claude, default) or `npm install @openai/codex-sdk` (Codex). Interactive; only pages in the `docs.json` navigation appear for selection. Writes generated test projects to `tests/mint-test/<run-id>/` and run reports/history to `.mintlify/test/`. Add both paths to `.gitignore` to avoid committing test artifacts. When a previous run report exists, the next interactive run offers **Update tests** (rerun the same pages with the same agent and model), **Review last test run** (browse saved results without running anything), or **Start a brand new test** (pick an agent and pages from scratch). Exits `0` when every test passes, `1` otherwise.
 - `mint score [url]` — Score a docs site's AI/agent readiness. Checks llms.txt, MCP discoverability, robots.txt, sitemap, structured data, response latency, and more. Requires `mint login`. Defaults to your configured subdomain. `--format` accepts `table` (default), `plain`, or `json`.
 - `mint format` — Format every `.mdx` file in the current directory and its subdirectories in place. Respects `.gitignore` and Mintlify ignore rules. Commit or stash changes first so you can review the rewrite.
 
@@ -38,7 +38,7 @@ Available on all commands.
 
 ## Analytics
 
-Query documentation analytics from the terminal. Requires `mint login`. All `mint analytics` subcommands share these flags: `--subdomain`, `--from <YYYY-MM-DD>` (default: seven days ago, or `mint config set dateFrom`), `--to <YYYY-MM-DD>` (default: today, or `mint config set dateTo`), `--format` (`table`, `plain`, `json`, or `graph`; default: `plain`, or `json` in AI/CI environments).
+Query documentation analytics from the terminal. Requires `mint login` and a Pro or Enterprise plan. All `mint analytics` subcommands share these flags: `--subdomain`, `--from <YYYY-MM-DD>` (default: seven days ago, or `mint config set dateFrom`), `--to <YYYY-MM-DD>` (default: today, or `mint config set dateTo`), `--format` (`table`, `plain`, `json`, or `graph`; default: `plain`, or `json` in AI/CI environments).
 
 - `mint analytics stats` — Top-line KPIs for a date range: views, visitors, searches, feedback, assistant usage. Human and agent traffic reported separately. `--page` filters to a page path.
 - `mint analytics search` — Search queries with hit counts, click-through rates, top clicked page, and last searched date. `--query` filters by substring; `--page` filters to queries where the given page was the top clicked result.
@@ -77,14 +77,6 @@ Query documentation analytics from the terminal. Requires `mint login`. All `min
   | OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` |
   | Windsurf | `~/.codeium/windsurf/mcp_config.json` | Global only |
   | Zed | User `settings.json` | `.zed/settings.json` |
-
-## Automations
-
-All `mint automations` subcommands share these flags: `--subdomain`, `--format` (table/json; default: table). `mint workflow` and `mint workflows` continue to work as aliases.
-
-- `mint automations create` — Create an automation. Requires exactly one trigger: `--cron <expr>` for scheduled or `--push-repo <owner/repo>` (repeatable) for push-triggered. Key flags: `--name`, `--type` (one of `changelog`, `source-code-agent`, `translations`, `writing-style`, `typo-check`, `broken-link-detection`, `seo-metadata-audit`, `assistant-docs-updates`, `contextual-feedback-docs-updates`; omit for custom), `--prompt`, `--context-repo` (repeatable, up to 10), `--automerge`, `--file <path>` (JSON/YAML file overrides inline flags).
-- `mint automations list` — List automations for the current deployment.
-- `mint automations delete <id>` — Delete an automation by ID. Use `mint automations list` to get the ID.
 
 ## Maintenance
 
