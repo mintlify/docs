@@ -8,7 +8,7 @@ The `docs.json` file controls the entire site. Required fields: `theme`, `name`,
 
 ### Splitting configuration with `$ref`
 
-Use `$ref` at any level of `docs.json` to load configuration from another JSON file. Useful for splitting large configs or sharing navigation across deployments.
+Use `$ref` at any level of `docs.json` to load configuration from another JSON file. Useful for splitting large configs or sharing navigation across projects.
 
 ```json
 {
@@ -57,10 +57,10 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `title` | string | Page title in navigation and browser tabs. Auto-generated from the path if omitted. |
 | `description` | string | Brief description for SEO. Displays under the title. |
 | `sidebarTitle` | string | Short title for sidebar navigation. |
-| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
+| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a single emoji, a URL, or a file path. |
 | `iconType` | string | Font Awesome icon style: `regular`, `solid`, `light`, `thin`, `sharp-solid`, `duotone`, `brands`. |
 | `tag` | string | Label next to page title in sidebar (e.g., "NEW"). |
-| `hidden` | boolean | Remove from sidebar. Page still accessible by URL. Also excludes the page from search, sitemaps, external indexing, AI context, and `llms.txt`. Remove the field (or set `false`) to make a page visible again. |
+| `hidden` | boolean | Remove from sidebar. Page still accessible by URL. Also excludes the page from search, sitemaps, external indexing, AI context, and `llms.txt`. To make a page visible again, remove the field entirely. Do not set `false`. |
 | `noindex` | boolean | Exclude from site search, sitemaps, search engine indexing, and AI assistant context. Still visible in navigation. |
 | `searchable` | boolean | At the page level, only `searchable: false` has an effect: excludes the page from site search and AI assistant context while keeping it indexable externally and visible in navigation. Does not override `hidden: true`. Pages with `searchable: false` still appear in `llms.txt` and `llms-full.txt`. |
 | `boost` | number | Multiply the page's in-product search ranking. Values above 1 prioritize, between 0 and 1 de-prioritize. No effect when `searchable: false`. |
@@ -70,7 +70,7 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `hideApiMarker` | boolean | Hide the HTTP method badge next to the page title in the sidebar. |
 | `contextual` | object | Override the site-wide contextual menu (`options`, `display`) for this page. `options: []` disables it. |
 | `groups` | string[] | Limit the page to users in specific groups. With authentication, restricts access. With standalone personalization, only controls navigation visibility. Users can still open the page by direct URL. |
-| `mode` | string | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
+| `mode` | string | Page layout: `default`, `wide`, `custom`, `frame`, `center`, `assistant`. |
 | `keywords` | array | Search terms for internal search and SEO. |
 | `api` | string | API endpoint for interactive playground (e.g., `"POST /users"`). |
 | `openapi` | string | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
@@ -112,6 +112,12 @@ mode: "frame"
 ---
 title: "Page title"
 mode: "center"
+---
+
+# Assistant: full-screen assistant chat replaces page content (all themes; requires the assistant enabled)
+---
+title: "Ask AI"
+mode: "assistant"
 ---
 ```
 
@@ -180,7 +186,7 @@ Single file or light/dark variants:
 }
 ```
 
-Options: `"fontawesome"` (default), `"lucide"`, or `"tabler"`. You can only use one library per project. Individual icons can still use URLs or file paths regardless of this setting.
+Options: `"fontawesome"` (default), `"lucide"`, or `"tabler"`. You can only use one library per project. Individual icons can still use a single emoji, a URL, or a file path regardless of this setting.
 
 ## Fonts
 
@@ -366,7 +372,7 @@ The current API version is {{apiVersion}}.
 
 Shows "Last modified on [date]" on all pages. Override per-page with `timestamp` frontmatter.
 
-Date precedence: (1) the page's `lastUpdatedDate` frontmatter, (2) the date of the last Git commit that modified the page (GitHub/GitLab deployments), (3) the most recent deployment timestamp. Set `lastUpdatedDate` when Git history doesn't reflect when content changed (e.g., imported or synced content).
+Date precedence: (1) the page's `lastUpdatedDate` frontmatter, (2) the date of the last Git commit that modified the page (GitHub/GitLab projects), (3) the most recent deployment timestamp. Set `lastUpdatedDate` when Git history doesn't reflect when content changed (e.g., imported or synced content).
 
 ## Interaction
 
@@ -460,8 +466,8 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 }
 ```
 
-- `openapi`: Single file, array, or object with `source` and `directory`.
-- `asyncapi`: Same format as `openapi` for AsyncAPI specs.
+- `openapi`: Single path or URL, array of paths/URLs/objects, or object with `source`, `directory`, and `overlays` (array of OpenAPI Overlay paths or URLs applied in order; `[]` disables all overlays, including auto-discovered ones).
+- `asyncapi`: Single file, array, or object with `source` and `directory` for AsyncAPI specs.
 - `playground.display`: `"interactive"`, `"simple"`, `"none"`, or `"auth"`.
 - `playground.proxy`: Route requests through Mintlify's proxy. Default: `true`.
 - `playground.credentials`: Include cookies and auth headers for cross-origin requests when proxy is `false`. Default: `false`.
@@ -502,7 +508,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 
 ## Reusable snippets
 
-Store reusable content in the `/snippets/` directory.
+Store reusable content in the `/snippets/` directory. Snippet files must be `.mdx`, `.md`, `.js`, or `.jsx`. You cannot import `.json` or `.yaml` files directly. Keep data in a `.js` snippet with a named export, or generate one from a JSON or YAML source.
 
 ### MDX snippets
 
@@ -547,6 +553,27 @@ import { Counter } from "/snippets/counter.jsx";
 
 JSX components can live in any directory, not just `/snippets/`. Nested imports between snippet files are not supported.
 
+### Data snippets
+
+Export structured data from a `.js` snippet and render it with a `.jsx` snippet to keep tables, lists, or cards in sync across pages.
+
+```js
+// snippets/sdk-components.js
+export const sdkComponents = [
+  { name: "CardForm", version: "2.4.0", status: "Stable" },
+  { name: "PinReveal", version: "1.9.2", status: "Beta" }
+];
+```
+
+```mdx
+import { sdkComponents } from "/snippets/sdk-components.js";
+import { ComponentsTable } from "/snippets/components-table.jsx";
+
+<ComponentsTable rows={sdkComponents} />
+```
+
+MDX expressions (imported variables like `{myName}` and inline expressions like `{1 + 1}`) are evaluated client-side. Their values are absent from a page's initial HTML and from offline exports. Crawlers, LLMs, and other tools that do not run JavaScript do not see them. Write values as plain text when they must be visible in those situations.
+
 ## Hidden pages
 
 Set `hidden: true` in frontmatter to remove from sidebar. Page remains accessible by URL.
@@ -587,7 +614,7 @@ Add `.css` files to your repository. Class names become available in all MDX fil
 }
 ```
 
-Built-in Tailwind CSS v3 classes are available. Arbitrary values (e.g., `w-[350px]`) are not supported — use inline `style` instead.
+Built-in Tailwind CSS v3 classes are available, including arbitrary values (e.g., `w-[350px]`) and variants (`sm:`, `hover:`, `dark:`). All built-in components except Banner, MDX, and Visibility accept a `className` prop. Write class names out in full: Mintlify generates CSS only for class names found in the page source, so runtime-assembled names produce no CSS. Avoid the inline `style` prop; it can cause layout shift on page load.
 
 ### JavaScript
 

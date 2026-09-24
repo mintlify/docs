@@ -17,7 +17,7 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/configuration.md` | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
 | `reference/navigation.md` | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
-| `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, automations, analytics, score, broken-links, a11y, format, and config) and their key flags. |
+| `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | `reference/product-context.md` | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
 
 ## MCP servers
@@ -37,22 +37,24 @@ Tools:
 
 Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
-Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Deployment management changes made through code mode apply immediately to the live deployment without a branch or pull request.
+Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Project management changes made through code mode apply immediately to the live project without a branch or pull request.
 
 Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
 Key tools:
 - **`checkout`** — Start a session on a branch (required first call). Returns an `editorUrl` to preview changes live.
 - **`list_branches`** — List existing branches; call before `checkout` to attach to one.
-- **`list_deployments`** — Discover which deployment(s) this connection can access.
+- **`list_deployments`** — Discover which project(s) this connection can access.
 - **`read`** / **`search`** — Fetch a page's MDX or search across pages.
 - **`edit_page`** / **`write_page`** — Apply targeted edits or overwrite a page.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
-- **`search_code_operations`** / **`execute_code`** — Code mode for deployment-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live deployment, so confirm the intended change first.
-- **`diff`** — See all changes relative to `main`.
+- **`search_code_operations`** / **`execute_code`** — Code mode for project-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics, private-page sharing). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live project, so confirm the intended change first.
+
+Private pages: `list_nodes` accepts `visibility: "private"` to list the private pages and folders the OAuth user can access (ignores other filters, returns each node's `role`). `read`, `edit_page`, `write_page`, `update_node`, and `delete_node` accept `private-page-<uuid>` or `private-folder-<uuid>` node ids; `create_node` accepts `visibility: "private"` with `data.type: "page"` or `"group"`. Private-page operations require an OAuth session (the admin MCP rejects client and machine-to-machine tokens), work without a `checkout`, and enforce role requirements: read for reads, editor or higher for writes and updates, manager for deletes. The caller becomes the manager of any node they create.
+- **`diff`** — See all changes relative to the deploy branch.
 - **`get_session_state`** — Check the current session's status.
-- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the deployment's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
+- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the project's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
 - **`discard_session`** — Drop all in-session changes.
 
 Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live.
@@ -123,7 +125,7 @@ keywords: ["relevant", "search", "terms"]
 | `title` | string | Page title in navigation and browser tabs. Auto-generated from the path if omitted. |
 | `description` | string | Brief description for SEO. Displays under the title. |
 | `sidebarTitle` | string | Short title for sidebar navigation. |
-| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a URL or file path. |
+| `icon` | string | Lucide, Font Awesome, or Tabler icon name. Also accepts a single emoji, a URL, or a file path. |
 | `tag` | string | Label next to page title in sidebar (e.g., "NEW"). |
 | `hidden` | boolean | Remove from sidebar. Page still accessible by URL. |
 | `mode` | string | Page layout: `default`, `wide`, `custom`, `frame`, `center`. |
@@ -218,7 +220,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint automations`, `mint new`, `mint signup`, `mint index` (install the Mintlify Index MCP server in supported coding agents). Read `reference/cli.md` for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`, `mint index` (install the Mintlify Index MCP server in supported coding agents). Read `reference/cli.md` for full flags and subcommands.
 
 ## Writing standards
 

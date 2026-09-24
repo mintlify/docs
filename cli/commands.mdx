@@ -2,7 +2,12 @@
 title: "Mintlify CLI command reference"
 sidebarTitle: "Commands"
 description: "Complete reference for Mintlify CLI commands and flags, including mint index, mint dev, mint validate, mint broken-links, and more."
-keywords: ["CLI", "mint", "commands", "flags", "reference"]
+keywords:
+  - "CLI"
+  - "mint"
+  - "commands"
+  - "flags"
+  - "reference"
 boost: 3
 ---
 
@@ -14,7 +19,7 @@ These flags are available on all commands.
 
 | Flag | Description |
 | --- | --- |
-| `--telemetry`, `-t` | Enable or disable anonymous usage telemetry. |
+| `--telemetry`, `-t` | Enable or disable usage telemetry. |
 | `--help`, `-h` | Display help for the command. |
 | `--version`, `-v` | Display the CLI version. Alias for `mint version`. |
 
@@ -30,7 +35,7 @@ mint dev [flags]
 | --- | --- |
 | `--port` | Port to run the local preview on. Defaults to `3000`. |
 | `--no-open` | Do not open the browser automatically. |
-| `--groups` | Comma-separated list of user groups to mock for preview. |
+| `--groups` | Space-separated list of user groups to mock for preview. For example, `--groups admin user`. |
 | `--disable-openapi` | Skip OpenAPI file processing to improve performance. |
 | `--disable-prefetch` | Disable navigation prefetching in the local preview. Useful for very large sites where background prefetching slows down page loads. |
 | `--local-schema` | Allow locally hosted OpenAPI files served over HTTP. |
@@ -152,7 +157,7 @@ mint login
 
 Opens a browser window to complete authentication. If the browser does not open, the CLI displays a URL to open manually and a prompt to paste the authorization code. Credentials save in `~/.config/mintlify/config.json`.
 
-If you have more than one deployment, the CLI prompts you to select a default after you log in. You can change the default project later with `mint config set subdomain <subdomain>`.
+If you have more than one project, the CLI prompts you to select a default after you log in. You can change the default project later with `mint config set subdomain <subdomain>`.
 
 ---
 
@@ -178,7 +183,7 @@ mint status
 
 ## `mint add-domain`
 
-Add a [custom domain](/customize/custom-domain) to your deployment from the terminal. Requires authentication with `mint login`.
+Add a [custom domain](/customize/custom-domain) to your project from the terminal. Requires authentication with `mint login`.
 
 ```bash
 mint add-domain <domain> [--basePath <path>]
@@ -204,10 +209,10 @@ CNAME @ → cname.mintlify.builders
 
 Add the `TXT` records first, then add the `CNAME` once the verification records validate. See [Custom domain](/customize/custom-domain) for full DNS setup instructions, apex domain requirements, and TLS provisioning details.
 
-If the command fails with `Domain is already in use by another deployment in your organization` or `Domain is already claimed by another organization`, the domain is bound to another Mintlify deployment. See [Add domain fails with "Domain is already claimed by another organization"](/help-center/domain-already-claimed-by-another-organization) to release it and re-add it.
+If the command fails with `Domain is already in use by another deployment in your organization` or `Domain is already claimed by another organization`, the domain is bound to another Mintlify project. See [Add domain fails with "Domain is already claimed by another organization"](/help-center/domain-already-claimed-by-another-organization) to release it and re-add it.
 
 <Note>
-  If some `TXT` records are still generating when the command exits, check the [Custom domain setup](https://app.mintlify.com/settings/deployment/custom-domain) page in your dashboard for the remaining values.
+  If some `TXT` records are still generating when the command exits, check the [Custom domain setup](https://app.mintlify.com/settings/project/custom-domain) page in your dashboard for the remaining values.
 </Note>
 
 When you pass `--basePath`, the CLI saves the base path after registering the domain. The new path takes effect on your next deploy, and your site continues serving from the current path until then. The `CNAME` sends all traffic on the domain to Mintlify, so only add it if the domain hosts nothing else. Otherwise, keep your existing DNS and set up a reverse proxy to Mintlify for the base path. See [Host docs at a subpath](/deploy/docs-subpath) for provider-specific guides.
@@ -225,106 +230,6 @@ Add a custom domain and serve your documentation at `/docs`:
 ```bash
 mint add-domain example.com --basePath /docs
 ```
-
----
-
-## `mint automations`
-
-Create, list, and delete [automations](/automations) from the terminal. Requires authentication with `mint login`.
-
-```bash
-mint automations <subcommand> [flags]
-```
-
-<Note>
-  `mint workflow` and `mint workflows` continue to work as aliases for `mint automations`, so existing scripts keep running. New scripts should use `mint automations`.
-</Note>
-
-All subcommands accept these shared flags:
-
-| Flag | Description |
-| --- | --- |
-| `--subdomain` | Documentation subdomain. Defaults to the value set with `mint config set subdomain`, or the first project on your account. |
-| `--format` | Output format: `table` (default, pretty) or `json` (raw, machine-readable). |
-
-When `--format json` is set, errors print to stderr as `Error: <message>` and the command exits with a non-zero status, so you can pipe successful output into other tools.
-
-### `mint automations create`
-
-Create a new automation. You can pass the automation definition inline with flags, or point at a JSON or YAML file with `--file`.
-
-```bash
-mint automations create [flags]
-```
-
-| Flag | Description |
-| --- | --- |
-| `--name` | Automation name. Required unless `--file` is provided. |
-| `--prompt` | Instructions appended to the automation's base prompt on every run. |
-| `--type` | Automation type. One of `changelog`, `source-code-agent`, `translations`, `writing-style`, `typo-check`, `broken-link-detection`, `seo-metadata-audit`, `assistant-docs-updates`, or `contextual-feedback-docs-updates`. Omit for a custom automation. |
-| `--cron` | Cron expression for a scheduled trigger. Mutually exclusive with `--push-repo`. |
-| `--push-repo` | Repository (`owner/repo`) for a push trigger. Repeatable to listen to multiple repositories. Mutually exclusive with `--cron`. |
-| `--context-repo` | Additional context repository (`owner/repo`) the agent reads when the automation runs. Repeatable, up to 10 total. |
-| `--automerge` | Automatically merge pull requests opened by this automation. See [Configure automerge](/guides/configure-automerge) for setup requirements. |
-| `--file` | Path to a JSON or YAML file containing the full automation body. Overrides the inline flags. |
-
-Provide exactly one trigger: pass `--cron` for a scheduled automation or one or more `--push-repo` flags for a push-triggered automation.
-
-#### Examples
-
-```bash
-# Scheduled translations automation
-mint automations create \
-  --name "Translate content" \
-  --type translations \
-  --cron "0 6 * * *"
-
-# Push-triggered automation with extra context
-mint automations create \
-  --name "Sync API reference" \
-  --type source-code-agent \
-  --push-repo my-org/api \
-  --context-repo my-org/shared-types \
-  --automerge
-
-# Create from a file
-mint automations create --file automation.yaml
-```
-
-An automation file uses the same shape as the inline flags. The `on` field holds the trigger:
-
-```yaml
-name: Translate content
-type: translations
-on:
-  cron: "0 6 * * *"
-prompt: Prefer formal tone in French translations.
-automerge: false
-context:
-  - repo: my-org/shared-content
-```
-
-### `mint automations list`
-
-List automations for the current deployment.
-
-```bash
-mint automations list [flags]
-```
-
-The default table output shows each automation's ID, name, type, trigger, and status. Use `--format json` to get the full automation objects.
-
-### `mint automations delete`
-
-Delete an automation by ID. Use `mint automations list` to get the ID.
-
-```bash
-mint automations delete <id> [flags]
-```
-
-| Argument | Description |
-| --- | --- |
-| `id` | Automation schema ID to delete. |
 
 ---
 
@@ -476,7 +381,7 @@ mint config <subcommand> <key> [value]
 
 | Key | Description | Used by |
 | --- | --- | --- |
-| `subdomain` | Default documentation subdomain. | `mint dev`, `mint automations`, `mint analytics`, `mint add-domain`, `mint score` |
+| `subdomain` | Default documentation subdomain. | `mint dev`, `mint analytics`, `mint add-domain`, `mint score` |
 | `dateFrom` | Default start date for analytics queries. | `mint analytics` |
 | `dateTo` | Default end date for analytics queries. | `mint analytics` |
 
@@ -542,7 +447,7 @@ mint validate [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--groups` | Comma-separated list of user groups to mock for validation. |
+| `--groups` | Space-separated list of user groups to mock for validation. For example, `--groups admin user`. |
 | `--disable-openapi` | Skip OpenAPI file processing and validation. |
 | `--local-schema` | Allow validation of locally hosted OpenAPI files served over HTTP. Only supports HTTPS in production. |
 
@@ -554,22 +459,36 @@ mint validate [flags]
 
 ## `mint test`
 
-Generate tests from your code samples in your documentation.
+Generate tests from your code samples in your documentation. Requires authentication with `mint login`.
 
 ```bash
 mint test
 ```
 
-`mint test` scans your content for code blocks and generates unit tests for validating them.
+`mint test` scans your content for code blocks, generates unit tests for validating them, and runs the tests with a local coding agent.
+
+### Prerequisites
+
+- Authenticate with `mint login`.
+- Install the SDK for the coding agent you want to use:
+
+  ```bash
+  # Claude (default)
+  npm install @anthropic-ai/claude-agent-sdk @anthropic-ai/sdk @modelcontextprotocol/sdk
+
+  # Codex
+  npm install @openai/codex-sdk
+  ```
 
 Only pages in your `docs.json` navigation appear for selection.
 
-<Frame>
-  <img
-    src="/images/cli/mint-test-scope.png"
-    alt="The mint test interactive interface with a steps sidebar and a page selection tree listing folders of pages with code block counts."
-  />
-</Frame>
+### Revisit a previous run
+
+`mint test` saves a report for each completed run. When a saved report exists, the next interactive run starts with options for it:
+
+- **Update tests**: Rerun the same pages with the same agent and model.
+- **Review last test run**: Browse the saved results without running anything.
+- **Start a brand new test**: Select an agent and pages from scratch.
 
 ### Output
 
@@ -581,6 +500,8 @@ The `mint test` command writes to two locations in your project:
 | `.mintlify/test/` | Run reports and history, including `runs/<run-id>.json` for each run. |
 
 Add both paths to your `.gitignore` if you do not want to commit test artifacts.
+
+When a run finishes, the command prints a result summary, for example `mint test passed: 8 passed, 0 failed, 0 agent errors`. The command exits with code `0` when every test passes and `1` otherwise.
 
 ---
 
@@ -595,7 +516,7 @@ mint export [flags]
 | Flag | Description |
 | --- | --- |
 | `--output` | Output filename. Defaults to `export.zip`. |
-| `--groups` | Comma-separated list of user groups to include restricted pages for. |
+| `--groups` | Space-separated list of user groups to include restricted pages for. For example, `--groups admin user`. |
 | `--disable-openapi` | Skip OpenAPI processing. |
 
 See [Offline export](/deploy/export) for details.
@@ -665,6 +586,10 @@ The overall score uses weighted scoring, so higher-impact checks contribute more
 
 ## `mint format`
 
+<Warning>
+  `mint format` rewrites files in place. Commit or stash your changes before running it so you can review the diff.
+</Warning>
+
 Format every `.mdx` file in the current directory to Mintlify's canonical style. The command parses each file with the same MDX parser the web editor uses, then rewrites it in place if the canonical output differs.
 
 ```bash
@@ -673,11 +598,11 @@ mint format
 
 Run the command from the root of your docs project. It walks every subdirectory, skipping paths matched by `.gitignore` and any Mintlify ignore rules. Files that already match the canonical output are left untouched.
 
-<Warning>
-  `mint format` rewrites files in place. Commit or stash your changes before running it so you can review the diff.
-</Warning>
+<Tip>
+  Running `mint format` can result in many changes depending on the size of your project. To avoid merge conflicts and introducing changes to other in progress work, first resolve all important pending branches. Then create a new branch for formatting changes and run `mint format` on that branch.
+</Tip>
 
-When it finishes, the command prints how many MDX files were reformatted and how many failed to parse. If any file fails, the command exits with code `1` and prints the file path and error, so you can run it in CI to enforce consistent formatting.
+When it finishes, the command prints how many MDX files were reformatted and how many failed to parse. If any file fails, the command exits with code `1` and prints the file path and error, so you can run it in CI to enforce consistent formatting. See [Install in CI](/cli/install#install-in-ci) for an example pipeline.
 
 ---
 
@@ -731,7 +656,7 @@ These commands are available to run but are not yet functional. Running them rec
 
 ## Telemetry
 
-The CLI collects anonymous usage telemetry to help improve Mintlify. Telemetry data includes the command name, CLI version, operating system, and architecture. Mintlify does **not** collect personally identifiable information, project content, or file paths.
+The CLI collects usage telemetry to help improve Mintlify. Telemetry data includes the command name, CLI version, operating system, and architecture. If you are logged in, telemetry events also include your account email address. Logged-out usage stays anonymous, and logging out removes your stored email. Mintlify does **not** collect project content or file paths.
 
 By default, the CLI collects telemetry data. You can opt out at any time using the `--telemetry` flag:
 

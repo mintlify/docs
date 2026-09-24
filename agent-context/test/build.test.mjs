@@ -52,8 +52,7 @@ test('builds all client variants from one canonical skill', async () => {
       assert.match(skill, /### Mintlify Search/);
       assert.match(skill, /### Mintlify Admin/);
       assert.match(skill, /Complete authentication in the browser when prompted/);
-      assert.match(skill, /mint automations/);
-      assert.doesNotMatch(skill, /mint analytics|mint workflow|\{\{/);
+      assert.doesNotMatch(skill, /\{\{/);
     }
     assert.deepEqual(codexMcp.mcp_servers, cursorMcp.mcpServers);
     assert.deepEqual(claudeMcp.mcpServers, cursorMcp.mcpServers);
@@ -192,6 +191,37 @@ test('sync replaces only generated context paths', async () => {
       'Mintlify Search',
       'Mintlify Admin',
     ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('sync bumps the Kiro manifest patch version only when released content changes', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-version-test-'));
+  const outputRoot = path.join(root, 'dist');
+  const destination = path.join(root, 'kiro-power');
+  const readVersion = async () =>
+    JSON.parse(await readFile(path.join(destination, 'plugin.json'), 'utf8')).version;
+
+  try {
+    const [kiro] = await loadTargets(['kiro']);
+    await buildAll({ outputRoot, selectedIds: ['kiro'] });
+
+    await copyTargetToRepository('kiro', destination, outputRoot);
+    assert.equal(await readVersion(), kiro.pluginManifest.version);
+
+    await copyTargetToRepository('kiro', destination, outputRoot);
+    assert.equal(await readVersion(), kiro.pluginManifest.version);
+
+    const manifestPath = path.join(destination, 'plugin.json');
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    await writeFile(manifestPath, JSON.stringify({ ...manifest, version: '1.4.2' }));
+    await writeFile(path.join(destination, 'skills', 'mintlify', 'SKILL.md'), 'outdated\n');
+    await copyTargetToRepository('kiro', destination, outputRoot);
+    assert.equal(await readVersion(), '1.4.3');
+
+    await copyTargetToRepository('kiro', destination, outputRoot);
+    assert.equal(await readVersion(), '1.4.3');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

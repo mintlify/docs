@@ -1,0 +1,87 @@
+---
+title: "How Mintlify classifies traffic"
+sidebarTitle: "Traffic classification"
+description: "Learn when Mintlify serves Markdown instead of HTML and how the analytics dashboard separates human page views from AI agent views."
+keywords: ["analytics", "agent views", "human views", "markdown", "content negotiation", "user agent", "classification"]
+hidden: true
+---
+
+The [Traffic](/analytics/traffic) view reports **Humans** and **Agents** as separate counts, and [traffic exports](/analytics/export#interpret-traffic-exports) break views into five columns. This page explains the two decisions behind those numbers: when Mintlify serves a page as Markdown and how views populate each category.
+
+## When Mintlify serves Markdown
+
+Every page is available as HTML and as Markdown. Mintlify's edge picks one per request, before rendering. A request receives Markdown when any of the following is true:
+
+1. **The path ends in `.md`.** For example, `/analytics/traffic.md` always returns Markdown.
+2. **The `Accept` header prefers Markdown.** Mintlify orders the header's media types by quality value. It then compares the first Markdown type (`text/markdown`, `text/x-markdown`, or `text/plain`) with the first HTML type (`text/html` or `application/xhtml+xml`). If a Markdown type is present and either no HTML type is present or Markdown ranks higher, Mintlify returns Markdown.
+3. **The user agent is a known AI agent and does not ask for HTML.** If the user agent contains one of the following identifiers and the `Accept` header does not rank HTML above Markdown, Mintlify returns Markdown even when the request never mentions Markdown.
+
+The identifiers that trigger rule 3 are `Claude-User`, `ChatGPT-User`, `OAI-SearchBot`, `PerplexityBot`, `Perplexity-User`, `Google-Agent`, `MistralAI-User`, `DuckAssistBot`, and `cohere-ai`. Matching is a case-insensitive substring check.
+
+Negotiation applies only to documentation pages. Static assets, `llms.txt`, `skill.md`, RSS, PDF exports, MCP endpoints, login pages, and internal `/_mintlify/` routes are never negotiated.
+
+Mintlify caches HTML and Markdown responses as separate variants keyed on the `Accept` and `User-Agent` headers, so a browser never receives a cached Markdown response.
+
+## How a request becomes a view
+
+Mintlify records two kinds of page view.
+
+| View | Recorded by | When |
+|------|-------------|------|
+| HTML page view | The docs site in the browser | JavaScript runs after a page renders and sends a page view event. Clients that do not run JavaScript never produce this event. |
+| Markdown view | Mintlify's edge | A page is served as Markdown by any preceding rule, or `llms.txt`, `llms-full.txt`, or `skill.md` is fetched. The edge also records a Markdown view when a known AI agent from the preceding list requests an HTML page. |
+
+Each view carries the request path, referrer, IP address, and user agent. Mintlify stores timestamps in UTC.
+
+## How views are categorized
+
+Classification uses only the user agent string. Mintlify checks it, case-insensitively, against four ordered lists of known bot and agent identifiers. The first list that matches sets the category. No match means `human`. See the [full user agent list](#full-user-agent-list) for every identifier in each category.
+
+| Order | Category | Export column | What it represents | Examples |
+|-------|----------|---------------|--------------------|----------|
+| 1 | AI answers | `aiViews` | An AI assistant fetching a page live for a person | `ChatGPT-User`, `Claude-User`, `claude-code`, `Cursor`, `Perplexity-User`, `Copilot`, `Google-Agent`, `MistralAI-User` |
+| 2 | Search index | `searchIndexViews` | Search engines and AI search products building an index | `Googlebot`, `Bingbot`, `OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Baiduspider`, `YandexBot` |
+| 3 | Training | `trainingViews` | Crawlers collecting model training data | `GPTBot`, `ClaudeBot`, `Google-Extended`, `Amazonbot`, `Bytespider`, `CCBot`, `Applebot` |
+| 4 | Other AI | `otherAiViews` | Other automated traffic, including SEO tools and headless browsers | `AhrefsBot`, `SemrushBot`, `facebookexternalhit`, `Scrapy`, `HeadlessChrome`, `PhantomJS` |
+| 5 | Human | `humanViews` | No match | Standard browser user agents |
+
+Mintlify excludes its own traffic, such as cache revalidation and link checking, before counting.
+
+## How the dashboard counts humans and agents
+
+The dashboard combines the view type with the category:
+
+- **Humans** are HTML page views in the human category.
+- **Agents** are every view in the AI answers category, plus Markdown views in the human category.
+
+Markdown views count as agent traffic even when the user agent looks like a browser or a generic HTTP client. Requesting Markdown is how agents read documentation, so the request itself is the signal. These views appear in the agent breakdown under the **Browser** and **HTTP clients** buckets.
+
+Search index, training, and other AI views appear in neither count. They are visible only in exports.
+
+<Note>
+  Classification trusts the user agent a client sends. An agent that identifies itself with a standard browser user agent and fetches HTML counts as a human view. A person who opens a `.md` URL directly counts as an agent view.
+</Note>
+
+## Full user agent list
+
+Mintlify checks the user agent against these identifiers in the order shown. Matching is a case-insensitive substring check, so `chatgpt` matches `ChatGPT-User` and any other user agent containing that text.
+
+### AI answers
+
+`ChatGPT-User`, `chatgpt`, `Claude-User`, `claude-code`, `Cursor`, `Opencode`, `WarpBot`, `Perplexity-User`, `Google-Agent`, `GoogleAgent`, `Google-NotebookLM`, `Google-Read-Aloud`, `MistralAI-User`, `Copilot`, `Amzn-User`, `DuckAssistBot`, `xAI-SearchBot`, `Grok-DeepSearch`, `Meta-ExternalFetcher`, `Kimi-User`, `Qwen-User`, `Amazon-Bedrock-AgentCore-Browser`, `Shap-User`
+
+### Search index
+
+`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`, `Google-InspectionTool`, `Googlebot`, `MistralAI-Index`, `Bingbot`, `msnbot`, `Amzn-SearchBot`, `meta-webindexer`, `Kimi-SearchBot`, `TikTokSpider`, `Baiduspider`, `YouBot`, `Petalbot`, `YisouSpider`, `Sogou web spider`, `Coveobot`, `amazon-kendra`, `Algolia Crawler`, `ref-tools-crawler`, `ShapBot`, `AteveSearchSourceUrlDiscovery`, `YandexBot`, `YandexMobileBot`, `YandexAccessibilityBot`, `YandexRenderResourcesBot`, `YandexImages`, `YandexNews`, `YandexWebmaster`, `Yeti/`, `360Spider`, `SeznamBot`, `Exabot`
+
+### Training
+
+`GPTBot`, `ClaudeBot`, `GoogleOther`, `Google-Extended`, `Google-CloudVertexBot`, `Applebot-Extended`, `Applebot`, `Amazonbot`, `Meta-ExternalAgent`, `KimiBot`, `Bytespider`, `ERNIEBot`, `QwenBot`, `ChatGLM-Spider`, `DeepSeekBot`, `Deepseek`, `cohere-ai`, `cohere-training-data-crawler`, `AI2Bot`, `AI2Bot-Dolma`, `CCBot`, `PanguBot`, `ClueWeb-Crawler`
+
+### Other AI
+
+`OAI-AdsBot`, `GrokBot`, `xAI-Bot`, `xAI-Grok`, `xAI-Web-Crawler`, `Grok`, `meta-externalads`, `facebookexternalhit`, `FacebookBot`, `Facebookbot`, `Doubaobot`, `YiyanBot`, `TongyiBot`, `AliyunBot`, `diffbot`, `FirecrawlAgent`, `SemrushBot-OCOB`, `SERankingBacklinksBot`, `Omgili`, `Omgilibot`, `webzio-extended`, `ImagesiftBot`, `VelenPublicWebCrawler`, `TurnitinBot`, `Timpibot`, `ICC-Crawler`, `DataForSeoBot`, `AwarioBot`, `AwarioSmartBot`, `AwarioRssBot`, `Kangaroo Bot`, `Sentibot`, `img2dataset`, `Meltwater`, `Seekr`, `peer39_crawler`, `Scrapy`, `Cotoyogi`, `aiHitBot`, `Factset_spyderbot`, `Barkrowler`, `HubSpot Crawler`, `AhrefsBot`, `SemrushBot`, `SiteAuditBot`, `AdsBot-Google`, `YaDirectFetcher`, `Google-Adwords`, `Screaming Frog`, `DotBot`, `MJ12bot`, `BLEXBot`, `serpstatbot`, `SEOkicks`, `trendictionbot`, `archive.org_bot`, `Decimal Bot`, `WebThreeCrawler`, `scopy-docs-crawler`, `quigon-manifest-fetcher`, `HeadlessChrome`, `PhantomJS`
+
+### Excluded internal traffic
+
+Requests whose user agent contains `mintlify-revalidation` or `Mintlify-LinkChecker` come from Mintlify's own infrastructure and are removed before any counting.

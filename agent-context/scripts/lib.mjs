@@ -126,9 +126,6 @@ function validateSkill(skill, target) {
   if (!/^name: mintlify$/m.test(skill) || !/^description: .+$/m.test(skill)) {
     throw new Error(`${target.id}: SKILL.md requires name and description fields`);
   }
-  if (/mint analytics/.test(skill)) {
-    throw new Error(`${target.id}: SKILL.md contains retired CLI commands`);
-  }
 }
 
 export async function buildTarget(target, outputRoot) {
@@ -204,6 +201,88 @@ export async function buildAll({ outputRoot, selectedIds = [] } = {}) {
   return Promise.all(targets.map((target) => buildTarget(target, resolvedOutput)));
 }
 
+function parseVersion(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (match === null) {
+    throw new Error(`Plugin manifest version must be MAJOR.MINOR.PATCH: ${version}`);
+  }
+  return match.slice(1).map(Number);
+}
+
+function compareVersions(a, b) {
+  const [left, right] = [parseVersion(a), parseVersion(b)];
+  for (let index = 0; index < 3; index += 1) {
+    if (left[index] !== right[index]) {
+      return left[index] - right[index];
+    }
+  }
+  return 0;
+}
+
+async function readTree(root, prefix = '') {
+  const files = new Map();
+  let entries;
+  try {
+    entries = await readdir(path.join(root, prefix), { withFileTypes: true });
+  } catch {
+    return files;
+  }
+  for (const entry of entries) {
+    const relativePath = path.join(prefix, entry.name);
+    if (entry.isDirectory()) {
+      for (const [file, contents] of await readTree(root, relativePath)) {
+        files.set(file, contents);
+      }
+    } else {
+      files.set(relativePath, await readFile(path.join(root, relativePath), 'utf8'));
+    }
+  }
+  return files;
+}
+
+async function readOptional(file) {
+  try {
+    return await readFile(file, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+// Snapshot of everything a manifest version describes, excluding the version itself.
+async function releaseSnapshot(root, target) {
+  const skill = await readTree(path.join(root, 'skills', 'mintlify'));
+  const manifest = await readOptional(path.join(root, 'plugin.json'));
+  const { version, ...manifestWithoutVersion } = manifest === undefined ? {} : JSON.parse(manifest);
+  return JSON.stringify({
+    skill: [...skill].sort(([a], [b]) => a.localeCompare(b)),
+    mcp: await readOptional(path.join(root, target.mcpConfigFile)),
+    manifest: manifestWithoutVersion,
+  });
+}
+
+// Kiro uses the manifest version to detect updates. Bump the patch version whenever the
+// released content changes; a higher version set in the target configuration wins.
+export async function resolveManifestVersion(target, sourceRoot, destination) {
+  const configuredVersion = target.pluginManifest.version;
+  const existingManifest = await readOptional(path.join(destination, 'plugin.json'));
+  if (existingManifest === undefined) {
+    return configuredVersion;
+  }
+
+  const existingVersion = JSON.parse(existingManifest).version;
+  if (compareVersions(configuredVersion, existingVersion) > 0) {
+    return configuredVersion;
+  }
+
+  const changed =
+    (await releaseSnapshot(sourceRoot, target)) !== (await releaseSnapshot(destination, target));
+  if (!changed) {
+    return existingVersion;
+  }
+  const [major, minor, patch] = parseVersion(existingVersion);
+  return `${major}.${minor}.${patch + 1}`;
+}
+
 export async function copyTargetToRepository(targetId, destination, outputRoot) {
   const [target] = await loadTargets([targetId]);
   const sourceRoot = path.join(outputRoot, targetId);
@@ -211,6 +290,10 @@ export async function copyTargetToRepository(targetId, destination, outputRoot) 
   const destinationSkill = path.join(destination, 'skills', 'mintlify');
 
   await stat(sourceSkill);
+  const manifestVersion =
+    target.pluginManifest === undefined
+      ? undefined
+      : await resolveManifestVersion(target, sourceRoot, destination);
   await rm(destinationSkill, { recursive: true, force: true });
   await mkdir(path.dirname(destinationSkill), { recursive: true });
   await cp(sourceSkill, destinationSkill, { recursive: true });
@@ -219,7 +302,12 @@ export async function copyTargetToRepository(targetId, destination, outputRoot) 
     path.join(destination, target.mcpConfigFile),
   );
   if (target.pluginManifest !== undefined) {
-    await cp(path.join(sourceRoot, 'plugin.json'), path.join(destination, 'plugin.json'));
+    const manifest = { ...target.pluginManifest, version: manifestVersion };
+    validateAgentPluginArtifact('plugin', manifest, target.id);
+    await writeFile(
+      path.join(destination, 'plugin.json'),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
   }
   await cp(
     path.join(sourceRoot, '.mintlify-agent-context.json'),

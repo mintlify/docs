@@ -1,0 +1,47 @@
+---
+title: "Trigger automation webhook"
+openapi: "/admin-openapi.json POST /v2/workflow/{projectId}/{workflowSchemaId}/webhook"
+keywords: ["automation", "workflow", "webhook", "trigger", "CI"]
+---
+
+Use this endpoint to run a custom automation with a **Webhook** trigger. Each request queues a run that uses the automation's saved prompt and reads the full repository history. This endpoint ignores request bodies.
+
+This endpoint only supports [custom automations](/automations/create) with a webhook trigger. Predefined automations and automations with any other trigger return a `404` response. To trigger a scheduled custom automation on demand instead, use [Trigger automation](/api/automations/trigger).
+
+## Use cases
+
+- **CI/CD pipelines**: Run a custom automation on every merge to `main` or after a release, without waiting for a scheduled run.
+- **Release events**: Run a custom automation from a release script when you cut a tag or publish a new SDK version.
+- **Internal tooling**: Trigger automations from internal dashboards, Slack commands, or scheduled jobs you already run.
+
+## Get the webhook URL and auth header
+
+Open the [Automations](https://app.mintlify.com/products/automations) page in your dashboard and click the <Icon icon="settings-2" /> settings button on a custom automation with a webhook trigger. The trigger card shows the full webhook URL and a **Copy auth header** action for the `Authorization: Bearer <api-key>` header template.
+
+Replace `<api-key>` with an unexpired organization API key with write access. Create or manage keys on the [API keys](https://app.mintlify.com/settings/organization/api-keys) page. Automations do not create, store, or rotate keys on your behalf.
+
+## Example
+
+Trigger a webhook automation from a GitHub Action whenever code merges to `main`:
+
+```yaml .github/workflows/trigger-docs.yml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v2/workflow/$PROJECT_ID/$WORKFLOW_ID/webhook" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          WORKFLOW_ID: ${{ vars.MINTLIFY_WORKFLOW_ID }}
+```
+
+## Rate limits
+
+This endpoint shares a rate limit with [Trigger update](/api/update/trigger) and [Trigger automation](/api/automations/trigger): up to 10 requests per 10 seconds per organization. Each queued run consumes credits at the same rate as any other custom automation run. See [Credit pricing](/credits).

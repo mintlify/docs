@@ -2,7 +2,7 @@
 
 Condensed reference for common `mint` CLI commands and their key flags.
 
-Install with `npm i -g mint`.
+Install with `npm i -g mint`. The npm package is `mint`; do not install the legacy `mintlify` package.
 
 ## Global flags
 
@@ -10,20 +10,21 @@ Available on all commands.
 
 | Flag | Description |
 |------|-------------|
-| `--telemetry`, `-t` | Enable or disable anonymous usage telemetry. |
+| `--telemetry`, `-t` | Enable or disable usage telemetry. |
 | `--help`, `-h` | Display help for the command. |
 | `--version`, `-v` | Display the CLI version. Alias for `mint version`. |
 
 ## Local development
 
-- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups <names>` mocks user groups. `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP.
-- `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups <names>` mocks user groups. `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files.
-- `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups <names>` includes restricted pages. `--disable-openapi` skips OpenAPI processing.
+- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP.
+- `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups` mocks user groups (space-separated). `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files.
+- `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups` includes restricted pages (space-separated). `--disable-openapi` skips OpenAPI processing.
 
 ## Content quality
 
 - `mint broken-links` — Check for broken internal links. `--files <paths...>` limits the check to specific files or globs. `--check-anchors` validates `#` anchors. `--check-external` checks external URLs. `--check-redirects` checks that redirect destinations in `docs.json` resolve. `--check-snippets` checks links inside `<Snippet>` components.
 - `mint a11y` — Accessibility checks (alt text, color contrast). `--skip-contrast` or `--skip-alt-text` to narrow scope.
+- `mint test` — Scan content for code blocks and generate unit tests that validate them, run by a local coding agent. Requires `mint login` and the agent SDK installed in the project: `npm install @anthropic-ai/claude-agent-sdk @anthropic-ai/sdk @modelcontextprotocol/sdk` (Claude, default) or `npm install @openai/codex-sdk` (Codex). Interactive; only pages in the `docs.json` navigation appear for selection. Writes generated test projects to `tests/mint-test/<run-id>/` and run reports/history to `.mintlify/test/`. Add both paths to `.gitignore` to avoid committing test artifacts. When a previous run report exists, the next interactive run offers **Update tests** (rerun the same pages with the same agent and model), **Review last test run** (browse saved results without running anything), or **Start a brand new test** (pick an agent and pages from scratch). Exits `0` when every test passes, `1` otherwise.
 - `mint score [url]` — Score a docs site's AI/agent readiness. Checks llms.txt, MCP discoverability, robots.txt, sitemap, structured data, response latency, and more. Requires `mint login`. Defaults to your configured subdomain. `--format` accepts `table` (default), `plain`, or `json`.
 - `mint format` — Format every `.mdx` file in the current directory and its subdirectories in place. Respects `.gitignore` and Mintlify ignore rules. Commit or stash changes first so you can review the rewrite.
 
@@ -33,11 +34,11 @@ Available on all commands.
 - `mint logout` — Log out of your account.
 - `mint status` — Show current authentication status (CLI version, email, org, subdomain).
 - `mint signup [flags]` — Create a new Mintlify account from the terminal. Flags: `--firstName`, `--lastName`, `--company`, `--email`; omit any to enter it interactively. Waits until you click the emailed verification link before it logs you in — run as a background process in scripts.
-- `mint add-domain <domain> [--basePath <path>]` — Add a custom domain to the current deployment. Requires `mint login`. Pass `--basePath` to serve the documentation from a subpath such as `/docs`.
+- `mint add-domain <domain> [--basePath <path>]` — Add a custom domain to the current project. Requires `mint login`. Pass `--basePath` to serve the documentation from a subpath such as `/docs`.
 
 ## Analytics
 
-Query documentation analytics from the terminal. Requires `mint login`. All `mint analytics` subcommands share these flags: `--subdomain`, `--from <YYYY-MM-DD>` (default: seven days ago, or `mint config set dateFrom`), `--to <YYYY-MM-DD>` (default: today, or `mint config set dateTo`), `--format` (`table`, `plain`, `json`, or `graph`; default: `plain`, or `json` in AI/CI environments).
+Query documentation analytics from the terminal. Requires `mint login` and a Pro or Enterprise plan. All `mint analytics` subcommands share these flags: `--subdomain`, `--from <YYYY-MM-DD>` (default: seven days ago, or `mint config set dateFrom`), `--to <YYYY-MM-DD>` (default: today, or `mint config set dateTo`), `--format` (`table`, `plain`, `json`, or `graph`; default: `plain`, or `json` in AI/CI environments).
 
 - `mint analytics stats` — Top-line KPIs for a date range: views, visitors, searches, feedback, assistant usage. Human and agent traffic reported separately. `--page` filters to a page path.
 - `mint analytics search` — Search queries with hit counts, click-through rates, top clicked page, and last searched date. `--query` filters by substring; `--page` filters to queries where the given page was the top clicked result.
@@ -77,14 +78,6 @@ Query documentation analytics from the terminal. Requires `mint login`. All `min
   | Windsurf | `~/.codeium/windsurf/mcp_config.json` | Global only |
   | Zed | User `settings.json` | `.zed/settings.json` |
 
-## Automations
-
-All `mint automations` subcommands share these flags: `--subdomain`, `--format` (table/json; default: table). `mint workflow` and `mint workflows` continue to work as aliases.
-
-- `mint automations create` — Create an automation. Requires exactly one trigger: `--cron <expr>` for scheduled or `--push-repo <owner/repo>` (repeatable) for push-triggered. Key flags: `--name`, `--type` (one of `changelog`, `source-code-agent`, `translations`, `writing-style`, `typo-check`, `broken-link-detection`, `seo-metadata-audit`, `assistant-docs-updates`, `contextual-feedback-docs-updates`; omit for custom), `--prompt`, `--context-repo` (repeatable, up to 10), `--automerge`, `--file <path>` (JSON/YAML file overrides inline flags).
-- `mint automations list` — List automations for the current deployment.
-- `mint automations delete <id>` — Delete an automation by ID. Use `mint automations list` to get the ID.
-
 ## Maintenance
 
 - `mint update` — Update the CLI to the latest version.
@@ -92,7 +85,7 @@ All `mint automations` subcommands share these flags: `--subdomain`, `--format` 
 
 ## Telemetry
 
-The CLI collects anonymous usage telemetry by default. Opt out with `--telemetry false` or by setting either environment variable:
+The CLI collects usage telemetry by default (command name, CLI version, OS, architecture). When you are logged in, telemetry events also include your account email; logged-out usage stays anonymous. Opt out with `--telemetry false` or by setting either environment variable:
 
 | Variable | Value | Description |
 |----------|-------|-------------|

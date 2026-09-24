@@ -16,7 +16,7 @@ Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target
 
 ## Local development
 
-Requires Node.js 22 or newer and has no package dependencies.
+Requires Node.js 22 or newer. The only dependency is `ajv`, used to validate generated Agent Plugins artifacts.
 
 ```bash
 npm ci
@@ -42,7 +42,7 @@ git -C ../../codex-plugin diff
 
 The sync command replaces `skills/mintlify/`, writes the client-specific MCP configuration file, and writes `.mintlify-agent-context.json` with the source commit. For Kiro, it also writes the required `plugin.json`. It does not change any other plugin files.
 
-Treat the Kiro manifest version as a release version. Whenever a change modifies the generated Kiro skill, MCP configuration, or manifest, increment `pluginManifest.version` in `targets/kiro.json` according to Semantic Versioning before merging. Do not use a Git SHA or SemVer build metadata as the update version because build metadata does not affect version precedence.
+Kiro uses the manifest version to detect updates. The sync command bumps the patch version automatically whenever the generated Kiro skill, MCP configuration, or manifest differs from the target repository. For a minor or major release, set a higher `pluginManifest.version` in `targets/kiro.json`; the sync uses it when it is greater than the target's current version. Versions must be `MAJOR.MINOR.PATCH`, without pre-release tags or build metadata.
 
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 
@@ -63,4 +63,4 @@ Every qualifying push to `main` validates the source and opens or updates the `a
 
 Edit shared knowledge and MCP definitions in `context/`, not in generated plugin copies. Put a value in `targets/` only when a client requires a different packaging format.
 
-The build rejects retired CLI commands. Tests verify that the skill, detailed references, and MCP definitions remain semantically identical across targets.
+Tests verify that the skill, detailed references, and MCP definitions remain semantically identical across targets.

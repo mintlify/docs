@@ -4,7 +4,7 @@ description: "Crea fragmentos de contenido reutilizables con variables para mant
 keywords: ["content snippets", "reusable content", "variables"]
 ---
 
-Uno de los principios fundamentales del desarrollo de software es DRY (Don&#39;t Repeat Yourself), que también se aplica a la documentación. Si te encuentras repitiendo el mismo contenido en varios lugares, crea un fragmento personalizado para ese contenido. Los fragmentos incluyen contenido que puedes importar en otros archivos para reutilizarlo. Tú controlas dónde aparece el fragmento en una página. Si alguna vez necesitas actualizar el contenido, solo tendrás que editar el fragmento en lugar de cada archivo donde se use.
+Uno de los principios fundamentales del desarrollo de software es DRY (Don't Repeat Yourself), que también se aplica a la documentación. Si te encuentras repitiendo el mismo contenido en varios lugares, crea un fragmento personalizado para ese contenido. Los fragmentos incluyen contenido que puedes importar en otros archivos para reutilizarlo. Tú controlas dónde aparece el fragmento en una página. Si alguna vez necesitas actualizar el contenido, solo tendrás que editar el fragmento en lugar de cada archivo donde se use.
 
 <Note>
   Actualmente, los fragmentos no son compatibles con el editor web. Para usar fragmentos, edita tus archivos MDX localmente con la CLI o envía las importaciones de fragmentos directamente a tu repositorio.
@@ -14,7 +14,7 @@ Uno de los principios fundamentales del desarrollo de software es DRY (Don&#39;t
   ## Cómo funcionan los snippets
 </div>
 
-Los snippets son archivos `.mdx`, `.md` o `.jsx` que se importan en otro archivo. Puedes colocar los archivos de snippets en cualquier parte de tu proyecto.
+Los snippets son archivos `.mdx`, `.md`, `.js` o `.jsx` que se importan en otro archivo. Puedes colocar los archivos de snippets en cualquier parte de tu proyecto.
 
 Cuando importas un snippet en otro archivo, el snippet solo aparece donde lo importas y no se renderiza como una página independiente. Cualquier archivo en la carpeta `/snippets/` siempre se considera un snippet, incluso si no se importa en otro archivo.
 
@@ -36,7 +36,7 @@ Importa fragmentos en las páginas usando una ruta absoluta o relativa.
 El nombre que usas para renderizar un fragmento importado como una etiqueta JSX debe empezar con una letra mayúscula, como `MySnippet`. MDX trata las etiquetas en minúsculas, como `<mySnippet />`, como nombres literales de elementos HTML o elementos personalizados, en lugar de referencias a fragmentos importados. Usa PascalCase para los nombres de fragmentos como convención.
 
 <Tip>
-  Las importaciones relativas habilitan la navegación en el IDE. Pulsa <kbd>CMD</kbd> y haz clic en el nombre de un fragmento en tu editor para ir directamente a su definición.
+  Las importaciones relativas habilitan la navegación en el IDE. Pulsa <kbd>Cmd</kbd> y haz clic en el nombre de un fragmento en tu editor para ir directamente a su definición.
 </Tip>
 
 <div id="import-text">
@@ -139,6 +139,10 @@ Haz referencia a variables de un fragmento en una página.
    Hello, my name is {myName} and I like {myObject.fruit}.
    ```
 
+<Note>
+  Los navegadores evalúan las expresiones MDX, como las variables importadas (`{myName}`) y las expresiones en línea (`{1 + 1}`). Sus valores no aparecen en el HTML inicial de una página ni en las [exportaciones sin conexión](/es/deploy/export), por lo que los rastreadores, los LLM y otras herramientas que no ejecutan JavaScript solo ven el texto que las rodea. Si esos valores deben ser visibles en esas situaciones, escríbelos como texto plano.
+</Note>
+
 <div id="import-snippets-with-variables">
   ### Importar fragmentos con variables
 </div>
@@ -214,3 +218,166 @@ import InstallSnippet from "/shared/install-snippet.mdx";
 
    <MyJSXSnippet />
    ```
+
+<div id="render-content-from-structured-data">
+  ## Renderizar contenido a partir de datos estructurados
+</div>
+
+Mantén datos como una lista de componentes del SDK, una matriz de compatibilidad o un conjunto de planes en un solo fragmento y renderízalos en varias páginas. Cuando modifiques los datos, se actualizarán todas las tablas, listas o tarjetas construidas a partir de ellos.
+
+Almacena los datos como un objeto JSON simple en un fragmento `.js` con una exportación con nombre. Después, escribe un fragmento `.jsx` que convierta los datos en marcado.
+
+<Note>
+  Los fragmentos deben ser archivos `.mdx`, `.md`, `.js` o `.jsx`. No puedes importar directamente un archivo `.json` o `.yaml`. Mantén los datos en un fragmento `.js`, o bien [genera uno a partir de tu fuente JSON o YAML](#generate-snippets-and-pages-from-json-or-yaml).
+</Note>
+
+<Steps>
+  <Step title="Exporta los datos desde un fragmento">
+    ```js snippets/sdk-components.js
+    export const sdkComponents = [
+      { "name": "CardForm", "version": "2.4.0", "status": "Stable", "docs": "/components/card-form" },
+      { "name": "PinReveal", "version": "1.9.2", "status": "Beta", "docs": "/components/pin-reveal" }
+    ];
+    ```
+  </Step>
+  <Step title="Crea un fragmento que renderice los datos">
+    Recorre los datos con `map()` y devuelve elementos HTML o componentes de Mintlify.
+
+    ```jsx snippets/components-table.jsx
+    export const ComponentsTable = ({ rows }) => (
+      <table>
+        <thead>
+          <tr>
+            <th>Componente</th>
+            <th>Versión</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name}>
+              <td><a href={row.docs}>{row.name}</a></td>
+              <td><code>{row.version}</code></td>
+              <td>{row.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+    ```
+  </Step>
+  <Step title="Importa ambos fragmentos y pasa los datos como una propiedad">
+    Filtra u ordena los datos en la página para mostrar un subconjunto sin duplicarlos.
+
+    ```mdx destination-file.mdx
+    ---
+    title: "Componentes del SDK"
+    description: "Todos los componentes del SDK, con su versión actual y estado."
+    ---
+
+    import { sdkComponents } from "/snippets/sdk-components.js";
+    import { ComponentsTable } from "/snippets/components-table.jsx";
+
+    El SDK incluye {sdkComponents.length} componentes.
+
+    <ComponentsTable rows={sdkComponents} />
+
+    ## Componentes estables
+
+    <ComponentsTable rows={sdkComponents.filter((row) => row.status === "Stable")} />
+    ```
+  </Step>
+</Steps>
+
+<div id="generate-snippets-and-pages-from-json-or-yaml">
+  ### Generar fragmentos y páginas a partir de JSON o YAML
+</div>
+
+Si almacenas datos en un archivo JSON o YAML, genera los fragmentos a partir de esos datos de origen. Usa un script para escribir el fragmento de datos con una página por cada entrada y crear el grupo de navegación correspondiente. Ejecuta el script en CI cada vez que cambie el archivo de origen y confirma el resultado.
+
+<Steps>
+  <Step title="Escribe el generador">
+    Este script lee `sdk-components.yaml`, escribe el fragmento del ejemplo anterior, crea una página para cada componente y reemplaza las páginas del grupo de navegación llamado "Components" en `docs.json`.
+
+    ```js scripts/generate-docs.mjs
+    import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+    import { parse } from "yaml";
+
+    const components = parse(readFileSync("sdk-components.yaml", "utf8"));
+    const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+    // Un fragmento con todos los datos, para tablas y listas en cualquier parte de la documentación.
+    writeFileSync("snippets/sdk-components.js", `export const sdkComponents = ${JSON.stringify(components, null, 2)};\n`);
+
+    // Una página por componente.
+    mkdirSync("components", { recursive: true });
+    for (const component of components) {
+      const page = `---
+    title: ${JSON.stringify(component.name)}
+    description: ${JSON.stringify(component.description)}
+    ---
+
+    {/* Generado desde sdk-components.yaml por scripts/generate-docs.mjs. Edita el YAML, no este archivo. */}
+
+    | Campo | Valor |
+    | --- | --- |
+    | Versión | \`${component.version}\` |
+    | Estado | ${component.status} |
+    `;
+      writeFileSync(`components/${slug(component.name)}.mdx`, page);
+    }
+
+    // Mantén la navegación sincronizada: reemplaza las páginas del grupo llamado "Components", esté donde esté.
+    const docs = JSON.parse(readFileSync("docs.json", "utf8"));
+    const findGroup = (node) => (Array.isArray(node) ? node.map(findGroup).find(Boolean) : node && typeof node === "object" ? (node.group === "Components" ? node : findGroup(Object.values(node))) : undefined);
+    const group = findGroup(docs.navigation);
+    if (group) {
+      group.pages = components.map((component) => `components/${slug(component.name)}`);
+      writeFileSync("docs.json", `${JSON.stringify(docs, null, 2)}\n`);
+    }
+    ```
+
+    Para una fuente JSON, reemplaza `parse()` por `JSON.parse()` y omite la dependencia `yaml`. Ejecutar el script dos veces produce archivos idénticos, por lo que es seguro ejecutarlo en cada push.
+  </Step>
+  <Step title="Ejecútalo en una GitHub Action">
+    El workflow se ejecuta cuando cambia el archivo de origen o el script, y luego confirma lo que haya producido el script. El `GITHUB_TOKEN` por defecto no activa otros workflows cuando hace un push, por lo que el job no puede entrar en bucle. Mintlify despliega el push como cualquier otro commit.
+
+    ```yaml .github/workflows/generate-docs.yml
+    name: Generate docs from YAML
+
+    on:
+      push:
+        paths:
+          - sdk-components.yaml
+          - scripts/generate-docs.mjs
+      workflow_dispatch:
+
+    permissions:
+      contents: write
+
+    jobs:
+      generate:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-node@v4
+            with:
+              node-version: 22
+          - run: npm install yaml
+          - run: node scripts/generate-docs.mjs
+          - name: Commit generated files
+            run: |
+              git add -A
+              if git diff --cached --quiet; then
+                echo "Nothing changed."
+                exit 0
+              fi
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git commit -m "docs: regenerate from sdk-components.yaml"
+              git push
+    ```
+
+    Si almacenas el archivo de origen en otro repositorio, ejecuta el workflow allí en su lugar. Haz checkout del repositorio de documentación con un token que pueda hacer push a él, ejecuta el script y confirma los cambios.
+  </Step>
+</Steps>
