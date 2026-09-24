@@ -1,13 +1,12 @@
-{/* vale off */}
+// The agent setup prompt and the card that displays it, used on the home page
+// and the quickstart. This is the only copy of the prompt. The built-in
+// <Prompt> component copies its children's source text, so it can't render a
+// variable, and snippets can't import other snippets. The prompt lives inside
+// the component because Mintlify only extracts the imported export from a
+// snippet, not other module-level constants.
 
-{/* The agent setup prompt as a string, for the introduction page's collapsible
-    prompt card. It is a verbatim copy of the <Prompt> body in
-    /snippets/setup-agent-prompt.mdx — the <Prompt> component serializes its
-    children's source instead of evaluating them, so it cannot be handed this
-    variable. EDIT BOTH FILES TOGETHER; .github/workflows/check-prompt-sync.yml
-    fails the build if they drift. */}
-
-export const SETUP_AGENT_PROMPT = `Get my documentation live on a published Mintlify site. You are successfully done when you give me the live URL and confirm it loads. Tell me clearly whenever a step needs my input—do everything else yourself. If this prompt was pasted before (for example, after a restart), continue from where things left off instead of starting over. If you don't have terminal or command execution access, tell me to follow the manual steps at [mintlify.com/start](https://mintlify.com/start) instead. Everything below requires running commands and requires Node.js v20.17.0+ (LTS versions recommended).
+export const SetupPrompt = () => {
+  const prompt = `Get my documentation live on a published Mintlify site. You are successfully done when you give me the live URL and confirm it loads. Tell me clearly whenever a step needs my input—do everything else yourself. If this prompt was pasted before (for example, after a restart), continue from where things left off instead of starting over. If you don't have terminal or command execution access, tell me to follow the manual steps at [mintlify.com/start](https://mintlify.com/start) instead. Everything below requires running commands and requires Node.js v20.17.0+ (LTS versions recommended).
 
 1. Ask for my existing content that will be used for my Mintlify site. This may be a local folder or a repo. Verify the source before building: echo back exactly what you're reading and list its top-level contents so I can confirm it's right. If you can't access something I named (private repos return 404, same as nonexistent), stop and ask. Never substitute a different source.
 2. Check whether \`mint\` is installed with \`mint --version\`. If it's missing, install it with \`npm i -g mint\` (or \`pnpm add -g mint\`). If it's already installed, run \`mint update\` instead of reinstalling.
@@ -27,4 +26,59 @@ export const SETUP_AGENT_PROMPT = `Get my documentation live on a published Mint
 14. Needs me: the first admin MCP tool call opens a browser window for OAuth login. Approve it there. Most tools don't load newly added MCP servers mid-session — if the Mintlify tools don't show up, tell me to restart you and we'll pick up from here.
 15. If any command fails in a way not covered above, stop and tell me the exact error rather than guessing or retrying blindly. If it looks like something's wrong on Mintlify's end rather than in what you're doing, check https://status.mintlify.com or point me to https://mintlify.com/docs/contact-support.`;
 
-{/* vale on */}
+  const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const copy = () => {
+    navigator.clipboard
+      .writeText(prompt)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+      })
+      .catch(() => {
+        // Clipboard access can be denied. Expand the prompt so it can be copied by hand.
+        setExpanded(true);
+      });
+  };
+
+  return (
+    <div className="mint-home mint-home-prompt" data-expanded={expanded ? "true" : undefined}>
+      <div className="mint-home-prompt-head">
+        <span className="mint-home-prompt-label">
+          <Icon icon="sparkles" size={16} />
+          Set up Mintlify with your agent
+        </span>
+
+        <div className="mint-home-prompt-actions">
+          <button type="button" className="mint-home-btn mint-home-btn--primary" onClick={copy}>
+            <Icon icon={copied ? "check" : "copy"} size={16} color="currentColor" />
+            {copied ? "Copied" : "Copy prompt"}
+          </button>
+
+          <a
+            className="mint-home-btn mint-home-btn--secondary"
+            href={`https://cursor.com/link/prompt?text=${encodeURIComponent(prompt)}`}
+          >
+            Open in Cursor
+          </a>
+        </div>
+      </div>
+
+      <div className="mint-home-prompt-body" id="mint-home-setup-prompt">
+        <div className="mint-home-prompt-text">{prompt}</div>
+      </div>
+
+      <button
+        type="button"
+        className="mint-home-prompt-toggle"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-controls="mint-home-setup-prompt"
+      >
+        {expanded ? "Show less" : "Read the full prompt"}
+        <Icon icon="chevron-down" size={16} color="currentColor" />
+      </button>
+    </div>
+  );
+};
