@@ -2,10 +2,31 @@
 title: "内容安全策略（CSP）配置"
 sidebarTitle: "CSP 配置"
 description: "配置内容安全策略标头，在允许 Mintlify 资源的同时，为反向代理和严格网络策略维护安全性。"
-keywords: ["内容安全策略", "CSP", "指令", "安全标头", "防火墙", "XSS 防护"]
+keywords: ["内容安全策略", "CSP", "默认 CSP", "指令", "安全标头", "防火墙", "XSS 防护", "被阻止的资源"]
 ---
 
-内容安全策略（CSP）是一项安全标准，通过控制网页可加载的资源来帮助防止跨站脚本（XSS）攻击。Mintlify 提供了默认的 CSP，可保护大多数站点。如果你在反向代理或防火墙后托管文档，并覆盖了默认的 CSP，则可能需要配置 CSP 标头以确保各项功能正常运行。
+内容安全策略（CSP）是一项安全标准，通过控制网页可加载的资源来帮助防止跨站脚本（XSS）攻击。Mintlify 会在所有托管的文档站点上强制执行默认 CSP。如果你在反向代理或防火墙后托管文档，并覆盖了默认的 CSP，则可能需要配置 CSP 标头以确保各项功能正常运行。
+
+<div id="default-csp">
+  ## 默认 CSP
+</div>
+
+Mintlify 会在托管文档站点每个页面的 `Content-Security-Policy` 标头中发送以下策略：
+
+```text wrap
+default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; media-src 'self' data: blob: https:; frame-src 'self' blob: https:; connect-src 'self' data: https: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; upgrade-insecure-requests;
+```
+
+该标头还包含 `frame-ancestors` 和 `form-action` 指令，用于控制你的站点可以被嵌入到哪里，以及表单可以提交到哪里。
+
+默认策略允许来自任意 HTTPS 源的资源，因此大多数自定义脚本、嵌入内容、字体和分析工具无需更改即可正常工作。浏览器会阻止策略不允许的资源：
+
+- **HTTP 资源：** 脚本、样式、字体和其他资源必须通过 HTTPS 加载。浏览器会阻止到明文 HTTP URL 的连接，包括 `http://localhost:8545` 等本地开发服务器。
+- **blob 和 data 脚本：** 浏览器会阻止从 `blob:` 或 `data:` URL 加载的脚本。一些第三方标签加载器会使用这种方式。
+- **插件：** 浏览器会阻止 `<object>` 和 `<embed>` 元素。
+- **跨源 worker：** Web worker 必须从你的文档域名或 `blob:` URL 加载。
+
+如果自定义脚本或集成停止工作，请在浏览器控制台中检查 CSP 违规。请参阅[故障排除](#troubleshooting)。通过 HTTPS 加载该资源，或使用不依赖 `blob:` 脚本的加载器。
 
 <div id="csp-directives">
   ## CSP 指令
