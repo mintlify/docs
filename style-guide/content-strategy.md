@@ -37,7 +37,8 @@
 - Show authentication with a correctly formatted example.
 - Include success and error response examples with realistic data.
 - List the HTTP status codes the endpoint returns and what each means.
-- Include rate limits and pagination details when they apply.
+- Include pagination details when they apply.
+- Include rate limits if you can confirm them. Don't guess or leave a placeholder.
 
 ## Two workflows: editor (web or desktop app) and CLI
 
