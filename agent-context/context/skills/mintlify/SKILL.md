@@ -42,7 +42,7 @@ Use this server when the user wants to edit their Mintlify content, restructure 
 Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
 Key tools:
-- **`checkout`** — Start a session on a branch (required first call). Returns an `editorUrl` to preview changes live.
+- **`checkout`** — Start a session on a branch (required first call). Returns a branch-level `editorUrl` to preview changes live.
 - **`list_branches`** — List existing branches; call before `checkout` to attach to one.
 - **`list_deployments`** — Discover which project(s) this connection can access.
 - **`read`** / **`search`** — Fetch a page's MDX or search across pages.
@@ -54,10 +54,10 @@ Key tools:
 Private pages: `list_nodes` accepts `visibility: "private"` to list the private pages and folders the OAuth user can access (ignores other filters, returns each node's `role`). `read`, `edit_page`, `write_page`, `update_node`, and `delete_node` accept `private-page-<uuid>` or `private-folder-<uuid>` node ids; `create_node` accepts `visibility: "private"` with `data.type: "page"` or `"group"`. Private-page operations require an OAuth session (the admin MCP rejects client and machine-to-machine tokens), work without a `checkout`, and enforce role requirements: read for reads, editor or higher for writes and updates, manager for deletes. The caller becomes the manager of any node they create.
 - **`diff`** — See all changes relative to the deploy branch.
 - **`get_session_state`** — Check the current session's status.
-- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the project's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role.
+- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the project's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role. Unless the save merges immediately, the response includes an `editorUrl` that opens the first created or updated page.
 - **`discard_session`** — Drop all in-session changes.
 
-Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live.
+Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live. Prefer the page-level `editorUrl` from `create_node` or `save` over the one from `checkout`.
 
 ## Before you start
 
