@@ -25,6 +25,8 @@ Google's defaults apply: [voice](https://developers.google.com/style/voice), [to
 
 ## Phrases to cut
 
+Vale flags these as suggestions with `.vale/styles/Mintlify/CutPhrases.yml`. Keep the two lists in sync.
+
 - Promotional: "rich," "breathtaking," "seamless," "powerful," "stands as a testament," "plays a vital role."
 - Editorializing: "it's important to note," "this article will," "in conclusion."
 - Filler transitions: "moreover," "furthermore," "additionally."

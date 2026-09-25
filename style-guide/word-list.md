@@ -1,8 +1,11 @@
 # Word list
 
-This list covers how to write Mintlify terms. For what they mean, see the public [glossary](../reference/glossary.mdx). For general terms, follow [Google's word list](https://developers.google.com/style/word-list). Vale enforces Google's swaps in `.vale/styles/Mintlify/WordList.yml`.
+This list covers how to write Mintlify terms. For what they mean, see the public [glossary](../reference/glossary.mdx). For general terms, follow [Google's word list](https://developers.google.com/style/word-list). Vale enforces Google's swaps in `.vale/styles/Mintlify/WordList.yml` and the unambiguous product terms from this list in `.vale/styles/Mintlify/ProductTerms.yml`.
 
-When you add a term here, also add it to `.vale/styles/config/vocabularies/Mintlify/accept.txt` if Vale flags it as a misspelling.
+When you add a term here:
+
+- If the "Don't use" form is unambiguous, add a swap to `ProductTerms.yml`.
+- If Vale flags the term as a misspelling, add it to `.vale/styles/config/vocabularies/Mintlify/accept.txt`. Prefix the entry with `(?i)` unless you want Vale to enforce its capitalization. An entry with capitals, like `Agent`, flags every lowercase "agent."
 
 ## Mintlify product terms
 
