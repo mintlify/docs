@@ -22,8 +22,8 @@ In general, Mintlify product names are lowercase if they are terms commonly used
 | MDX | mdx, Mdx | |
 | frontmatter | front matter, front-matter | |
 | API playground | API Playground | Can refer to it as the playground when the context is clear |
-| assistant | Assistant, AI assistant, chatbot | |
-| agent | Agent, Mintlify agent, AI agent | |
+| assistant | Assistant, chatbot | Use "AI assistant" when readers need context about what the assistant is or when you describe the general category. |
+| agent | Agent | Use "Mintlify agent" to distinguish it from other agents, such as coding agents. Use "AI agent" for the general category. |
 | automations | workflows | Automations were previously called workflows |
 | project | deployment | Projects were previously called deployments |
 | preview deployment | preview, preview link | |

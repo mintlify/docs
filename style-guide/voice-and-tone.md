@@ -21,6 +21,7 @@ Google's defaults apply: [voice](https://developers.google.com/style/voice), [to
 
 - Only rarely use "we" to refer to Mintlify after already naming the company earlier in the page.
 - Don't put "Mintlify" in a feature name when the context is clear: "the assistant," not "the Mintlify assistant."
+- Use "Mintlify" in a feature name when readers need to tell it apart from similar tools, such as "the Mintlify agent" on a page that also covers coding agents.
 - Make the reader or their site the subject rather than Mintlify. Write "After you push changes, your site deploys," not "Mintlify deploys your site."
 
 ## Phrases to cut
