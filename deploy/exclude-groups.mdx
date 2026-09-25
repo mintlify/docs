@@ -1,0 +1,110 @@
+---
+title: "Include and exclude groups"
+description: "Restrict page access with include and exclude group rules, including hiding public pages from specific signed-in groups."
+hidden: true
+---
+
+<Warning>
+  Include and exclude group rules are in closed beta. Contact your Mintlify account team to enable them for your deployment. Until the feature is enabled, deployments fail if any page uses the rule form of `groups`.
+</Warning>
+
+When you use OAuth or JWT [authentication](/deploy/authentication-setup), the `groups` frontmatter property controls which users can access a page. In addition to a list of group names, `groups` accepts a list of rules with `includes` and `excludes`. Use `excludes` to block specific groups from a page, including pages that are otherwise public.
+
+## Rule format
+
+Each rule is an object with an optional `includes` array, an optional `excludes` array, or both.
+
+```mdx Page for staff, except contractors
+---
+title: "Internal runbook"
+groups:
+  - includes: ["staff"]
+    excludes: ["contractor"]
+---
+```
+
+- `includes`: Users must belong to at least one of these groups. If you omit `includes`, every authenticated user passes this check.
+- `excludes`: Users who belong to any of these groups can't access the page, even if they also belong to an included group.
+
+If you list more than one rule, Mintlify combines them. The page uses every included group from all rules and every excluded group from all rules.
+
+The existing list format still works. `groups: ["admin"]` is equivalent to `groups: [{ includes: ["admin"] }]`.
+
+## How Mintlify evaluates access
+
+Mintlify checks each request in this order:
+
+1. If the user belongs to any excluded group, Mintlify denies access and returns a 404 error.
+2. If the page is public, Mintlify grants access.
+3. If the page has no `includes`, Mintlify grants access to any authenticated user.
+4. Otherwise, the user must belong to at least one included group.
+
+Exclusions always take priority. A user in both `staff` and `contractor` can't access a page that excludes `contractor`.
+
+## Exclude groups from public pages
+
+Exclusions apply to public pages. Anonymous visitors can still read the page, but signed-in users in an excluded group get a 404 error.
+
+```mdx Public page hidden from contractors
+---
+title: "Pricing"
+public: true
+groups:
+  - excludes: ["contractor"]
+---
+```
+
+Mintlify ignores `includes` on public pages because the page is already open to everyone.
+
+If a user with an expired or invalid session visits a public page that has exclusions, Mintlify redirects them to log in so it can check their groups.
+
+## Where rules apply
+
+Mintlify applies include and exclude rules everywhere it applies `groups`:
+
+- Page access
+- Sidebar navigation
+- Search results
+- The assistant
+- `llms.txt`
+- OpenAPI `x-mint.groups` on paths, operations, and schema variants
+- [Skills](/ai/skillmd) frontmatter
+
+## Validation rules
+
+Mintlify rejects `groups` values that it can't evaluate safely:
+
+- `includes` can't be empty. Omit `includes` to allow every group, or set `groups: []` to deny everyone.
+- `excludes` can't contain the `*` wildcard.
+- Group names can't be empty strings.
+- Rules can only contain `includes` and `excludes`.
+- A single `groups` list can't mix group names and rule objects.
+
+<CodeGroup>
+
+```mdx Valid
+---
+groups:
+  - includes: ["pro", "enterprise"]
+  - excludes: ["trial"]
+---
+```
+
+```mdx Invalid
+---
+groups:
+  - "pro"
+  - excludes: ["*"]
+---
+```
+
+</CodeGroup>
+
+## Examples
+
+| Frontmatter | Anonymous | `staff` | `contractor` | `staff` and `contractor` |
+| --- | --- | --- | --- | --- |
+| `groups: [{ excludes: ["contractor"] }]` | Log in | Access | 404 | 404 |
+| `groups: [{ includes: ["staff"], excludes: ["contractor"] }]` | Log in | Access | 404 | 404 |
+| `public: true` and `groups: [{ excludes: ["contractor"] }]` | Access | Access | 404 | 404 |
+| `groups: []` | Log in | 404 | 404 | 404 |
