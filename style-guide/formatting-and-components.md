@@ -35,7 +35,7 @@ Google's defaults apply: [headings](https://developers.google.com/style/headings
 
 ## Code blocks
 
-- Every code block must have a language tag.`
+- Every code block must have a language tag.
 - Code block headings use sentence case.
 - Add a filename title when the reader needs to know which file the code goes in, such as ` ```json docs.json `.
 - Examples are runnable and minimal, with realistic values, and include error handling only when relevant.
