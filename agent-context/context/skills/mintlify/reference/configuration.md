@@ -403,7 +403,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 ```
 
 - `indexing`: `"navigable"` (only nav pages) or `"all"` (every page including hidden).
-- `paths`: Folder-scoped meta tags. Each entry has `path` (folder relative to docs root, no leading or trailing slash, unique) and `metatags` (non-empty string values). Precedence: `seo.metatags` < matching `seo.paths` (longer path wins) < page frontmatter. Paths match page URLs, so language folders need their own entries (`guides/v1` doesn't apply to `es/guides/v1`). A `canonical` key in `paths` entries is ignored.
+- `paths`: Folder-scoped meta tags. Each entry has `path` (folder relative to docs root, no leading or trailing slash, unique) and `metatags` (non-empty string values). Precedence: `seo.metatags` < matching `seo.paths` (longer path wins) < page frontmatter. Paths match page URLs, so language folders need their own entries (`guides/v1` doesn't apply to `es/guides/v1`). Mintlify ignores a `canonical` key in `paths` entries.
 
 ## Search
 
