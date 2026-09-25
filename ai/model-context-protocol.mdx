@@ -319,6 +319,95 @@ You can manage your client credentials from **Settings → Security & access →
   Treat client secrets like passwords. Do not commit them to source control or expose them in client-side code. Use environment variables or a secrets manager to store them.
 </Warning>
 
+### Token exchange
+
+Token exchange lets your own server call your authenticated MCP server on behalf of a specific user. The access token it returns carries that user's [groups](/deploy/authentication-setup#control-access-with-groups), so the MCP server returns only the content that user can access. No browser or login redirect is involved.
+
+Use token exchange when you run your own AI agent or MCP server and want to relay documentation search to your users with per-user permissions. For example, your MCP server can call `/authed/mcp` and return the results alongside your own tools, so your users only need to connect to one MCP endpoint.
+
+Token exchange follows [RFC 8693](https://datatracker.ietf.org/doc/html/rfc8693). Each request includes two credentials:
+
+- **Your server's identity:** a client credential that has token exchange enabled.
+- **The user's identity:** a subject token that proves which user the request is for.
+
+Mintlify never accepts groups directly from your server. Groups always come from your identity provider or from a JWT signed with your private key.
+
+<Steps>
+  <Step title="Enable token exchange on a client credential">
+    1. In your dashboard, go to **Settings → Security & access → MCP**.
+    2. [Create a client credential](#client-credentials) or select an existing one.
+    3. Turn on **Allow token exchange**.
+  </Step>
+  <Step title="Get a subject token for the user">
+    The subject token depends on your site's [authentication method](/deploy/authentication-setup).
+
+    <Tabs>
+      <Tab title="OAuth 2.0">
+        Use the user's access token from your identity provider. Mintlify calls the **API URL** in your OAuth configuration with this token to get the user's groups, the same way it does when the user logs in to your documentation.
+
+        Use `urn:ietf:params:oauth:token-type:access_token` as the `subject_token_type`.
+
+        <Note>
+          Your API URL must accept the access token that your server holds. If your identity provider issued the token for a different audience and your API URL rejects it, the exchange fails.
+        </Note>
+      </Tab>
+      <Tab title="JWT">
+        Sign a short-lived JWT for the user with the same private key and [user data format](/deploy/authentication-setup#user-data-format) that you use for JWT authentication. Mintlify verifies the signature with the public key configured for your site.
+
+        Use `urn:ietf:params:oauth:token-type:jwt` as the `subject_token_type`.
+
+        ```ts
+        import * as jose from 'jose';
+
+        const privateKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+        const subjectToken = await new jose.SignJWT({
+          host: 'your-docs.com',
+          expiresAt: Math.floor(Date.now() / 1000) + 300,
+          groups: user.groups,
+        })
+          .setProtectedHeader({ alg: 'EdDSA' })
+          .setExpirationTime('5 min')
+          .sign(privateKey);
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Exchange the subject token for an access token">
+    Send a POST request to your MCP server's token endpoint with your client credential and the subject token.
+
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange' \
+      -d 'subject_token=SUBJECT_TOKEN' \
+      -d 'subject_token_type=urn:ietf:params:oauth:token-type:access_token'
+    ```
+
+    The response includes an access token scoped to that user:
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "scope": "mcp:search"
+    }
+    ```
+
+    Token exchange does not return a refresh token. When the access token expires, exchange a new subject token. If the user info includes `expiresAt`, the access token expires no later than that time.
+  </Step>
+  <Step title="Call the MCP server as the user">
+    Use the access token as a bearer token when you call the `/authed/mcp` endpoint, the same as a [client credential access token](#client-credentials). Cache the token per user until it expires instead of exchanging on every request.
+  </Step>
+</Steps>
+
+<Warning>
+  A client credential with token exchange enabled can act as any user whose subject token it holds. Only enable token exchange on credentials used by servers you control, and never expose the client secret in client-side code.
+</Warning>
+
 ### Rate limits
 
 To protect availability, Mintlify applies rate limits to MCP servers.
