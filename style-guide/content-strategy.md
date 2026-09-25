@@ -14,13 +14,14 @@
 ## Where content goes
 
 - Put new pages in the nav group that matches the user journey.
+- Filenames use kebab-case, such as `custom-domain.mdx`.
 - Order content by how often readers need it, most common tasks come first.
 - The help center is for agent-written content that answers specific user questions from conversations with support or the assistant.
 - Guides are end-to-end tutorials and best practices for concepts adjacent to Mintlify but not part of the platform itself. Like Git best practices or integrating Mintlify CLI commands into your CI pipeline.
 
 ## Localization
 
-- Only edit English content. Translations in `es/`, `fr/`, and `zh/` are generated after merge by an automation.
+- Only edit English content, including in `docs.json`. Don't change the navigation for other languages. Translations in `es/`, `fr/`, and `zh/` are generated after merge by an automation.
 - If you remove image files that are present in localized pages, the broken link check CI fails, but the translation automation will fix it.
 
 ## Page structure
@@ -29,6 +30,14 @@
 - Prerequisites go at the start of procedural pages.
 - Offer one opinionated path. Only show alternatives when readers genuinely choose between them.
 - Include a verification step or expected result for major procedures.
+
+## API reference pages
+
+- Document every parameter, including optional ones.
+- Show authentication with a correctly formatted example.
+- Include success and error response examples with realistic data.
+- List the HTTP status codes the endpoint returns and what each means.
+- Include rate limits and pagination details when they apply.
 
 ## Two workflows: editor (web or desktop app) and CLI
 
