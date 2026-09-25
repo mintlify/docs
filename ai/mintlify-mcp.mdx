@@ -116,10 +116,12 @@ Every admin MCP session binds to a single Git branch. The flow is:
     The AI uses tools like `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node`, and `update_config` to make changes. All edits buffer on the session branch in real time—nothing touches your deploy branch yet.
   </Step>
   <Step title="Review the diff">
-    Call `diff` at any time to see exactly what changed since your deploy branch. Open the `editorUrl` in your dashboard to see the same changes rendered.
+    Call `diff` at any time to see exactly what changed since your deploy branch. Open an `editorUrl` in your dashboard to see the same changes rendered. When `create_node` adds a page, it returns an `editorUrl` that opens that page directly.
   </Step>
   <Step title="Save">
     Call `save` to flush the branch to Git. `mode: "auto"` (default) opens a pull request. If the project's agent review setting is push-to-main and the deploy branch isn't protected, Mintlify merges the pull request immediately (the response includes `merged: true`). Use `mode: "pr"` to always open a pull request and leave it open for review. Use `mode: "commit"` to push directly to an existing PR branch without opening a new PR.
+
+    When `save` opens or updates a pull request, the response includes an `editorUrl` that opens the first created or updated page on the branch. If the changes only touch configuration, the link opens the branch. Saves that merge immediately don't return an `editorUrl`.
   </Step>
   <Step title="Discard if needed">
     Call `discard_session` to drop all in-session changes and release the branch.
@@ -158,7 +160,7 @@ You can also override the setting on a per-call basis by passing an explicit `mo
 ### Navigation
 
 - **`list_nodes`**: Walk the navigation tree with optional filters. Filter by `parentId` (use `recursive: true` to include all descendants), one or more node types, or any division scope: `language`, `version`, `tab`, `dropdown`, `anchor`, `product`, or `item`. Results paginate through an opaque `cursor`. Pass `visibility: "private"` to list the [private pages](/editor/pages#private-pages) and folders the OAuth user can access instead of the branch nav tree. Private listing works without a checkout, ignores the other filters, and returns each node's `role`.
-- **`create_node`**: Add a new page, group, tab, anchor, version, language, product, or dropdown. Pass `visibility: "private"` with `data.type: "page"` or `data.type: "group"` to create a [private page](/editor/pages#private-pages) or private folder in the caller's private tree. The caller becomes the node's manager. Private creation requires an OAuth session, works without a checkout, and places the node at the private root or under an existing `private-folder-<uuid>` parent.
+- **`create_node`**: Add a new page, group, tab, anchor, version, language, product, or dropdown. Pass `visibility: "private"` with `data.type: "page"` or `data.type: "group"` to create a [private page](/editor/pages#private-pages) or private folder in the caller's private tree. The caller becomes the node's manager. Private creation requires an OAuth session, works without a checkout, and places the node at the private root or under an existing `private-folder-<uuid>` parent. For new pages on the session branch, the response includes an `editorUrl` that opens the page in the dashboard editor.
 - **`update_node`**: Update a node's properties in place (rename a group, change an icon, set a default version). Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node id to rename a [private page](/editor/pages#private-pages) or folder or change its icon or tag. Private updates require an OAuth session with an editor role or higher and work without a checkout.
 - **`move_node`**: Move a node, including renaming a page's path.
 - **`delete_node`**: Remove a node from the navigation. Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node id to delete a [private page](/editor/pages#private-pages) or folder from the caller's private tree. Private deletions require an OAuth session with a manager role on the node and work without a checkout.
@@ -200,7 +202,7 @@ After you connect the admin MCP, you can drive it with natural-language prompts.
 
 <AccordionGroup>
   <Accordion title="Open the editor URL">
-    Every `checkout` returns an `editorUrl`. Open it in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
+    `checkout` returns an `editorUrl` for the branch. `create_node` and `save` return an `editorUrl` for the page that changed. Open these links in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
   </Accordion>
 
   <Accordion title="Review every PR">

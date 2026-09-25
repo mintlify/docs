@@ -126,10 +126,12 @@ keywords: ["MCP", "写入权限", "AI", "编辑", "Claude", "ChatGPT", "Cursor",
     AI 使用 `search`、`read`、`list_nodes`、`edit_page`、`write_page`、`create_node` 和 `update_config` 等工具进行更改。所有编辑都会实时缓冲在会话 branch 上——目前还不会影响你的部署 branch。
   </Step>
   <Step title="Review the diff">
-    随时调用 `diff` 查看与你的部署 branch 相比发生了哪些更改。在控制台中打开 `editorUrl`，可以看到相同更改的渲染效果。
+    随时调用 `diff` 查看与你的部署 branch 相比发生了哪些更改。在控制台中打开 `editorUrl`，可以看到相同更改的渲染效果。当 `create_node` 添加页面时，会返回一个直接打开该页面的 `editorUrl`。
   </Step>
   <Step title="Save">
     调用 `save` 将 branch 推送到 Git。`mode: "auto"`（默认值）会创建一个拉取请求；如果该项目的 agent review 设置为 push-to-main 且部署 branch 未受保护，则会立即将其合并（响应中包含 `merged: true`）。使用 `mode: "pr"` 始终创建拉取请求并保持其打开以供审查，或使用 `mode: "commit"` 直接推送到现有的 PR branch，而不打开新的 PR。
+
+    当 `save` 创建或更新拉取请求时，响应中会包含一个 `editorUrl`，用于打开该 branch 上第一个新建或更新的页面。如果更改只涉及配置，该链接会打开 branch。立即合并的保存不会返回 `editorUrl`。
   </Step>
   <Step title="Discard if needed">
     调用 `discard_session` 丢弃所有会话内更改并释放该 branch。
@@ -176,7 +178,7 @@ keywords: ["MCP", "写入权限", "AI", "编辑", "Claude", "ChatGPT", "Cursor",
 </div>
 
 - **`list_nodes`**: 遍历导航树，可使用可选筛选条件。按 `parentId` 筛选 (使用 `recursive: true` 包含所有后代)、按一个或多个节点类型筛选，或按任意分区范围筛选：`language`、`version`、`tab`、`dropdown`、`anchor`、`product` 或 `item`。结果通过不透明的 `cursor` 分页。传入 `visibility: "private"` 可以列出 OAuth 用户有权访问的[私有页面](/zh/editor/pages#private-pages)和文件夹，而不是 branch 的导航树。私有列表无需 checkout，会忽略其他筛选条件，并返回每个节点的 `role`。
-- **`create_node`**: 添加新的页面、组、tab、anchor、版本、语言、产品或 dropdown。传入 `visibility: "private"` 并配合 `data.type: "page"` 或 `data.type: "group"`，可在调用者的私有树中创建[私有页面](/zh/editor/pages#private-pages)或私有文件夹。调用者会成为该节点的 manager。私有创建需要 OAuth 会话，无需 checkout，并会将节点放在私有根目录下，或放在现有的 `private-folder-<uuid>` 父节点下。
+- **`create_node`**: 添加新的页面、组、tab、anchor、版本、语言、产品或 dropdown。传入 `visibility: "private"` 并配合 `data.type: "page"` 或 `data.type: "group"`，可在调用者的私有树中创建[私有页面](/zh/editor/pages#private-pages)或私有文件夹。调用者会成为该节点的 manager。私有创建需要 OAuth 会话，无需 checkout，并会将节点放在私有根目录下，或放在现有的 `private-folder-<uuid>` 父节点下。对于会话 branch 上的新页面，响应中会包含一个在控制台编辑器中打开该页面的 `editorUrl`。
 - **`update_node`**: 就地更新节点属性 (重命名组、更改图标、设置默认版本)。可接受 `private-page-<uuid>` 或 `private-folder-<uuid>` 节点 ID，用于重命名[私有页面](/zh/editor/pages#private-pages)或私有文件夹，或更改其图标或 tag。私有更新需要具有 editor 或更高角色的 OAuth 会话，且无需 checkout。
 - **`move_node`**: 移动节点，包括重命名页面的路径。
 - **`delete_node`**: 从导航中移除节点。可接受 `private-page-<uuid>` 或 `private-folder-<uuid>` 节点 ID，用于从调用者的私有树中删除[私有页面](/zh/editor/pages#private-pages)或私有文件夹。私有删除需要在该节点上具有 manager 角色的 OAuth 会话，且无需 checkout。
@@ -228,7 +230,7 @@ keywords: ["MCP", "写入权限", "AI", "编辑", "Claude", "ChatGPT", "Cursor",
 
 <AccordionGroup>
   <Accordion title="打开编辑器 URL">
-    每次 `checkout` 都会返回一个 `editorUrl`。在单独的标签页中打开它，这样你就可以在提示时实时观察 AI 的更改在控制台编辑器中渲染。
+    `checkout` 会返回 branch 的 `editorUrl`。`create_node` 和 `save` 会返回已更改页面的 `editorUrl`。在单独的标签页中打开这些链接，这样你就可以在提示时实时观察 AI 的更改在控制台编辑器中渲染。
   </Accordion>
 
   <Accordion title="审查每一个 PR">
