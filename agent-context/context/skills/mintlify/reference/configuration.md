@@ -163,6 +163,8 @@ All values must be hex codes starting with `#`.
 }
 ```
 
+`logo.href` accepts an absolute URL or a relative path starting with `/` (for example, `/quickstart`). If omitted, the logo links to the homepage (or the current locale's first page).
+
 ## Favicon
 
 Single file or light/dark variants:
@@ -289,6 +291,8 @@ Google Fonts load automatically by family name. For custom fonts:
 Link types: omit `type` for standard text link, `"github"` for repo with star count, `"discord"` for server with online count.
 
 Primary button types: `"button"`, `"github"`, `"discord"`.
+
+Link and button `href` values accept an absolute URL or a relative path starting with `/`. For `github`, use a GitHub repository URL. For `discord`, use a Discord invite URL.
 
 ## Footer
 
