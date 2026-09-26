@@ -15,7 +15,7 @@
 
 - Put new pages in the nav group that matches the user journey.
 - Filenames use kebab-case, such as `custom-domain.mdx`.
-- Order content by how often readers need it, most common tasks come first.
+- Order content by how often readers need it; most common tasks come first.
 - The help center is for agent-written content that answers specific user questions from conversations with support or the assistant.
 - Guides are end-to-end tutorials and best practices for concepts adjacent to Mintlify but not part of the platform itself. Like Git best practices or integrating Mintlify CLI commands into your CI pipeline.
 
