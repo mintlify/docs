@@ -6,6 +6,8 @@ This directory contains the Vale linting configuration for Mintlify documentatio
 
 Start simple and grow incrementally as needs emerge.
 
+Vale enforces a subset of the [style guide](../style-guide/README.md). The style guide is the source of truth. When you add or change a rule, make sure it matches the style guide, and update the style guide in the same PR if the rule is new.
+
 ## Vale files
 - `.vale.ini` - Main configuration file
 - `styles/config/vocabularies/Mintlify/` - Mintlify-specific terms

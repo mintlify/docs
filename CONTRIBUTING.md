@@ -23,6 +23,8 @@ These are general guidelines. If you’re not sure what category your proposed c
 
 ## Writing style
 
+Follow the [style guide](style-guide/README.md). In short:
+
 - Clarity and simplicity: Our documentation must be easy to read for people and agents.
 - Active voice: Use active voice wherever possible.
 - Meaning over grammar: Clarity and meaning are more important than precise adherence to all grammar rules. This includes violating active voice if it makes a sentence overly complicated.

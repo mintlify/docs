@@ -21,6 +21,7 @@ When reviewing documentation PRs, please consider:
 - [ ] Steps are in logical order
 - [ ] Nothing important is missing
 - [ ] Examples help illustrate the concepts
+- [ ] Content follows the [style guide](https://github.com/mintlify/docs/blob/main/style-guide/README.md)
 
 ### ✅ User experience
 - [ ] A new user could follow these docs successfully
