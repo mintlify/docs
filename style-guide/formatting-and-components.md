@@ -5,7 +5,7 @@ Google's defaults apply: [headings](https://developers.google.com/style/headings
 ## Frontmatter
 
 - Every page needs `title`, `description`, and `keywords`.
-  - Titles use sentence case
+  - Titles use sentence case.
   - Descriptions populate search results, so they must help readers determine if a page will solve the task they're working on.
   - Keywords are used to improve search. Any words in the title are already keywords.
 - Optional: `sidebarTitle` when the title is too long for the sidebar.
