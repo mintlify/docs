@@ -1,0 +1,129 @@
+---
+title: "Incluir y excluir grupos"
+description: "Restringe el acceso a las páginas con reglas de inclusión y exclusión de grupos, incluida la ocultación de páginas públicas a grupos específicos con sesión iniciada."
+hidden: true
+---
+
+<Note>
+  Las reglas de inclusión y exclusión de grupos están en beta cerrada. Ponte en contacto con tu equipo de cuenta de Mintlify para habilitarlas en tu implementación.
+  
+  Durante el periodo beta, las implementaciones fallan si alguna página usa el formato de reglas de `groups`.
+</Note>
+
+Cuando usas [autenticación](/es/deploy/authentication-setup) OAuth o JWT, la propiedad de frontmatter `groups` controla qué usuarios pueden acceder a una página. Además de una lista de nombres de grupos, `groups` acepta una lista de reglas con `includes` y `excludes`. Usa `excludes` para bloquear el acceso de grupos específicos a una página, incluidas las páginas que de otro modo son públicas.
+
+<div id="rule-format">
+  ## Formato de las reglas
+</div>
+
+Cada regla es un objeto con un array `includes` opcional, un array `excludes` opcional o ambos.
+
+```mdx Page for staff, except contractors
+---
+title: "Internal runbook"
+groups:
+  - includes: ["staff"]
+    excludes: ["contractor"]
+---
+```
+
+- `includes`: Los usuarios deben pertenecer al menos a uno de estos grupos. Si omites `includes`, todos los usuarios autenticados superan esta comprobación.
+- `excludes`: Los usuarios que pertenecen a cualquiera de estos grupos no pueden acceder a la página, aunque también pertenezcan a un grupo incluido.
+
+Si defines más de una regla, Mintlify las combina. La página usa todos los grupos incluidos de todas las reglas y todos los grupos excluidos de todas las reglas.
+
+El formato de lista existente sigue funcionando. `groups: ["admin"]` equivale a `groups: [{ includes: ["admin"] }]`.
+
+<div id="how-mintlify-evaluates-access">
+  ## Cómo evalúa Mintlify el acceso
+</div>
+
+Mintlify comprueba cada solicitud en este orden:
+
+1. Si el usuario pertenece a algún grupo excluido, Mintlify deniega el acceso y devuelve un error 404.
+2. Si la página es pública, Mintlify concede el acceso.
+3. Si la página no tiene `includes`, Mintlify concede el acceso a cualquier usuario autenticado.
+4. En caso contrario, el usuario debe pertenecer al menos a un grupo incluido.
+
+Las exclusiones siempre tienen prioridad. Un usuario que pertenece a `staff` y a `contractor` no puede acceder a una página que excluye `contractor`.
+
+<div id="exclude-groups-from-public-pages">
+  ## Excluir grupos de páginas públicas
+</div>
+
+Las exclusiones se aplican a las páginas públicas. Los visitantes anónimos pueden seguir leyendo la página, pero los usuarios con sesión iniciada que pertenecen a un grupo excluido reciben un error 404.
+
+Para hacer pública una página con `groups`, establece `public: true` en el frontmatter de la página. Una página que tiene la propiedad `groups` no hereda `public` de su grupo de navegación en `docs.json`.
+
+```mdx Public page hidden from contractors
+---
+title: "Pricing"
+public: true
+groups:
+  - excludes: ["contractor"]
+---
+```
+
+Mintlify ignora `includes` en las páginas públicas porque la página ya está disponible para todos.
+
+<Warning>
+  Excluir grupos de una página pública no garantiza el control de acceso. La página es pública, por lo que cualquier persona de un grupo excluido puede leerla cerrando sesión o visitándola en una ventana de navegación privada. Usa las exclusiones en páginas públicas para adaptar lo que ven los usuarios con sesión iniciada, no para proteger contenido sensible. Para ocultar contenido a un grupo, haz que la página sea privada.
+</Warning>
+
+Si un usuario con una sesión caducada o no válida visita una página pública que tiene exclusiones, Mintlify lo redirige para que inicie sesión y así poder comprobar sus grupos.
+
+<div id="where-rules-apply">
+  ## Dónde se aplican las reglas
+</div>
+
+Mintlify aplica las reglas de inclusión y exclusión en todos los lugares donde aplica `groups`:
+
+- Acceso a páginas
+- Navegación de la barra lateral
+- Resultados de búsqueda
+- El assistant
+- `llms.txt`
+- Frontmatter de [Skills](/es/ai/skillmd)
+
+<div id="validation-rules">
+  ## Reglas de validación
+</div>
+
+Mintlify rechaza los valores de `groups` que no puede evaluar de forma segura:
+
+- `includes` no puede estar vacío. Omite `includes` para permitir todos los grupos.
+- `excludes` no puede contener el comodín `*`.
+- Los nombres de grupo no pueden ser cadenas vacías.
+- Las reglas solo pueden contener `includes` y `excludes`.
+- Una misma lista `groups` no puede mezclar nombres de grupos y objetos de reglas.
+
+<CodeGroup>
+
+```mdx Valid
+---
+groups:
+  - includes: ["pro", "enterprise"]
+  - excludes: ["trial"]
+---
+```
+
+```mdx Invalid
+---
+groups:
+  - "pro"
+  - excludes: ["*"]
+---
+```
+
+</CodeGroup>
+
+<div id="examples">
+  ## Ejemplos
+</div>
+
+| Configuración de la página | Anónimo | `staff` | `contractor` | `staff` y `contractor` |
+| --- | --- | --- | --- | --- |
+| `groups: [{ excludes: ["contractor"] }]` | Iniciar sesión | Acceso | 404 | 404 |
+| `groups: [{ includes: ["staff"], excludes: ["contractor"] }]` | Iniciar sesión | Acceso | 404 | 404 |
+| `public: true` y `groups: [{ excludes: ["contractor"] }]` | Acceso | Acceso | 404 | 404 |
+| `groups: []` | Iniciar sesión | 404 | 404 | 404 |
