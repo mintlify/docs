@@ -1,0 +1,129 @@
+---
+title: "包含和排除用户组"
+description: "使用包含和排除用户组规则限制页面访问，包括对特定已登录用户组隐藏公开页面。"
+hidden: true
+---
+
+<Note>
+  包含和排除用户组规则目前处于封闭测试阶段。请联系你的 Mintlify 客户团队，为你的部署启用该功能。
+  
+  在测试期间，如果任何页面使用了 `groups` 的规则格式，部署将会失败。
+</Note>
+
+当你使用 OAuth 或 JWT [身份验证](/zh/deploy/authentication-setup)时，frontmatter 属性 `groups` 控制哪些用户可以访问页面。除了用户组名称列表之外，`groups` 还接受包含 `includes` 和 `excludes` 的规则列表。使用 `excludes` 阻止特定用户组访问页面，包括原本公开的页面。
+
+<div id="rule-format">
+  ## 规则格式
+</div>
+
+每条规则都是一个对象，可以包含可选的 `includes` 数组、可选的 `excludes` 数组，或两者兼有。
+
+```mdx Page for staff, except contractors
+---
+title: "Internal runbook"
+groups:
+  - includes: ["staff"]
+    excludes: ["contractor"]
+---
+```
+
+- `includes`：用户必须至少属于其中一个用户组。如果省略 `includes`，所有已认证用户都能通过此检查。
+- `excludes`：属于其中任一用户组的用户无法访问该页面，即使他们同时属于某个被包含的用户组。
+
+如果你列出多条规则，Mintlify 会将它们合并。页面会使用所有规则中的全部包含用户组和全部排除用户组。
+
+现有的列表格式仍然有效。`groups: ["admin"]` 等同于 `groups: [{ includes: ["admin"] }]`。
+
+<div id="how-mintlify-evaluates-access">
+  ## Mintlify 如何评估访问权限
+</div>
+
+Mintlify 按以下顺序检查每个请求：
+
+1. 如果用户属于任一被排除的用户组，Mintlify 会拒绝访问并返回 404 错误。
+2. 如果页面是公开的，Mintlify 会授予访问权限。
+3. 如果页面没有 `includes`，Mintlify 会向任何已认证用户授予访问权限。
+4. 否则，用户必须至少属于一个被包含的用户组。
+
+排除规则始终优先。同时属于 `staff` 和 `contractor` 的用户无法访问排除了 `contractor` 的页面。
+
+<div id="exclude-groups-from-public-pages">
+  ## 从公开页面中排除用户组
+</div>
+
+排除规则同样适用于公开页面。匿名访问者仍然可以阅读该页面，但属于被排除用户组的已登录用户会收到 404 错误。
+
+要将带有 `groups` 的页面设为公开，请在页面的 frontmatter 中设置 `public: true`。带有 `groups` 属性的页面不会从 `docs.json` 中其所在的导航组继承 `public`。
+
+```mdx Public page hidden from contractors
+---
+title: "Pricing"
+public: true
+groups:
+  - excludes: ["contractor"]
+---
+```
+
+Mintlify 会忽略公开页面上的 `includes`，因为该页面已对所有人开放。
+
+<Warning>
+  从公开页面中排除用户组并不能保证访问控制。页面是公开的，因此被排除用户组中的任何人都可以通过退出登录或在无痕浏览窗口中访问来阅读该页面。请使用公开页面上的排除规则来定制已登录用户看到的内容，而不是用来保护敏感内容。如需对某个用户组隐藏内容，请将页面设为私有。
+</Warning>
+
+如果会话已过期或无效的用户访问带有排除规则的公开页面，Mintlify 会将其重定向到登录页面，以便检查其所属的用户组。
+
+<div id="where-rules-apply">
+  ## 规则的适用范围
+</div>
+
+Mintlify 会在所有应用 `groups` 的地方应用包含和排除规则：
+
+- 页面访问
+- 侧边栏导航
+- 搜索结果
+- 助手
+- `llms.txt`
+- [Skills](/zh/ai/skillmd) frontmatter
+
+<div id="validation-rules">
+  ## 验证规则
+</div>
+
+Mintlify 会拒绝无法安全评估的 `groups` 值：
+
+- `includes` 不能为空。省略 `includes` 即可允许所有用户组。
+- `excludes` 不能包含 `*` 通配符。
+- 用户组名称不能为空字符串。
+- 规则只能包含 `includes` 和 `excludes`。
+- 同一个 `groups` 列表不能混用用户组名称和规则对象。
+
+<CodeGroup>
+
+```mdx Valid
+---
+groups:
+  - includes: ["pro", "enterprise"]
+  - excludes: ["trial"]
+---
+```
+
+```mdx Invalid
+---
+groups:
+  - "pro"
+  - excludes: ["*"]
+---
+```
+
+</CodeGroup>
+
+<div id="examples">
+  ## 示例
+</div>
+
+| 页面配置 | 匿名 | `staff` | `contractor` | `staff` 和 `contractor` |
+| --- | --- | --- | --- | --- |
+| `groups: [{ excludes: ["contractor"] }]` | 登录 | 可访问 | 404 | 404 |
+| `groups: [{ includes: ["staff"], excludes: ["contractor"] }]` | 登录 | 可访问 | 404 | 404 |
+| `public: true` 和 `groups: [{ excludes: ["contractor"] }]` | 可访问 | 可访问 | 404 | 404 |
+| `groups: []` | 登录 | 404 | 404 | 404 |
