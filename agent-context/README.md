@@ -44,6 +44,8 @@ The sync command replaces `skills/mintlify/`, writes the client-specific MCP con
 
 Kiro uses the manifest version to detect updates. The sync command bumps the patch version automatically whenever the generated Kiro skill, MCP configuration, or manifest differs from the target repository. For a minor or major release, set a higher `pluginManifest.version` in `targets/kiro.json`; the sync uses it when it is greater than the target's current version. Versions must be `MAJOR.MINOR.PATCH`, without pre-release tags or build metadata.
 
+A target that sets `pluginManifestFile` writes its manifest to that path instead of `plugin.json`, and the version bump reads the target repository's current version from the same path. Claude Code, for example, reads only `.claude-plugin/plugin.json`.
+
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 
 ## Publishing setup
