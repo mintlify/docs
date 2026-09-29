@@ -100,6 +100,26 @@ jobs:
       - name: Generate target context
         run: node source/agent-context/scripts/sync-target.mjs "${{ matrix.target }}" target
 
+      # The Claude plugin directory's security scan expects the README to disclose every
+      # server the plugin connects to, and the sync doesn't touch the README.
+      - name: Check README discloses MCP servers
+        if: matrix.target == 'claude'
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const servers = JSON.parse(fs.readFileSync("source/agent-context/context/mcp-servers.json", "utf8"));
+            const readme = fs.readFileSync("target/README.md", "utf8");
+            const missing = Object.entries(servers)
+              .filter(([name, server]) => !readme.includes(name) || !readme.includes(server.url))
+              .map(([name, server]) => `${name} (${server.url})`);
+            if (missing.length > 0) {
+              console.error(`::error::README.md in ${process.env.REPOSITORY} must name and link these MCP servers before syncing: ${missing.join(", ")}`);
+              process.exit(1);
+            }
+          '
+        env:
+          REPOSITORY: ${{ matrix.repository }}
+
       - name: Detect changes
         id: changes
         working-directory: target

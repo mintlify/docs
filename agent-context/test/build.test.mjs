@@ -3,7 +3,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildAll, buildTarget, copyTargetToRepository, loadTargets } from '../scripts/lib.mjs';
+import {
+  buildAll,
+  buildTarget,
+  copyTargetToRepository,
+  loadTargets,
+  resolveManifestVersion,
+} from '../scripts/lib.mjs';
 
 test('builds all client variants from one canonical skill', async () => {
   const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-test-'));
@@ -222,6 +228,30 @@ test('sync bumps the Kiro manifest patch version only when released content chan
 
     await copyTargetToRepository('kiro', destination, outputRoot);
     assert.equal(await readVersion(), '1.4.3');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('manifest version bump reads a manifest outside the plugin root', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-manifest-path-test-'));
+  const [kiro] = await loadTargets(['kiro']);
+  const target = { ...kiro, id: 'nested', pluginManifestFile: '.claude-plugin/plugin.json' };
+  const destination = path.join(root, 'plugin');
+
+  try {
+    const { targetRoot } = await buildTarget(target, path.join(root, 'dist'));
+    const built = JSON.parse(
+      await readFile(path.join(targetRoot, '.claude-plugin', 'plugin.json'), 'utf8'),
+    );
+    assert.equal(built.name, 'mintlify');
+
+    await mkdir(path.join(destination, '.claude-plugin'), { recursive: true });
+    await writeFile(
+      path.join(destination, '.claude-plugin', 'plugin.json'),
+      JSON.stringify({ ...built, version: '2.3.4' }),
+    );
+    assert.equal(await resolveManifestVersion(target, targetRoot, destination), '2.3.5');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
