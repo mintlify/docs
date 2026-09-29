@@ -47,7 +47,7 @@ Key tools:
 - **`list_deployments`** — Discover which project(s) this connection can access.
 - **`read`** / **`search`** — Fetch a page's MDX or search across pages.
 - **`edit_page`** / **`write_page`** — Apply targeted edits or overwrite a page.
-- **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree.
+- **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree. If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation invalid (for example, a page at the root next to tabs), the response includes a `navigationErrors` field. Fix these errors before `save`, because Mintlify can drop invalid nodes from the published navigation.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`search_code_operations`** / **`execute_code`** — Code mode for project-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics, private-page sharing). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live project, so confirm the intended change first.
 
