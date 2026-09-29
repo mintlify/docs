@@ -62,6 +62,8 @@ export async function loadTargets(selectedIds = []) {
       (target.skillReferenceDirectory !== undefined &&
         !['reference', 'references'].includes(target.skillReferenceDirectory)) ||
       (target.mcpSchema !== undefined && typeof target.mcpSchema !== 'string') ||
+      (target.pluginManifestFile !== undefined &&
+        !['plugin.json', '.claude-plugin/plugin.json'].includes(target.pluginManifestFile)) ||
       (target.mcpTypeOverrides !== undefined &&
         (target.mcpTypeOverrides === null ||
           typeof target.mcpTypeOverrides !== 'object' ||
@@ -82,6 +84,11 @@ export async function loadTargets(selectedIds = []) {
   return selectedIds.length === 0
     ? targets
     : targets.filter((target) => selectedIds.includes(target.id));
+}
+
+// Where the target's client reads its plugin manifest, relative to the plugin root.
+function manifestFile(target) {
+  return target.pluginManifestFile ?? 'plugin.json';
 }
 
 function markGenerated(skill) {
@@ -173,10 +180,9 @@ export async function buildTarget(target, outputRoot) {
   );
 
   if (target.pluginManifest !== undefined) {
-    await writeFile(
-      path.join(targetRoot, 'plugin.json'),
-      `${JSON.stringify(target.pluginManifest, null, 2)}\n`,
-    );
+    const manifestPath = path.join(targetRoot, manifestFile(target));
+    await mkdir(path.dirname(manifestPath), { recursive: true });
+    await writeFile(manifestPath, `${JSON.stringify(target.pluginManifest, null, 2)}\n`);
   }
 
   const provenance = {
@@ -251,7 +257,7 @@ async function readOptional(file) {
 // Snapshot of everything a manifest version describes, excluding the version itself.
 async function releaseSnapshot(root, target) {
   const skill = await readTree(path.join(root, 'skills', 'mintlify'));
-  const manifest = await readOptional(path.join(root, 'plugin.json'));
+  const manifest = await readOptional(path.join(root, manifestFile(target)));
   const { version, ...manifestWithoutVersion } = manifest === undefined ? {} : JSON.parse(manifest);
   return JSON.stringify({
     skill: [...skill].sort(([a], [b]) => a.localeCompare(b)),
@@ -260,11 +266,11 @@ async function releaseSnapshot(root, target) {
   });
 }
 
-// Kiro uses the manifest version to detect updates. Bump the patch version whenever the
+// Kiro and Claude Code use the manifest version to detect updates. Bump the patch version whenever the
 // released content changes; a higher version set in the target configuration wins.
 export async function resolveManifestVersion(target, sourceRoot, destination) {
   const configuredVersion = target.pluginManifest.version;
-  const existingManifest = await readOptional(path.join(destination, 'plugin.json'));
+  const existingManifest = await readOptional(path.join(destination, manifestFile(target)));
   if (existingManifest === undefined) {
     return configuredVersion;
   }
@@ -304,10 +310,9 @@ export async function copyTargetToRepository(targetId, destination, outputRoot) 
   if (target.pluginManifest !== undefined) {
     const manifest = { ...target.pluginManifest, version: manifestVersion };
     validateAgentPluginArtifact('plugin', manifest, target.id);
-    await writeFile(
-      path.join(destination, 'plugin.json'),
-      `${JSON.stringify(manifest, null, 2)}\n`,
-    );
+    const manifestPath = path.join(destination, manifestFile(target));
+    await mkdir(path.dirname(manifestPath), { recursive: true });
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
   await cp(
     path.join(sourceRoot, '.mintlify-agent-context.json'),
