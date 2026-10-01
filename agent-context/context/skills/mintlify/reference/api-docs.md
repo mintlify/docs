@@ -156,6 +156,26 @@ asyncapi: "/path/to/asyncapi.json channelName"
 ---
 ```
 
+## GraphQL
+
+Generate pages from an SDL schema by adding `graphql` to a tab or group in `navigation`. Accepts a string (local path or HTTPS URL; HTTP is rejected) or an object with `source` (required) and `directory` (default `graphql-reference`).
+
+```json
+"navigation": {
+  "tabs": [
+    {
+      "tab": "GraphQL API",
+      "graphql": { "source": "schema.graphql", "directory": "api/graphql" }
+    }
+  ]
+}
+```
+
+- A tab with `graphql` may include `groups` only (no `pages`, `versions`, `languages`) and cannot also have `openapi` or `asyncapi`.
+- By default, Mintlify generates **Queries**, **Mutations**, and **Types** (object, input, enum, interface, union) sections.
+- To curate pages, list selectors in `pages` of the tab or group that declares `graphql` (or its nested groups): `QUERY <field>`, `MUTATION <field>`, `TYPE <name>`. Kinds must be uppercase. Dotted paths (`MUTATION cart.createCart`) select namespaced operations; `TYPE` does not accept dotted paths.
+- If any page is a selector, the full generated sections are skipped. Regular page paths still work alongside selectors. An unmatched selector fails the build.
+
 ## Playground configuration
 
 Control the API playground behavior in `docs.json`:
