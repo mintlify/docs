@@ -110,6 +110,8 @@ Every admin MCP session binds to a single Git branch. The flow is:
   <Step title="Check out a branch">
     The first required call is `checkout {subdomain}`. It creates a fresh `admin-mcp/<slug>-<sha>` branch from that project's deploy branch (or attaches to an existing branch you name). It also returns an `editorUrl` you can open to follow along in the dashboard editor.
 
+    To skip the session branch and edit your deploy branch directly, pass it as `branch`. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly).
+
     Call `list_branches` before `checkout` if you need to discover or filter existing branches in a project's repository.
   </Step>
   <Step title="Read, search, and edit">
@@ -133,6 +135,26 @@ Every admin MCP session binds to a single Git branch. The flow is:
   
   Calling `checkout` again with a different `subdomain` or branch switches which session is active. It doesn't discard the others. To abandon an in-progress draft instead of switching away from it, call `discard_session`.
 </Tip>
+
+## Edit the deploy branch directly
+
+Pass your deploy branch to `checkout` to edit it the same way you do in the [dashboard editor](/editor/publish). For example, `checkout { subdomain: "acme", branch: "main" }`. Mintlify binds the session to the deploy branch instead of creating an `admin-mcp/*` branch. Checkout is faster, and you don't get a pull request.
+
+The AI tool acts as you on the deploy branch:
+
+- **Edits are live to collaborators.** Anyone else editing the deploy branch in the dashboard sees the AI's changes as they happen.
+- **`save` publishes only your changes.** It ignores `mode` and commits your pending changes straight to the deploy branch, like clicking **Publish** in the editor. Other people's unpublished changes stay pending. Your own unpublished edits from the dashboard editor publish too.
+- **`discard_session` reverts only your changes.** It returns `discardedChanges` with the number of changes it reverted. Other people's changes and the branch itself stay untouched.
+- **`get_session_state` lists only your changes.**
+
+Mintlify tracks changes per page. If you and someone else both edited the same page, `save` publishes the whole page and `discard_session` reverts the whole page, including the other person's edits.
+
+Mintlify creates a session branch off the deploy branch instead, and `checkout` returns a `note` explaining why, when any of the following is true:
+
+- Branch protection on your deploy branch requires pull requests, or Mintlify can't check your branch protection rules.
+- Editing the deploy branch is locked in the dashboard editor.
+- **Push directly to your deploy branch** is off in your [publishing settings](#publishing).
+- You connected with a client or machine-to-machine token instead of an OAuth login. These tokens aren't tied to a user, so they have no "own" changes.
 
 ## Publishing
 
@@ -198,12 +220,12 @@ Code mode handles project-level operations that have no dedicated tool, such as 
 ### Session
 
 - **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name}`. Call this to discover which `subdomain` to pass to `checkout`.
-- **`checkout`**: Bind a session to a branch for a given project `subdomain`, or switch which project's session is active.
+- **`checkout`**: Bind a session to a branch for a given project `subdomain`, or switch which project's session is active. Pass the deploy branch as `branch` to [edit it directly](#edit-the-deploy-branch-directly).
 - **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Call this before `checkout` to attach to an existing branch by name.
-- **`get_session_state`**: Inspect the current branch, edited files, and pending nav diff.
+- **`get_session_state`**: Inspect the current branch, edited files, and pending nav diff. On the deploy branch, lists only your changes.
 - **`diff`**: List all changes between the session and your deploy branch.
-- **`save`**: Open a pull request or commit to the session branch. If your project allows the agent to push to main and you have no branch protection rules, Mintlify auto-merges the PR.
-- **`discard_session`**: Drop the session and its in-flight changes.
+- **`save`**: Open a pull request or commit to the session branch. If your project allows the agent to push to main and you have no branch protection rules, Mintlify auto-merges the PR. On the deploy branch, commits only your pending changes directly.
+- **`discard_session`**: Drop the session and its in-flight changes. On the deploy branch, reverts only your pending changes.
 
 ## Example prompts
 

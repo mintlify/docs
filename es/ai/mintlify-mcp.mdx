@@ -120,6 +120,8 @@ Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
   <Step title="Hacer checkout de una rama">
     La primera llamada requerida es `checkout {subdomain}`. Crea una nueva rama `admin-mcp/<slug>-<sha>` a partir de la rama de despliegue de ese proyecto (o se adjunta a una rama existente que indiques). También devuelve un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel.
 
+    Para omitir la rama de sesión y editar directamente tu rama de despliegue, pásala como `branch`. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly).
+
     Llama a `list_branches` antes de `checkout` si necesitas descubrir o filtrar las ramas existentes en el repositorio de un proyecto.
   </Step>
   <Step title="Leer, buscar y editar">
@@ -143,6 +145,28 @@ Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
 
   Llamar a `checkout` de nuevo con un `subdomain` o una rama distinta cambia qué sesión está activa. No descarta las demás. Para abandonar un borrador en curso en lugar de simplemente alejarte de él, llama a `discard_session`.
 </Tip>
+
+<div id="edit-the-deploy-branch-directly">
+  ## Editar la rama de despliegue directamente
+</div>
+
+Pasa tu rama de despliegue a `checkout` para editarla igual que en el [editor del panel](/es/editor/publish). Por ejemplo, `checkout { subdomain: "acme", branch: "main" }`. Mintlify vincula la sesión a la rama de despliegue en lugar de crear una rama `admin-mcp/*`. El checkout es más rápido y no se crea ninguna pull request.
+
+La herramienta de IA actúa en tu nombre en la rama de despliegue:
+
+- **Las ediciones son visibles en vivo para los colaboradores.** Cualquier otra persona que edite la rama de despliegue en el panel ve los cambios de la IA a medida que ocurren.
+- **`save` publica solo tus cambios.** Ignora `mode` y hace commit de tus cambios pendientes directamente en la rama de despliegue, como al hacer clic en **Publish** en el editor. Los cambios no publicados de otras personas siguen pendientes. Tus propias ediciones no publicadas del editor del panel también se publican.
+- **`discard_session` revierte solo tus cambios.** Devuelve `discardedChanges` con el número de cambios revertidos. Los cambios de otras personas y la propia rama no se modifican.
+- **`get_session_state` lista solo tus cambios.**
+
+Mintlify registra los cambios por página. Si tú y otra persona editaron la misma página, `save` publica la página completa y `discard_session` revierte la página completa, incluidas las ediciones de la otra persona.
+
+Mintlify crea en su lugar una rama de sesión a partir de la rama de despliegue, y `checkout` devuelve una `note` que explica el motivo, cuando se cumple alguna de estas condiciones:
+
+- La protección de tu rama de despliegue exige pull requests, o Mintlify no puede comprobar tus reglas de protección de ramas.
+- La edición de la rama de despliegue está bloqueada en el editor del panel.
+- **Enviar directamente a tu rama de despliegue** está desactivado en tu [configuración de publicación](#publishing).
+- Te conectaste con un token de cliente o de máquina a máquina en lugar de un inicio de sesión OAuth. Estos tokens no están vinculados a un usuario, así que no tienen cambios "propios".
 
 <div id="publishing">
   ## Publicación
@@ -224,12 +248,12 @@ El modo de código gestiona las operaciones a nivel de proyecto que no tienen un
 </div>
 
 - **`list_deployments`**: Lista los proyectos a los que tu conexión puede acceder, devolviendo cada `{subdomain, name}`. Llama a esto para descubrir qué `subdomain` pasar a `checkout`.
-- **`checkout`**: Vincula una sesión a una rama para un `subdomain` de proyecto dado, o cambia qué sesión de proyecto está activa.
+- **`checkout`**: Vincula una sesión a una rama para un `subdomain` de proyecto dado, o cambia qué sesión de proyecto está activa. Pasa la rama de despliegue como `branch` para [editarla directamente](#edit-the-deploy-branch-directly).
 - **`list_branches`**: Lista las ramas de Git disponibles para el repositorio de un proyecto, con filtrado opcional por `query`. Devuelve los nombres de las ramas, el total y la rama de despliegue. Llama a esto antes de `checkout` para adjuntarte a una rama existente por nombre.
-- **`get_session_state`**: Inspecciona la rama actual, los archivos editados y el diff de navegación pendiente.
+- **`get_session_state`**: Inspecciona la rama actual, los archivos editados y el diff de navegación pendiente. En la rama de despliegue, lista solo tus cambios.
 - **`diff`**: Lista todos los cambios entre la sesión y tu rama de despliegue.
-- **`save`**: Abre una pull request o hace commit en la rama de la sesión. Mintlify fusiona automáticamente la PR cuando el proyecto está configurado para enviar los cambios del agente a `main` y la rama de despliegue no está protegida.
-- **`discard_session`**: Descarta la sesión y sus cambios pendientes.
+- **`save`**: Abre una pull request o hace commit en la rama de la sesión. Mintlify fusiona automáticamente la PR cuando el proyecto está configurado para enviar los cambios del agente a `main` y la rama de despliegue no está protegida. En la rama de despliegue, hace commit directamente solo de tus cambios pendientes.
+- **`discard_session`**: Descarta la sesión y sus cambios pendientes. En la rama de despliegue, revierte solo tus cambios pendientes.
 
 <div id="example-prompts">
   ## Ejemplos de prompts
