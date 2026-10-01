@@ -102,7 +102,7 @@ title: "Page title"
 mode: "custom"
 ---
 
-# Frame: like custom but keeps sidebar (Aspen, Almond, Luma, and Sequoia themes only)
+# Frame: like custom but keeps sidebar (all themes)
 ---
 title: "Page title"
 mode: "frame"
