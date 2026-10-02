@@ -1,9 +1,9 @@
 # Installation and updates
 
-Install the complete canonical folder from GitHub. It includes every reference and the reviewed inventory:
+The customer installation source is the Mintlify docs domain. The customization bundle is not yet published there. After its release, install the named skill with its references and reviewed inventory:
 
 ```bash
-npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/context/skills/mintlify-customization --skill mintlify-customization
+npx skills@latest add https://www.mintlify.com/docs --skill mintlify-customization
 npx skills@latest list
 ```
 
@@ -25,9 +25,13 @@ npx skills@latest update mintlify-customization --global
 
 The inspected skills CLI `1.7.0` does not replay the original agent selection or copy mode when running a global update. It can select additional detected agents and use symlinks. If you need to preserve an explicit agent set or copy mode, rerun `add` with the same source, `--skill`, `--agent`, scope, and `--copy` arguments instead. Inspect the installed paths afterward, especially when another agent already receives the skill through a plugin. See the [installer's agent-targeting issue](https://github.com/vercel-labs/skills/issues/1718).
 
-The docs host's inspected publication mechanism discovers named `SKILL.md` files but uploads only their entrypoints. The hosted named entrypoint links its references to GitHub. Use the GitHub-folder command above when you need the references bundled locally; a docs-URL installation is not equivalent to a complete folder installation.
+## Hosted bundle contract
 
-The generated hosted entrypoint uses the installer's `metadata.internal` discovery flag so the skills CLI sees only one installable folder named `mintlify-customization` in the repository. The canonical folder does not carry that flag. This prevents duplicate-name project updates from being skipped; it does not make the published hosting endpoint private.
+The inspected deployment pipeline uploads only named skill entrypoints. Its legacy discovery index lists `files: ["SKILL.md"]`, and its preferred 0.2.0 index advertises `type: "skill-md"` with a digest of that file alone. This does not install local references or detect reference-only changes.
+
+Before releasing this skill, the docs host must publish the complete folder as an archive and advertise `type: "archive"`, its URL, and the SHA-256 digest of the archive bytes in `/docs/.well-known/agent-skills/index.json`. Keep `SKILL.md` at the archive root and preserve relative reference paths. A change to any reference or the inventory must change the archive digest. The legacy files index must list and serve the same complete set for compatible installers.
+
+The existing docs domain and asset infrastructure can serve these files. A separate marketplace, registry, or hosting service is not required. GitHub remains the canonical source and the source for plugin syncs; it is not the customer-facing installation source. See [the discovery proposal](https://github.com/cloudflare/agent-skills-discovery-rfc#archive-distribution) and [the skills CLI provider](https://github.com/vercel-labs/skills/blob/main/src/providers/wellknown.ts).
 
 ## Plugin-managed installations
 

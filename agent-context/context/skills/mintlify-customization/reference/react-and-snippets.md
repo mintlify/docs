@@ -31,6 +31,8 @@ The inspected merged import/TOC changes deduplicate a component imported by a pa
 
 Nested conditional snippet inlining and per-occurrence pass-through props must be verified against the current compiler and browser. An unmerged proposed change is not evidence. Until a case is reproduced, import dependencies in the parent MDX and author the supported composition explicitly. Record the exact nesting shape, export names, props, occurrence count, CLI version, and deployed result rather than saying merely “nested snippets work.”
 
+At the pinned public-client revision, a local synthetic page rendered two occurrences of an outer MDX snippet that imported an inner MDX snippet and a named component also imported by the page. Both nested bodies appeared, the component declaration was deduplicated, and repeated headings received distinct IDs. Putting that outer snippet inside `<MDX>{showExample && <ExampleOuter />}</MDX>` with a literal true page constant rendered no nested body or headings in the same local pipeline. This is a specific observed limitation, not a hosted compatibility claim or evidence for per-occurrence prop pass-through.
+
 Watch for duplicate declarations, first-definition collision warnings, shadowed variables, missing pass-through bindings, and TOC entries for content that never renders. Check local preview, hosted output, and agent-facing Markdown; successful compilation alone does not prove all three.
 
 Component hooks and CSS class extraction can differ in editor live preview. Write Tailwind class names as complete literals, not runtime concatenation. The inspected client uses newer Tailwind internals than some published authoring prose; do not infer every framework feature is supported for customers from the dependency version alone.

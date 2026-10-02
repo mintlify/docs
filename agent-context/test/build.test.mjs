@@ -3,7 +3,6 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { publishedCustomization } from '../scripts/publish-customization.mjs';
 import {
   buildAll,
   buildTarget,
@@ -12,22 +11,6 @@ import {
   readTree,
   resolveManifestVersion,
 } from '../scripts/lib.mjs';
-
-test('hosted publication keeps one installable canonical customization skill', async () => {
-  const canonical = await readFile(
-    new URL('../context/skills/mintlify-customization/SKILL.md', import.meta.url),
-    'utf8',
-  );
-  const hosted = await publishedCustomization();
-  assert.match(hosted, /^metadata:\n  internal: true$/m);
-  assert.match(hosted, /^name: mintlify-customization$/m);
-  assert.doesNotMatch(canonical, /^metadata:\n  internal: true$/m);
-  assert.match(canonical, /\]\(reference\/selectors\.md\)/);
-  assert.match(
-    hosted,
-    /\]\(https:\/\/raw\.githubusercontent\.com\/mintlify\/docs\/main\/agent-context\/context\/skills\/mintlify-customization\/reference\/selectors\.md\)/,
-  );
-});
 
 test('builds all client variants from the canonical skills', async () => {
   const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-test-'));

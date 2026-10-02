@@ -11,12 +11,10 @@ import {
   rewriteReferenceDirectory,
 } from './lib.mjs';
 import { validateReferenceLinks, validateInventory } from './validation.mjs';
-import { publishCustomization } from './publish-customization.mjs';
 
 const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-'));
 
 try {
-  await publishCustomization(true);
   const skills = await loadSkills();
   for (const name of skills) {
     const files = await readTree(path.join(contextDirectory, name));

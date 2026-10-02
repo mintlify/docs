@@ -24,6 +24,10 @@ The initial branch records source evidence and packaging checks separately from 
 
 Fresh GitHub-folder installations from the draft branch were checked with skills CLI `1.7.0` in an isolated project and isolated Node home/config/state profile. Codex, Cursor, Claude Code, and Kiro CLI selections received the complete canonical skill and references; the resulting project and global copies matched the source byte for byte. This verifies CLI bundling, not discovery or cache refresh in a running agent or plugin manager.
 
+The customer installation source is the docs domain. A separate live check installed the existing general skill from that domain and recorded its discovery digest, but the installed folder contained only `SKILL.md`. The customization bundle is not published there. Complete native archive publication and reference-only domain updates are release dependencies; the draft's former GitHub-linked hosting bridge has been removed.
+
+Chromium baseline captures cover all nine official public theme demos in light/dark at 375, 768, 1024, and 1440 pixels: 72 hosted views. Their deployed client versions were unavailable, so these views do not prove that the pinned source is deployed. A local synthetic public-client fixture also checked authored Card borders, Tree highlighting, and script execution across all nine themes in light/dark at 375 and 1440 pixels, including one internal navigation per theme. The script executed once per page load and persisted through those navigations. Screenshot framing and remaining interaction/accessibility cases still need review; these checks do not verify every inventory hook or the full navigation matrix.
+
 The hosted verification matrix requires all nine themes, light/dark, and 375, 768, 1024, and 1440 pixel widths: 72 baseline views. Add 1023/1024 and 1279/1280 boundaries for affected layout regions and other boundaries identified in [themes and layout](themes-and-layout.md). Record the environment, client version, route, configuration, page mode, browser, appearance, width, state, result, and screenshot for each case.
 
 For each affected customization, check:
