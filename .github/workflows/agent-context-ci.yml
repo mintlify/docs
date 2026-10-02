@@ -12,6 +12,13 @@ on:
       - agent-context/**
       - .github/workflows/agent-context-ci.yml
       - .github/workflows/sync-agent-context.yml
+  workflow_dispatch:
+    inputs:
+      ablation:
+        description: Also run the no-plugin baseline arm (doubles cost)
+        type: choice
+        options: [none, with-without]
+        default: none
 
 permissions:
   contents: read
@@ -33,3 +40,105 @@ jobs:
         working-directory: agent-context
       - run: npm run build
         working-directory: agent-context
+
+  # Behavioral regression check for the shared agent context, exercised through
+  # the generated Claude Code plugin. The content is byte-identical across all
+  # four targets (npm run check enforces it), so this measures the words every
+  # plugin ships. It does NOT exercise the Codex, Cursor, or Kiro agents; only
+  # Claude Code has an eval harness.
+  # Soft gate: a failing suite is reported in the job summary and artifacts but
+  # does not fail the check. Flip continue-on-error off once scores are stable.
+  eval-shared-content-via-claude:
+    name: Eval shared content via Claude plugin (soft gate)
+    needs: validate
+    # Fork PRs have no secrets; scheduled and push runs would double spend.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # sticky results comment
+    env:
+      PLUGIN_DIR: mintlify-claude-plugin
+      HAS_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+        working-directory: agent-context
+
+      - name: Generate Claude plugin
+        run: node agent-context/scripts/sync-target.mjs claude "$PLUGIN_DIR"
+
+      - name: Add eval suite
+        run: cp -R agent-context/evals "$PLUGIN_DIR/evals"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Free and deterministic; a broken manifest or skill fails the job outright.
+      - name: Validate generated plugin
+        run: claude plugin validate "$PLUGIN_DIR"
+
+      - name: Run evals
+        if: env.HAS_API_KEY == 'true'
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        # Runs per case come from each case's prompt.md (3 default, 5 for the noisier
+        # admin cases); a --runs flag here would override all of them.
+        # Both models pinned so a model rollout is not mistaken for a skill regression.
+        # Mocks stand in for the Mintlify MCP servers; never add --mocks off or
+        # --allow-real-servers here - the Admin server writes to live deployments.
+        run: |
+          claude plugin eval "$PLUGIN_DIR" \
+            --trust-plugin --no-publish \
+            --json eval-results.json \
+            --ablation "${{ inputs.ablation || 'none' }}" \
+            --threshold 0.8 -j 4 \
+            --model claude-sonnet-5 --judge-model claude-haiku-4-5 \
+            --allow-tools Write \
+            --max-cost-usd 10
+
+      - name: Summarize
+        if: always()
+        run: |
+          node agent-context/scripts/eval-summary.mjs eval-results.json > eval-summary.md
+          cat eval-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment per PR, updated in place on every run, found by its marker.
+      - name: Comment on the pull request
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          marker='<!-- eval-shared-content-via-claude -->'
+          {
+            echo "$marker"
+            cat eval-summary.md
+            echo
+            echo "[Run log, and the full HTML report under Artifacts]($RUN_URL)"
+          } > comment.md
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@comment.md > /dev/null
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always() && env.HAS_API_KEY == 'true'
+        with:
+          name: claude-plugin-eval
+          if-no-files-found: ignore
+          path: |
+            eval-results.json
+            mintlify-claude-plugin/evals/results/**/report.html
