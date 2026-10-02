@@ -19,6 +19,7 @@ Themes: **mint, maple, palm, willow, linden, almond, aspen, luma, sequoia**. Hoo
 - Breakpoints: sm 640, md 768, lg 1024, xl 1280, 2xl 1536 px. The desktop sidebar usually appears at lg and side panels at xl. Test just below and at each affected breakpoint.
 - Mobile drawers and desktop navigation are separate nodes, and hidden desktop markup can stay mounted. Scope integrations to one variant.
 - Set the desktop sidebar width with `--sidebar-width` on `:root`. Every theme applies it to the sidebar and its dependent content, header, and footer offsets. Do not set `width` on `#sidebar` or `#sidebar-content` directly, and do not add `resize`; the offsets will not follow.
+- Set the body text column width with `--content-width`. Do not cap `#content-container` or `#content-area` directly; in several themes that shrinks the column or breaks centering.
 - Sticky positions depend on the scroll ancestor, banner, and tab rows. `overflow: hidden` overrides can break scrolling.
 - Menus and dialogs can be portaled outside their trigger. A child's `z-index` cannot escape its parent's stacking context.
 - Page modes are `default`, `wide`, `custom`, `frame`, and `center`.

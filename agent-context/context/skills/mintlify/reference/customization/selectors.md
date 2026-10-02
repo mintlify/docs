@@ -14,6 +14,10 @@ The [public custom CSS docs](https://www.mintlify.com/docs/customize/custom-scri
 
 Native selectors such as `main`, `a`, `img`, `svg`, and `footer` match many unrelated elements. Scope them to an authored class or a known region.
 
+## Page content
+
+Page content renders inside `#content` (class `mdx-content`). Body paragraphs render as `span[data-as="p"]`, not `<p>`, so `p` selectors miss them. Set body typography on `#content` so paragraphs and lists inherit it, and restyle headings separately if needed.
+
 ## State attributes
 
 | Selector                                                 | Semantics                                                                                 |
@@ -26,6 +30,9 @@ Native selectors such as `main`, `a`, `img`, `svg`, and `footer` match many unre
 | `.tree-folder[aria-expanded="true"]`                     | Expanded Tree folder                                                                      |
 | `.tree-file[aria-current="true"]`                        | Highlighted Tree file                                                                     |
 | `html[data-current-path="/quickstart"]`                  | Current page path, excluding query and hash. Updates on internal navigation.              |
+| `.callout[data-callout-type="note"]`                     | One callout type. Values: `note`, `info`, `tip`, `warning`, `check`, `danger`.            |
+| `#sidebar-content li[data-active]`                       | Active sidebar page link                                                                  |
+| `.sidebar-group:has(> li[data-active])`                  | Sidebar group containing the current page. Groups have no `data-active` of their own.     |
 
 A Card's `disabled` prop removes navigation; it does not add a native `[disabled]` attribute. `[data-state="open"]` exists only on primitives that set it.
 
@@ -35,6 +42,7 @@ Use as `[data-component-part="<name>"]` or `[data-component-name="<name>"]`. The
 
 | Component   | `data-component-part`                                                                                                                                                                                                       |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Callout     | `callout-icon`, `callout-content`                                                                                                                                                                                           |
 | Card        | `card-title`, `card-content`, `card-content-container`, `card-icon` (with `icon`), `card-image` (with `img`), `card-cta` (with `cta`)                                                                                       |
 | Tabs        | `tabs-list`, `tab-button`, `tab-content`                                                                                                                                                                                    |
 | Tree file   | `tree-file-title`, `tree-file-icon`, `tree-file-highlight-bar`, `tree-file-highlight-bg`                                                                                                                                    |

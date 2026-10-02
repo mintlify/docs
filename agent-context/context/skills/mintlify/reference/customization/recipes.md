@@ -93,3 +93,33 @@ if (typeof api?.setServerVariables === "function") {
 ```
 
 Send the complete object on every update. On sign-out, call `clearServerVariables()`. Variable names must match the OpenAPI server definition.
+
+## Recolor one callout type
+
+```css
+.callout[data-callout-type="note"] {
+  border-color: #c4b5fd;
+  background-color: #f5f3ff;
+}
+
+html.dark .callout[data-callout-type="note"] {
+  border-color: #5b21b6;
+  background-color: rgb(124 58 237 / 0.2);
+}
+```
+
+Applies to every Note, including future ones, without editing MDX. Check text contrast in both modes.
+
+## Highlight the sidebar group containing the current page
+
+```css
+.sidebar-group:has(> li[data-active]) {
+  border-left: 2px solid #2563eb;
+}
+
+html.dark .sidebar-group:has(> li[data-active]) {
+  border-left-color: #60a5fa;
+}
+```
+
+The `:has()` is anchored to the group and checks only direct children, so it stays cheap. It follows client navigation without JavaScript.
