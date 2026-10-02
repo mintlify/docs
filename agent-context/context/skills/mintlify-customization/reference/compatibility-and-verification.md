@@ -22,6 +22,8 @@ The theme schema at this baseline contains mint, maple, palm, willow, linden, al
 
 The initial branch records source evidence and packaging checks separately from browser evidence. Entries marked `browser: pending` in `inventory.json` have not passed the full hosted verification matrix. Recipe checklists are instructions, not completed test results. Do not describe navigation, accessibility, or installed-manager refresh behavior as verified solely from these references.
 
+Fresh GitHub-folder installations from the draft branch were checked with skills CLI `1.7.0` in an isolated project and isolated Node home/config/state profile. Codex, Cursor, Claude Code, and Kiro CLI selections received the complete canonical skill and references; the resulting project and global copies matched the source byte for byte. This verifies CLI bundling, not discovery or cache refresh in a running agent or plugin manager.
+
 The hosted verification matrix requires all nine themes, light/dark, and 375, 768, 1024, and 1440 pixel widths: 72 baseline views. Add 1023/1024 and 1279/1280 boundaries for affected layout regions and other boundaries identified in [themes and layout](themes-and-layout.md). Record the environment, client version, route, configuration, page mode, browser, appearance, width, state, result, and screenshot for each case.
 
 For each affected customization, check:

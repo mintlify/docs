@@ -23,6 +23,8 @@ npx skills@latest update mintlify-customization --global
 
 `@latest` selects the installer release. The `update` command refreshes the skill content. A docs merge does not update an installed copy automatically. Confirm that the installed folder contains `SKILL.md`, every linked Markdown file, and `reference/inventory.json`. Check the inventory's source revisions and the installer's recorded source before attributing an observed change to a new release. Reopen the agent session or reload skills using that agent's current mechanism after updating.
 
+The inspected skills CLI `1.7.0` does not replay the original agent selection or copy mode when running a global update. It can select additional detected agents and use symlinks. If you need to preserve an explicit agent set or copy mode, rerun `add` with the same source, `--skill`, `--agent`, scope, and `--copy` arguments instead. Inspect the installed paths afterward, especially when another agent already receives the skill through a plugin. See the [installer's agent-targeting issue](https://github.com/vercel-labs/skills/issues/1718).
+
 The docs host's inspected publication mechanism discovers named `SKILL.md` files but uploads only their entrypoints. The hosted named entrypoint links its references to GitHub. Use the GitHub-folder command above when you need the references bundled locally; a docs-URL installation is not equivalent to a complete folder installation.
 
 ## Plugin-managed installations
