@@ -1,22 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import {
-  cp,
-  mkdir,
-  readFile,
-  readdir,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Ajv2020 } from 'ajv/dist/2020.js';
+import Ajv2020 from 'ajv/dist/2020.js';
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repositoryRoot = path.resolve(scriptsDirectory, '..');
 
-export const contextDirectory = path.join(repositoryRoot, 'context', 'skills');
+const contextDirectory = path.join(repositoryRoot, 'context', 'skills', 'mintlify');
 const mcpServersPath = path.join(repositoryRoot, 'context', 'mcp-servers.json');
 const targetsDirectory = path.join(repositoryRoot, 'targets');
 const agentPluginsSchemaDirectory = path.join(
@@ -29,16 +20,11 @@ const agentPluginsSchemaDirectory = path.join(
 const ajv = new Ajv2020({ allErrors: true });
 const agentPluginValidators = {
   mcp: ajv.compile(
-    JSON.parse(
-      await readFile(path.join(agentPluginsSchemaDirectory, 'mcp.schema.json'), 'utf8'),
-    ),
+    JSON.parse(await readFile(path.join(agentPluginsSchemaDirectory, 'mcp.schema.json'), 'utf8')),
   ),
   plugin: ajv.compile(
     JSON.parse(
-      await readFile(
-        path.join(agentPluginsSchemaDirectory, 'plugin.schema.json'),
-        'utf8',
-      ),
+      await readFile(path.join(agentPluginsSchemaDirectory, 'plugin.schema.json'), 'utf8'),
     ),
   ),
 };
@@ -50,12 +36,9 @@ export function validateAgentPluginArtifact(kind, value, targetId) {
   }
   if (!validate(value)) {
     throw new Error(
-      `${targetId}: invalid Agent Plugins ${kind} artifact: ${ajv.errorsText(
-        validate.errors,
-        {
-          separator: '; ',
-        },
-      )}`,
+      `${targetId}: invalid Agent Plugins ${kind} artifact: ${ajv.errorsText(validate.errors, {
+        separator: '; ',
+      })}`,
     );
   }
 }
@@ -80,21 +63,15 @@ export async function loadTargets(selectedIds = []) {
         !['reference', 'references'].includes(target.skillReferenceDirectory)) ||
       (target.mcpSchema !== undefined && typeof target.mcpSchema !== 'string') ||
       (target.pluginManifestFile !== undefined &&
-        ![
-          'plugin.json',
-          '.claude-plugin/plugin.json',
-          '.codex-plugin/plugin.json',
-          '.cursor-plugin/plugin.json',
-        ].includes(target.pluginManifestFile)) ||
+        !['plugin.json', '.claude-plugin/plugin.json'].includes(target.pluginManifestFile)) ||
       (target.mcpTypeOverrides !== undefined &&
         (target.mcpTypeOverrides === null ||
           typeof target.mcpTypeOverrides !== 'object' ||
-          Object.values(target.mcpTypeOverrides).some(
-            (value) => typeof value !== 'string',
-          )))
+          Object.values(target.mcpTypeOverrides).some((value) => typeof value !== 'string')))
     ) {
       throw new Error(`Invalid target configuration: ${JSON.stringify(target)}`);
     }
+
   }
 
   const ids = new Set(targets.map((target) => target.id));
@@ -149,69 +126,34 @@ export function sourceCommit() {
   }
 }
 
-export async function loadSkills() {
-  const entries = await readdir(contextDirectory, { withFileTypes: true });
-  const names = entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
-  if (names.length === 0) {
-    throw new Error('No canonical skills found');
-  }
-  for (const name of names) {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) {
-      throw new Error(`Invalid skill directory: ${name}`);
-    }
-  }
-  return names;
-}
-
-function validateSkill(skill, target, name) {
+function validateSkill(skill, target) {
   if (!skill.startsWith('---\n')) {
     throw new Error(`${target.id}: SKILL.md must start with YAML frontmatter`);
   }
-  if (!skill.split('\n').includes(`name: ${name}`) || !/^description: .+$/m.test(skill)) {
+  if (!/^name: mintlify$/m.test(skill) || !/^description: .+$/m.test(skill)) {
     throw new Error(`${target.id}: SKILL.md requires name and description fields`);
   }
 }
 
-export function rewriteReferenceDirectory(contents, from, to) {
-  if (from === to) return contents;
-  return contents.replaceAll(new RegExp(`(?<![\\w/])${from}/`, 'g'), `${to}/`);
-}
-
 export async function buildTarget(target, outputRoot) {
   const targetRoot = path.join(outputRoot, target.id);
+  const skillOutput = path.join(targetRoot, 'skills', 'mintlify');
   const referenceDirectory = target.skillReferenceDirectory ?? 'reference';
   await rm(targetRoot, { recursive: true, force: true });
-  await mkdir(targetRoot, { recursive: true });
-  const skills = await loadSkills();
-  for (const name of skills) {
-    const sourceSkill = path.join(contextDirectory, name);
-    const skillOutput = path.join(targetRoot, 'skills', name);
-    const template = await readFile(path.join(sourceSkill, 'SKILL.md'), 'utf8');
-    validateSkill(template, target, name);
-    await cp(sourceSkill, skillOutput, { recursive: true });
-    if (referenceDirectory !== 'reference') {
-      const referencePath = path.join(skillOutput, 'reference');
-      try {
-        await stat(referencePath);
-        await rename(referencePath, path.join(skillOutput, referenceDirectory));
-      } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
-      }
-    }
-    for (const [file, contents] of await readTree(skillOutput)) {
-      if (!file.endsWith('.md')) continue;
-      let rewritten = rewriteReferenceDirectory(
-        contents,
-        'reference',
-        referenceDirectory,
-      );
-      if (file === 'SKILL.md') rewritten = markGenerated(rewritten);
-      await writeFile(path.join(skillOutput, file), rewritten);
-    }
-  }
+  await mkdir(skillOutput, { recursive: true });
+
+  const skillTemplate = await readFile(path.join(contextDirectory, 'SKILL.md'), 'utf8');
+  const skill = markGenerated(skillTemplate).replaceAll(
+    'reference/',
+    `${referenceDirectory}/`,
+  );
+  validateSkill(skill, target);
+  await writeFile(path.join(skillOutput, 'SKILL.md'), skill);
+  await cp(
+    path.join(contextDirectory, 'reference'),
+    path.join(skillOutput, referenceDirectory),
+    { recursive: true },
+  );
 
   const canonicalMcpServers = JSON.parse(await readFile(mcpServersPath, 'utf8'));
   const mcpServers = Object.fromEntries(
@@ -249,7 +191,6 @@ export async function buildTarget(target, outputRoot) {
     sourcePath: 'agent-context',
     sourceCommit: sourceCommit(),
     target: target.id,
-    skills,
   };
   await writeFile(
     path.join(targetRoot, '.mintlify-agent-context.json'),
@@ -259,10 +200,7 @@ export async function buildTarget(target, outputRoot) {
   return { targetRoot, provenance };
 }
 
-export async function buildAll({
-  outputRoot = path.join(repositoryRoot, 'dist'),
-  selectedIds = [],
-} = {}) {
+export async function buildAll({ outputRoot, selectedIds = [] } = {}) {
   const resolvedOutput = outputRoot ?? path.join(repositoryRoot, 'dist');
   await mkdir(resolvedOutput, { recursive: true });
   const targets = await loadTargets(selectedIds);
@@ -287,7 +225,7 @@ function compareVersions(a, b) {
   return 0;
 }
 
-export async function readTree(root, prefix = '') {
+async function readTree(root, prefix = '') {
   const files = new Map();
   let entries;
   try {
@@ -302,12 +240,7 @@ export async function readTree(root, prefix = '') {
         files.set(file, contents);
       }
     } else {
-      const encoding = /\.(md|mdx|json|mjs|js|ts|tsx|css|txt|yaml|yml)$/.test(
-        relativePath,
-      )
-        ? 'utf8'
-        : 'base64';
-      files.set(relativePath, await readFile(path.join(root, relativePath), encoding));
+      files.set(relativePath, await readFile(path.join(root, relativePath), 'utf8'));
     }
   }
   return files;
@@ -323,46 +256,32 @@ async function readOptional(file) {
 
 // Snapshot of everything a manifest version describes, excluding the version itself.
 async function releaseSnapshot(root, target) {
-  const skill = new Map();
-  for (const name of await loadSkills()) {
-    for (const [file, contents] of await readTree(path.join(root, 'skills', name))) {
-      skill.set(`${name}/${file}`, contents);
-    }
-  }
+  const skill = await readTree(path.join(root, 'skills', 'mintlify'));
   const manifest = await readOptional(path.join(root, manifestFile(target)));
-  const { version: _version, ...manifestWithoutVersion } =
-    manifest === undefined ? {} : JSON.parse(manifest);
+  const { version, ...manifestWithoutVersion } = manifest === undefined ? {} : JSON.parse(manifest);
   return JSON.stringify({
     skill: [...skill].sort(([a], [b]) => a.localeCompare(b)),
     mcp: await readOptional(path.join(root, target.mcpConfigFile)),
-    manifest: target.pluginManifest === undefined ? undefined : manifestWithoutVersion,
+    manifest: manifestWithoutVersion,
   });
 }
 
-// Manifest-based clients use the version to detect updates. Bump the patch version whenever the
+// Kiro and Claude Code use the manifest version to detect updates. Bump the patch version whenever the
 // released content changes; a higher version set in the target configuration wins.
 export async function resolveManifestVersion(target, sourceRoot, destination) {
-  const configuredVersion = target.pluginManifest?.version;
-  const existingManifest = await readOptional(
-    path.join(destination, manifestFile(target)),
-  );
+  const configuredVersion = target.pluginManifest.version;
+  const existingManifest = await readOptional(path.join(destination, manifestFile(target)));
   if (existingManifest === undefined) {
-    if (configuredVersion === undefined)
-      throw new Error(`${target.id}: target-owned manifest is missing`);
     return configuredVersion;
   }
 
   const existingVersion = JSON.parse(existingManifest).version;
-  if (
-    configuredVersion !== undefined &&
-    compareVersions(configuredVersion, existingVersion) > 0
-  ) {
+  if (compareVersions(configuredVersion, existingVersion) > 0) {
     return configuredVersion;
   }
 
   const changed =
-    (await releaseSnapshot(sourceRoot, target)) !==
-    (await releaseSnapshot(destination, target));
+    (await releaseSnapshot(sourceRoot, target)) !== (await releaseSnapshot(destination, target));
   if (!changed) {
     return existingVersion;
   }
@@ -373,35 +292,24 @@ export async function resolveManifestVersion(target, sourceRoot, destination) {
 export async function copyTargetToRepository(targetId, destination, outputRoot) {
   const [target] = await loadTargets([targetId]);
   const sourceRoot = path.join(outputRoot, targetId);
-  const skills = await loadSkills();
-  for (const name of skills) {
-    await stat(path.join(sourceRoot, 'skills', name));
-  }
+  const sourceSkill = path.join(sourceRoot, 'skills', 'mintlify');
+  const destinationSkill = path.join(destination, 'skills', 'mintlify');
+
+  await stat(sourceSkill);
   const manifestVersion =
-    target.pluginManifest === undefined && target.pluginManifestFile === undefined
+    target.pluginManifest === undefined
       ? undefined
       : await resolveManifestVersion(target, sourceRoot, destination);
-  for (const name of skills) {
-    const sourceSkill = path.join(sourceRoot, 'skills', name);
-    const destinationSkill = path.join(destination, 'skills', name);
-    await rm(destinationSkill, { recursive: true, force: true });
-    await mkdir(path.dirname(destinationSkill), { recursive: true });
-    await cp(sourceSkill, destinationSkill, { recursive: true });
-  }
+  await rm(destinationSkill, { recursive: true, force: true });
+  await mkdir(path.dirname(destinationSkill), { recursive: true });
+  await cp(sourceSkill, destinationSkill, { recursive: true });
   await cp(
     path.join(sourceRoot, target.mcpConfigFile),
     path.join(destination, target.mcpConfigFile),
   );
-  if (manifestVersion !== undefined) {
-    let template = target.pluginManifest;
-    if (template === undefined) {
-      template = JSON.parse(
-        await readFile(path.join(destination, manifestFile(target)), 'utf8'),
-      );
-    }
-    const manifest = { ...template, version: manifestVersion };
-    if (target.pluginManifest !== undefined)
-      validateAgentPluginArtifact('plugin', manifest, target.id);
+  if (target.pluginManifest !== undefined) {
+    const manifest = { ...target.pluginManifest, version: manifestVersion };
+    validateAgentPluginArtifact('plugin', manifest, target.id);
     const manifestPath = path.join(destination, manifestFile(target));
     await mkdir(path.dirname(manifestPath), { recursive: true });
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

@@ -28,7 +28,7 @@ Load only the references needed for the task:
 | [Extension mechanisms](reference/extension-mechanisms.md)                     | Choosing where and how to implement the change                                                  |
 | [Assets and routing](reference/assets-and-routing.md)                         | Fonts/images, multi-repository ownership, base paths, locale/version prefixes, and freshness    |
 | [Recipes](reference/recipes.md)                                               | Complete synthetic customization examples and their verification steps                          |
-| [Installation and updates](reference/installation-and-updates.md)             | Installing, refreshing, inspecting provenance, and plugin ownership                             |
+| [Installation and updates](reference/installation-and-updates.md)             | Installing, refreshing, inspecting provenance, and maintaining the source                       |
 | [Compatibility and verification](reference/compatibility-and-verification.md) | Evidence boundaries, checks, and maintenance                                                    |
 
 Verify initial load, repeated internal navigation, back/forward, light/dark, and relevant responsive states. For layout changes, check related content offsets, sticky regions, scroll containers, and overlays. For scripts, verify single initialization and cleanup; `DOMContentLoaded` does not repeat on client navigation. Report what was actually verified and any remaining limitations.

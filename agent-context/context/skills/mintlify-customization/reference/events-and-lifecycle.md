@@ -8,9 +8,9 @@
 ```js
 function subscribeToExampleUser(render) {
   const onUser = (event) => render(event.detail);
-  window.addEventListener('mintlify:user', onUser);
+  window.addEventListener("mintlify:user", onUser);
   render(window.mintlify?.user ?? null);
-  return () => window.removeEventListener('mintlify:user', onUser);
+  return () => window.removeEventListener("mintlify:user", onUser);
 }
 
 const unsubscribe = subscribeToExampleUser((user) => {

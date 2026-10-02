@@ -46,13 +46,13 @@ Create `/snippets/example-copy-value.jsx` and import it into the page using a na
 
 ```jsx
 export const ExampleCopyValue = ({ value }) => {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(value);
-      setMessage('Copied');
+      setMessage("Copied");
     } catch {
-      setMessage('Copy failed. Select and copy the value manually.');
+      setMessage("Copy failed. Select and copy the value manually.");
     }
   };
   return (
@@ -80,11 +80,11 @@ const onExampleUser = (event) => {
   document.documentElement.dataset.exampleIdentified = String(Boolean(event.detail));
 };
 
-window.addEventListener('mintlify:user', onExampleUser);
+window.addEventListener("mintlify:user", onExampleUser);
 onExampleUser({ detail: window.mintlify?.user ?? null });
 
 window.exampleUserIntegrationCleanup = () => {
-  window.removeEventListener('mintlify:user', onExampleUser);
+  window.removeEventListener("mintlify:user", onExampleUser);
   delete document.documentElement.dataset.exampleIdentified;
 };
 ```
@@ -97,8 +97,8 @@ Once the API exists, send the complete desired overlay:
 
 ```js
 const api = window.mintlify?.api?.playground;
-if (typeof api?.setServerVariables === 'function') {
-  api.setServerVariables({ region: 'example', workspace: 'synthetic' });
+if (typeof api?.setServerVariables === "function") {
+  api.setServerVariables({ region: "example", workspace: "synthetic" });
 }
 ```
 

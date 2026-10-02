@@ -30,11 +30,11 @@ The hosted `ui/Icon.tsx` can render a masked SVG, an image for a URL/PDF branch,
 Prefer the component's `color` prop. For a scoped masked Card icon override, inspect the real node before using:
 
 ```css
-.example-card [data-component-part='card-icon'] svg {
+.example-card [data-component-part="card-icon"] svg {
   background-color: #2563eb;
 }
 
-html.dark .example-card [data-component-part='card-icon'] svg {
+html.dark .example-card [data-component-part="card-icon"] svg {
   background-color: #93c5fd;
 }
 ```

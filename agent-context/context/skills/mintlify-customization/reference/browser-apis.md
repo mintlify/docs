@@ -14,12 +14,12 @@ The playground installer attaches the APIs at client-module initialization and a
 ```js
 function setExampleRegion(region) {
   const api = window.mintlify?.api?.playground;
-  if (typeof api?.setServerVariables !== 'function') return false;
+  if (typeof api?.setServerVariables !== "function") return false;
   api.setServerVariables({ region });
   return true;
 }
 
-setExampleRegion('example');
+setExampleRegion("example");
 ```
 
 For multiple server variables, send the entire desired object on every update. On sign-out or account changes, explicitly clear/replace it; SPA navigation alone is not a reset. Server variables are URL inputs, not a channel for API keys or access tokens. Avoid assuming unsupported keys apply to every schema: each OpenAPI server definition owns its variable names and allowed values.

@@ -14,7 +14,7 @@ export const ExampleCounter = () => {
 ```
 
 ```mdx
-import { ExampleCounter } from '/snippets/example-counter.jsx';
+import { ExampleCounter } from "/snippets/example-counter.jsx";
 
 <ExampleCounter />
 ```

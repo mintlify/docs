@@ -20,11 +20,11 @@ The theme schema at this baseline contains mint, maple, palm, willow, linden, al
 
 ## Verification record
 
-The initial branch records source evidence and packaging checks separately from browser evidence. Entries marked `browser: pending` in `inventory.json` have not passed the full hosted verification matrix. Recipe checklists are instructions, not completed test results. Do not describe navigation, accessibility, or installed-manager refresh behavior as verified solely from these references.
+The audit records source evidence and installation checks separately from browser evidence. Entries marked `browser: pending` in `inventory.json` have not passed the full hosted verification matrix. Recipe checklists are instructions, not completed test results. Do not describe navigation, accessibility, or agent reload behavior as verified solely from these references.
 
-Fresh GitHub-folder installations from the draft branch were checked with skills CLI `1.7.0` in an isolated project and isolated Node home/config/state profile. Codex, Cursor, Claude Code, and Kiro CLI selections received the complete canonical skill and references; the resulting project and global copies matched the source byte for byte. This verifies CLI bundling, not discovery or cache refresh in a running agent or plugin manager.
+Fresh GitHub-folder installations from the draft branch were checked with skills CLI `1.7.0` in an isolated project and isolated Node home/config/state profile. Codex, Cursor, Claude Code, and Kiro CLI selections received the complete canonical skill and references; the resulting project and global copies matched the source byte for byte. This verifies CLI bundling, not loading or cache refresh in a running agent.
 
-The customer installation source is the docs domain. A separate live check installed the existing general skill from that domain and recorded its discovery digest, but the installed folder contained only `SKILL.md`. The customization bundle is not published there. Complete native archive publication and reference-only domain updates are release dependencies; the draft's former GitHub-linked hosting bridge has been removed.
+The customization installation source is its complete canonical GitHub folder. Keep one installable folder with this skill name so repository updates do not discover conflicting copies. No new hosting or packaging pipeline is required.
 
 Chromium baseline captures cover all nine official public theme demos in light/dark at 375, 768, 1024, and 1440 pixels: 72 hosted views. Their deployed client versions were unavailable, so these views do not prove that the pinned source is deployed. A local synthetic public-client fixture also checked authored Card borders, Tree highlighting, and script execution across all nine themes in light/dark at 375 and 1440 pixels, including one internal navigation per theme. The script executed once per page load and persisted through those navigations. Screenshot framing and remaining interaction/accessibility cases still need review; these checks do not verify every inventory hook or the full navigation matrix.
 
@@ -37,12 +37,12 @@ For each affected customization, check:
 - Active/expanded/selected/disabled states, drawers, portals, scrolling, keyboard focus, and accessible confirmation text.
 - Local preview and hosted preview separately where scripts, edge metadata, or compiler behavior differs.
 - Chromium, Firefox, and Safari for affected clipboard, scroll, overlay, and routing behavior; Edge Reading view when document structure changes.
-- Fresh named installation, complete reference bundling, project/global updates, upgrades, plugin manager refresh, and source/version provenance.
+- Fresh named installation, complete reference bundling, project/global updates, upgrades, agent reload, and source provenance.
 
 Use matching before/after screenshots when a recipe changes UI. Component Storybook and isolated API tests supplement the actual site checks; they cannot prove hosted navigation, authentication, or persistence.
 
 ## Maintenance
 
-Regenerate the internal inventory from selector constants, JSX attributes, CSS, browser declarations, and event sites. Curate it explicitly before writing the public subset. Review additions and removals against owning producers and consumers, update compatibility notes and affected recipes, then run the packaging checks.
+Maintain the skill and its references directly in docs, manually or through a reviewed dashboard automation. When behavior changes, inspect selector constants, JSX attributes, CSS, browser declarations, and event sites. Review additions and removals against owning producers and consumers, then update the reviewed inventory, source revisions, compatibility notes, and affected recipes together. Check relative links, complete installation, and the browser cases affected by the update.
 
-Changes to a documented public API need a compatibility/deprecation decision. Avoid freezing implementation hooks merely because the parser discovers them. Keep private customer evidence and raw source inventories outside the public skill; publish synthetic examples and reusable conclusions.
+Changes to a documented public API need a compatibility/deprecation decision. Avoid freezing implementation hooks merely because they exist in source. Keep private customer evidence and raw source inventories outside the public skill; publish synthetic examples and reusable conclusions.
