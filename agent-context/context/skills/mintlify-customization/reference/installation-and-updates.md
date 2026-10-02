@@ -27,6 +27,8 @@ The inspected skills CLI `1.7.0` does not replay the original agent selection or
 
 The docs host's inspected publication mechanism discovers named `SKILL.md` files but uploads only their entrypoints. The hosted named entrypoint links its references to GitHub. Use the GitHub-folder command above when you need the references bundled locally; a docs-URL installation is not equivalent to a complete folder installation.
 
+The generated hosted entrypoint uses the installer's `metadata.internal` discovery flag so the skills CLI sees only one installable folder named `mintlify-customization` in the repository. The canonical folder does not carry that flag. This prevents duplicate-name project updates from being skipped; it does not make the published hosting endpoint private.
+
 ## Plugin-managed installations
 
 If the skill is provided by a Mintlify plugin or Kiro power, update that package through its own manager. Installing another copy with the skills CLI can create duplicate discovery and leave the plugin-owned copy stale.

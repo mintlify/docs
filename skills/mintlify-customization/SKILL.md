@@ -1,4 +1,6 @@
 ---
+metadata:
+  internal: true
 name: mintlify-customization
 description: Customize the appearance and browser behavior of Mintlify documentation sites using configuration, component props, CSS, JavaScript, and React or MDX snippets. Use for theme, layout, selector, integration, and navigation-sensitive customizations.
 ---

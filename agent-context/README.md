@@ -63,6 +63,8 @@ The raw inventory is internal and unreviewed. Do not commit it or private custom
 
 The docs host currently uploads named skill entrypoints without their reference files. The generated `../skills/mintlify-customization/SKILL.md` therefore links to canonical GitHub references. The human-facing `../customize/agent-skill.mdx` directs installers to the complete GitHub folder. Build/check verify local reference bundling and the generated hosted entrypoint; deployed URL and manager refresh checks remain separate release evidence.
 
+The generated hosted entrypoint sets `metadata.internal: true` to exclude this publication copy from skills CLI discovery. The canonical skill stays installable. Without this distinction, CLI project updates discover two folders with the same name and skip the update. The inspected Mintlify hosting parser still publishes the named entrypoint because it does not filter on that metadata field.
+
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 
 ## Publishing setup

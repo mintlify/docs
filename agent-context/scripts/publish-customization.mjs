@@ -10,7 +10,9 @@ export async function publishedCustomization() {
   );
   const referenceUrl =
     'https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify-customization/reference/';
-  return canonical.replaceAll('reference/', referenceUrl);
+  return canonical
+    .replace(/^---\n/, '---\nmetadata:\n  internal: true\n')
+    .replaceAll('reference/', referenceUrl);
 }
 
 export async function publishCustomization(check = false) {
