@@ -34,7 +34,6 @@ CSS cannot add server data, replace full-page search, or provide accessible stat
 | [Themes and layout](themes-and-layout.md)   | Theme differences, breakpoints, sticky offsets, portals, and navigation   |
 | [Components](components.md)                 | Built-in component customization and icon rendering                       |
 | [React and snippets](react-and-snippets.md) | Snippet exports, hooks, imports, and nesting limits                       |
-| [Assets and routing](assets-and-routing.md) | Base paths, locale/version prefixes, and asset URLs                       |
 | [Recipes](recipes.md)                       | Complete examples                                                         |
 
 ## Verify
