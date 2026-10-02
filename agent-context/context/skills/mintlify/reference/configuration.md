@@ -102,19 +102,19 @@ title: "Page title"
 mode: "custom"
 ---
 
-# Frame: like custom but keeps sidebar (all themes)
+# Frame: like custom but keeps sidebar
 ---
 title: "Page title"
 mode: "frame"
 ---
 
-# Center: removes sidebar and TOC, centers content (Mint, Linden, Willow, and Maple themes only)
+# Center: removes sidebar and TOC, centers content (Maple and Almond keep the sidebar)
 ---
 title: "Page title"
 mode: "center"
 ---
 
-# Assistant: full-screen assistant chat replaces page content (all themes; requires the assistant enabled)
+# Assistant: full-screen assistant chat replaces page content (requires the assistant enabled)
 ---
 title: "Ask AI"
 mode: "assistant"
