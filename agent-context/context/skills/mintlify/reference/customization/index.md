@@ -24,6 +24,19 @@ CSS cannot add server data, replace full-page search, or provide accessible stat
 - Selectors listed in the public custom CSS docs are best-effort and can change. Other observed hooks in these references have no stability promise. Inspect the rendered DOM before relying on either.
 - Never assign a new `window.mintlify` object, and never put secrets in browser-readable content.
 
+## Review existing CSS
+
+When asked to review or repair custom CSS, flag selectors likely to break on a Mintlify update and propose a stable replacement for each:
+
+| Pattern                                                                               | Why it breaks                                     | Replace with                                                   |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------- |
+| `[class*="..."]`, utility classes such as `.lg\:pl-8`                                 | Generated class names change with styling updates | An ID, `data-component-part`, or an authored `className`       |
+| Structural chains (`+`, `~`, `>`, `:nth-child`, `:has(> ...)`) between layout regions | Layout markup is reordered and rewrapped          | A single documented ID or attribute on the target              |
+| Global resets (`* { margin: 0 }`, bare element selectors)                             | Override Mintlify's own layout and components     | Scope to an authored class or a content region                 |
+| `!important` on width, margin, position, or display of layout regions                 | Fights theme geometry across breakpoints          | Documented variables or a scoped selector without `!important` |
+
+Check each fix on the affected theme and breakpoints before removing the old rule.
+
 ## References
 
 | Reference                                   | Use for                                                                   |
