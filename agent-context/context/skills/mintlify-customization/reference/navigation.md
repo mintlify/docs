@@ -17,6 +17,6 @@ Internal links should be authored using the documented site path. Keep version/p
 
 Check direct deep links, back/forward, hash scrolling, query-only changes, locale/version/product switching, external destinations, breadcrumbs, pagination, hidden pages, and generated API/SDK pages. Hidden navigation entries may still have accessible routes; hiding a link is not access control.
 
-Source-observed state hooks include `.nav-tabs-item[data-active]`, `.nav-dropdown-item[data-active]`, `.toc-item[data-active]`, and `.toc-item[data-active-deepest]`. Their serialization differs from the boolean Tab button state. The internal active-nav-row attribute used by NavScroller is not a public styling promise. See [selectors](selectors.md) for exact conditions.
+Observed state hooks include `.nav-tabs-item[data-active]`, `.nav-dropdown-item[data-active]`, `.toc-item[data-active]`, and `.toc-item[data-active-deepest]`. Their serialization differs from the boolean Tab button state. See [selectors](selectors.md) for exact conditions.
 
-Provenance: the v2 navigation schemas in `packages/validation`, `contexts/NavigationContext`, `ui/NavItem`, `ui/SideNavGroups`, `components/NavScroller`, and `themes/shared/components/`. Configuration syntax is maintained in the general Mintlify skill and [navigation docs](https://www.mintlify.com/docs/organize/navigation); validate current schema rather than copying a historically valid combination.
+See the [public documentation](https://www.mintlify.com/docs/organize/navigation) for current supported options.

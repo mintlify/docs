@@ -1,8 +1,8 @@
 # Built-in components and parts
 
-The hosted client's MDX registry in `apps/client/src/components/index.ts` owns which component names are available. The standalone `@mintlify/components` package is a separate distribution; the same name does not imply identical props, hooks, state, or styling. In the inspected revisions, client Tree highlighting is ahead of the inspected component-package implementation.
+Use the built-in components documented for Mintlify sites. The standalone `@mintlify/components` package is a separate distribution; the same component name does not guarantee identical props, hooks, state, or styling. Check its own documentation when using that package.
 
-Use [component documentation](https://www.mintlify.com/docs/components) for authoring signatures, and [inventory.json](inventory.json) for the reviewed rendered hooks and producers. Confirm props against the actual renderer when a styling change depends on forwarding.
+Use [component documentation](https://www.mintlify.com/docs/components) for authoring signatures, and [inventory.json](inventory.json) for the reviewed rendered hooks. Confirm props against the actual renderer when a styling change depends on forwarding.
 
 | Family                                       | Preferred customization and important conditions                                                                                                                                                                                                 |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -18,7 +18,7 @@ Use [component documentation](https://www.mintlify.com/docs/components) for auth
 
 ## Icon rendering
 
-The hosted `ui/Icon.tsx` can render a masked SVG, an image for a URL/PDF branch, or an emoji SVG. A Card can additionally wrap a React SVG or render an image as its icon. The standalone package has its own `icon-svg` part; do not assume that part is present on the hosted client.
+Depending on the authored icon value, an icon can render as a masked SVG, an image, or an emoji SVG. A Card can additionally wrap a React SVG or render an image as its icon. The standalone package has its own `icon-svg` part; do not assume that part is present on the hosted client.
 
 | Rendered branch          | Correct styling                                                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -40,5 +40,3 @@ html.dark .example-card [data-component-part="card-icon"] svg {
 ```
 
 This recipe applies to the inspected masked SVG branch, not every inline SVG or image. Keep SVGs fully opaque and use a lighter solid color for a softer treatment.
-
-Provenance: `components/index.ts`, `components/Card.tsx`, `components/Callouts.tsx`, `components/Tabs/`, `components/tree/`, `components/Code/`, and `ui/Icon.tsx`, plus the separately pinned component-package sources.

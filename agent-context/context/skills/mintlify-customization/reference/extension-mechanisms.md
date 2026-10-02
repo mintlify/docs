@@ -2,7 +2,7 @@
 
 | Mechanism                | Use when                                                                                                | Scope and limits                                                                                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs.json`              | Brand, fonts, theme, appearance, navigation, supported integrations, header/footer/banner configuration | Site configuration; validate against the current schema. Private deployment settings seen in source are not docs.json options.                                                |
+| `docs.json`              | Brand, fonts, theme, appearance, navigation, supported integrations, header/footer/banner configuration | Site configuration; use documented options and validate the result.                                                                                                           |
 | Built-in component props | The component already supports the requested content/state/presentation                                 | Preserve semantic behavior and keyboard handling. Verify the exact renderer and prop forwarding.                                                                              |
 | Authored `className`     | Styling one component instance                                                                          | Prefer a meaningful synthetic class over coupling to its descendant utility classes. Not every component forwards className to the root or intended part.                     |
 | Reusable MDX             | Shared prose, callouts, tables, and parameterized content                                               | Compiler/import semantics matter; verify duplicate bindings, props, conditionals, TOC, and Markdown output.                                                                   |
@@ -13,8 +13,8 @@
 
 Choose the smallest mechanism that represents the actual requested behavior. CSS cannot create a missing server-data API, extend an application-owned feedback timeout, add an accessible submission message through visual pseudo-content alone, or implement full-page search.
 
-Do not use an old bespoke client branch as evidence of public package availability. Do not move native controls into custom layout locations before verifying their context, positioning, portals, focus, and remount ownership.
+Do not move native controls into custom layout locations before verifying their context, positioning, portals, focus, and remount ownership.
 
 Global `.js` files are executable integrations, not reusable JSX module imports. Keep JSX components in the documented authoring/snippet path. Exclude helper/build scripts from the content directory when they should not run on every page. Verify the repository's actual ignore rules and asset ownership in multi-repository projects.
 
-Provenance: public [custom scripts](https://www.mintlify.com/docs/customize/custom-scripts), [configuration](https://www.mintlify.com/docs/organize/settings), and React/snippet guidance; client script renderers and registry paths are listed in the inventory and lifecycle references.
+See the [public documentation](https://www.mintlify.com/docs/organize/settings) for current supported options.

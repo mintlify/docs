@@ -11,24 +11,24 @@ Choose configuration or a supported component prop when it expresses the request
 
 Preserve exact selector syntax: `.card`, `card`, `#sidebar`, and `[data-component-part="card-icon"]` select different things. Distinguish attribute presence from values such as `"true"`, `"false"`, and `"open"`. Inspect the active mounted element; navigation transitions can briefly retain multiple trees.
 
-The inventory distinguishes documented customization from source-observed behavior and deprecated hooks. A source-observed hook is a compatibility hint, not a stability promise. Check its availability and current DOM before relying on it. Do not expose internal queues, generated IDs, private imports, or deployment-only settings as public APIs.
+The inventory distinguishes documented customization from observed behavior and deprecated hooks. A observed hook is a compatibility hint, not a stability promise. Check its availability and current DOM before relying on it. Use documented APIs and supported imports. Avoid coupling customizations to generated IDs or utility classes.
 
 Load only the references needed for the task:
 
-| Reference                                                                     | Use for                                                                                         |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [Selectors](reference/selectors.md) and [inventory](reference/inventory.json) | Exact ID/class/element/attribute syntax, owners, existence, provenance, examples, and stability |
-| [CSS variables](reference/css-variables.md)                                   | Color formats, fonts, local tokens, measured geometry, and light/dark overrides                 |
-| [Browser APIs](reference/browser-apis.md)                                     | User, geo, playground signatures, readiness, defaults, replacement, and reset                   |
-| [Events and lifecycle](reference/events-and-lifecycle.md)                     | Dispatch targets/payloads, initialization, navigation, script ordering, and cleanup             |
-| [Themes and layout](reference/themes-and-layout.md)                           | All nine themes, breakpoints, offsets, scrolling, portals, and page modes                       |
-| [Navigation](reference/navigation.md)                                         | Products, versions, languages, groups, switchers, active states, and internal links             |
-| [Components](reference/components.md)                                         | Props, nested parts, icon rendering, forwarding, and hosted/package differences                 |
-| [React and snippets](reference/react-and-snippets.md)                         | Named exports, hooks, imports, conditional MDX, props, collisions, and rendering constraints    |
-| [Extension mechanisms](reference/extension-mechanisms.md)                     | Choosing where and how to implement the change                                                  |
-| [Assets and routing](reference/assets-and-routing.md)                         | Fonts/images, multi-repository ownership, base paths, locale/version prefixes, and freshness    |
-| [Recipes](reference/recipes.md)                                               | Complete synthetic customization examples and their verification steps                          |
-| [Installation and updates](reference/installation-and-updates.md)             | Installing, refreshing, inspecting provenance, and maintaining the source                       |
-| [Compatibility and verification](reference/compatibility-and-verification.md) | Evidence boundaries, checks, and maintenance                                                    |
+| Reference                                                                     | Use for                                                                                      |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [Selectors](reference/selectors.md) and [inventory](reference/inventory.json) | Exact ID/class/element/attribute syntax, owners, existence, examples, and stability          |
+| [CSS variables](reference/css-variables.md)                                   | Color formats, fonts, local tokens, measured geometry, and light/dark overrides              |
+| [Browser APIs](reference/browser-apis.md)                                     | User, geo, playground signatures, readiness, defaults, replacement, and reset                |
+| [Events and lifecycle](reference/events-and-lifecycle.md)                     | Dispatch targets/payloads, initialization, navigation, script ordering, and cleanup          |
+| [Themes and layout](reference/themes-and-layout.md)                           | All nine themes, breakpoints, offsets, scrolling, portals, and page modes                    |
+| [Navigation](reference/navigation.md)                                         | Products, versions, languages, groups, switchers, active states, and internal links          |
+| [Components](reference/components.md)                                         | Props, nested parts, icon rendering, forwarding, and hosted/package differences              |
+| [React and snippets](reference/react-and-snippets.md)                         | Named exports, hooks, imports, conditional MDX, props, collisions, and rendering constraints |
+| [Extension mechanisms](reference/extension-mechanisms.md)                     | Choosing where and how to implement the change                                               |
+| [Assets and routing](reference/assets-and-routing.md)                         | Fonts/images, multi-repository ownership, base paths, locale/version prefixes, and freshness |
+| [Recipes](reference/recipes.md)                                               | Complete synthetic customization examples and their verification steps                       |
+| [Installation and updates](reference/installation-and-updates.md)             | Installing, refreshing, and maintaining the skill                                            |
+| [Compatibility and verification](reference/compatibility-and-verification.md) | Evidence boundaries, checks, and maintenance                                                 |
 
 Verify initial load, repeated internal navigation, back/forward, light/dark, and relevant responsive states. For layout changes, check related content offsets, sticky regions, scroll containers, and overlays. For scripts, verify single initialization and cleanup; `DOMContentLoaded` does not repeat on client navigation. Report what was actually verified and any remaining limitations.

@@ -21,7 +21,7 @@ For a global installation:
 npx skills@latest update mintlify-customization --global
 ```
 
-`@latest` selects the installer release. The `update` command refreshes the skill content. A docs merge does not update an installed copy automatically. Confirm that the installed folder contains `SKILL.md`, every linked Markdown file, and `reference/inventory.json`. Check the inventory's source revisions and the installer's recorded source before attributing an observed change to a new release. Reopen the agent session or reload skills using that agent's current mechanism after updating.
+`@latest` selects the installer release. The `update` command refreshes the skill content. A docs merge does not update an installed copy automatically. Confirm that the installed folder contains `SKILL.md`, every linked Markdown file, and `reference/inventory.json`. Check the installer's recorded skill location and compare the installed references with the canonical docs folder when content appears stale. Reopen the agent session or reload skills using that agent's current mechanism after updating.
 
 The inspected skills CLI `1.7.0` does not replay the original agent selection or copy mode when running a global update. It can select additional detected agents and use symlinks. If you need to preserve an explicit agent set or copy mode, rerun `add` with the same source, `--skill`, `--agent`, scope, and `--copy` arguments instead. Inspect the installed paths afterward, especially when another agent already receives the skill through a plugin. See the [installer's agent-targeting issue](https://github.com/vercel-labs/skills/issues/1718).
 
@@ -29,8 +29,8 @@ Use `/tree/main/` in a GitHub folder URL. In the inspected CLI, a URL with a rep
 
 ## Maintain the source
 
-Edit `SKILL.md` and its references directly in the docs repository. A dashboard automation can propose updates to these files when customization behavior changes. Review the owning source, documentation, and affected browser behavior before merging an update; preserve exact selector syntax, stability labels, provenance, and synthetic examples.
+Edit `SKILL.md` and its references directly in the docs repository. A dashboard automation can propose updates to these files when customization behavior changes. Review public documentation and affected browser behavior before merging an update; preserve exact selector syntax, stability labels, and synthetic examples.
 
 Updating the source does not refresh users' installed copies. Users run the update command above, then reload their agent's skills or start a new session. This standalone skill does not require a custom installer, generated plugin package, or new sync pipeline.
 
-Consult [compatibility and verification](compatibility-and-verification.md) for the audit's source revisions and actual verification coverage.
+Consult [compatibility and verification](compatibility-and-verification.md) for compatibility guidance and actual verification coverage.

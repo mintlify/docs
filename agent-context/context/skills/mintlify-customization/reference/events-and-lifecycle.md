@@ -1,9 +1,9 @@
 # Events and script lifecycle
 
-| Event                            | Target / payload                                            | Timing and status                                                                                                                                                                                                                                           |
-| -------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mintlify:user`                  | `window`; `CustomEvent<Record<string, unknown> \| null>`    | Documented. Dispatched when identified user content resolves or changes. Null means unidentified/signed out. Not replayed to a listener added later. Read `window.mintlify?.user` after subscribing.                                                        |
-| `mintlify:api-playground-inputs` | `window`; `CustomEvent<{ server: Record<string, string> }>` | Source-observed. Dispatched synchronously after each accepted overlay set/clear, including actions drained during initialization. Invalid non-object setter arguments do not dispatch. There is no guaranteed initial notification when the queue is empty. |
+| Event                            | Target / payload                                            | Timing and status                                                                                                                                                                                                                                    |
+| -------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mintlify:user`                  | `window`; `CustomEvent<Record<string, unknown> \| null>`    | Documented. Dispatched when identified user content resolves or changes. Null means unidentified/signed out. Not replayed to a listener added later. Read `window.mintlify?.user` after subscribing.                                                 |
+| `mintlify:api-playground-inputs` | `window`; `CustomEvent<{ server: Record<string, string> }>` | Observed. Dispatched synchronously after each accepted overlay set/clear, including actions drained during initialization. Invalid non-object setter arguments do not dispatch. There is no guaranteed initial notification when the queue is empty. |
 
 ```js
 function subscribeToExampleUser(render) {
@@ -30,8 +30,8 @@ React effects run after mount, rerun when their dependencies change, and clean u
 
 Internal navigation can change the content tree while the global layout and integration persist. Back/forward, query/hash changes, product/version/language switching, and full reload are distinct transitions; test each relevant transition. Do not monkey-patch history or invent a universal Mintlify route-ready event.
 
-The inspected `CustomJsFiles` implementation disables repository JS in editor live preview and when custom JS is explicitly disabled. Local docs routes have their own script rendering path. A working editor preview does not prove deployed script lifecycle behavior.
+Custom JS can be unavailable in editor live preview or when disabled for the site. Verify local preview and deployed behavior separately.
 
-Configured external `customScripts` and beforeInteractive strategies in source are deployment-managed settings deliberately excluded from the public docs.json integration schema. Use documented integration configuration or repository JS for public recipes; do not tell users to add the private setting to docs.json. Existing third-party scripts must be verified in their actual deployment; script presence alone does not prove readiness.
+Use documented integration configuration or authored JS files for external scripts. Verify third-party dependencies on the deployed site; script presence alone does not establish readiness.
 
-Provenance: user/playground producers listed in [browser APIs](browser-apis.md), `ui/custom-js-files.tsx`, `analytics/scripts/{CustomScripts,BeforeInteractiveCustomScripts}.tsx`, `layouts/GlobalLayout.tsx`, and local/multitenant page renderers. Reset semantics refer to a full browser document, not every navigation.
+See the [public documentation](https://www.mintlify.com/docs/customize/custom-scripts) for current supported options.
