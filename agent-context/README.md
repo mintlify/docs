@@ -1,28 +1,30 @@
 # Mintlify agent context
 
-Single source of truth, maintained in the Mintlify documentation repository, for the Mintlify skill distributed through the Codex, Cursor, and Claude plugins and the Kiro power.
+Canonical source for the general `mintlify` skill and the `mintlify-customization` skill distributed through the Codex, Cursor, and Claude plugins and the Kiro power.
 
 ## Repository structure
 
-- `context/skills/mintlify/` contains canonical, client-neutral context.
+- `context/skills/` contains the two canonical, client-neutral skill folders and their references.
 - `context/mcp-servers.json` contains canonical MCP names, URLs, and transport settings.
 - `schemas/agent-plugins/` contains vendored schemas used to validate generated Agent Plugins artifacts.
 - `targets/*.json` contains only client packaging differences such as MCP config and skill directory conventions. The Kiro target also contains its required Agent Plugins manifest.
 - `scripts/build.mjs` renders self-contained plugin artifacts into `dist/`.
-- `scripts/sync-target.mjs` replaces only `skills/mintlify/` in a target repository.
+- `scripts/sync-target.mjs` replaces the canonical skill folders in a target repository and preserves unrelated skills.
+- `scripts/publish-customization.mjs` generates the named hosted entrypoint with GitHub reference URLs.
 - `../.github/workflows/sync-agent-context.yml` opens generated sync pull requests in all four target repositories.
 
-Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target repositories, except for Kiro's required `plugin.json`, which is generated from its target configuration. This project generates the shared skill and each client's MCP configuration file.
+Plugin metadata, assets, READMEs, and Cursor rules remain owned by their target repositories. Sync changes only the version in existing Codex and Cursor manifests. Kiro's required `plugin.json` is generated from its target configuration. Claude's versionless marketplace remains target-owned and detects releases through Git revisions. This project generates the shared skills and each client's MCP configuration file.
 
 ## Local development
 
-Requires Node.js 22 or newer. The only dependency is `ajv`, used to validate generated Agent Plugins artifacts.
+Requires Node.js 22 or newer. Ajv validates Agent Plugins artifacts; TypeScript and PostCSS parse source candidates without executing them.
 
 ```bash
 npm ci
 npm test
 npm run check
 npm run build
+npm run publish-skills
 npm run status
 ```
 
@@ -40,11 +42,26 @@ node scripts/sync-target.mjs codex ../../codex-plugin
 git -C ../../codex-plugin diff
 ```
 
-The sync command replaces `skills/mintlify/`, writes the client-specific MCP configuration file, and writes `.mintlify-agent-context.json` with the source commit. For Kiro, it also writes the required `plugin.json`. It does not change any other plugin files.
+The sync command replaces both canonical skills, writes the client-specific MCP configuration file, and writes `.mintlify-agent-context.json` with the source commit and skill names. It preserves unrelated skill folders. Kiro uses `references/`; the other targets use `reference/`. All Markdown links are rewritten consistently with that convention.
 
-Kiro uses the manifest version to detect updates. The sync command bumps the patch version automatically whenever the generated Kiro skill, MCP configuration, or manifest differs from the target repository. For a minor or major release, set a higher `pluginManifest.version` in `targets/kiro.json`; the sync uses it when it is greater than the target's current version. Versions must be `MAJOR.MINOR.PATCH`, without pre-release tags or build metadata.
+Codex, Cursor, and Kiro use manifest versions. Sync increments the patch version when either skill, any reference/asset, or generated MCP content changes. Kiro also considers its generated manifest fields. Target-owned manifest fields are preserved. For a minor or major Kiro release, set a higher `pluginManifest.version` in `targets/kiro.json`. Versions use `MAJOR.MINOR.PATCH`.
 
-A target that sets `pluginManifestFile` writes its manifest to that path instead of `plugin.json`, and the version bump reads the target repository's current version from the same path. Claude Code, for example, reads only `.claude-plugin/plugin.json`.
+A target that sets `pluginManifestFile` reads/writes that path. Codex uses `.codex-plugin/plugin.json`; Cursor uses `.cursor-plugin/plugin.json`; Kiro uses `plugin.json`. The inspected Claude marketplace has no explicit plugin version or plugin manifest; reference-only sync changes its Git revision without introducing a new version authority.
+
+## Customization audit and publication
+
+Generate an internal candidate inventory from a workspace containing Mint, Components, and Server, then curate the public subset:
+
+```bash
+node scripts/extract-customization.mjs /path/to/workspace /tmp/internal-inventory.json
+node scripts/curate-customization.mjs /tmp/internal-inventory.json
+npm run publish-skills
+npm run check
+```
+
+The raw inventory is internal and unreviewed. Do not commit it or private customer evidence to this repository. Curation selects explicit hooks, preserves selector syntax, records source provenance and gaps, and labels implementation details separately from documented APIs. Update the curated policy and reference prose together when the source changes.
+
+The docs host currently uploads named skill entrypoints without their reference files. The generated `../skills/mintlify-customization/SKILL.md` therefore links to canonical GitHub references. The human-facing `../customize/agent-skill.mdx` directs installers to the complete GitHub folder. Build/check verify local reference bundling and the generated hosted entrypoint; deployed URL and manager refresh checks remain separate release evidence.
 
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 
