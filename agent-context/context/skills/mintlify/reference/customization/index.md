@@ -19,6 +19,7 @@ CSS cannot add server data, replace full-page search, or provide accessible stat
 ## Rules
 
 - Preserve exact selector syntax. `.card`, `card`, `#sidebar`, and `[data-component-part="card-icon"]` select different things, and `[data-active]` differs from `[data-active="true"]`.
+- To change every instance of a component, write global CSS on its stable hook (`.card`, `.callout[data-callout-type="note"]`, `[data-component-part="..."]`). Do not add the same `className` to each instance; new instances will miss it. Use `className` only to style one instance differently.
 - Use `html.dark` for dark mode, not only `prefers-color-scheme`. Visitors can choose a theme independently of their OS.
 - Do not write a bare `:has(...)` with no element before it, and do not use `:has()` with a descendant argument on `html`, `body`, or layout regions. Both make the browser recheck large parts of the document on every DOM change, which slows rendering on large pages. Anchor `:has()` to the closest specific parent and prefer a direct child argument, such as `.example-card:has(> img)`. An anchored direct-child `:has()` is fine even on a layout region: `#content:has(> .callout[data-callout-type="warning"])` styles pages that contain a Warning.
 - Do not couple customizations to generated IDs, `data-testid`, utility classes, or heading anchor generation.
