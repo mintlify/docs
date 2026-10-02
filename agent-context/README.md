@@ -14,15 +14,15 @@ Single source of truth, maintained in the Mintlify documentation repository, for
 
 Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target repositories, except for Kiro's required `plugin.json`, which is generated from its target configuration. This project generates the shared skill and each client's MCP configuration file.
 
-## Customization skill
+## Install the Mintlify skill
 
-`context/skills/mintlify-customization/` contains the standalone customization skill and its references. Install the complete folder with:
+`context/skills/mintlify/` contains the Mintlify skill for authoring, configuration, and customization. Detailed customization guidance lives in `reference/customization/` and loads only when needed. Install the complete folder with:
 
 ```bash
-npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/context/skills/mintlify-customization --skill mintlify-customization
+npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/context/skills/mintlify --skill mintlify
 ```
 
-Maintain this content directly in docs. It is independent of the general skill's existing plugin build and sync tooling. See [installation and updates](context/skills/mintlify-customization/reference/installation-and-updates.md).
+Maintain this content directly in docs. The existing plugin build and sync tooling includes the customization references with the rest of the skill. See [installation and updates](context/skills/mintlify/reference/customization/installation-and-updates.md).
 
 ## Local development
 

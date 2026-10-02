@@ -1,6 +1,6 @@
 # Compatibility and verification
 
-Use public documentation and the rendered site to check customization availability. The general `mintlify` skill covers documentation authoring; this skill covers appearance and browser behavior. A selector present on one site does not establish a stable API across every theme or deployment.
+Use public documentation and the rendered site to check customization availability. These customization references extend the `mintlify` skill with appearance and browser behavior guidance. A selector present on one site does not establish a stable API across every theme or deployment.
 
 ## Stability labels
 
@@ -15,7 +15,7 @@ The inventory contains usage, owning components or regions, availability, exampl
 
 ## Verification coverage
 
-Isolated skills CLI installations for Codex, Cursor, Claude Code, and Kiro CLI included the complete skill and references. Project/global installations and reference updates were checked. These checks establish file bundling, not skill loading or cache refresh inside a running agent.
+Isolated skills CLI installations for Codex, Cursor, Claude Code, and Kiro CLI included the complete skill and references. Earlier isolated project/global installations and reference updates were checked; use the scoped refresh command to keep the canonical folder explicit. These checks establish file bundling, not skill loading or cache refresh inside a running agent.
 
 Chromium baseline captures covered all nine public theme demos in light/dark at 375, 768, 1024, and 1440 pixels: 72 hosted views. A local synthetic fixture also checked Card borders, Tree highlighting, and script execution across all nine themes in light/dark at 375 and 1440 pixels, including internal navigation. The script executed once per document load and persisted through those navigations. These checks do not establish every hook, navigation variant, accessibility result, or browser-specific behavior.
 
