@@ -528,7 +528,7 @@ Props:
 
 ## Visibility
 
-Show different content to humans (web UI) versus AI agents (Markdown output). Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output.
+Show different content to humans (web UI) versus AI agents (Markdown output). Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt`.
 
 ```mdx
 <Visibility for="humans">
