@@ -1,29 +1,38 @@
-# Browser APIs
+# Browser APIs and script lifecycle
 
-All properties below are optional while the browser initializes. They are unavailable during server rendering. Never assign a new `window.mintlify` object: doing so can erase product-owned methods or state. Use these APIs from browser handlers or effects.
+## APIs
 
-| API                                                   | Signature / return                                                       | Readiness, defaults, persistence, and reset                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `window.mintlify.user`                                | `Record<string, unknown> \| undefined`                                   | Documented identified user **content**, not a guaranteed authentication-provider profile. Undefined before resolution and when unidentified/signed out. Updated when user content changes; listen on window for `mintlify:user` and read the current value. Do not write it or place secrets in browser-readable content.                                      |
-| `window.mintlify.geo`                                 | `{ country?: string; region?: string; continent?: string } \| undefined` | Observed approximate edge metadata. Read from navigation Server-Timing during head parse and again at DOMContentLoaded. Missing in local environments without edge metadata; no verified geo-ready event. Treat missing fields as unknown. It is not a location permission API or access-control boundary.                                                     |
-| `window.mintlify.api.playground.setServerVariables`   | `(variables: Record<string, string>) => void`                            | Documented setter. Replaces the complete runtime overlay, including removing omitted keys; it does not merge. Non-string entries are discarded, and invalid non-object arguments are ignored. Overlay values take precedence over schema defaults and saved values. Applies to mounted/future playgrounds in the page session; full document reload resets it. |
-| `window.mintlify.api.playground.clearServerVariables` | `() => void`                                                             | Removes the runtime overlay, dispatches an update, and allows ordinary saved/default resolution to resume. It does not erase every saved user preference or change the OpenAPI schema.                                                                                                                                                                         |
+All properties are browser-only and can be undefined during initialization. Never assign a new `window.mintlify` object.
 
-Wait for the playground methods to exist before calling them, or use the bootstrapping pattern in the public custom scripts documentation. Optional chaining avoids a crash, but a skipped call has not been queued. Use a bounded readiness check when initialization timing matters.
+| API                                                       | Behavior                                                                                                                                                  |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `window.mintlify.user`                                    | `Record<string, unknown> \| undefined`. Identified user content; undefined before resolution and when signed out. Read-only.                              |
+| `window.mintlify.api.playground.setServerVariables(vars)` | Replaces the whole server-variable overlay; omitted keys are removed. Non-string values are dropped. Lasts for the page session; a full reload resets it. |
+| `window.mintlify.api.playground.clearServerVariables()`   | Removes the overlay so saved and default values apply again.                                                                                              |
+| `window.mintlify.geo`                                     | Observed. `{ country?, region?, continent? } \| undefined` from edge metadata. Missing locally. Not an access-control boundary.                           |
+
+Optional chaining avoids a crash but skips the call; it does not queue it. If timing matters, retry with a bounded readiness check. Server variables are URL inputs, not a channel for tokens.
+
+## Events
+
+`mintlify:user` fires on `window` with `CustomEvent<Record<string, unknown> | null>` when user content resolves or changes; `null` means signed out. It is not replayed, so subscribe first and then read the current value:
 
 ```js
-function setExampleRegion(region) {
-  const api = window.mintlify?.api?.playground;
-  if (typeof api?.setServerVariables !== "function") return false;
-  api.setServerVariables({ region });
-  return true;
+function subscribeToExampleUser(render) {
+  const onUser = (event) => render(event.detail);
+  window.addEventListener("mintlify:user", onUser);
+  render(window.mintlify?.user ?? null);
+  return () => window.removeEventListener("mintlify:user", onUser);
 }
-
-setExampleRegion("example");
 ```
 
-For multiple server variables, send the entire desired object on every update. On sign-out or account changes, explicitly clear/replace it; SPA navigation alone is not a reset. Server variables are URL inputs, not a channel for API keys or access tokens. Avoid assuming unsupported keys apply to every schema: each OpenAPI server definition owns its variable names and allowed values.
+## Lifecycle
 
-Treat the observed geo fields as optional and verify availability on the deployed site. Use the documented user and playground APIs for integrations.
+- Repository `.js` files run once after the document becomes interactive. Multiple files have no ordering guarantee; keep dependent setup in one file.
+- `DOMContentLoaded` fires only on the initial load, not on internal navigation. Prefer CSS on `html[data-current-path]`, event delegation, or React effects in snippets.
+- Internal navigation replaces page content while the layout persists. If you must observe DOM replacement, observe the smallest container and disconnect on cleanup.
+- Make setup idempotent. Deduplicate injected third-party script tags and wait for their `load`/`error` events.
+- Do not monkey-patch `history`. There is no public route-change event.
+- Custom JS can be disabled in editor live preview. Verify on a hosted preview.
 
-See the [public documentation](https://www.mintlify.com/docs/customize/custom-scripts) for current supported options.
+See the [public documentation](https://www.mintlify.com/docs/customize/custom-scripts).

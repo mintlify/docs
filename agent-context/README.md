@@ -16,13 +16,11 @@ Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target
 
 ## Install the Mintlify skill
 
-`context/skills/mintlify/` contains the Mintlify skill for authoring, configuration, and customization. Detailed customization guidance lives in `reference/customization/` and loads only when needed. Install the complete folder with:
+`context/skills/mintlify/` covers authoring, configuration, and customization. Customization guidance lives in `reference/customization/`. Install the folder with:
 
 ```bash
 npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/context/skills/mintlify --skill mintlify
 ```
-
-Maintain this content directly in docs. The existing plugin build and sync tooling includes the customization references with the rest of the skill. See [installation and updates](context/skills/mintlify/reference/customization/installation-and-updates.md).
 
 ## Local development
 

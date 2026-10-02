@@ -19,7 +19,7 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
 | `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | `reference/product-context.md` | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
-| `reference/customization/index.md` | Customizing themes, layout, selectors, component parts, CSS variables, browser APIs/events, script lifecycle, React/snippets, assets, or routing. Start here, then load only the relevant customization references. |
+| `reference/customization/index.md` | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
 
 ## MCP servers
 
@@ -67,7 +67,7 @@ Before substantial content work, read `reference/product-context.md` and check f
 
 Read the project's `docs.json` file first. It defines the site's navigation, theme, colors, and configuration.
 
-For appearance or browser behavior changes, read `reference/customization/index.md`. Prefer configuration and supported component props, preserve exact selector syntax, and verify navigation, light/dark, and affected responsive states.
+For appearance or browser behavior changes, read `reference/customization/index.md`.
 
 Search for existing content before creating new pages. You may need to update an existing page, add a section, or link to existing content rather than duplicating.
 

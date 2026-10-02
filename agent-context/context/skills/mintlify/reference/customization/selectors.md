@@ -1,41 +1,56 @@
 # Selectors and component state
 
-Use [inventory.json](inventory.json) to search by `name`, `usage`, `category`, or `owner`. Each record includes purpose, availability, stability, an example, and verification status. The inventory contains documented names and reviewed behavior; it does not promise that every selector exists on every site.
+The [public custom CSS docs](https://www.mintlify.com/docs/customize/custom-scripts) list the ID and class hooks for layout and components. This file covers syntax, state attributes, and component parts that the public list omits. All hooks exist only when their owning element renders.
 
-## Exact syntax
+## Syntax
 
-| Syntax                                   | Meaning                                                   | Availability/example                                                              |
-| ---------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `.card`                                  | A class on the hosted client's Card root                  | Authored `<Card>`; `.card { border-radius: 0.75rem; }`                            |
-| `card`                                   | An element whose tag name is `card`                       | Use only if inspection shows that actual tag; it does not select a `div.card`     |
-| `#sidebar`                               | The sidebar element with that ID                          | Desktop layout/configuration dependent; do not assume it owns its scroll viewport |
-| `#sidebar-content`                       | Sidebar scroll-area wrapper in the inspected client       | Its width alone does not update the outer sidebar or content offset               |
-| `[data-component-part="card-icon"]`      | A nested Card icon wrapper or image                       | Only with an icon; the renderer determines how to recolor it                      |
-| `[data-component-part="tabs-list"]`      | The Tabs button row                                       | Only when Tabs is authored                                                        |
-| `[data-component-part="tree-file-icon"]` | A Tree file icon                                          | Only for mounted file rows                                                        |
-| `html.dark .example-card`                | An authored class under the site's actual dark appearance | Responds to explicit theme selection as well as system preference                 |
+| Syntax                              | Selects                                                                     |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| `.card`                             | An element with the `card` class                                            |
+| `card`                              | An element whose tag is `<card>`. It does not match `div.card`.             |
+| `#sidebar`                          | The element with ID `sidebar`. It does not necessarily own the scroll area. |
+| `[data-component-part="card-icon"]` | A nested component part                                                     |
+| `html.dark .example-card`           | An authored class in dark mode, including explicit theme selection          |
 
-Some selector descriptions use bare names for hooks applied through `className`. The inventory preserves the observed `.class` syntax. Confirm the deployed DOM before using those entries. Native selectors such as `main`, `a`, `img`, `svg`, `h2`, and `footer` can match many unrelated elements. Scope them to an authored class or reviewed region.
+Native selectors such as `main`, `a`, `img`, `svg`, and `footer` match many unrelated elements. Scope them to an authored class or a known region.
 
-## Presence and values
+## State attributes
 
-| State selector                                           | Semantics and availability                                                                                                                                                  |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[data-component-part="tab-button"][data-active="true"]` | Active Tab representation. Inactive nodes can retain `data-active="false"`; `[data-active]` alone selects both.                                                             |
-| `.toc-item[data-active]`                                 | TOC ancestor/active state maintained by DOM attribute updates. Test presence, not `="true"`.                                                                                |
-| `.toc-item[data-active-deepest]`                         | Exact active heading; ancestors may have `data-active` without this attribute.                                                                                              |
-| `.nav-tabs-item[data-active]`                            | Simple top-level active tab. Dropdown tab variants may not publish the same attribute.                                                                                      |
-| `.nav-dropdown-item[data-active]`                        | Active dropdown choice; the attribute is omitted for an inactive choice.                                                                                                    |
-| `[aria-expanded="true"]`                                 | Expanded disclosure where the owning component publishes this state. Confirm the attribute is on the trigger, not the child panel.                                          |
-| `[aria-current="true"]`                                  | Inspected highlighted Tree file/folder row. This differs from sidebar link current-page semantics.                                                                          |
-| `[disabled]`                                             | Native disabled form control. A Card's `disabled` prop can instead remove navigation; do not assume a native disabled attribute.                                            |
-| `[data-state="open"]`                                    | Open state on primitives that actually expose it; not a universal Mintlify component state.                                                                                 |
-| `html[data-current-path="/quickstart"]`                  | Normalized current page path. Check it on initial load and after navigation; query/hash are excluded. Check subpath/localization/version behavior on the actual deployment. |
+| Selector                                                 | Semantics                                                                                 |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `[data-component-part="tab-button"][data-active="true"]` | Active Tab. Inactive buttons keep `data-active="false"`, so `[data-active]` matches both. |
+| `.toc-item[data-active]`                                 | Active TOC item or ancestor. Test presence, not `="true"`.                                |
+| `.toc-item[data-active-deepest]`                         | The exact active heading                                                                  |
+| `.nav-tabs-item[data-active]`                            | Active top-level tab. Dropdown tab variants may not set it.                               |
+| `.nav-dropdown-item[data-active]`                        | Active dropdown choice; omitted when inactive                                             |
+| `.tree-folder[aria-expanded="true"]`                     | Expanded Tree folder                                                                      |
+| `.tree-file[aria-current="true"]`                        | Highlighted Tree file                                                                     |
+| `html[data-current-path="/quickstart"]`                  | Current page path, excluding query and hash. Updates on internal navigation.              |
 
-Do not infer support from `data-testid`, React `useId()`, generated heading IDs, utility classes, or internal peer classes. Heading anchors are content-derived routing targets; avoid treating their generation algorithm as a styling contract. During transitions, locate the visible active tree rather than assuming `querySelector` found the current page.
+A Card's `disabled` prop removes navigation; it does not add a native `[disabled]` attribute. `[data-state="open"]` exists only on primitives that set it.
 
-## Stability
+## Component parts
 
-`documented` means the public docs describe the API/prop. `documented-best-effort` means public CSS customization guidance explicitly permits compatibility changes. `observed` describes reviewed behavior without a public stability commitment. `deprecated` records a retained compatibility alias. Unmatched documented names are listed under `gaps`, not silently invented. `.card-group` is retained as a legacy Columns hook; author `<Columns>` for new content.
+Use as `[data-component-part="<name>"]` or `[data-component-name="<name>"]`. These are observed hooks without a stability promise.
 
-The inventory records the owning component or site region, exact usage, availability, and examples.
+| Component   | `data-component-part`                                                                                                                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Card        | `card-title`, `card-content`, `card-content-container`, `card-icon` (with `icon`), `card-image` (with `img`), `card-cta` (with `cta`)                                                                                       |
+| Tabs        | `tabs-list`, `tab-button`, `tab-content`                                                                                                                                                                                    |
+| Tree file   | `tree-file-title`, `tree-file-icon`, `tree-file-highlight-bar`, `tree-file-highlight-bg`                                                                                                                                    |
+| Tree folder | `tree-folder-title`, `tree-folder-icon-open`, `tree-folder-icon-closed`, `tree-folder-children-wrapper`, `tree-folder-children-line`, `tree-folder-highlight-bar`, `tree-folder-highlight-bg`, `tree-folder-highlight-tint` |
+| Assistant   | `contact-support-button`, `contact-support-icon`, `contact-support-text`                                                                                                                                                    |
+
+| Feature    | `data-component-name`                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Directory  | `directory`, `directory-group`, `directory-group-root`, `directory-page`, `directory-card`                                                |
+| Mermaid    | `mermaid-container`, `mermaid-controls-wrapper`, `mermaid-fullscreen-modal`, `mermaid-fullscreen-backdrop`, `mermaid-fullscreen-controls` |
+| Appearance | `theme-toggle`, `theme-preference-menu`                                                                                                   |
+| Media      | `media-actions`                                                                                                                           |
+| Sequoia    | `primary-header-button` (Sequoia theme only)                                                                                              |
+
+`.card-group` is a deprecated alias; author `<Columns>` for new content.
+
+## Unconfirmed hooks
+
+These names appear in public guidance but were not found on current sites. Inspect the DOM before using them: `#header`, `#background-color`, `#mobile-nav-content`, `#feedback-thumbs-up`, `#feedback-thumbs-down`, `#localization-select-item`, `.columns`, `.nav-anchor`, `.pagination-title`, `.api-section`, `.api-section-heading`, `.api-section-heading-title`, `.api-section-heading-subtitle`, `.tryit-button`, `.method-pill`.
