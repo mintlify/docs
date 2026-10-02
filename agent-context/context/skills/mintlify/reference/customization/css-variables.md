@@ -23,4 +23,14 @@ html.dark .example-card {
 }
 ```
 
-There is no public `--sidebar-width` or `--content-width`. See [themes and layout](themes-and-layout.md) before changing geometry.
+## Layout
+
+| Variable          | Default                                                                                               | Notes                                                                                                      |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--sidebar-width` | 18rem in mint, linden, willow, aspen, sequoia; 19rem in maple, palm; 16.5rem in almond; 14rem in luma | Desktop sidebar width. Set on `:root`. Palm's collapsed sidebar stays 4rem. There is no `--content-width`. |
+
+```css
+:root {
+  --sidebar-width: 20rem;
+}
+```
