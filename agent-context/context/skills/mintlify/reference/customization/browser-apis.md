@@ -33,6 +33,5 @@ function subscribeToExampleUser(render) {
 - Internal navigation replaces page content while the layout persists. If you must observe DOM replacement, observe the smallest container and disconnect on cleanup.
 - Make setup idempotent. Deduplicate injected third-party script tags and wait for their `load`/`error` events.
 - Do not monkey-patch `history`. There is no public route-change event.
-- Custom JS can be disabled in editor live preview. Verify on a hosted preview.
 
 See the [public documentation](https://www.mintlify.com/docs/customize/custom-scripts).

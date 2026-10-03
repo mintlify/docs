@@ -11,7 +11,7 @@ Read the project's `docs.json` and existing CSS, JS, and snippets before editing
 | Authored `className`     | Styling one component instance                                           | Not every component forwards `className` to the intended node. Banner, MDX, and Visibility do not support it.                |
 | React/JSX snippets       | Reusable interactive UI                                                  | Named exports and injected hooks only; no npm imports. Browser access belongs in effects with cleanup.                       |
 | Global CSS               | Site-wide styling beyond configuration and props                         | Applies globally; scope selectors. No ordering guarantee across multiple CSS files.                                          |
-| Global JS                | Browser integrations or delegated behavior across pages                  | Runs once per document load, not per navigation. No ordering guarantee across files. Can be disabled in editor live preview. |
+| Global JS                | Browser integrations or delegated behavior across pages                  | Runs once per document load, not per navigation. No ordering guarantee across files.                                         |
 | Third-party integrations | Analytics, consent, widgets                                              | Prefer documented integration configuration over injected scripts.                                                           |
 
 CSS cannot add server data, replace full-page search, or provide accessible status messages through pseudo-content. Global `.js` files are not importable modules; keep JSX components in `/snippets`.
