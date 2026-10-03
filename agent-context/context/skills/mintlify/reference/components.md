@@ -528,7 +528,7 @@ Props:
 
 ## Visibility
 
-Show different content to humans (web UI) versus AI agents (Markdown output). Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt`.
+Show different content to humans (web UI), AI agents (Markdown output), or readers based on sign-in state and groups. Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt`.
 
 ```mdx
 <Visibility for="humans">
@@ -538,10 +538,24 @@ Show different content to humans (web UI) versus AI agents (Markdown output). Co
 <Visibility for="agents">
   To create an account, call `POST /v1/accounts` with a valid email.
 </Visibility>
+
+<Visibility for="signed-in">
+  Go to your account settings to manage your API keys.
+</Visibility>
+
+<Visibility for="signed-out">
+  Sign in to see the API keys for your account.
+</Visibility>
+
+<Visibility for={{ groups: ["admin", "enterprise"] }}>
+  Admins and enterprise customers can configure SSO from the **Security** tab.
+</Visibility>
 ```
 
 Props:
-- `for` (string, required): `"humans"` or `"agents"`.
+- `for` (string | object, required): `"humans"`, `"agents"`, `"signed-in"`, `"signed-out"`, or `{ groups: [...] }`. Use a static value; content with a computed `for` value (variable or conditional) is excluded from Markdown output.
+
+Sign-in and group rules require site authentication. `signed-in` renders only for readers with an active session; `signed-out` only for readers who are not signed in; `groups` only for signed-in readers in at least one listed group. Markdown output and `llms-full.txt` always get the signed-out view: `signed-in` and `groups` content is removed and `signed-out` content is included. These rules hide content in the browser only; the content is still sent to every reader. For sensitive content, use a separate page with the `groups` frontmatter field.
 
 ## View
 
