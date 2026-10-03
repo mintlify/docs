@@ -509,6 +509,47 @@ This is useful when you want a human-readable group name that differs from the t
 
 In this example, the navigation group displays as "User Management" but the generated page URL still uses the `user-management` tag name as its path segment.
 
+### Nested groups from tag hierarchies
+
+In OpenAPI 3.2 documents, tags can declare `parent`, `kind`, and `summary` fields. Mintlify uses these fields to build nested navigation groups for auto-populated API pages. OpenAPI 3.0 and 3.1 documents keep one flat group per tag, based on each operation's first tag.
+
+- `parent`: Nests the tag's group inside the parent tag's group.
+- `summary`: Sets the group label. If a tag also has `x-group`, `x-group` takes precedence.
+- `kind`: Controls how Mintlify uses the tag.
+  - `nav` or no `kind`: Creates a navigation group.
+  - `badge`: Shows the tag's `summary`, or its `name` if there is no `summary`, as a pill next to the endpoint in the sidebar. Badge tags don't create navigation groups.
+  - Any other value, such as `audience`: Creates neither a navigation group nor a pill.
+
+```yaml
+openapi: 3.2.0
+tags:
+  - name: store
+    summary: Store
+    kind: nav
+  - name: plants
+    summary: Plants
+    parent: store
+    kind: nav
+  - name: care-guides
+    summary: Care guides
+    parent: store
+    kind: nav
+  - name: beta
+    summary: Beta
+    kind: badge
+paths:
+  /plants:
+    get:
+      summary: List plants
+      tags: [beta, plants]
+```
+
+In this example, the **List plants** endpoint appears under **Store** > **Plants** in the sidebar with a **Beta** pill. The page URL follows the `plants` tag, not `beta`, even though `beta` is listed first.
+
+When an operation has several tags, Mintlify places it using the first tag with `kind: nav`. If there is none, Mintlify uses the first declared tag with no `kind`, and then the first tag that isn't declared in `tags`. To set a different pill for one endpoint, use `tag` in [`x-mint` metadata](#metadata). It takes precedence over badge tags.
+
+Mintlify validates the tag tree in OpenAPI 3.2 documents. Validation fails if two tags share a name, if a `parent` references a tag that doesn't exist, or if parent references form a cycle.
+
 ## Auto-populate API pages
 
 Add an `openapi` field to any navigation element in your `docs.json` to automatically generate pages for OpenAPI endpoints. You can control where these pages appear in your navigation structure, as dedicated API sections or with other pages.
@@ -834,18 +875,7 @@ OpenAPI 3.2 documents (`openapi: 3.2.0`) are validated against the official 3.2 
 
 ### Tag hierarchies
 
-Use the `parent` field on tags to nest generated navigation groups, `summary` for a short display name, and `kind` to mark tags as `nav`, `badge`, or `audience`. Only `nav` tags (the default) create navigation groups.
-
-```yaml
-tags:
-  - name: plants
-    summary: Plants
-  - name: plants.care
-    summary: Care
-    parent: plants
-  - name: beta
-    kind: badge
-```
+Tags can declare `parent`, `kind`, and `summary` to build nested navigation groups and sidebar pills. See [Nested groups from tag hierarchies](#nested-groups-from-tag-hierarchies).
 
 ### QUERY and custom methods
 
@@ -918,25 +948,26 @@ Example Objects can carry `dataValue` for the logical value and `serializedValue
 
 ### Discriminator default mapping
 
-Set `discriminator.defaultMapping` to the schema used when the discriminating property is absent or unmapped. That variant is listed first in the docs, selected by default in the playground, and used for generated examples. The value must be a `mapping` value, a `components.schemas` name, or a same-document reference.
+Set `discriminator.defaultMapping` to the schema used when the discriminating property is absent or unmapped. That variant is listed first in the docs, selected by default in the playground, and used for generated examples. The value must be a `mapping` value, a `components.schemas` name, or a same-document reference. When the schema lists its variants in `oneOf` or `anyOf`, the default must be one of them.
 
 ### Parameter serialization
 
 - `style: cookie` on `in: cookie` parameters follows RFC 6265 and applies no percent-encoding.
 - `allowReserved: true` on query and path parameters keeps reserved characters unencoded in generated requests and code samples. Query delimiters (`&`, `=`, `#`) and `/` in path segments are still encoded.
-- `prefixEncoding` and `itemEncoding` on multipart Media Type Objects and Encoding Objects set per-part content types in code samples. They require `itemSchema` or an array `schema`.
+- `prefixEncoding` and `itemEncoding` on multipart Media Type Objects and Encoding Objects set per-part content types. They require `itemSchema` or an array `schema`.
+- Header parameter names and the keys of `headers` maps must be valid HTTP field names, as defined in RFC 9110. Validation fails for names with spaces or other characters that HTTP doesn't allow in a header name.
 
 ### Document-level fields
 
 - `$self` is preserved as the document's base URI.
-- `servers[].name` labels each entry in the base URL selector.
-- Responses can use `summary` alone or with `description`; the heading shows `description` when present, otherwise `summary`. Every server variable can appear at most once in a server URL.
+- `servers[].name` labels each entry in the base URL selector. Every server variable can appear at most once in a server URL.
+- Responses can use `summary` alone or with `description`; the heading shows `description` when present, otherwise `summary`.
 - Reusable Media Type Objects in `components.mediaTypes` can be referenced from any `content` map with `$ref`.
 
 ### Limitations
 
 - Operations that live only under `components.pathItems` do not generate pages. Reference them from `paths` instead.
 - Browsers do not let the playground set a `Cookie` header, so `in: cookie` parameters appear in code samples but are not sent by live requests.
-- Positional multipart encodings set content types in code samples that write the multipart body themselves. Live browser requests and the Node `fetch` sample use `FormData`, which cannot set a content type on a non-file field, so those parts are sent as plain fields.
+- `multipart/mixed` and `multipart/related` bodies, including ones with file parts, are sent and shown in code samples as one framed message, so every part keeps its content type. For `multipart/form-data` bodies, live browser requests and the Node `fetch` sample use `FormData`, which cannot set a content type on a non-file field, so those parts are sent as plain fields.
 - XML Object fields (`nodeType` and IRI namespaces) are accepted but not checked or rendered; the playground does not generate XML bodies.
 - Webhook pages resolve to the first operation on a webhook Path Item, so declare one operation per webhook.
