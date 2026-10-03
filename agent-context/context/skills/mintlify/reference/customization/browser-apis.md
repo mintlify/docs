@@ -26,12 +26,22 @@ function subscribeToExampleUser(render) {
 }
 ```
 
+`mintlify:navigate` fires on `window` with `CustomEvent<{ path: string }>` after client-side navigation renders a new page. It does not fire on the initial load, so run your setup once and again on each event:
+
+```js
+function onEveryPage(run) {
+  run();
+  window.addEventListener("mintlify:navigate", run);
+  return () => window.removeEventListener("mintlify:navigate", run);
+}
+```
+
 ## Lifecycle
 
 - Repository `.js` files run once after the document becomes interactive. Multiple files have no ordering guarantee; keep dependent setup in one file.
 - `DOMContentLoaded` fires only on the initial load, not on internal navigation. Prefer CSS on `html[data-current-path]`, event delegation, or React effects in snippets.
-- Internal navigation replaces page content while the layout persists. If you must observe DOM replacement, observe the smallest container and disconnect on cleanup.
+- Internal navigation replaces page content while the layout persists. To change content on every page, use `mintlify:navigate`, not a `MutationObserver` on `document.body`.
 - Make setup idempotent. Deduplicate injected third-party script tags and wait for their `load`/`error` events.
-- Do not monkey-patch `history`. There is no public route-change event.
+- Do not monkey-patch `history`; listen for `mintlify:navigate` instead.
 
 See the [public documentation](https://www.mintlify.com/docs/customize/custom-scripts).

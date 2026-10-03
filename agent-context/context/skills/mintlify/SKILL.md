@@ -1,6 +1,6 @@
 ---
 name: mintlify
-description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, working with API references, or customizing appearance and browser behavior with CSS, JavaScript, React, and snippets. Routes to detailed reference files for all components and configuration options.
+description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, working with API references, or customizing appearance and browser behavior with CSS, JavaScript, React, and snippets, including styling one page or component, colors, fonts, sidebar or content width, hiding elements, and custom scripts. Routes to detailed reference files for all components and configuration options.
 ---
 
 # Mintlify reference

@@ -14,6 +14,10 @@ The [public custom CSS docs](https://www.mintlify.com/docs/customize/custom-scri
 
 Native selectors such as `main`, `a`, `img`, `svg`, and `footer` match many unrelated elements. Scope them to an authored class or a known region.
 
+## Page background
+
+The page background is painted by a fixed `span#background-color`, not by `html` or `body`. Change its color with `docs.json` `background.color`; target the element only for effects that configuration cannot express.
+
 ## Page content
 
 Page content renders inside `#content` (class `mdx-content`). Body paragraphs render as `span[data-as="p"]`, not `<p>`, so `p` selectors miss them. Set body typography on `#content` so paragraphs and lists inherit it, and restyle headings separately if needed.
@@ -61,4 +65,4 @@ Use as `[data-component-part="<name>"]` or `[data-component-name="<name>"]`. The
 
 ## Unconfirmed hooks
 
-These names appear in public guidance but were not found on current sites. Inspect the DOM before using them: `#header`, `#background-color`, `#mobile-nav-content`, `#feedback-thumbs-up`, `#feedback-thumbs-down`, `#localization-select-item`, `.columns`, `.nav-anchor`, `.pagination-title`, `.api-section`, `.api-section-heading`, `.api-section-heading-title`, `.api-section-heading-subtitle`, `.tryit-button`, `.method-pill`.
+These names appear in public guidance but were not found on current sites. Inspect the DOM before using them: `#header`, `#mobile-nav-content`, `#feedback-thumbs-up`, `#feedback-thumbs-down`, `#localization-select-item`, `.columns`, `.nav-anchor`, `.pagination-title`, `.api-section`, `.api-section-heading`, `.api-section-heading-title`, `.api-section-heading-subtitle`, `.tryit-button`, `.method-pill`.

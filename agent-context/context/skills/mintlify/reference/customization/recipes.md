@@ -123,3 +123,33 @@ html.dark .sidebar-group:has(> li[data-active]) {
 ```
 
 The `:has()` is anchored to the group and checks only direct children, so it stays cheap. It follows client navigation without JavaScript.
+
+## Enhance content on every page
+
+```js
+(() => {
+  if (window.exampleHeadingLinks) return;
+  window.exampleHeadingLinks = true;
+
+  const addButtons = () => {
+    document.querySelectorAll("#content h2[id]").forEach((heading) => {
+      if (heading.querySelector(".example-copy-link")) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "example-copy-link";
+      button.textContent = "Copy link";
+      button.addEventListener("click", () =>
+        navigator.clipboard.writeText(
+          `${location.origin}${location.pathname}#${heading.id}`,
+        ),
+      );
+      heading.append(button);
+    });
+  };
+
+  addButtons();
+  window.addEventListener("mintlify:navigate", addButtons);
+})();
+```
+
+The flag keeps one listener per document and the per-heading check keeps one button per heading. Card titles are also `h2` elements; skip them with `heading.closest(".card")` if they should not get a button.
