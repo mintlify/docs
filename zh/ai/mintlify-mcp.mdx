@@ -199,13 +199,37 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
   ### 项目管理
 </div>
 
-代码模式 (code mode) 用于处理没有专用工具的项目级操作，例如管理工作流、项目设置、成员、账单、集成、分析，以及[私有页面](/zh/editor/pages#private-pages)的共享。代码模式的工具不需要执行 `checkout`。
+项目管理工具用于处理项目级操作，例如管理工作流、项目设置、自定义域名、Git 源、认证、成员、分析，以及[私有页面](/zh/editor/pages#private-pages)的共享。这些工具不需要执行 `checkout`。
 
-- **`search_code_operations`**: 搜索代码模式可用的项目管理方法。每个结果都包含该方法的完整输入 schema。
-- **`execute_code`**: 针对项目管理方法运行一段 TypeScript 脚本。连接被授予的作用域会控制每个方法的访问权限，任何未被授予的方法都会返回授权错误。
+每个工具都接收一个 `subdomain`，用于指定要操作的项目。组织级连接必须传入 `subdomain`。调用 `list_deployments` 查找它。读取工具还接受 `subdomains`，即最多 25 个项目的列表，并为每个项目返回结果或错误。大多数工具接收一个 `request` 对象，其 `action` 字段用于选择操作。例如：
+
+```json
+{
+  "subdomain": "acme",
+  "request": { "action": "noindex", "noindex": true }
+}
+```
+
+读取工具：
+
+- **`get_deployment_settings`**: 一次调用即可读取项目的仪表板设置、Git 源、自定义主机名状态和源检查。Slack 配置和代码片段需要选择性开启。
+- **`get_analytics_report`**: 读取预构建的分析报告，例如页面浏览量、热门页面、来源、反馈、助手对话或搜索质量。使用 `request.report` 选择报告。较大的结果通过 `maxRows` 和 `rowOffset` 分页。如需自定义查询，请使用 `query_analytics`。
+- **`get_workflows`**: 列出工作流、获取单个工作流，或分页查看其运行记录。
+- **`list_repos_and_prs`**: 列出已连接的仓库、某个仓库的拉取请求，或可在工作流中使用的集成。
+
+写入工具：
+
+- **`update_deployment_settings`**: 更改一项仪表板设置，例如 `noindex`、`base_path`、`name`、`disable_ai_chat`、`search_settings`、`privacy`、`custom_scripts` 或某个附加功能。`docs.json` 设置请使用 `update_config`。
+- **`manage_custom_domain`**: 添加或移除自定义域名、配置其主机名，或重新触发主机名验证。
+- **`manage_git_source`**: 添加、更新、移除或重新排序项目构建所用的 Git 仓库，或设置基础源。
+- **`manage_access_auth`**: 配置或移除站点[认证](/zh/deploy/authentication-setup)、添加或删除密码、配置终端用户认证，或切换当前启用的认证方式。
+- **`manage_workflow`**: 创建、更新、启用或禁用、删除或触发工作流。
+- **`manage_members_sharing`**: 列出或移除组织成员、更新其角色，或管理私有页面的授权和移动。
+
+写入工具会在 `state` 下返回项目更新后的状态，因此 AI 工具无需再次调用即可确认更改。每个操作都会检查连接被授予的作用域以及你在仪表板中的角色。未获授权的操作会返回 `insufficient_scope` 等错误。
 
 <Warning>
-  代码模式的写入会立即应用到线上项目。它们不会创建 branch，也不会打开拉取请求。在提示 AI 工具更新工作流、设置、成员、账单或集成之前，请先确认预期的更改。
+  项目管理写入会立即应用到线上项目。它们不会创建 branch，也不会打开拉取请求。在提示 AI 工具更新工作流、设置、域名、认证或成员之前，请先确认预期的更改。
 </Warning>
 
 <div id="session">

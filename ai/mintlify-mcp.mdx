@@ -173,13 +173,37 @@ If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the
 
 ### Project management
 
-Code mode handles project-level operations that have no dedicated tool, such as managing workflows, project settings, members, billing, integrations, analytics, and [private page](/editor/pages#private-pages) sharing. Code mode tools don't require a `checkout`.
+Project management tools handle project-level operations, such as managing workflows, project settings, custom domains, Git sources, authentication, members, analytics, and [private page](/editor/pages#private-pages) sharing. They don't require a `checkout`.
 
-- **`search_code_operations`**: Search the project management methods available to code mode. Each result includes the method's full input schema.
-- **`execute_code`**: Run a TypeScript script against the project management methods. The connection's granted scopes gate every method, and any method you weren't granted returns an authorization error.
+Each tool takes a `subdomain` for the project to act on. Organization-wide connections must pass `subdomain`. Call `list_deployments` to find it. Read tools also accept `subdomains`, a list of up to 25 projects, and return a result or error for each one. Most tools take a `request` object whose `action` field selects the operation. For example:
+
+```json
+{
+  "subdomain": "acme",
+  "request": { "action": "noindex", "noindex": true }
+}
+```
+
+Read tools:
+
+- **`get_deployment_settings`**: Read a project's dashboard settings, Git sources, custom hostname status, and source checks in one call. Slack configuration and snippets are opt-in.
+- **`get_analytics_report`**: Read a prebuilt analytics report, such as page views, popular pages, referrals, feedback, assistant chats, or search quality. Select the report with `request.report`. Large results paginate with `maxRows` and `rowOffset`. For custom queries, use `query_analytics`.
+- **`get_workflows`**: List workflows, get one workflow, or page through its runs.
+- **`list_repos_and_prs`**: List connected repositories, a repository's pull requests, or available integrations to use in a workflow.
+
+Write tools:
+
+- **`update_deployment_settings`**: Change one dashboard setting, such as `noindex`, `base_path`, `name`, `disable_ai_chat`, `search_settings`, `privacy`, `custom_scripts`, or an add-on. Use `update_config` for `docs.json` settings.
+- **`manage_custom_domain`**: Add or remove a custom domain, provision its hostname, or retrigger hostname validation.
+- **`manage_git_source`**: Add, update, remove, or reorder the Git repositories a project builds from, or set the base source.
+- **`manage_access_auth`**: Configure or remove site [authentication](/deploy/authentication-setup), add or delete passwords, configure end-user authentication, or switch which one is active.
+- **`manage_workflow`**: Create, update, enable or disable, delete, or trigger a workflow.
+- **`manage_members_sharing`**: List or remove organization members, update their roles, or manage private page grants and moves.
+
+Write tools return the project's updated state under `state`, so the AI tool can confirm the change without a second call. Each action checks the connection's granted scopes and your dashboard role. An action you aren't authorized for returns an error such as `insufficient_scope`.
 
 <Warning>
-  Code mode writes apply immediately to the live project. They don't create a branch or open a pull request. Confirm the intended change before prompting an AI tool to update workflows, settings, members, billing, or integrations.
+  Project management writes apply immediately to the live project. They don't create a branch or open a pull request. Confirm the intended change before prompting an AI tool to update workflows, settings, domains, authentication, or members.
 </Warning>
 
 ### Session
