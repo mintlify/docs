@@ -4,13 +4,13 @@ description: "Genera documentación de API interactiva desde archivos OpenAPI co
 keywords: ["OpenAPI", "Especificación de API", "Swagger"]
 ---
 
-OpenAPI es una especificación para describir APIs. Mintlify es compatible con documentos OpenAPI 3.0 y 3.1 para generar documentación de API interactiva y mantenerla actualizada.
+OpenAPI es una especificación para describir APIs. Mintlify es compatible con documentos OpenAPI 3.0, 3.1 y 3.2 para generar documentación de API interactiva y mantenerla actualizada.
 
 <div id="add-an-openapi-specification-file">
   ## Agrega un archivo de especificación OpenAPI
 </div>
 
-Para documentar tus endpoints con OpenAPI, necesitas una o más especificaciones OpenAPI válidas en formato JSON o YAML que sigan la [especificación OpenAPI 3.0 o 3.1](https://swagger.io/specification/).
+Para documentar tus endpoints con OpenAPI, necesitas una o más especificaciones OpenAPI válidas en formato JSON o YAML que sigan la [especificación OpenAPI 3.0, 3.1 o 3.2](https://spec.openapis.org/oas/latest.html).
 
 Agrega especificaciones OpenAPI a tu repositorio de documentación o alójalas en línea donde puedas acceder a ellas mediante una URL. Las especificaciones almacenadas en tu repositorio se [sirven como archivos descargables](/es/create/files) en la ruta correspondiente de tu dominio de documentación. Por ejemplo, `https://your-domain/docs/openapi.json`.
 
@@ -84,7 +84,7 @@ Recomendamos los siguientes recursos para aprender y elaborar tu especificación
 * [La CLI de Mint](https://www.npmjs.com/package/mint) para validar tu documento de OpenAPI con el comando: `mint validate`.
 
 <Note>
-  La Guía de OpenAPI de Swagger corresponde a OpenAPI v3.0, pero casi toda la información es aplicable a v3.1. Para obtener más información sobre las diferencias entre v3.0 y v3.1, consulta [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) en el blog de OpenAPI.
+  La Guía de OpenAPI de Swagger corresponde a OpenAPI v3.0, pero casi toda la información es aplicable a v3.1 y v3.2. Para obtener más información sobre las diferencias entre versiones, consulta [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) en el blog de OpenAPI y [Funciones de OpenAPI 3.2](#openapi-32-features) más abajo.
 </Note>
 
 <div id="specify-the-base-url-for-your-api">
@@ -552,6 +552,49 @@ Esto es útil cuando deseas un nombre de grupo legible que difiera del tag usado
 
 En este ejemplo, el grupo de navegación se muestra como "User Management", pero la URL de la página generada sigue usando el nombre del tag `user-management` como segmento de la ruta.
 
+<div id="nested-groups-from-tag-hierarchies">
+  ### Grupos anidados a partir de jerarquías de tags
+</div>
+
+En los documentos OpenAPI 3.2, los tags pueden declarar los campos `parent`, `kind` y `summary`. Mintlify usa estos campos para crear grupos de navegación anidados para las páginas de API generadas automáticamente. Los documentos OpenAPI 3.0 y 3.1 mantienen un grupo plano por tag, según el primer tag de cada operación.
+
+- `parent`: anida el grupo del tag dentro del grupo del tag padre.
+- `summary`: define la etiqueta del grupo. Si un tag también tiene `x-group`, `x-group` tiene prioridad.
+- `kind`: controla cómo usa Mintlify el tag.
+  - `nav` o sin `kind`: crea un grupo de navegación.
+  - `badge`: muestra el `summary` del tag, o su `name` si no tiene `summary`, como una píldora junto al endpoint en la barra lateral. Los tags `badge` no crean grupos de navegación.
+  - Cualquier otro valor, como `audience`: no crea ni un grupo de navegación ni una píldora.
+
+```yaml
+openapi: 3.2.0
+tags:
+  - name: store
+    summary: Store
+    kind: nav
+  - name: plants
+    summary: Plants
+    parent: store
+    kind: nav
+  - name: care-guides
+    summary: Care guides
+    parent: store
+    kind: nav
+  - name: beta
+    summary: Beta
+    kind: badge
+paths:
+  /plants:
+    get:
+      summary: List plants
+      tags: [beta, plants]
+```
+
+En este ejemplo, el endpoint **List plants** aparece en **Store** > **Plants** en la barra lateral con una píldora **Beta**. La URL de la página sigue el tag `plants`, no `beta`, aunque `beta` aparezca primero.
+
+Cuando una operación tiene varios tags, Mintlify la ubica usando el primer tag con `kind: nav`. Si no hay ninguno, Mintlify usa el primer tag declarado sin `kind` y, después, el primer tag que no esté declarado en `tags`. Para mostrar una píldora distinta en un endpoint concreto, usa `tag` en los [metadatos de `x-mint`](#metadata). Tiene prioridad sobre los tags `badge`.
+
+Mintlify valida el árbol de tags en los documentos OpenAPI 3.2. La validación falla si dos tags comparten nombre, si un `parent` hace referencia a un tag que no existe o si las referencias a `parent` forman un ciclo.
+
 <div id="auto-populate-api-pages">
   ## Generar automáticamente páginas de API
 </div>
@@ -890,3 +933,128 @@ paths:
                 "200":
                   description: Callback recibido
 ```
+
+<div id="openapi-32-features">
+  ## Funciones de OpenAPI 3.2
+</div>
+
+Los documentos OpenAPI 3.2 (`openapi: 3.2.0`) se validan con el esquema oficial de 3.2 y admiten todas las novedades que se enumeran aquí. Los documentos escritos para 3.0 o 3.1 siguen funcionando sin cambios.
+
+<div id="tag-hierarchies">
+  ### Jerarquías de tags
+</div>
+
+Los tags pueden declarar `parent`, `kind` y `summary` para crear grupos de navegación anidados y píldoras en la barra lateral. Consulta [Grupos anidados a partir de jerarquías de tags](#nested-groups-from-tag-hierarchies).
+
+<div id="query-and-custom-methods">
+  ### QUERY y métodos personalizados
+</div>
+
+La operación `query` es un campo fijo del Path Item, como `get` o `post`. Los demás métodos van en `additionalOperations`, con su nombre de método en mayúsculas como clave. Ambos generan páginas de endpoint, solicitudes en el playground y ejemplos de código.
+
+```yaml
+paths:
+  /plants:
+    query:
+      summary: Search plants
+    additionalOperations:
+      PURGE:
+        summary: Purge the plant cache
+```
+
+Haz referencia a estas operaciones en el frontmatter MDX con el mismo nombre de método que usaste en la especificación. Los métodos fijos no distinguen entre mayúsculas y minúsculas, mientras que los métodos personalizados van en mayúsculas:
+
+```mdx
+---
+openapi: "openapi.yaml PURGE /plants"
+---
+```
+
+`WEBHOOK` no se puede usar como método personalizado porque identifica las [páginas de webhook](#webhooks).
+
+<div id="whole-query-string-parameters">
+  ### Parámetros de cadena de consulta completa
+</div>
+
+Describe toda la cadena de consulta con un único parámetro `in: querystring` cuyo `content` indique el tipo de medio. El playground lo muestra como su propia entrada **Query string** y serializa el contenido `application/x-www-form-urlencoded`, `application/json` y `text/*` exactamente una vez. Una operación puede tener como máximo un parámetro `querystring` y no puede combinarlo con parámetros `in: query`.
+
+```yaml
+parameters:
+  - name: filter
+    in: querystring
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            color:
+              type: string
+```
+
+<div id="streaming-responses">
+  ### Respuestas en streaming
+</div>
+
+Usa `itemSchema` en lugar de `schema` en un tipo de medio secuencial como `text/event-stream`, `application/jsonl`, `application/x-ndjson`, `application/json-seq` o `multipart/mixed` para describir cada elemento del stream. Las páginas de endpoint muestran los campos del elemento en **Each item in the stream**, y el playground muestra la respuesta de forma incremental a medida que llega, con un control **Stop**. Los streams de más de 10 MB se truncan en el visor, y los streams enviados a través del proxy de Mintlify terminan a los 5 minutos.
+
+```yaml
+responses:
+  "200":
+    description: Plant events
+    content:
+      text/event-stream:
+        itemSchema:
+          type: object
+          properties:
+            event:
+              type: string
+```
+
+<div id="data-and-serialized-example-values">
+  ### Valores de ejemplo de datos y serializados
+</div>
+
+Los Example Objects pueden incluir `dataValue` para el valor lógico y `serializedValue` para la representación exacta que se envía. Los ejemplos de respuesta muestran `serializedValue` tal cual, con resaltado de sintaxis según el tipo de medio. En los ejemplos de solicitud, el playground rellena las entradas a partir de `dataValue` (o de un `serializedValue` analizado para medios JSON, form-urlencoded y `multipart/form-data`) y genera el ejemplo de solicitud a partir de esas entradas. `externalValue` apunta a un documento serializado alojado.
+
+<div id="security-schemes">
+  ### Esquemas de seguridad
+</div>
+
+- **Flujo de autorización de dispositivo**: los esquemas OAuth 2.0 pueden declarar `flows.deviceAuthorization` con un `deviceAuthorizationUrl` y un `tokenUrl`. El playground muestra un panel **Connect** que solicita un código de dispositivo, muestra el código de usuario y la URL de verificación, consulta periódicamente el endpoint de token y aplica el token de acceso a la solicitud. Se admiten clientes públicos (solo `client_id`).
+- **URL de metadatos**: `oauth2MetadataUrl` aparece junto a los detalles del flujo en la página del endpoint.
+- **Esquemas obsoletos**: los esquemas marcados con `deprecated: true` muestran una píldora y una etiqueta de obsoleto en el selector de autorización.
+- **Referencias URI**: las claves de los requisitos de seguridad pueden hacer referencia a un esquema mediante un fragmento URI, como `#/components/securitySchemes/oauth`, además del nombre del componente. No se admiten referencias a otros documentos.
+
+<div id="discriminator-default-mapping">
+  ### Mapeo predeterminado del discriminador
+</div>
+
+Define `discriminator.defaultMapping` con el esquema que se usa cuando la propiedad discriminadora falta o no tiene mapeo. Esa variante aparece primero en la documentación, se selecciona de forma predeterminada en el playground y se usa para los ejemplos generados. El valor debe ser un valor de `mapping`, un nombre de `components.schemas` o una referencia dentro del mismo documento. Cuando el esquema enumera sus variantes en `oneOf` o `anyOf`, el valor predeterminado debe ser una de ellas.
+
+<div id="parameter-serialization">
+  ### Serialización de parámetros
+</div>
+
+- `style: cookie` en parámetros `in: cookie` sigue RFC 6265 y no aplica codificación porcentual.
+- `allowReserved: true` en parámetros de consulta y de ruta mantiene sin codificar los caracteres reservados en las solicitudes generadas y en los ejemplos de código. Los delimitadores de consulta (`&`, `=`, `#`) y `/` en los segmentos de ruta se siguen codificando.
+- `prefixEncoding` e `itemEncoding` en Media Type Objects y Encoding Objects multipart definen el tipo de contenido de cada parte. Requieren `itemSchema` o un `schema` de tipo array.
+- Los nombres de los parámetros de encabezado y las claves de los mapas `headers` deben ser nombres de campo HTTP válidos, según RFC 9110. La validación falla para nombres con espacios u otros caracteres que HTTP no permite en el nombre de un encabezado.
+
+<div id="document-level-fields">
+  ### Campos a nivel de documento
+</div>
+
+- `$self` se conserva como URI base del documento.
+- `servers[].name` etiqueta cada entrada en el selector de URL base. Cada variable de servidor puede aparecer como máximo una vez en una URL de servidor.
+- Las respuestas pueden usar `summary` solo o junto con `description`; el encabezado muestra `description` cuando existe y, si no, `summary`.
+- Los Media Type Objects reutilizables de `components.mediaTypes` se pueden referenciar desde cualquier mapa `content` con `$ref`.
+
+<div id="limitations">
+  ### Limitaciones
+</div>
+
+- Las operaciones que solo existen en `components.pathItems` no generan páginas. Haz referencia a ellas desde `paths`.
+- Los navegadores no permiten que el playground establezca un encabezado `Cookie`, por lo que los parámetros `in: cookie` aparecen en los ejemplos de código, pero no se envían en las solicitudes en vivo.
+- Los cuerpos `multipart/mixed` y `multipart/related`, incluidos los que tienen partes de archivo, se envían y se muestran en los ejemplos de código como un único mensaje enmarcado, por lo que cada parte conserva su tipo de contenido. En los cuerpos `multipart/form-data`, las solicitudes en vivo del navegador y el ejemplo de `fetch` de Node usan `FormData`, que no puede definir el tipo de contenido de un campo que no es un archivo, por lo que esas partes se envían como campos simples.
+- Los campos del XML Object (`nodeType` y los espacios de nombres IRI) se aceptan, pero no se comprueban ni se muestran; el playground no genera cuerpos XML.
+- Las páginas de webhook se resuelven a la primera operación de un Path Item de webhook, así que declara una sola operación por webhook.
