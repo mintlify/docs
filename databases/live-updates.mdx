@@ -1,64 +1,182 @@
 ---
 title: "Live updates"
-description: "Subscribe to a database's change stream over server-sent events and resume where you left off after a disconnect."
-keywords: ["databases", "SSE", "server-sent events", "change stream", "live updates", "realtime"]
+description: "Follow a database's changes by polling the change log with a cursor, or stream them to a browser with server-sent events and resume after a disconnect."
+keywords: ["databases", "changes", "cursor", "cursor_expired", "SSE", "server-sent events", "EventSource", "Last-Event-ID", "live updates"]
 ---
 
-Every write to a database appends an event to its change log. Subscribe to the log to keep a portal, a dashboard, or a cache current without polling.
+<Info>
+  Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
+</Info>
 
-## Subscribe
+Every write to a database appends a change to its change log. Follow the log to keep a cache, a search index, or an open page current without re-reading every record.
 
-```bash
-GET /v1/databases/{projectId}/{databaseId}/events
-Accept: text/event-stream
+- **Poll** with [List changes](/api/databases/list-changes) from a server or a scheduled job.
+- **Stream** with a [live updates session](/api/databases/create-events-session) and the browser's `EventSource`.
+
+Both start from a change cursor.
+
+## Change cursors
+
+A change cursor marks a position in the change log. You get one from:
+
+- `cursor` on [Get database](/api/databases/get-database), as of that read.
+- `cursor` on each page of [List changes](/api/databases/list-changes).
+- The event id of each `change` on a live stream.
+
+All three are the same kind of value, so any of them resumes the others. Cursors are opaque: store them and pass them back unchanged.
+
+To start following a database, get the database first and keep its `cursor`, then read the records. A change made during your read arrives after the cursor, so nothing is missed. Compare `version` to skip a change you already have.
+
+## Changes
+
+```json
+{
+  "type": "record.updated",
+  "recordId": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  "column": null,
+  "version": 4,
+  "actor": "key:key_3ZbQ9mXk",
+  "at": "2026-10-03T14:22:10.000Z"
+}
 ```
 
+`type` is one of `database.updated`, `column.added`, `column.updated`, `column.deleted`, `record.created`, `record.updated`, or `record.deleted`.
+
+- Record changes set `recordId` and the record's `version` after the change.
+- Column changes set `column` to the column's current name. A column that has since been deleted appears by its `col_` id, as it always does on `column.deleted`.
+
+A change says what changed, not the new values. Fetch the record with [Get record](/api/databases/get-record) when you need them.
+
+## Poll the change log
+
+Pass a cursor to [List changes](/api/databases/list-changes). The response holds the changes after it, oldest first, and a new `cursor`.
+
+<CodeGroup>
 ```bash curl
-curl -N "https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/events" \
+curl "$BASE/app_versions/changes?cursor=6e306bde-6324-4853-9188-ad08415d8a2f%3A42" \
   -H "Authorization: Bearer $MINT_API_KEY"
 ```
+```json Response
+{
+  "changes": [
+    {
+      "type": "record.created",
+      "recordId": "9c5b94b1-35ad-49bb-b118-8e8fc24abf80",
+      "column": null,
+      "version": 1,
+      "actor": "key:key_3ZbQ9mXk",
+      "at": "2026-10-03T15:02:44.000Z"
+    }
+  ],
+  "cursor": "6e306bde-6324-4853-9188-ad08415d8a2f:43"
+}
+```
+</CodeGroup>
 
-The stream opens with a `ready` event, replays anything after your position, then pushes each change as it happens.
+Call again with the returned `cursor` until `changes` is empty. Store the cursor after you process each page.
+
+### Expired cursors
+
+Only recent history is kept. A cursor that has fallen out of it, or that belongs to another database, returns `409` with the current cursor:
+
+```json
+{
+  "error": "the cursor expired or belongs to another database; re-read the data and resume from cursor",
+  "code": "cursor_expired",
+  "cursor": "6e306bde-6324-4853-9188-ad08415d8a2f:10412"
+}
+```
+
+You have missed changes, so re-read the data, then continue from the returned `cursor`. A value that is not a change cursor at all returns `400` with `code: "invalid"`.
+
+## Stream changes to a browser
+
+A live updates session gives the browser a stream URL with a short-lived token in it, so your API key stays on your server.
+
+<Steps>
+  <Step title="Start a session on your server">
+    Call [Start live updates session](/api/databases/create-events-session) with a `read` key and pass the result to the browser.
+
+    ```js server.js
+    app.post("/app-versions/live", async (req, res) => {
+      const response = await fetch(`${BASE}/app_versions/events/session`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.MINT_API_KEY}` },
+      });
+      res.status(response.status).json(await response.json());
+    });
+    ```
+
+    ```json Response
+    {
+      "url": "https://api.mintlify.com/api/external/v1/databases/events?token=eyJhbGciOi...",
+      "token": "eyJhbGciOi...",
+      "expiresAt": "2026-10-03T15:10:00.000Z"
+    }
+    ```
+
+    The token is read-only, works for this one database, and opens streams for 5 minutes. It is checked when a stream opens, so an open stream keeps running after `expiresAt`.
+  </Step>
+
+  <Step title="Open the stream">
+    Open `url` with `EventSource` ([Stream live updates](/api/databases/stream-events)). Append `&cursor=` with a change cursor to receive only the changes after it. Without one, the stream first replays the change history it still holds.
+
+    ```js app.js
+    let cursor = database.cursor; // from Get database, read before the records
+
+    async function connect() {
+      const { url } = await fetch("/app-versions/live", { method: "POST" }).then((r) => r.json());
+      const source = new EventSource(`${url}&cursor=${encodeURIComponent(cursor)}`);
+
+      source.addEventListener("change", (event) => {
+        applyChange(JSON.parse(event.data));
+        cursor = event.lastEventId;
+      });
+
+      source.addEventListener("reset", async () => {
+        await reloadRecords();
+      });
+
+      source.addEventListener("reconnect", (event) => {
+        source.close();
+        cursor = JSON.parse(event.data).cursor;
+        connect();
+      });
+
+      source.onerror = () => {
+        if (source.readyState === EventSource.CLOSED) setTimeout(connect, 1000);
+      };
+    }
+
+    connect();
+    ```
+  </Step>
+</Steps>
+
+### Events
+
+| Event | Data | Meaning |
+| --- | --- | --- |
+| `ready` | `{ "cursor" }` | The stream is open. `cursor` is the latest change cursor. |
+| `change` | A [change](#changes) | Something changed. The event id is the change cursor after it. |
+| `reset` | | The change log restarted, or your cursor is no longer in it. Re-read the data. The stream then replays the history it holds. |
+| `reconnect` | `{ "cursor" }` | The stream reached its time limit and is closing. Reconnect from `cursor`. |
+
+Lines that start with `:` are heartbeats. `EventSource` ignores them.
 
 ```text
 event: ready
-data: {"epoch":"6e306bde-6324-4853-9188-ad08415d8a2f","latestSeq":12}
+data: {"cursor":"6e306bde-6324-4853-9188-ad08415d8a2f:42"}
 
-id: 6e306bde-6324-4853-9188-ad08415d8a2f:13
 event: change
-data: {"seq":13,"kind":"row.updated","rowId":"502e5c75-…","columnId":null,"rev":3,"actor":"key:key_2f8a","at":"2026-09-16T07:01:12.108Z"}
+id: 6e306bde-6324-4853-9188-ad08415d8a2f:43
+data: {"type":"record.created","recordId":"9c5b94b1-35ad-49bb-b118-8e8fc24abf80","column":null,"version":1,"actor":"key:key_3ZbQ9mXk","at":"2026-10-03T15:02:44.000Z"}
 
 : heartbeat
 ```
 
-## Events
+### Reconnect
 
-| `event` | When |
-| --- | --- |
-| `ready` | The stream is open. `data` has the current `epoch` and `latestSeq`. |
-| `change` | A mutation happened. `id` is `epoch:seq`. |
-| `reset` | Your position is no longer valid, usually because the database was deleted and recreated. Discard local state and refetch; the stream then replays from the start. |
-| `reconnect` | The stream is closing on purpose. Reconnect with the `since` value in `data`. |
-| `error` | The database is gone or you lost access. |
+When a connection drops, `EventSource` reconnects to the same URL and sends the id of the last event it received as `Last-Event-ID`. The stream resumes after that id, and `Last-Event-ID` takes precedence over `cursor` in the URL.
 
-`change.kind` is one of `database.updated`, `column.added`, `column.updated`, `column.deleted`, `row.created`, `row.updated`, `row.deleted`.
-
-## Resuming
-
-Streams close after five minutes. Reconnect with the id of the last event you processed, either as the `Last-Event-ID` header, which browsers' `EventSource` sends automatically, or as `?since=`.
-
-```bash
-GET /v1/databases/{projectId}/{databaseId}/events?since=6e306bde-6324-4853-9188-ad08415d8a2f:13
-```
-
-Ids carry an epoch so a stale position from before a wipe-and-recreate cannot be mistaken for a valid one. If your position does not belong to the current epoch, or is ahead of the current log, you receive `reset` followed by a full replay. Always resume with the full `epoch:seq` id: a bare sequence number has no epoch to check, so the stream treats it as unknown and replays from the start.
-
-The log retains the most recent 10,000 changes. A position older than that also triggers `reset`.
-
-## Read the log without streaming
-
-```bash
-GET /v1/databases/{projectId}/{databaseId}/changes?since=12
-```
-
-Returns `{ "epoch", "changes": [...], "latestSeq", "oldestSeq" }` with up to 500 changes after `since`. Useful for batch jobs that reconcile on a schedule.
+That works only while the token is valid. After `expiresAt`, the reconnect gets `401` and `EventSource` closes. Start a new session and open its URL with `&cursor=` set to the last event id you processed, as `connect()` does above. Do the same on a `reconnect` event.

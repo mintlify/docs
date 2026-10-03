@@ -1,0 +1,89 @@
+---
+title: "SQL queries"
+description: "Run one read-only SELECT over a database for counts, sums, grouping, and ranges, with the supported SQL dialect, functions, and limits."
+keywords: ["databases", "SQL", "SELECT", "aggregate", "GROUP BY", "has", "multi_select"]
+---
+
+<Info>
+  Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
+</Info>
+
+Use [Run SQL query](/api/databases/run-sql) for questions that [filters](/databases/records#filter-records) cannot answer: aggregates, grouping, and conditions that combine columns. A query cannot write, so it needs only the `read` scope.
+
+```bash
+curl -X POST "$BASE/app_versions/sql" \
+  -H "Authorization: Bearer $MINT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "SELECT \"App\", max(\"Release date\") AS latest FROM records WHERE \"Channel\" = ? AND has(\"Platforms\", ?) GROUP BY \"App\" ORDER BY latest DESC",
+    "params": ["stable", "macOS"]
+  }'
+```
+
+```json Response
+{
+  "columns": ["App", "latest"],
+  "rows": [
+    ["Studio", "2026-10-01"],
+    ["Companion", "2026-09-18"]
+  ],
+  "truncated": false
+}
+```
+
+`rows` holds one array per row, with values in `columns` order. `multi_select` and `json` values come back as arrays and objects, and booleans as `true` and `false`.
+
+## Dialect
+
+Queries use a subset of SQLite syntax.
+
+- **One table.** Select from `records`, optionally with an alias.
+- **Columns by name.** Refer to a column by its name in any case, or by its `col_` id. Quote names that contain spaces or capitals with double quotes, such as `"Release date"`.
+- **Built-in columns.** `id`, `version`, `created_at`, `updated_at`, `created_by`, and `updated_by` are available too. `created_at` and `updated_at` are milliseconds since the Unix epoch. A column of yours with the same name takes precedence.
+- **Clauses.** `DISTINCT`, `AS` aliases, `*`, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY` (by expression, alias, or position), `LIMIT`, and `OFFSET`.
+- **Operators.** Comparison, boolean, and arithmetic operators, `||`, `IN` with a list of values, `BETWEEN`, `IS NULL`, `IS NOT NULL`, `LIKE` with optional `ESCAPE`, `CASE`, and `CAST` to `TEXT`, `INTEGER`, `REAL`, or `NUMERIC`.
+- **Parameters.** Bind values with `?` placeholders and `params`, in order. Pass strings that contain a backslash as parameters.
+
+`SELECT *` returns `id`, then every column in display order.
+
+## Functions
+
+| Kind | Functions |
+| --- | --- |
+| Aggregate | `count`, `sum`, `avg`, `min`, `max`, `total`, `group_concat` |
+| Text | `lower`, `upper`, `length`, `substr`, `trim`, `ltrim`, `rtrim`, `replace`, `instr` |
+| Null handling | `coalesce`, `ifnull`, `nullif` |
+| Number | `abs`, `round` |
+| Date and time | `date`, `time`, `datetime`, `julianday`, `strftime` |
+| Other | `typeof`, `has` |
+
+`has(column, value)` is true when a `multi_select` field contains `value`, for example `has("Platforms", 'Linux')`.
+
+Any other function is refused.
+
+## Not supported
+
+Joins, subqueries, common table expressions (`WITH`), `UNION`, `INTERSECT`, `EXCEPT`, window functions, other tables, statements other than `SELECT`, and comments are refused. Chained comparisons, and `||` next to `*`, `/`, or `%`, need parentheses.
+
+A refused query returns `422` with `code: "invalid"`. When the problem has a place in the query, `position` points at it. For `SELECT count(*) FROM records -- all releases`:
+
+```json
+{
+  "error": "comments are not allowed",
+  "code": "invalid",
+  "fields": { "body": "comments are not allowed" },
+  "position": { "offset": 29, "line": 1, "column": 30 }
+}
+```
+
+## Limits
+
+| Limit | Value |
+| --- | --- |
+| Rows returned without `LIMIT` | 100 |
+| Rows returned with `LIMIT` | 1,000 |
+| Result size | About 1 MB |
+| Query length | 10 KB |
+| Parameters | 100 |
+
+`truncated` is `true` when a cap cut the result short. Add a `LIMIT`, or page with `LIMIT` and `OFFSET`, to get more rows.
