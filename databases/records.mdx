@@ -1,0 +1,141 @@
+---
+title: "Records"
+description: "Write records keyed by column name, avoid overwriting concurrent edits with versions and If-Match, and filter, sort, count, and page through records."
+keywords: ["databases", "records", "fields", "version", "ETag", "If-Match", "filters", "count", "cursor"]
+---
+
+<Info>
+  Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
+</Info>
+
+A record is one row of a database. It has an `id`, a `version`, and `fields` keyed by column name.
+
+```json
+{
+  "id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  "version": 3,
+  "fields": {
+    "App": "Studio",
+    "Version": "4.2.0",
+    "Channel": "stable",
+    "Platforms": ["macOS", "Windows"],
+    "Release date": "2026-10-01",
+    "Downloads": 1840
+  },
+  "createdAt": "2026-10-03T12:01:00.000Z",
+  "updatedAt": "2026-10-03T14:22:10.000Z",
+  "createdBy": "key:key_3ZbQ9mXk",
+  "updatedBy": "user:65a1f0c2e4b0d93a7c1e2f44"
+}
+```
+
+Fields with no value are omitted. `createdBy` and `updatedBy` name the user or API key that wrote the record.
+
+## Write records
+
+| To | Use |
+| --- | --- |
+| Create one record | [Create record](/api/databases/create-record) with `{ "fields": { … } }`. |
+| Create or update up to 500 records at once | [Upsert records](/api/databases/upsert-records). Every record is written or none is. |
+| Change some fields of a record | [Update record](/api/databases/update-record). |
+| Delete a record | [Delete record](/api/databases/delete-record). |
+
+Updates merge: fields you omit keep their values, and `null` clears a field.
+
+```bash
+curl -X PATCH "$BASE/app_versions/records/1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed" \
+  -H "Authorization: Bearer $MINT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "fields": { "Downloads": 2210, "Download URL": null } }'
+```
+
+In an upsert, a record with an `id` that exists is updated the same way. A record without an `id`, or with an `id` that does not exist yet, is created. Send your own ids, for example a UUID derived from the app and version, to make a pipeline safe to run twice.
+
+An invalid write returns `422` with a message per field, keyed by its path in the body:
+
+```json
+{
+  "error": "some values are invalid",
+  "code": "invalid",
+  "fields": {
+    "records.1.fields.Release date": "expected a date as YYYY-MM-DD",
+    "records.1.fields.Channel": "expected one of: stable, beta"
+  }
+}
+```
+
+## Versions and conditional writes
+
+Every write increases a record's `version`. Single-record responses also send it as a quoted `ETag` header, such as `ETag: "3"`.
+
+To change a record only if nobody else has changed it since you read it, send that version in `If-Match`:
+
+```bash
+curl -X PATCH "$BASE/app_versions/records/1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed" \
+  -H "Authorization: Bearer $MINT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H 'If-Match: "3"' \
+  -d '{ "fields": { "Channel": "beta" } }'
+```
+
+If the record has moved on, nothing is written and the response is `412`:
+
+```json
+{
+  "error": "the record changed since the version in If-Match",
+  "code": "version_mismatch",
+  "version": 4
+}
+```
+
+Read the record again, reapply your change, and retry with the new version. Delete accepts `If-Match` the same way. Without `If-Match`, the last write wins.
+
+## List records
+
+[List records](/api/databases/list-records) pages through every record in creation order. Sort by one column with `sort`, such as `sort=Release date:desc`, and set the page size with `limit`, from 1 to 100. The default is 50.
+
+Each page returns `nextCursor`. Pass it as `cursor` to get the next page. It is `null` on the last page. Cursors are opaque: pass them back unchanged.
+
+## Filter records
+
+[Query records](/api/databases/query-records) takes filters in the body. Every filter must match.
+
+```json
+{
+  "where": [
+    { "column": "Channel", "op": "in", "value": ["stable", "beta"] },
+    { "column": "Release date", "op": "gte", "value": "2026-07-01" },
+    { "column": "Download URL", "op": "is_not_empty" }
+  ],
+  "sort": { "column": "Release date", "direction": "desc" },
+  "limit": 25,
+  "count": true
+}
+```
+
+A query can have up to 20 filters and one sort. `in` takes an array of 1 to 100 values. `is_empty` and `is_not_empty` take no value. Every other operator takes one value.
+
+| Operator | `text`, `url`, `email` | `number`, `date`, `datetime` | `boolean`, `select` | `multi_select` | `json` |
+| --- | --- | --- | --- | --- | --- |
+| `eq`, `neq` | Yes | Yes | Yes | No | No |
+| `in` | Yes | Yes | Yes | Has any of the values | No |
+| `contains` | Substring | No | No | Has the value | No |
+| `starts_with` | Yes | No | No | No | No |
+| `gt`, `gte`, `lt`, `lte` | Yes | Yes | No | No | No |
+| `is_empty`, `is_not_empty` | Yes | Yes | Yes | Yes | Yes |
+
+- Filter values are checked against the column type the way writes are. A select value does not need to be an option; an unknown option matches nothing.
+- `neq` also matches records where the field is empty.
+- `contains` and `starts_with` ignore case for ASCII letters.
+- Empty means missing or `null`, plus `""` on text and select columns and `[]` on `multi_select`.
+- `multi_select` and `json` columns cannot be sorted.
+
+### Count
+
+Set `count: true` to also get `total`, the number of records that match the filters across all pages. Leave it off when you do not need it.
+
+### Page through a query
+
+Pass `nextCursor` as `cursor` with the same filters and sort to get the next page.
+
+For aggregates, grouping, or conditions filters cannot express, use [SQL](/databases/sql).

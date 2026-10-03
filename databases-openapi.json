@@ -1,69 +1,1058 @@
 {
-  "openapi": "3.0.1",
+  "openapi": "3.1.0",
   "info": {
     "title": "Mintlify Databases API",
-    "description": "Create databases, manage their columns, and read and write rows. Databases are in early access and enabled per project.",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "description": "API for reading and writing Mintlify Databases.\n\n**Addressing.** `{database}` is the database slug or its id; a slug never looks like a uuid. `{column}` is the column name, matched case-insensitively, or its `col_…` id; an unknown name answers 404 listing the column names. `{id}` is a record id.\n\n**Scopes.** API keys carry a read or write scope. GET operations need `read`; POST, PUT, PATCH and DELETE need `write`, except `POST /records/query`, `POST /sql` and `POST /events/session`, which only read and need `read`. Each operation also states its scope in `x-mintlify-scope`.\n\n**Idempotency.** `POST /` (create a database), `POST /records` and `PUT /records` accept an `Idempotency-Key` header. The first response is replayed for 24 hours; reusing a key with a different body returns 422 `idempotency_key_reused`.\n\n**Concurrency.** Records carry a `version`, also sent as a quoted `ETag`. `PATCH` and `DELETE` on a record accept `If-Match` and return 412 `version_mismatch` when it is stale.\n\n**Errors.** Every error body is `{ error, code, fields?, ...details }`. 400 means a malformed request (unparseable JSON, bad path or query parameter); 422 means a well-formed body that failed validation, with per-field messages in `fields`."
   },
   "servers": [
     {
-      "url": "https://api.mintlify.com/v1"
+      "url": "https://api.mintlify.com",
+      "description": "Production"
     }
   ],
-  "security": [
-    {
-      "bearerAuth": []
-    }
-  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "API key authentication"
+      }
+    },
+    "schemas": {
+      "DatabaseSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Database id",
+            "example": "8f14e45f-ceea-467f-a0e6-4b7ab2a5f2a1"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "Lowercase letters, digits and underscores, starting with a letter, at most 63 characters. A uuid can never be a valid slug.",
+            "example": "customers"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "example": "Customers"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC",
+            "example": "2026-10-03T12:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC",
+            "example": "2026-10-03T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "createdAt",
+          "updatedAt"
+        ],
+        "description": "A database without its columns, row count or cursor. Get the database for those."
+      },
+      "DatabaseList": {
+        "type": "object",
+        "properties": {
+          "databases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseSummary"
+            },
+            "description": "Oldest first"
+          }
+        },
+        "required": [
+          "databases"
+        ]
+      },
+      "DatabaseError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable message",
+            "example": "not found"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable code. Known codes: invalid, unauthorized, forbidden, not_found, conflict, cursor_expired, version_mismatch, too_large, unsupported_media_type, idempotency_key_reused, rate_limited, upstream, unavailable, internal.",
+            "example": "not_found"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Per-field validation messages, keyed by the path of the offending field"
+          }
+        },
+        "required": [
+          "error",
+          "code"
+        ],
+        "description": "Every error has this shape. Some codes carry extra details beside `error` and `code`, such as `cursor` on `cursor_expired` and `version` on `version_mismatch`."
+      },
+      "Column": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Column name, unique within the database",
+            "example": "Email"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "boolean",
+              "date",
+              "datetime",
+              "select",
+              "multi_select",
+              "url",
+              "email",
+              "json"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "indexed": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based display order"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 200,
+            "description": "Allowed values. Select types only."
+          },
+          "strict": {
+            "type": "boolean",
+            "description": "Select types only. When false, writing a value that is not in `options` adds it as a new option. When true, such a write is rejected."
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "required",
+          "indexed",
+          "position"
+        ],
+        "description": "Types: text, number, boolean, date (YYYY-MM-DD), datetime (ISO 8601 UTC), select, multi_select, url, email, json."
+      },
+      "Database": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Database id",
+            "example": "8f14e45f-ceea-467f-a0e6-4b7ab2a5f2a1"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "Lowercase letters, digits and underscores, starting with a letter, at most 63 characters. A uuid can never be a valid slug.",
+            "example": "customers"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "example": "Customers"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Column"
+            },
+            "description": "Columns in `position` order"
+          },
+          "rowCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque change cursor. Pass it back unchanged; do not parse or construct it. Change cursors are shared across `cursor` on a database, `GET /{database}/changes` and the `id` of each live event, so any of them resumes the others. This one is as of this read: pass it to `GET /{database}/changes` to receive every change made after it."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC",
+            "example": "2026-10-03T12:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC",
+            "example": "2026-10-03T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "columns",
+          "rowCount",
+          "cursor",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateDatabaseBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "example": "Customers"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "Derived from `name` when omitted",
+            "example": "customers"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateDatabaseBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Renaming does not change the slug"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "description": "Changes only when sent",
+            "example": "customers"
+          }
+        }
+      },
+      "Deleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deleted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "deleted"
+        ]
+      },
+      "ColumnInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Column name, unique within the database",
+            "example": "Email"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "number",
+              "boolean",
+              "date",
+              "datetime",
+              "select",
+              "multi_select",
+              "url",
+              "email",
+              "json"
+            ]
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Defaults to false"
+          },
+          "indexed": {
+            "type": "boolean",
+            "description": "Defaults to false"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 200,
+            "description": "Allowed values. Select types only."
+          },
+          "strict": {
+            "type": "boolean",
+            "description": "Select types only. Defaults to false, so writing a new value adds it as an option."
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ]
+      },
+      "AddColumnsBody": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnInput"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "columns"
+        ]
+      },
+      "UpdateColumnBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Column name, unique within the database",
+            "example": "Email"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "indexed": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maxItems": 200,
+            "description": "Allowed values. Select types only."
+          },
+          "strict": {
+            "type": "boolean",
+            "description": "Select types only. When false, writing a value that is not in `options` adds it as a new option. When true, such a write is rejected."
+          }
+        },
+        "description": "A column's type cannot change. `options` and `strict` are rejected on columns that are not select types."
+      },
+      "Fields": {
+        "type": "object",
+        "additionalProperties": {
+          "description": "The value for the column's type: a string for text, url, email, select, date (YYYY-MM-DD) and datetime (ISO 8601 UTC); a number; a boolean; an array of strings for multi_select; any JSON value for json. `null` clears the field."
+        },
+        "description": "Field values keyed by column name",
+        "example": {
+          "Name": "Ada Lovelace",
+          "Email": "ada@example.com",
+          "Plan": "pro"
+        }
+      },
+      "Record": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Record id",
+            "example": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "description": "Increases on every write. Also sent as the `ETag` header, quoted.",
+            "example": 3
+          },
+          "fields": {
+            "$ref": "#/components/schemas/Fields"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC",
+            "example": "2026-10-03T12:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC",
+            "example": "2026-10-03T12:00:00.000Z"
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "Actor that created the record"
+          },
+          "updatedBy": {
+            "type": "string",
+            "description": "Actor that last wrote the record"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "fields",
+          "createdAt",
+          "updatedAt",
+          "createdBy",
+          "updatedBy"
+        ]
+      },
+      "RecordPage": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Record"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Null on the last page"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Present when the query set `count: true`"
+          }
+        },
+        "required": [
+          "records",
+          "nextCursor"
+        ]
+      },
+      "Filter": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Column name, matched case-insensitively, or its `col_…` id",
+            "example": "Email"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "eq",
+              "neq",
+              "in",
+              "contains",
+              "starts_with",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "is_empty",
+              "is_not_empty"
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                }
+              }
+            ],
+            "description": "An array for `in`; omitted for `is_empty` and `is_not_empty`; a single value otherwise."
+          }
+        },
+        "required": [
+          "column",
+          "op"
+        ]
+      },
+      "Sort": {
+        "type": "object",
+        "properties": {
+          "column": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Column name, matched case-insensitively, or its `col_…` id",
+            "example": "Email"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "default": "asc"
+          }
+        },
+        "required": [
+          "column"
+        ]
+      },
+      "QueryRecordsBody": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Filter"
+            },
+            "maxItems": 20,
+            "description": "Filters, all of which must match"
+          },
+          "sort": {
+            "$ref": "#/components/schemas/Sort"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Page size, 1-100 (default 50)"
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "`nextCursor` from the previous page of the same query"
+          },
+          "count": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also return `total`, the number of matching records"
+          }
+        }
+      },
+      "CreateRecordBody": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "$ref": "#/components/schemas/Fields"
+          }
+        },
+        "required": [
+          "fields"
+        ]
+      },
+      "UpsertRecordsResult": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Record"
+            },
+            "description": "In request order"
+          },
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "records",
+          "created",
+          "updated"
+        ]
+      },
+      "UpsertRecordsBody": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Updates this record, or creates it with this id",
+                  "example": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+                },
+                "fields": {
+                  "$ref": "#/components/schemas/Fields"
+                }
+              },
+              "required": [
+                "fields"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 500
+          }
+        },
+        "required": [
+          "records"
+        ]
+      },
+      "VersionMismatchError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatabaseError"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "version_mismatch"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "description": "The current record version"
+              }
+            },
+            "required": [
+              "version"
+            ]
+          }
+        ],
+        "description": "The record changed since the version sent in `If-Match`."
+      },
+      "UpdateRecordBody": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "$ref": "#/components/schemas/Fields"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "description": "Merged into the record: fields you omit keep their values, and `null` clears one."
+      },
+      "SqlResult": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Output column names, in select-list order"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {}
+            },
+            "description": "One array per row, its values in `columns` order. multi_select and json values come back as arrays and objects, booleans as booleans."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "Whether the server's row or size cap cut the result short"
+          }
+        },
+        "required": [
+          "columns",
+          "rows",
+          "truncated"
+        ]
+      },
+      "SqlPosition": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based character offset"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "offset",
+          "line",
+          "column"
+        ],
+        "description": "Where in the query the problem is"
+      },
+      "SqlError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatabaseError"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid"
+                ]
+              },
+              "position": {
+                "$ref": "#/components/schemas/SqlPosition"
+              }
+            }
+          }
+        ],
+        "description": "The query was refused. `position` points at the problem when it has a place."
+      },
+      "SqlBody": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10240,
+            "description": "One SELECT from `records`. Bind values with `?` and `params`.",
+            "example": "SELECT \"Plan\", count(*) AS n FROM records WHERE \"Signed up\" >= ? GROUP BY \"Plan\""
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "maxItems": 100,
+            "description": "Values for the `?` placeholders, in order; at most 100",
+            "example": [
+              "2026-01-01"
+            ]
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "Change": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "database.updated",
+              "column.added",
+              "column.updated",
+              "column.deleted",
+              "record.created",
+              "record.updated",
+              "record.deleted"
+            ]
+          },
+          "recordId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Set on record changes",
+            "example": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+          },
+          "column": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set on column changes: the column's current name, or its `col_…` id when the column has been deleted since (always so for `column.deleted`)."
+          },
+          "version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "description": "Record version after the change, set on record changes",
+            "example": 3
+          },
+          "actor": {
+            "type": "string",
+            "description": "Who made the change"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp in UTC",
+            "example": "2026-10-03T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "type",
+          "recordId",
+          "column",
+          "version",
+          "actor",
+          "at"
+        ]
+      },
+      "ChangePage": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "description": "Oldest first"
+          },
+          "cursor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The cursor after the last change returned, or the one sent when there were none. Pass it to the next request."
+          }
+        },
+        "required": [
+          "changes",
+          "cursor"
+        ]
+      },
+      "CursorExpiredError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DatabaseError"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "cursor_expired"
+                ]
+              },
+              "cursor": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The current change cursor to resume from, after re-reading the data"
+              }
+            },
+            "required": [
+              "cursor"
+            ]
+          }
+        ],
+        "description": "The cursor expired or belongs to another database; resume from `cursor`."
+      },
+      "EventsSession": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The Server-Sent Events endpoint, `https://api.mintlify.com/api/external/v1/databases/events?token=…`, with `token` already in its query string so a browser `EventSource` can open it without an API key. Append `&cursor=` with a change cursor to receive only the changes after it."
+          },
+          "token": {
+            "type": "string",
+            "description": "The signed token that is `url`'s only credential: read-only, for this one database, valid for 5 minutes. It is checked when the stream opens."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When `token` stops opening streams, 5 minutes after the session started",
+            "example": "2026-10-03T12:00:00.000Z"
+          }
+        },
+        "required": [
+          "url",
+          "token",
+          "expiresAt"
+        ]
+      }
+    },
+    "parameters": {}
+  },
   "paths": {
-    "/databases/{projectId}": {
+    "/api/external/v1/databases/{projectId}": {
       "get": {
-        "summary": "List databases",
         "operationId": "listDatabases",
-        "description": "List the databases on a project, oldest first.",
+        "summary": "List databases",
+        "description": "Lists the project's databases with their ids, slugs and names. Get a database for its columns, row count and change cursor.\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "read",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "The project's databases.",
+            "description": "The project's databases",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "databases"
-                  ],
-                  "properties": {
-                    "databases": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Database"
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/DatabaseList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -71,12 +1060,38 @@
         }
       },
       "post": {
-        "summary": "Create database",
         "operationId": "createDatabase",
-        "description": "Create a database. The slug is derived from the name unless you pass one. It is used by the `<Database />` component to reference the database from a page.",
+        "summary": "Create a database",
+        "description": "Creates an empty database. The slug is derived from `name` unless you send one.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "description": "Replays the first response for 24 hours when the same key is sent again. Reusing a key with a different body returns 422 `idempotency_key_reused`."
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -84,14 +1099,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateDatabase"
+                "$ref": "#/components/schemas/CreateDatabaseBody"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "The database. `status` is `ready` once storage is initialised.",
+            "description": "The new database",
             "content": {
               "application/json": {
                 "schema": {
@@ -100,42 +1115,112 @@
               }
             }
           },
-          "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "409": {
-            "description": "A database with this slug already exists on the project.",
+            "description": "The slug is taken on this project, or a request with the same `Idempotency-Key` is still in progress (`conflict`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large (`too_large`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "422": {
-            "description": "The name is empty or no slug can be derived from it.",
+            "description": "The body failed validation (`invalid`, with `fields`), or the `Idempotency-Key` was already used with a different body (`idempotency_key_reused`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -143,22 +1228,44 @@
         }
       }
     },
-    "/databases/{projectId}/{databaseId}": {
+    "/api/external/v1/databases/{projectId}/{database}": {
       "get": {
-        "summary": "Get database",
         "operationId": "getDatabase",
-        "description": "Get a database. If the database is still `initializing`, this call retries initialisation.",
+        "summary": "Get a database",
+        "description": "Returns the database with its columns, row count and current change cursor.\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "read",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "The database.",
+            "description": "The database",
             "content": {
               "application/json": {
                 "schema": {
@@ -167,22 +1274,239 @@
               }
             }
           },
-          "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateDatabase",
+        "summary": "Update a database",
+        "description": "Renames the database or changes its slug. Renaming changes only `name`; the slug changes only when sent, and the old slug stops resolving.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDatabaseBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Database"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The project, database, column or record does not exist (`not_found`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The slug is taken on this project (`conflict`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large (`too_large`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation (`invalid`, with `fields`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -190,50 +1514,116 @@
         }
       },
       "delete": {
-        "summary": "Delete database",
         "operationId": "deleteDatabase",
-        "description": "Delete a database and every row in it. There is no undo.",
+        "summary": "Delete a database",
+        "description": "Permanently deletes the database, its columns and its records.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "Deleted.",
+            "description": "The database was deleted",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "deleted": {
-                      "type": "string",
-                      "format": "uuid"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Deleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -241,46 +1631,628 @@
         }
       }
     },
-    "/databases/{projectId}/{databaseId}/col": {
-      "get": {
-        "summary": "Get schema",
-        "operationId": "getSchema",
-        "description": "Get the database's columns and the latest change sequence.",
-        "parameters": [
+    "/api/external/v1/databases/{projectId}/{database}/columns": {
+      "post": {
+        "operationId": "addColumns",
+        "summary": "Add columns",
+        "description": "Adds one or more columns, atomically, after the existing ones.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
           {
-            "$ref": "#/components/parameters/projectId"
-          },
-          {
-            "$ref": "#/components/parameters/databaseId"
+            "bearerAuth": []
           }
         ],
+        "x-mintlify-scope": "write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddColumnsBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "The schema.",
+            "description": "The database with its new columns",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Schema"
+                  "$ref": "#/components/schemas/Database"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A column with that name already exists (`conflict`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large (`too_large`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation (`invalid`, with `fields`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/external/v1/databases/{projectId}/{database}/columns/{column}": {
+      "patch": {
+        "operationId": "updateColumn",
+        "summary": "Update a column",
+        "description": "Renames, reorders or reconfigures a column. Records keep their values under the new name.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "Column name, matched case-insensitively, or its `col_…` id",
+              "example": "Email"
+            },
+            "required": true,
+            "name": "column",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateColumnBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The database with the updated column",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Database"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The project, database, column or record does not exist (`not_found`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A column with the new name already exists (`conflict`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large (`too_large`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation (`invalid`, with `fields`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteColumn",
+        "summary": "Delete a column",
+        "description": "Deletes the column and its value in every record.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "Column name, matched case-insensitively, or its `col_…` id",
+              "example": "Email"
+            },
+            "required": true,
+            "name": "column",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The database without the column",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Database"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The project, database, column or record does not exist (`not_found`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/external/v1/databases/{projectId}/{database}/records": {
+      "get": {
+        "operationId": "listRecords",
+        "summary": "List records",
+        "description": "Pages through records. Use `POST /records/query` to filter or count.\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "description": "Page size, 1-100 (default 50)"
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "`nextCursor` from the previous page"
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "A column, optionally suffixed with `:asc` or `:desc`, e.g. `Signed up:desc`. Defaults to creation order."
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The project, database, column or record does not exist (`not_found`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -288,15 +2260,48 @@
         }
       },
       "post": {
-        "summary": "Add columns",
-        "operationId": "addColumns",
-        "description": "Add one or more columns. A database can have at most 100 columns and 60 indexed columns. A new column cannot be `required` when the database already has rows; add it optional, backfill, then set `required`.",
+        "operationId": "createRecord",
+        "summary": "Create a record",
+        "description": "Create a record\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "description": "Replays the first response for 24 hours when the same key is sent again. Reusing a key with a different body returns 422 `idempotency_key_reused`."
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -304,269 +2309,128 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "columns"
-                ],
-                "properties": {
-                  "columns": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "$ref": "#/components/schemas/ColumnInput"
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/CreateRecordBody"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "The full column list, including the new ids.",
+            "description": "The new record",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "description": "The record version, quoted",
+                  "example": "\"3\""
+                },
+                "required": true
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ColumnList"
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large (`too_large`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "description": "The body failed validation (`invalid`, with `fields`), or the `Idempotency-Key` was already used with a different body (`idempotency_key_reused`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/databases/{projectId}/{databaseId}/col/{columnId}": {
-      "patch": {
-        "summary": "Update column",
-        "operationId": "updateColumn",
-        "description": "Rename, reorder, toggle `indexed` or `required`, or change `options`. Renames never touch rows. `required` can only be turned on when every row has a value.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/projectId"
-          },
-          {
-            "$ref": "#/components/parameters/databaseId"
-          },
-          {
-            "$ref": "#/components/parameters/columnId"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateColumn"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "The updated column.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Column"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
-          "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
-          "404": {
-            "description": "Unknown project, database, column, or row.",
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete column",
-        "operationId": "deleteColumn",
-        "description": "Delete a column and remove its value from every row.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/projectId"
-          },
-          {
-            "$ref": "#/components/parameters/databaseId"
-          },
-          {
-            "$ref": "#/components/parameters/columnId"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The remaining columns.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ColumnList"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Unknown project, database, column, or row.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/databases/{projectId}/{databaseId}/rows": {
-      "get": {
-        "summary": "List rows",
-        "operationId": "listRows",
-        "description": "List rows with optional equality filters, a sort, and cursor pagination. Filter with `where[<columnId>]=<value>`; for `multi_select` columns the filter matches rows whose array contains the value. Cursors are stable under concurrent writes.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/projectId"
-          },
-          {
-            "$ref": "#/components/parameters/databaseId"
-          },
-          {
-            "name": "sort",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "`<columnId>` or `<columnId>:desc`. Defaults to newest first. `json` and `multi_select` columns cannot be sorted."
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 200,
-              "default": 50
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "The `nextCursor` from the previous page."
-          },
-          {
-            "name": "where[columnId]",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Equality filter. Replace `columnId` with a real column id and repeat for several columns."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "A page of rows.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RowPage"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Unknown project, database, column, or row.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -574,15 +2438,48 @@
         }
       },
       "put": {
-        "summary": "Bulk upsert rows",
-        "operationId": "upsertRows",
-        "description": "Create or update up to 500 rows in one atomic call. An entry whose `id` matches an existing row is merged into it; any other entry becomes a new row with that id, or a generated one. If any entry fails validation, nothing is written.",
+        "operationId": "upsertRecords",
+        "summary": "Upsert records",
+        "description": "Creates or updates up to 500 records in one atomic write: either every record is written or none is. A record with an `id` that exists is updated, merging its `fields`; any other record is created.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "description": "Replays the first response for 24 hours when the same key is sent again. Reusing a key with a different body returns 422 `idempotency_key_reused`."
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -590,90 +2487,118 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "rows"
-                ],
-                "properties": {
-                  "rows": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 500,
-                    "items": {
-                      "$ref": "#/components/schemas/UpsertRow"
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/UpsertRecordsBody"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The written rows and counts.",
+            "description": "The written records",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "rows",
-                    "created",
-                    "updated"
-                  ],
-                  "properties": {
-                    "rows": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Row"
-                      }
-                    },
-                    "created": {
-                      "type": "integer"
-                    },
-                    "updated": {
-                      "type": "integer"
-                    }
-                  }
+                  "$ref": "#/components/schemas/UpsertRecordsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "413": {
-            "description": "A row exceeds 2 MB of JSON.",
+            "description": "The request body is too large (`too_large`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "description": "The body failed validation (`invalid`, with `fields`), or the `Idempotency-Key` was already used with a different body (`idempotency_key_reused`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -681,17 +2606,39 @@
         }
       }
     },
-    "/databases/{projectId}/{databaseId}/row": {
+    "/api/external/v1/databases/{projectId}/{database}/records/query": {
       "post": {
-        "summary": "Create row",
-        "operationId": "createRow",
-        "description": "Create a row. Values are keyed by column id and validated against each column's type. Missing required columns and unknown column ids are rejected.",
+        "operationId": "queryRecords",
+        "summary": "Query records",
+        "description": "Filters, sorts and pages through records. This is a POST so the query can travel in the body, but it reads only and needs just the `read` scope.\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "read",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
           }
         ],
         "requestBody": {
@@ -699,58 +2646,118 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RowInput"
+                "$ref": "#/components/schemas/QueryRecordsBody"
               }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "The row, with `rev` 1.",
+          "200": {
+            "description": "A page of matching records",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Row"
+                  "$ref": "#/components/schemas/RecordPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "413": {
-            "description": "The row exceeds 2 MB of JSON.",
+            "description": "The request body is too large (`too_large`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "description": "The body failed validation (`invalid`, with `fields`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -758,48 +2765,139 @@
         }
       }
     },
-    "/databases/{projectId}/{databaseId}/row/{rowId}": {
+    "/api/external/v1/databases/{projectId}/{database}/records/{id}": {
       "get": {
-        "summary": "Get row",
-        "operationId": "getRow",
+        "operationId": "getRecord",
+        "summary": "Get a record",
+        "description": "Get a record\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "read",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/rowId"
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id",
+              "example": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
           }
         ],
         "responses": {
           "200": {
-            "description": "The row.",
+            "description": "The record",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "description": "The record version, quoted",
+                  "example": "\"3\""
+                },
+                "required": true
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Row"
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -807,21 +2905,59 @@
         }
       },
       "patch": {
-        "summary": "Update row",
-        "operationId": "updateRow",
-        "description": "Merge `columns` into the row and increment `rev`. Set a column to `null` to clear it. Send `If-Match` with the `rev` you last read to make the write conditional.",
+        "operationId": "updateRecord",
+        "summary": "Update a record",
+        "description": "Merges `fields` into the record. Send `If-Match` with the version you read to avoid overwriting a concurrent write.\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/rowId"
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id",
+              "example": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/ifMatch"
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9]\\d*\"$",
+              "description": "The record version you last read, quoted (`\"3\"`). The write fails with 412 if the record has changed since.",
+              "example": "\"3\""
+            },
+            "required": false,
+            "name": "If-Match",
+            "in": "header"
           }
         ],
         "requestBody": {
@@ -829,68 +2965,138 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RowInput"
+                "$ref": "#/components/schemas/UpdateRecordBody"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "The updated row.",
+            "description": "The updated record",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string",
+                  "description": "The record version, quoted",
+                  "example": "\"3\""
+                },
+                "required": true
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Row"
+                  "$ref": "#/components/schemas/Record"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
-          "409": {
-            "description": "`If-Match` did not match the current `rev`. `currentRev` is included.",
+          "412": {
+            "description": "The `If-Match` version does not match the current record (`version_mismatch`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StaleRevisionError"
+                  "$ref": "#/components/schemas/VersionMismatchError"
                 }
               }
             }
           },
           "413": {
-            "description": "The row exceeds 2 MB of JSON.",
+            "description": "The request body is too large (`too_large`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation failed. `fields` maps each column id or query key to a reason.",
+            "description": "The body failed validation (`invalid`, with `fields`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationError"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -898,66 +3104,148 @@
         }
       },
       "delete": {
-        "summary": "Delete row",
-        "operationId": "deleteRow",
-        "description": "Delete a row. Send `If-Match` to refuse the delete if the row changed since you read it.",
+        "operationId": "deleteRecord",
+        "summary": "Delete a record",
+        "description": "Delete a record\n\nRequires the `write` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "write",
         "parameters": [
           {
-            "$ref": "#/components/parameters/projectId"
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/databaseId"
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/rowId"
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Record id",
+              "example": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
           },
           {
-            "$ref": "#/components/parameters/ifMatch"
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9]\\d*\"$",
+              "description": "The record version you last read, quoted (`\"3\"`). The write fails with 412 if the record has changed since.",
+              "example": "\"3\""
+            },
+            "required": false,
+            "name": "If-Match",
+            "in": "header"
           }
         ],
         "responses": {
           "200": {
-            "description": "Deleted.",
+            "description": "The record was deleted",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "deleted": {
-                      "type": "string",
-                      "format": "uuid"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Deleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
-          "409": {
-            "description": "`If-Match` did not match the current `rev`.",
+          "412": {
+            "description": "The `If-Match` version does not match the current record (`version_mismatch`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StaleRevisionError"
+                  "$ref": "#/components/schemas/VersionMismatchError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -965,56 +3253,416 @@
         }
       }
     },
-    "/databases/{projectId}/{databaseId}/changes": {
-      "get": {
-        "summary": "Get changes",
-        "operationId": "getChanges",
-        "description": "Read the change log after a sequence number, up to 500 changes. For a live stream, see the `events` endpoint on the live updates page.",
-        "parameters": [
+    "/api/external/v1/databases/{projectId}/{database}/sql": {
+      "post": {
+        "operationId": "querySql",
+        "summary": "Run a SQL query",
+        "description": "Runs one read-only `SELECT` over the database, for questions filters cannot express: aggregates, grouping and ranges. It reads only, so it needs just the `read` scope.\n\n- **One table.** Select from `records`, optionally aliased. Joins, subqueries, CTEs, `UNION`, window functions, other tables, other statements and comments are refused.\n- **Columns by name.** Reference a column by its name in any case, quoted with `\"…\"` when it has spaces, or by its `col_…` id. `id`, `version`, `created_at`, `updated_at`, `created_by` and `updated_by` are there too.\n- **Clauses.** `DISTINCT`, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT` and `OFFSET`, with comparison, boolean and arithmetic operators, `IN`, `BETWEEN`, `IS NULL`, `LIKE`, `CASE` and `CAST`.\n- **Functions.** Aggregates (`count`, `sum`, `avg`, `min`, `max`, `total`, `group_concat`) and `lower`, `upper`, `length`, `substr`, `trim`, `ltrim`, `rtrim`, `replace`, `instr`, `coalesce`, `ifnull`, `nullif`, `abs`, `round`, `date`, `time`, `datetime`, `julianday`, `strftime`, `typeof`, and `has(column, value)` for multi_select membership. Any other function is refused.\n- **Limits.** Without a `LIMIT`, at most 100 rows come back; with one, at most 1,000. `truncated` says when the cap cut the result. Bind values with `?` and `params` (at most 100).\n\nA refused query answers 422 `invalid`, with `position` when the problem has a place in the query.\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
           {
-            "$ref": "#/components/parameters/projectId"
-          },
-          {
-            "$ref": "#/components/parameters/databaseId"
-          },
-          {
-            "name": "since",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0
-            },
-            "description": "Return changes with `seq` greater than this."
+            "bearerAuth": []
           }
         ],
+        "x-mintlify-scope": "read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SqlBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Changes after `since`.",
+            "description": "The result",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChangeBatch"
+                  "$ref": "#/components/schemas/SqlResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "401": {
-            "description": "Authentication failed, or Databases is not enabled for this project.",
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
           },
           "404": {
-            "description": "Unknown project, database, column, or row.",
+            "description": "The project, database, column or record does not exist (`not_found`)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is too large (`too_large`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The request body is not `application/json` (`unsupported_media_type`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation, or the query was refused (`invalid`, with `position` when it has one)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SqlError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/external/v1/databases/{projectId}/{database}/changes": {
+      "get": {
+        "operationId": "listChanges",
+        "summary": "List changes",
+        "description": "Returns changes made after `cursor`, oldest first, and a cursor to continue from. Call again with the returned cursor until `changes` is empty.\n\nCursors are opaque. The database's `cursor`, the cursor this returns and the `id` of each live event are the same kind of value, so any of them works here and as `Last-Event-ID`.\n\nA change names its column by the column's current name; a column deleted since keeps its `col_…` id, as `column.deleted` always does.\n\nRecent history only is kept: a cursor that has fallen out of it, or that belongs to another database, returns 409 `cursor_expired` with the current cursor; re-read the data and continue from that cursor. A value that is not a change cursor at all returns 400 `invalid`.\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A `cursor` from a database read or a previous changes page, or a live event id. Opaque change cursor. Pass it back unchanged; do not parse or construct it. Change cursors are shared across `cursor` on a database, `GET /{database}/changes` and the `id` of each live event, so any of them resumes the others."
+            },
+            "required": true,
+            "name": "cursor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of changes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangePage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The project, database, column or record does not exist (`not_found`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The cursor expired or belongs to another database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CursorExpiredError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/external/v1/databases/{projectId}/{database}/events/session": {
+      "post": {
+        "operationId": "createEventsSession",
+        "summary": "Start a live updates session",
+        "description": "Returns a Server-Sent Events `url` for this database and the token in it. Opening a session reads only, so it needs just the `read` scope.\n\n- **Token.** Signed, read-only, for this database alone, and valid for 5 minutes. It is the stream's only credential, so the stream takes no API key and a browser `EventSource` can open `url` directly. An expired, altered or unknown token, or one whose database was deleted, gets 401 `unauthorized`. Start a new session to reconnect after `expiresAt`.\n- **Where to start.** Append `&cursor=` with a change cursor, such as the database's `cursor`, to receive only later changes. `Last-Event-ID`, which `EventSource` sends when it reconnects, takes precedence.\n- **Events.** `ready` (`{ cursor }`, the latest cursor) opens the stream. Each `change` carries a `Change` and has a change cursor as its event id. `reset` means the change log restarted: re-read the data. `reconnect` (`{ cursor }`) means the stream reached its time limit: reconnect from `cursor`. Comment lines are heartbeats.\n\nRequires the `read` scope.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-mintlify-scope": "read",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Project identifier"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "description": "Database slug or id",
+              "example": "customers"
+            },
+            "required": true,
+            "name": "database",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request: unparseable JSON or an invalid path or query parameter (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The project, database, column or record does not exist (`not_found`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`rate_limited`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
                 }
               }
             }
@@ -1023,546 +3671,5 @@
       }
     }
   },
-  "components": {
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer",
-        "description": "The Authorization header expects a Bearer token. Use an admin API key. This is a server-side secret key. Generate one on the [API keys page](https://app.mintlify.com/settings/organization/api-keys) in your dashboard."
-      }
-    },
-    "parameters": {
-      "projectId": {
-        "name": "projectId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string"
-        },
-        "description": "Your project ID, from the API keys page in the dashboard."
-      },
-      "databaseId": {
-        "name": "databaseId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "The database `id`."
-      },
-      "columnId": {
-        "name": "columnId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "pattern": "^col_[a-z0-9]{8}$"
-        },
-        "description": "The column `id`."
-      },
-      "rowId": {
-        "name": "rowId",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string",
-          "format": "uuid"
-        },
-        "description": "The row `id`."
-      },
-      "ifMatch": {
-        "name": "If-Match",
-        "in": "header",
-        "required": false,
-        "schema": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "description": "The `rev` you last read. The write is refused with `409` if the row has changed since."
-      }
-    },
-    "schemas": {
-      "ColumnType": {
-        "type": "string",
-        "enum": [
-          "text",
-          "number",
-          "boolean",
-          "date",
-          "select",
-          "multi_select",
-          "url",
-          "email",
-          "json"
-        ]
-      },
-      "Column": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "type",
-          "position",
-          "indexed",
-          "required"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "col_ua6ithuj"
-          },
-          "name": {
-            "type": "string"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ColumnType"
-          },
-          "position": {
-            "type": "integer"
-          },
-          "indexed": {
-            "type": "boolean"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "options": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Allowed values. Present for `select` and `multi_select` columns."
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ColumnInput": {
-        "type": "object",
-        "required": [
-          "name",
-          "type"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          },
-          "type": {
-            "$ref": "#/components/schemas/ColumnType"
-          },
-          "indexed": {
-            "type": "boolean",
-            "description": "Index for filtering and sorting. Not allowed for `multi_select` or `json`."
-          },
-          "required": {
-            "type": "boolean",
-            "description": "Every row must have a value. Not allowed when the database already has rows."
-          },
-          "options": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Allowed values. Required for `select` and `multi_select`."
-          }
-        }
-      },
-      "UpdateColumn": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          },
-          "indexed": {
-            "type": "boolean"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "options": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "position": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "New index in the column order. Other columns shift to keep positions contiguous."
-          }
-        }
-      },
-      "ColumnList": {
-        "type": "object",
-        "required": [
-          "columns"
-        ],
-        "properties": {
-          "columns": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Column"
-            }
-          }
-        }
-      },
-      "Schema": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "columns",
-          "latestSeq"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "columns": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Column"
-            }
-          },
-          "latestSeq": {
-            "type": "integer",
-            "description": "Sequence number of the most recent change."
-          }
-        }
-      },
-      "Database": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "slug",
-          "status",
-          "createdBy",
-          "createdAt",
-          "updatedAt"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string",
-            "example": "apps"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "initializing",
-              "ready"
-            ]
-          },
-          "createdBy": {
-            "type": "string",
-            "description": "The user email or `key:<keyId>` that created the database."
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "CreateDatabase": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120,
-            "example": "Apps"
-          },
-          "slug": {
-            "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$",
-            "description": "Derived from the name when omitted."
-          }
-        }
-      },
-      "ColumnValues": {
-        "type": "object",
-        "additionalProperties": true,
-        "description": "Values keyed by column id.",
-        "example": {
-          "col_ua6ithuj": "Alpha",
-          "col_8f2k1a0p": 4200
-        }
-      },
-      "RowInput": {
-        "type": "object",
-        "required": [
-          "columns"
-        ],
-        "properties": {
-          "columns": {
-            "$ref": "#/components/schemas/ColumnValues"
-          }
-        }
-      },
-      "UpsertRow": {
-        "type": "object",
-        "required": [
-          "columns"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Merge into this row if it exists, otherwise create it with this id."
-          },
-          "columns": {
-            "$ref": "#/components/schemas/ColumnValues"
-          }
-        }
-      },
-      "Row": {
-        "type": "object",
-        "required": [
-          "id",
-          "rev",
-          "columns",
-          "createdAt",
-          "updatedAt",
-          "createdBy",
-          "updatedBy"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "rev": {
-            "type": "integer",
-            "description": "Increments on every update. Use with `If-Match`."
-          },
-          "columns": {
-            "$ref": "#/components/schemas/ColumnValues"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "createdBy": {
-            "type": "string"
-          },
-          "updatedBy": {
-            "type": "string"
-          }
-        }
-      },
-      "RowPage": {
-        "type": "object",
-        "required": [
-          "rows",
-          "nextCursor"
-        ],
-        "properties": {
-          "rows": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Row"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "nullable": true,
-            "description": "Pass as `cursor` for the next page. `null` on the last page."
-          }
-        }
-      },
-      "Change": {
-        "type": "object",
-        "required": [
-          "seq",
-          "kind",
-          "actor",
-          "at"
-        ],
-        "properties": {
-          "seq": {
-            "type": "integer"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "database.updated",
-              "column.added",
-              "column.updated",
-              "column.deleted",
-              "row.created",
-              "row.updated",
-              "row.deleted"
-            ]
-          },
-          "rowId": {
-            "type": "string",
-            "nullable": true
-          },
-          "columnId": {
-            "type": "string",
-            "nullable": true
-          },
-          "rev": {
-            "type": "integer",
-            "nullable": true
-          },
-          "actor": {
-            "type": "string"
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "ChangeBatch": {
-        "type": "object",
-        "required": [
-          "epoch",
-          "changes",
-          "latestSeq",
-          "oldestSeq"
-        ],
-        "properties": {
-          "epoch": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Identifies this incarnation of the log. Changes when the database is deleted and recreated."
-          },
-          "changes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Change"
-            }
-          },
-          "latestSeq": {
-            "type": "integer"
-          },
-          "oldestSeq": {
-            "type": "integer",
-            "description": "Oldest retained sequence. The log keeps the most recent 10,000 changes."
-          }
-        }
-      },
-      "Error": {
-        "type": "object",
-        "required": [
-          "error",
-          "code"
-        ],
-        "properties": {
-          "error": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "enum": [
-              "bad_request",
-              "unauthorized",
-              "not_found",
-              "conflict",
-              "stale_revision",
-              "too_large",
-              "invalid",
-              "limit",
-              "upstream"
-            ]
-          }
-        }
-      },
-      "ValidationError": {
-        "type": "object",
-        "required": [
-          "error",
-          "code"
-        ],
-        "properties": {
-          "error": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "enum": [
-              "invalid",
-              "limit"
-            ]
-          },
-          "fields": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "example": {
-              "col_8f2k1a0p": "expected a number",
-              "col_zzzzzzzz": "unknown column"
-            }
-          },
-          "current": {
-            "type": "integer"
-          },
-          "limit": {
-            "type": "integer"
-          }
-        }
-      },
-      "StaleRevisionError": {
-        "type": "object",
-        "required": [
-          "error",
-          "code",
-          "currentRev"
-        ],
-        "properties": {
-          "error": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "enum": [
-              "stale_revision"
-            ]
-          },
-          "currentRev": {
-            "type": "integer"
-          },
-          "ifMatch": {
-            "type": "integer"
-          }
-        }
-      }
-    }
-  }
+  "webhooks": {}
 }

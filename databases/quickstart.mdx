@@ -1,121 +1,208 @@
 ---
 title: "Databases quickstart"
 sidebarTitle: "Quickstart"
-description: "Create your first database, define its columns, add rows from the dashboard and the API, and render them on a docs page."
-keywords: ["databases", "quickstart", "create database", "add rows"]
+description: "Create an App versions database, define its columns, write records from a script, and query them with filters and SQL."
+keywords: ["databases", "quickstart", "create database", "add records", "query"]
 ---
 
 <Info>
   Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
 </Info>
 
-This quickstart builds a small app catalog: a `Apps` database with a name, a version, a status, and a download count, rendered as a table on a docs page.
+This quickstart builds an `App versions` database that a release pipeline keeps current: one record per app, version, and channel.
 
 ## Prerequisites
 
 - A project with Databases enabled.
-- An [admin API key](https://app.mintlify.com/settings/organization/api-keys) if you want to write rows from a script. Admin API keys begin with `mint_` and are server-side secrets.
+- An [admin API key](https://app.mintlify.com/settings/organization/api-keys) with the `write` scope. Admin API keys begin with `mint_` and are server-side secrets.
+- Your project ID, from the same page.
+
+Set them in your shell:
+
+```bash
+export MINT_API_KEY="mint_..."
+export BASE="https://api.mintlify.com/api/external/v1/databases/$PROJECT_ID"
+```
 
 <Steps>
   <Step title="Create a database">
-    In your dashboard, open **Databases** for the project and select **Create**. Give it a name such as `Apps`.
-
-    The slug is derived from the name, `apps` here. You use the slug when you render the database on a page.
-
     <CodeGroup>
     ```bash curl
-    curl -X POST https://api.mintlify.com/v1/databases/$PROJECT_ID \
+    curl -X POST "$BASE" \
       -H "Authorization: Bearer $MINT_API_KEY" \
       -H "Content-Type: application/json" \
-      -d '{ "name": "Apps" }'
+      -d '{ "name": "App versions" }'
     ```
     ```json Response
     {
-      "id": "0b50b639-bff9-43d2-8e62-b3bd93e9a41c",
-      "name": "Apps",
-      "slug": "apps",
-      "status": "ready",
-      "createdBy": "you@example.com",
-      "createdAt": "2026-09-16T06:52:05.737Z",
-      "updatedAt": "2026-09-16T06:52:05.737Z"
+      "id": "8f14e45f-ceea-467f-a0e6-4b7ab2a5f2a1",
+      "slug": "app_versions",
+      "name": "App versions",
+      "columns": [],
+      "rowCount": 0,
+      "cursor": "6e306bde-6324-4853-9188-ad08415d8a2f:1",
+      "createdAt": "2026-10-03T12:00:00.000Z",
+      "updatedAt": "2026-10-03T12:00:00.000Z"
     }
     ```
     </CodeGroup>
+
+    The slug `app_versions` is derived from the name. Use it in every request from here on. Renaming the database later does not change it.
   </Step>
 
   <Step title="Add columns">
-    Add the columns your rows need. Mark the ones you filter or sort on as **indexed**, and the ones every row must have as **required**.
+    Mark the columns you filter or sort on as `indexed`, and the ones every record must have as `required`.
 
-    <CodeGroup>
     ```bash curl
-    curl -X POST https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/col \
+    curl -X POST "$BASE/app_versions/columns" \
       -H "Authorization: Bearer $MINT_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
         "columns": [
-          { "name": "app", "type": "text", "required": true, "indexed": true },
-          { "name": "version", "type": "text" },
-          { "name": "status", "type": "select", "options": ["draft", "published"], "indexed": true },
-          { "name": "downloads", "type": "number" }
+          { "name": "App", "type": "text", "required": true, "indexed": true },
+          { "name": "Version", "type": "text", "required": true },
+          { "name": "Channel", "type": "select", "options": ["stable", "beta"], "strict": true, "indexed": true },
+          { "name": "Platforms", "type": "multi_select", "options": ["macOS", "Windows", "Linux"] },
+          { "name": "Release date", "type": "date", "indexed": true },
+          { "name": "Download URL", "type": "url" },
+          { "name": "Downloads", "type": "number" }
+        ]
+      }'
+    ```
+
+    The response is the database with its new columns. `Channel` is strict, so a typo such as `stabel` is rejected. `Platforms` is not, so writing a new platform such as `iOS` adds it as an option.
+  </Step>
+
+  <Step title="Write records">
+    Upsert sends up to 500 records in one atomic request. Key `fields` by column name, and send an `Idempotency-Key` so a retried request is not applied twice.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X PUT "$BASE/app_versions/records" \
+      -H "Authorization: Bearer $MINT_API_KEY" \
+      -H "Content-Type: application/json" \
+      -H "Idempotency-Key: release-2026-10-03" \
+      -d '{
+        "records": [
+          {
+            "fields": {
+              "App": "Studio",
+              "Version": "4.2.0",
+              "Channel": "stable",
+              "Platforms": ["macOS", "Windows"],
+              "Release date": "2026-10-01",
+              "Download URL": "https://downloads.example.com/studio/4.2.0",
+              "Downloads": 1840
+            }
+          },
+          {
+            "fields": {
+              "App": "Studio",
+              "Version": "4.3.0-beta.1",
+              "Channel": "beta",
+              "Platforms": ["macOS"],
+              "Release date": "2026-10-03"
+            }
+          }
         ]
       }'
     ```
     ```json Response
     {
-      "columns": [
-        { "id": "col_ua6ithuj", "name": "app", "type": "text", "position": 0, "indexed": true, "required": true },
-        { "id": "col_nzdoc64z", "name": "version", "type": "text", "position": 1, "indexed": false, "required": false },
-        { "id": "col_qtxj9tuf", "name": "status", "type": "select", "position": 2, "indexed": true, "required": false, "options": ["draft", "published"] },
-        { "id": "col_8f2k1a0p", "name": "downloads", "type": "number", "position": 3, "indexed": false, "required": false }
-      ]
+      "records": [
+        {
+          "id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+          "version": 1,
+          "fields": {
+            "App": "Studio",
+            "Version": "4.2.0",
+            "Channel": "stable",
+            "Platforms": ["macOS", "Windows"],
+            "Release date": "2026-10-01",
+            "Download URL": "https://downloads.example.com/studio/4.2.0",
+            "Downloads": 1840
+          },
+          "createdAt": "2026-10-03T12:01:00.000Z",
+          "updatedAt": "2026-10-03T12:01:00.000Z",
+          "createdBy": "key:key_3ZbQ9mXk",
+          "updatedBy": "key:key_3ZbQ9mXk"
+        },
+        {
+          "id": "6fa459ea-ee8a-4ca4-894e-db77e160355e",
+          "version": 1,
+          "fields": {
+            "App": "Studio",
+            "Version": "4.3.0-beta.1",
+            "Channel": "beta",
+            "Platforms": ["macOS"],
+            "Release date": "2026-10-03"
+          },
+          "createdAt": "2026-10-03T12:01:00.000Z",
+          "updatedAt": "2026-10-03T12:01:00.000Z",
+          "createdBy": "key:key_3ZbQ9mXk",
+          "updatedBy": "key:key_3ZbQ9mXk"
+        }
+      ],
+      "created": 2,
+      "updated": 0
     }
     ```
     </CodeGroup>
 
-    Note the column ids. Rows are keyed by id, not by name, so you can rename `downloads` to `installs` later without touching a single row.
-  </Step>
-
-  <Step title="Add rows">
-    Add rows in the dashboard grid, or send them from a script. Values are keyed by column id.
-
-    ```bash curl
-    curl -X POST https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/row \
-      -H "Authorization: Bearer $MINT_API_KEY" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "columns": {
-          "col_ua6ithuj": "Alpha",
-          "col_nzdoc64z": "1.2.0",
-          "col_qtxj9tuf": "published",
-          "col_8f2k1a0p": 4200
-        }
-      }'
-    ```
-
-    Loading many rows at once? Use [bulk upsert](/api/databases/upsert-rows) with up to 500 rows per call.
-
     <Check>
-      Every write is validated against the schema. A wrong type, an unknown column id, or a missing required value returns `422` with one reason per column and writes nothing.
+      Every write is validated against the columns. A wrong type, an unknown column name, or a missing required value returns `422` with one message per field, and nothing is written.
     </Check>
   </Step>
 
-  <Step title="Render the database on a page">
-    Add the component to any MDX page. It reads the schema for headers and the rows for content.
+  <Step title="Query records">
+    Find stable releases for macOS, newest first, and count them.
 
-    ```mdx catalog/apps.mdx
-    ---
-    title: "App catalog"
-    ---
-
-    <Database name="apps" sort="downloads:desc" where={{ status: "published" }} />
+    ```bash curl
+    curl -X POST "$BASE/app_versions/records/query" \
+      -H "Authorization: Bearer $MINT_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "where": [
+          { "column": "Channel", "op": "eq", "value": "stable" },
+          { "column": "Platforms", "op": "contains", "value": "macOS" }
+        ],
+        "sort": { "column": "Release date", "direction": "desc" },
+        "count": true
+      }'
     ```
 
-    See [`<Database />`](/databases/component) for column selection, filtering, and per-row pages.
+    The response has `records`, `nextCursor` for the next page, and `total`.
+  </Step>
+
+  <Step title="Ask a question with SQL">
+    For aggregates, use a read-only SQL query.
+
+    <CodeGroup>
+    ```bash curl
+    curl -X POST "$BASE/app_versions/sql" \
+      -H "Authorization: Bearer $MINT_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "query": "SELECT \"Channel\", count(*) AS releases, sum(\"Downloads\") AS downloads FROM records WHERE \"Release date\" >= ? GROUP BY \"Channel\"",
+        "params": ["2026-01-01"]
+      }'
+    ```
+    ```json Response
+    {
+      "columns": ["Channel", "releases", "downloads"],
+      "rows": [
+        ["beta", 1, null],
+        ["stable", 1, 1840]
+      ],
+      "truncated": false
+    }
+    ```
+    </CodeGroup>
   </Step>
 </Steps>
 
 ## Next steps
 
-- Read about each [column type](/databases/columns) and how values are validated.
-- Wire your release pipeline to the [REST API](/databases/api).
-- Keep a portal or dashboard current with [live updates](/databases/live-updates).
+- Read how each [column type](/databases/columns) validates values.
+- Learn the [filter operators](/databases/records#filter-records) and [conditional writes](/databases/records#versions-and-conditional-writes).
+- Keep a cache or a page current with [live updates](/databases/live-updates).

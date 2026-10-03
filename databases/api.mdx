@@ -1,23 +1,45 @@
 ---
 title: "Databases REST API"
 sidebarTitle: "REST API"
-description: "Create databases, manage columns, and read and write rows with the Mintlify REST API from a pipeline, a partner portal, or any server-side script."
-keywords: ["databases", "REST API", "rows", "columns", "bulk upsert", "If-Match", "cursor"]
+description: "Authenticate, address databases and columns, retry safely with Idempotency-Key, and handle errors in the Mintlify Databases REST API."
+keywords: ["databases", "REST API", "API key", "scopes", "Idempotency-Key", "errors"]
 ---
 
 <Info>
   Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
 </Info>
 
-Use the Databases API to keep a database current from wherever the data lives: a release pipeline, a partner portal, a spreadsheet export.
+Use the Databases API to keep a database current from wherever the data lives: a release pipeline, a partner portal, or a scheduled sync.
 
 ## Authentication
 
-Authenticate with your admin API key. Generate one on the [API keys page](https://app.mintlify.com/settings/organization/api-keys) in your dashboard. Admin API keys begin with `mint_` and are server-side secrets. Do not expose them in client-side code.
+Authenticate with an admin API key in the `Authorization` header. Generate one on the [API keys page](https://app.mintlify.com/settings/organization/api-keys) in your dashboard. Admin API keys begin with `mint_` and are server-side secrets. Do not expose them in client-side code. To show live changes in a browser, use a [live updates session](/databases/live-updates) instead.
 
-Copy your project ID from the same page and use it as the `projectId` path parameter. All endpoints are under `https://api.mintlify.com/v1/databases/{projectId}`.
+```bash
+curl "https://api.mintlify.com/api/external/v1/databases/$PROJECT_ID" \
+  -H "Authorization: Bearer $MINT_API_KEY"
+```
 
-Writes are attributed to the API key. Rows show `createdBy` and `updatedBy` as `key:<keyId>`.
+Copy your project ID from the same page. Every endpoint is under `https://api.mintlify.com/api/external/v1/databases/{projectId}`.
+
+Writes are attributed to the API key. A record's `createdBy` and `updatedBy` show `key:<keyId>`, prefixed with the key creator's user id when one is recorded.
+
+### Scopes
+
+An API key carries the `read` or the `write` scope. A `write` key can also read.
+
+| Scope | Operations |
+| --- | --- |
+| `read` | Every `GET`, plus [Query records](/api/databases/query-records), [Run SQL query](/api/databases/run-sql), and [Start live updates session](/api/databases/create-events-session). These are `POST` requests that only read. |
+| `write` | Every other `POST`, and every `PUT`, `PATCH`, and `DELETE`. |
+
+Give a pipeline that only reads, or a server that hands out live update sessions, a `read` key. A request without the scope it needs returns `403`.
+
+## Addressing
+
+- **Databases by slug.** `{database}` in a path is the database slug, such as `app_versions`. The database id also works. Renaming a database does not change its slug. Changing the slug with [Update database](/api/databases/update-database) makes the old slug stop resolving.
+- **Columns by name.** `{column}` in a path, `fields` in a record, and `column` in a filter or sort take the column name, matched in any case. The `col_` id also works. An unknown name returns `404` with the list of column names.
+- **Records by id.** `{id}` is the record's UUID.
 
 ## Endpoints
 
@@ -25,56 +47,80 @@ Databases
 
 - [List databases](/api/databases/list-databases)
 - [Create database](/api/databases/create-database)
-- [Get database](/api/databases/get-database)
+- [Get database](/api/databases/get-database): columns, record count, and the current change cursor.
+- [Update database](/api/databases/update-database): rename, or change the slug.
 - [Delete database](/api/databases/delete-database)
 
 Columns
 
-- [Get schema](/api/databases/get-schema)
 - [Add columns](/api/databases/add-columns)
 - [Update column](/api/databases/update-column)
 - [Delete column](/api/databases/delete-column)
 
-Rows
+Records
 
-- [List rows](/api/databases/list-rows): filter with `where[columnId]`, sort, and page with a cursor.
-- [Bulk upsert rows](/api/databases/upsert-rows): up to 500 rows per call, atomic.
-- [Create row](/api/databases/create-row)
-- [Get row](/api/databases/get-row)
-- [Update row](/api/databases/update-row): conditional with `If-Match`.
-- [Delete row](/api/databases/delete-row)
+- [List records](/api/databases/list-records)
+- [Query records](/api/databases/query-records): filter, sort, count, and page.
+- [Create record](/api/databases/create-record)
+- [Upsert records](/api/databases/upsert-records): up to 500 records, atomic.
+- [Get record](/api/databases/get-record)
+- [Update record](/api/databases/update-record): conditional with `If-Match`.
+- [Delete record](/api/databases/delete-record)
+- [Run SQL query](/api/databases/run-sql): one read-only `SELECT`.
 
 Changes
 
-- [Get changes](/api/databases/get-changes): read the change log in batches.
-- [Live updates](/databases/live-updates): subscribe to the same events over server-sent events.
+- [List changes](/api/databases/list-changes)
+- [Start live updates session](/api/databases/create-events-session)
 
-## Ids, not names
+## Idempotency
 
-Rows are keyed by column id, such as `col_ua6ithuj`, not by column name. Read the ids once from [Get schema](/api/databases/get-schema) and keep them in your integration. Renaming a column in the dashboard then changes nothing for your code.
+[Create database](/api/databases/create-database), [Create record](/api/databases/create-record), and [Upsert records](/api/databases/upsert-records) accept an `Idempotency-Key` header of up to 255 characters. Send a unique key per logical write, such as a release id, and reuse it when you retry.
+
+- Within 24 hours, a request with the same key and body gets the first response again and writes nothing new.
+- The same key with a different body returns `422` with `code: "idempotency_key_reused"`.
+- A retry that arrives while the first request is still running returns `409` with `code: "conflict"`. Wait and retry.
+
+```bash
+curl -X POST "$BASE/app_versions/records" \
+  -H "Authorization: Bearer $MINT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: studio-4.2.1-stable" \
+  -d '{ "fields": { "App": "Studio", "Version": "4.2.1", "Channel": "stable" } }'
+```
+
+Updates and deletes do not take an idempotency key. Use [`If-Match`](/databases/records#versions-and-conditional-writes) to make them conditional.
 
 ## Errors
 
-Every error is JSON with a stable `code`.
-
-| Status | `code` | Meaning |
-| --- | --- | --- |
-| `400` | `bad_request` | Malformed JSON, a bad `If-Match`, or a missing header. |
-| `401` | | Missing or invalid API key, or Databases is not enabled for the project. |
-| `404` | `not_found` | Unknown database, column, or row. |
-| `409` | `conflict` | Slug already in use on this project. |
-| `409` | `stale_revision` | `If-Match` did not match the current `rev`. Includes `currentRev`. |
-| `413` | `too_large` | Row over 2 MB of JSON. |
-| `422` | `invalid` | Validation failed. `fields` maps each column id or query key to a reason. |
-| `422` | `limit` | A limit would be exceeded. Includes `current` and `limit`. |
+Every error has the same JSON shape: a human-readable `error`, a stable `code`, and, for validation errors, `fields` with one message per offending field.
 
 ```json
 {
-  "error": "some values are invalid",
+  "error": "some columns are invalid",
   "code": "invalid",
   "fields": {
-    "col_8f2k1a0p": "expected a number",
-    "col_zzzzzzzz": "unknown column"
+    "columns.1.required": "12 existing rows would have no value; add the column optional, backfill, then set required"
   }
 }
 ```
+
+Some codes add details beside `error` and `code`, such as `version` on `version_mismatch` and `cursor` on `cursor_expired`. Branch on `code`, not on `error`.
+
+| Status | `code` | Meaning |
+| --- | --- | --- |
+| `400` | `invalid` | Malformed request: JSON that does not parse, or a bad path or query parameter. |
+| `401` | `unauthorized` | Missing or invalid API key, or an invalid live updates token. |
+| `403` | `forbidden` | The API key lacks the scope, or Databases is not enabled for the project. |
+| `404` | `not_found` | Unknown project, database, column, or record. |
+| `409` | `conflict` | The slug or column name is taken, or a request with the same `Idempotency-Key` is still running. |
+| `409` | `cursor_expired` | The change cursor is too old or belongs to another database. Includes the current `cursor`. |
+| `412` | `version_mismatch` | `If-Match` did not match the record. Includes the current `version`. |
+| `413` | `too_large` | The request body or a record is too large. |
+| `415` | `unsupported_media_type` | The body is not `application/json`. |
+| `422` | `invalid` | The body is well formed but failed validation. See `fields`, and `position` for SQL. |
+| `422` | `idempotency_key_reused` | The `Idempotency-Key` was used with a different body. |
+| `429` | `rate_limited` | Too many requests. Back off and retry. |
+| `500` | `internal` | An unexpected error. |
+| `502` | `upstream` | The storage backend failed. Retry. |
+| `503` | `unavailable` | Databases is temporarily unavailable. Retry. |

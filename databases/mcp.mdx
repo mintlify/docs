@@ -1,0 +1,40 @@
+---
+title: "Databases in the admin MCP"
+sidebarTitle: "Admin MCP"
+description: "Let AI tools read your Mintlify databases through the admin MCP server: list databases, describe columns, query records, and run read-only SQL."
+keywords: ["databases", "MCP", "admin MCP", "AI", "query_records", "run_sql", "describe_database"]
+---
+
+<Info>
+  Databases are in early access and must be enabled for your project. Contact your Mintlify account team to turn it on.
+</Info>
+
+The [admin MCP server](/ai/mintlify-mcp) includes tools that read your databases, so an AI tool such as Claude or Cursor can answer questions like "Which apps shipped a stable macOS release this quarter?" from the data itself.
+
+The database tools only read. They take `subdomain` like the deployment management tools, and they do not need a `checkout`. The connection must be granted the `databases:read` scope, and the deployment must have Databases enabled.
+
+## Tools
+
+| Tool | Returns |
+| --- | --- |
+| `list_databases` | The deployment's databases as `{ slug, name }`, oldest first. |
+| `describe_database` | One database's `id`, `slug`, `name`, `rowCount`, and its columns by name with their type, `required`, `indexed`, `options`, and `strict`. |
+| `query_records` | A page of records with `id`, `version`, and `fields` keyed by column name. Takes the same `where`, `sort`, `cursor`, and `count` as [Query records](/api/databases/query-records). `limit` is 1 to 100, default 25. |
+| `get_record` | One record by id, with its timestamps and authors. |
+| `run_sql` | The result of one read-only `SELECT` over `records`, with the same dialect and limits as [SQL queries](/databases/sql). |
+
+Address a database by its slug and a column by its name, in any case, as in the REST API. Agents work best when they call `describe_database` before filtering or writing SQL, so they use the exact column names.
+
+Results stay under 50 KB. Long cell values are cut first, then records or rows are dropped from the end if needed. A cut result carries `truncated: true` and a `note`. An agent can read a long value in parts with `run_sql` and `substr`.
+
+A failed call returns `{ ok: false, error: { code, message, hint } }`. The `hint` lists the valid slugs or column names, or explains a refused SQL query at its `position`, so the agent can correct the call and retry.
+
+## Example prompts
+
+- "List the databases on the `acme` deployment and describe `app_versions`."
+- "Which apps have a beta release newer than their latest stable release?"
+- "How many releases shipped per channel each month this year?"
+
+## Write tools
+
+Tools that create, update, and delete records are planned. They will work only on connections that act as a signed-in user, and deletes will support a dry run that reports what would be removed before anything is deleted.
