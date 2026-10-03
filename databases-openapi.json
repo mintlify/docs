@@ -3,7 +3,7 @@
   "info": {
     "title": "Mintlify Databases API",
     "version": "1.0.0",
-    "description": "API for reading and writing Mintlify Databases.\n\n**Addressing.** `{database}` is the database slug or its id; a slug never looks like a uuid. `{column}` is the column name, matched case-insensitively, or its `col_…` id; an unknown name answers 404 listing the column names. `{id}` is a record id.\n\n**Scopes.** API keys carry a read or write scope. GET operations need `read`; POST, PUT, PATCH and DELETE need `write`, except `POST /records/query`, `POST /sql` and `POST /events/session`, which only read and need `read`. Each operation also states its scope in `x-mintlify-scope`.\n\n**Idempotency.** `POST /` (create a database), `POST /records` and `PUT /records` accept an `Idempotency-Key` header. The first response is replayed for 24 hours; reusing a key with a different body returns 422 `idempotency_key_reused`.\n\n**Concurrency.** Records carry a `version`, also sent as a quoted `ETag`. `PATCH` and `DELETE` on a record accept `If-Match` and return 412 `version_mismatch` when it is stale.\n\n**Errors.** Every error body is `{ error, code, fields?, ...details }`. 400 means a malformed request (unparseable JSON, bad path or query parameter); 422 means a well-formed body that failed validation, with per-field messages in `fields`."
+    "description": "API for reading and writing Mintlify Databases.\n\n**Addressing.** `{database}` is the database slug or its id; a slug never looks like a uuid. `{column}` is the column name, matched case-insensitively, or its `col_…` id; an unknown name answers 404 listing the column names. `{id}` is a record id.\n\n**Scopes.** API keys carry a read or write scope; a key with no scopes has full access. GET operations need `read`; POST, PUT, PATCH and DELETE need `write`, except `POST /records/query`, `POST /sql` and `POST /events/session`, which only read and need `read`. Each operation also states its scope in `x-mintlify-scope`. The live events stream takes no API key: its session token is the credential.\n\n**Idempotency.** `POST /` (create a database), `POST /records` and `PUT /records` accept an `Idempotency-Key` header. The first response is replayed for 24 hours; reusing a key with a different body returns 422 `idempotency_key_reused`.\n\n**Concurrency.** Records carry a `version`, also sent as a quoted `ETag`. `PATCH` and `DELETE` on a record accept `If-Match` and return 412 `version_mismatch` when it is stale.\n\n**Errors.** Errors from the databases API are `DatabaseError`s: `{ error, code, fields?, ...details }`. 400 means a malformed request (unparseable JSON, bad path or query parameter); 422 means a well-formed body that failed validation, with per-field messages in `fields`. The API-key layer in front, shared by every external Mintlify API, answers 401, 403 and its own 429 as `AuthError`s: `{ error }`, with no `code`. The per-organization rate limit answers 429 with a plain-text body."
   },
   "servers": [
     {
@@ -103,7 +103,21 @@
           "error",
           "code"
         ],
-        "description": "Every error has this shape. Some codes carry extra details beside `error` and `code`, such as `cursor` on `cursor_expired` and `version` on `version_mismatch`."
+        "description": "Every error the databases API itself returns has this shape. Some codes carry extra details beside `error` and `code`, such as `cursor` on `cursor_expired` and `version` on `version_mismatch`. Errors from the API-key layer in front of it are `AuthError`s instead."
+      },
+      "AuthError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable message",
+            "example": "API key does not have the 'write' scope"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "description": "An error from the API-key layer shared by every external Mintlify API, which runs before the databases API: `{ error }` only, with no `code`. It answers 401 for a missing or invalid key or a plan without API or databases access, 403 for a key without the required scope or a request from outside the key's IP allowlist, and 429 when the key's own rate limit or usage is used up."
       },
       "Column": {
         "type": "object",
@@ -797,9 +811,6 @@
                 },
                 {
                   "type": "null"
-                },
-                {
-                  "type": "null"
                 }
               ]
             },
@@ -887,7 +898,7 @@
           "cursor": {
             "type": "string",
             "minLength": 1,
-            "description": "The cursor after the last change returned, or the one sent when there were none. Pass it to the next request."
+            "description": "The cursor after the last change returned, or the one sent when there were none. Pass it to the next request. A page holds at most 500 changes, so keep calling until `changes` is empty."
           }
         },
         "required": [
@@ -946,6 +957,189 @@
           "token",
           "expiresAt"
         ]
+      },
+      "ReadyEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "ready"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The latest change cursor when the stream opened"
+              }
+            },
+            "required": [
+              "cursor"
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "data"
+        ],
+        "description": "The first event. Changes after the requested cursor follow it, oldest first, then live changes as they happen."
+      },
+      "ChangeEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "change"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The change cursor of this change; resume after it with `Last-Event-ID`"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Change"
+          }
+        },
+        "required": [
+          "event",
+          "id",
+          "data"
+        ],
+        "description": "One change, in the same shape as `/changes` returns"
+      },
+      "ResetEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "reset"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The cursor at the start of the current log"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The same cursor as `id`"
+              }
+            },
+            "required": [
+              "cursor"
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "id",
+          "data"
+        ],
+        "description": "The requested cursor cannot be continued from, for one of two reasons: the change log restarted under a new epoch (which is also how a cursor from another database looks), or the cursor fell out of retained history, which keeps the 10,000 most recent changes. Changes may have been missed, so re-read the data. The stream then replays every retained change from the oldest and carries on live."
+      },
+      "ReconnectEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "reconnect"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string",
+                "minLength": 1,
+                "description": "The cursor after the last change sent; reconnect with it"
+              }
+            },
+            "required": [
+              "cursor"
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "data"
+        ],
+        "description": "The stream reached its time limit, about 5 minutes, and is closing. Reconnect from `cursor`, with a new session once the token has expired."
+      },
+      "ErrorEvent": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "error"
+            ]
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatabaseError"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "enum": [
+                      "upstream"
+                    ]
+                  }
+                }
+              }
+            ],
+            "description": "An `upstream` error. The storage backend's own error is never relayed."
+          }
+        },
+        "required": [
+          "event",
+          "data"
+        ],
+        "description": "The stream failed and is closing. Reconnect from the last event id received."
+      },
+      "LiveEvent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ReadyEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ChangeEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ResetEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ReconnectEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ErrorEvent"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "event",
+          "mapping": {
+            "ready": "#/components/schemas/ReadyEvent",
+            "change": "#/components/schemas/ChangeEvent",
+            "reset": "#/components/schemas/ResetEvent",
+            "reconnect": "#/components/schemas/ReconnectEvent",
+            "error": "#/components/schemas/ErrorEvent"
+          }
+        },
+        "description": "One Server-Sent Events frame: `event: <event>`, then `id: <id>` when it has one, then `data: <data as JSON>`. While nothing changes, a `: heartbeat` comment line arrives about every 20 seconds; `EventSource` ignores it."
       }
     },
     "parameters": {}
@@ -998,21 +1192,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -1028,11 +1222,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -1126,21 +1326,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -1196,11 +1396,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -1285,21 +1491,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -1315,11 +1521,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -1412,21 +1624,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -1482,11 +1694,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -1569,21 +1787,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -1599,11 +1817,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -1698,21 +1922,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -1768,11 +1992,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -1879,21 +2109,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -1949,11 +2179,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -2048,21 +2284,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -2078,11 +2314,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -2198,21 +2440,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -2228,11 +2470,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -2262,7 +2510,7 @@
       "post": {
         "operationId": "createRecord",
         "summary": "Create a record",
-        "description": "Create a record\n\nRequires the `write` scope.",
+        "description": "`fields` maps columns to values. Key each field by the column name, in any case, or by its `col_…` id; an unknown column is refused with 422 listing the column names, and so are two keys for the same column. Each value must suit its column type (see `Fields`), and `null` or an omitted field leaves it empty, which a required column refuses with 422.\n\nWriting a value that is not among a select or multi_select column's `options` adds it as an option, unless the column is `strict`, which refuses it with 422. A column holds at most 200 options.\n\nThe response carries the new record and its version as a quoted `ETag`, ready to send back in `If-Match`.\n\nRequires the `write` scope.",
         "tags": [
           "Databases"
         ],
@@ -2346,21 +2594,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -2406,11 +2654,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -2514,21 +2768,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -2574,11 +2828,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -2673,21 +2933,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -2733,11 +2993,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -2769,7 +3035,7 @@
       "get": {
         "operationId": "getRecord",
         "summary": "Get a record",
-        "description": "Get a record\n\nRequires the `read` scope.",
+        "description": "Returns the record, with its version also sent as a quoted `ETag`. Send that value as `If-Match` on `PATCH` or `DELETE` to write only if the record has not changed since.\n\nRequires the `read` scope.",
         "tags": [
           "Databases"
         ],
@@ -2843,21 +3109,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -2873,11 +3139,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -3002,21 +3274,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -3072,11 +3344,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -3106,7 +3384,7 @@
       "delete": {
         "operationId": "deleteRecord",
         "summary": "Delete a record",
-        "description": "Delete a record\n\nRequires the `write` scope.",
+        "description": "Permanently deletes the record and answers `{ id, deleted: true }`. Send `If-Match` with the version you read (`\"3\"`) to delete only that version: if the record has changed since, nothing is deleted and the response is 412 `version_mismatch` with the current `version`. Without `If-Match` the delete is unconditional.\n\nRequires the `write` scope.",
         "tags": [
           "Databases"
         ],
@@ -3181,21 +3459,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -3221,11 +3499,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -3320,21 +3604,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -3380,11 +3664,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -3416,7 +3706,7 @@
       "get": {
         "operationId": "listChanges",
         "summary": "List changes",
-        "description": "Returns changes made after `cursor`, oldest first, and a cursor to continue from. Call again with the returned cursor until `changes` is empty.\n\nCursors are opaque. The database's `cursor`, the cursor this returns and the `id` of each live event are the same kind of value, so any of them works here and as `Last-Event-ID`.\n\nA change names its column by the column's current name; a column deleted since keeps its `col_…` id, as `column.deleted` always does.\n\nRecent history only is kept: a cursor that has fallen out of it, or that belongs to another database, returns 409 `cursor_expired` with the current cursor; re-read the data and continue from that cursor. A value that is not a change cursor at all returns 400 `invalid`.\n\nRequires the `read` scope.",
+        "description": "Returns changes made after `cursor`, oldest first, and a cursor to continue from. A call returns at most 500 changes and takes no `limit`; call again with the returned cursor until `changes` is empty.\n\n`cursor` is required, and a request without one returns 400 `invalid`. To receive only changes made from now on, start from the database's `cursor` (`GET /{database}`). To replay the whole retained history instead, open the live events stream without a cursor.\n\nCursors are opaque. The database's `cursor`, the cursor this returns and the `id` of each live event are the same kind of value, so any of them works here and as `Last-Event-ID`.\n\nA change names its column by the column's current name; a column deleted since keeps its `col_…` id, as `column.deleted` always does.\n\nOnly the 10,000 most recent changes of a database are kept. A cursor that has fallen out of that history, or that belongs to another database or to a change log that has since restarted, returns 409 `cursor_expired` with the current cursor; re-read the data and continue from that cursor. A value that is not a change cursor at all returns 400 `invalid`.\n\nRequires the `read` scope.",
         "tags": [
           "Databases"
         ],
@@ -3450,7 +3740,7 @@
             "schema": {
               "type": "string",
               "minLength": 1,
-              "description": "A `cursor` from a database read or a previous changes page, or a live event id. Opaque change cursor. Pass it back unchanged; do not parse or construct it. Change cursors are shared across `cursor` on a database, `GET /{database}/changes` and the `id` of each live event, so any of them resumes the others."
+              "description": "Required. A `cursor` from a database read or a previous changes page, or a live event id. To receive only changes made from now on, start from the database's `cursor`. Opaque change cursor. Pass it back unchanged; do not parse or construct it. Change cursors are shared across `cursor` on a database, `GET /{database}/changes` and the `id` of each live event, so any of them resumes the others."
             },
             "required": true,
             "name": "cursor",
@@ -3479,21 +3769,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -3519,11 +3809,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -3555,7 +3851,7 @@
       "post": {
         "operationId": "createEventsSession",
         "summary": "Start a live updates session",
-        "description": "Returns a Server-Sent Events `url` for this database and the token in it. Opening a session reads only, so it needs just the `read` scope.\n\n- **Token.** Signed, read-only, for this database alone, and valid for 5 minutes. It is the stream's only credential, so the stream takes no API key and a browser `EventSource` can open `url` directly. An expired, altered or unknown token, or one whose database was deleted, gets 401 `unauthorized`. Start a new session to reconnect after `expiresAt`.\n- **Where to start.** Append `&cursor=` with a change cursor, such as the database's `cursor`, to receive only later changes. `Last-Event-ID`, which `EventSource` sends when it reconnects, takes precedence.\n- **Events.** `ready` (`{ cursor }`, the latest cursor) opens the stream. Each `change` carries a `Change` and has a change cursor as its event id. `reset` means the change log restarted: re-read the data. `reconnect` (`{ cursor }`) means the stream reached its time limit: reconnect from `cursor`. Comment lines are heartbeats.\n\nRequires the `read` scope.",
+        "description": "Returns a Server-Sent Events `url` for this database and the token in it. Opening a session reads only, so it needs just the `read` scope.\n\n- **Token.** Signed, read-only, for this database alone, and valid for 5 minutes. It is the stream's only credential, so the stream takes no API key and a browser `EventSource` can open `url` directly. An expired, altered or unknown token, or one whose database was deleted, gets 401 `unauthorized`. Start a new session to reconnect after `expiresAt`.\n- **Where to start.** Append `&cursor=` with a change cursor, such as the database's `cursor`, to receive only later changes. `Last-Event-ID`, which `EventSource` sends when it reconnects, takes precedence. With neither, the stream replays every retained change (the 10,000 most recent) before live ones.\n- **Events.** See `GET /api/external/v1/databases/events` for the stream and each event.\n\nRequires the `read` scope.",
         "tags": [
           "Databases"
         ],
@@ -3608,21 +3904,21 @@
             }
           },
           "401": {
-            "description": "Missing or invalid API key",
+            "description": "From the API-key and plan checks in front of the databases API, as an `AuthError` with no `code`: the API key is missing or invalid, or the plan does not include API or databases access",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
           },
           "403": {
-            "description": "The API key lacks the scope for this operation, or databases are not enabled",
+            "description": "From the API-key layer, as an `AuthError` with no `code`: the API key lacks the scope for this operation, or the request comes from outside the key's IP allowlist. A key with no scopes has full access.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
                 }
               }
             }
@@ -3638,11 +3934,17 @@
             }
           },
           "429": {
-            "description": "Rate limited (`rate_limited`)",
+            "description": "Rate limited. The API key's own limit answers from the API-key layer as an `AuthError` with no `code`; the organization's limit of 300 databases requests a minute answers with a plain-text body.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatabaseError"
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
                 }
               }
             }
@@ -3659,6 +3961,112 @@
           },
           "503": {
             "description": "Databases are temporarily unavailable (`unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/external/v1/databases/events": {
+      "get": {
+        "operationId": "streamEvents",
+        "summary": "Stream live updates",
+        "description": "Streams one database's changes as Server-Sent Events. Open the `url` from `POST /{database}/events/session`, which already carries `token`; a browser `EventSource` can open it directly.\n\n- **Credential.** `token` is the only credential: the stream takes no API key and no scope. It is checked when the stream opens, so an open stream outlives `expiresAt`, but reconnecting after it needs a new session.\n- **Where to start.** The stream sends the changes after `Last-Event-ID`, else after `cursor`, then live changes as they happen. With neither, it replays every retained change (the 10,000 most recent) first; to receive only new changes, start from the database's `cursor`.\n- **Events.** `ready` (`{ cursor }`, the latest cursor) opens the stream. Each `change` carries a `Change` and has its change cursor as the event `id`.\n- **`reset`** (`{ cursor }`, also its `id`) means the requested cursor cannot be continued from, for one of two reasons: the change log restarted under a new epoch, or the cursor fell out of retained history. Changes may have been missed, so re-read the data; every retained change is then replayed from the oldest.\n- **`reconnect`** (`{ cursor }`) means the stream reached its time limit, about 5 minutes: reconnect from `cursor`. **`error`** (a `DatabaseError` with `upstream`) means the stream failed: reconnect from the last event `id`. Both close the stream.\n- **Heartbeats.** While nothing changes, a `: heartbeat` comment line arrives about every 20 seconds.\n\nErrors before the stream opens are JSON `DatabaseError`s, except the plain-text 429.",
+        "tags": [
+          "Databases"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The `token` from `POST /{database}/events/session`, already in its `url`. It is the only credential: send no API key."
+            },
+            "required": true,
+            "name": "token",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A change cursor to resume after, such as the database's `cursor`; `Last-Event-ID` wins when both are sent. Without either, the stream replays every retained change (up to the 10,000 most recent) before live ones, so start from the database's `cursor` to receive only new changes."
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The `id` of the last event received, which `EventSource` sends by itself when it reconnects. It is a change cursor and takes precedence over `cursor`."
+            },
+            "required": false,
+            "name": "Last-Event-ID",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event stream. Each frame is one `LiveEvent`: `event`, `id` when it has one, and `data` as JSON.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveEvent"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`cursor` or `Last-Event-ID` is not a change cursor (`invalid`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The token is missing, altered, expired or unknown, or its database was deleted (`unauthorized`). Start a new session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "More than 120 streams opened in a minute for the token's organization. The body is plain text.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Too many requests, please try again later."
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The storage backend failed (`upstream`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Live updates are temporarily unavailable (`unavailable`)",
             "content": {
               "application/json": {
                 "schema": {
