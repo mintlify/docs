@@ -199,13 +199,37 @@ Si una llamada a `create_node`, `update_node`, `move_node` o `delete_node` deja 
   ### Gestión de proyectos
 </div>
 
-El modo de código gestiona las operaciones a nivel de proyecto que no tienen una herramienta dedicada, como administrar workflows, la configuración del proyecto, los miembros, la facturación, las integraciones, las analíticas y el uso compartido de [páginas privadas](/es/editor/pages#private-pages). Las herramientas del modo de código no requieren un `checkout`.
+Las herramientas de gestión de proyectos gestionan las operaciones a nivel de proyecto, como administrar workflows, la configuración del proyecto, los dominios personalizados, las fuentes de Git, la autenticación, los miembros, las analíticas y el uso compartido de [páginas privadas](/es/editor/pages#private-pages). No requieren un `checkout`.
 
-- **`search_code_operations`**: Busca los métodos de gestión de proyectos disponibles para el modo de código. Cada resultado incluye el esquema de entrada completo del método.
-- **`execute_code`**: Ejecuta un script de TypeScript contra los métodos de gestión de proyectos. Los ámbitos otorgados a la conexión controlan cada método, y cualquier método que no te haya sido otorgado devuelve un error de autorización.
+Cada herramienta recibe un `subdomain` del proyecto sobre el que actuar. Las conexiones de toda la organización deben pasar `subdomain`. Llama a `list_deployments` para encontrarlo. Las herramientas de lectura también aceptan `subdomains`, una lista de hasta 25 proyectos, y devuelven un resultado o un error para cada uno. La mayoría de las herramientas reciben un objeto `request` cuyo campo `action` selecciona la operación. Por ejemplo:
+
+```json
+{
+  "subdomain": "acme",
+  "request": { "action": "noindex", "noindex": true }
+}
+```
+
+Herramientas de lectura:
+
+- **`get_deployment_settings`**: Lee la configuración del dashboard de un proyecto, sus fuentes de Git, el estado de sus hostnames personalizados y sus comprobaciones de fuentes en una sola llamada. La configuración de Slack y los snippets son opcionales.
+- **`get_analytics_report`**: Lee un informe de analíticas predefinido, como vistas de página, páginas populares, referencias, feedback, chats del asistente o calidad de búsqueda. Selecciona el informe con `request.report`. Los resultados grandes se paginan con `maxRows` y `rowOffset`. Para consultas personalizadas, usa `query_analytics`.
+- **`get_workflows`**: Lista los workflows, obtiene uno o recorre sus ejecuciones.
+- **`list_repos_and_prs`**: Lista los repositorios conectados, las pull requests de un repositorio o las integraciones disponibles para usar en un workflow.
+
+Herramientas de escritura:
+
+- **`update_deployment_settings`**: Cambia un ajuste del dashboard, como `noindex`, `base_path`, `name`, `disable_ai_chat`, `search_settings`, `privacy`, `custom_scripts` o un complemento. Usa `update_config` para los ajustes de `docs.json`.
+- **`manage_custom_domain`**: Agrega o elimina un dominio personalizado, aprovisiona su hostname o vuelve a lanzar la validación del hostname.
+- **`manage_git_source`**: Agrega, actualiza, elimina o reordena los repositorios de Git desde los que se compila un proyecto, o establece la fuente base.
+- **`manage_access_auth`**: Configura o elimina la [autenticación](/es/deploy/authentication-setup) del sitio, agrega o elimina contraseñas, configura la autenticación de usuarios finales o cambia cuál está activa.
+- **`manage_workflow`**: Crea, actualiza, habilita o deshabilita, elimina o ejecuta un workflow.
+- **`manage_members_sharing`**: Lista o elimina miembros de la organización, actualiza sus roles o gestiona los permisos y traslados de páginas privadas.
+
+Las herramientas de escritura devuelven el estado actualizado del proyecto en `state`, para que la herramienta de IA pueda confirmar el cambio sin una segunda llamada. Cada acción comprueba los ámbitos otorgados a la conexión y tu rol en el dashboard. Una acción para la que no tienes autorización devuelve un error como `insufficient_scope`.
 
 <Warning>
-  Las escrituras del modo de código se aplican de inmediato al proyecto en vivo. No crean una rama ni abren una pull request. Confirma el cambio previsto antes de pedirle a una herramienta de IA que actualice workflows, configuraciones, miembros, facturación o integraciones.
+  Las escrituras de gestión de proyectos se aplican de inmediato al proyecto en vivo. No crean una rama ni abren una pull request. Confirma el cambio previsto antes de pedirle a una herramienta de IA que actualice workflows, configuraciones, dominios, autenticación o miembros.
 </Warning>
 
 <div id="session">
