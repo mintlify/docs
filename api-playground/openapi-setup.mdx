@@ -78,7 +78,7 @@ Use the following resources to learn about and construct your OpenAPI specificat
 - [The Mint CLI](https://www.npmjs.com/package/mint) to validate your OpenAPI document with the command: `mint validate`.
 
 <Note>
-  Swagger's OpenAPI Guide is for OpenAPI v3.0, but nearly all of the information is applicable to v3.1 and v3.2. For more information on the differences between versions, see [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) in the OpenAPI blog and [OpenAPI 3.2 features](#openapi-32-features) below.
+  Swagger's OpenAPI Guide is for OpenAPI v3.0, but nearly all of the information is applicable to v3.1 and v3.2. For more information on the differences between v3.0 and v3.1, see [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) in the OpenAPI blog. OpenAPI 3.2 is backward compatible with 3.1, so no migration is needed: a 3.1 document works as 3.2 once you update its `openapi` version. See [Upgrading from OpenAPI 3.1 to 3.2](https://learn.openapis.org/upgrading/v3.1-to-v3.2.html) for what 3.2 adds.
 </Note>
 
 ### Specify the base URL for your API
@@ -103,7 +103,7 @@ If your API has endpoints that exist at different URLs, you can [override the `s
 
 ### Configure file uploads
 
-For OpenAPI 3.1 specifications, define a file upload as a string schema with a binary `contentMediaType`. The API playground recognizes the field as a file input and sends it as part of a `multipart/form-data` request.
+For OpenAPI 3.1 and 3.2 specifications, define a file upload as a string schema with a binary `contentMediaType`. The API playground recognizes the field as a file input and sends it as part of a `multipart/form-data` request.
 
 Use this configuration when an endpoint accepts a file inside a multipart request. You can also use `contentEncoding` to describe how the file content encodes. A `contentEncoding` value without a binary `contentMediaType` remains a text field. For base64-encoded files, set `contentEncoding` to `base64` or `base64url`. The API playground treats either value as a base64 file. For other values or no value, the API playground uses binary file handling.
 
@@ -809,7 +809,7 @@ Webhooks are HTTP callbacks that your API sends to notify external systems when 
 
 Add a `webhooks` field to your OpenAPI document alongside the `paths` field.
 
-For more information on defining webhooks, see [Webhooks](https://spec.openapis.org/oas/v3.1.0#oasWebhooks) in the OpenAPI documentation.
+For more information on defining webhooks, see [Webhooks](https://spec.openapis.org/oas/v3.2.0#oas-webhooks) in the OpenAPI documentation.
 
 To create an MDX page for a webhook (OpenAPI 3.1+), use `webhook` instead of an HTTP method:
 
@@ -827,7 +827,7 @@ The webhook name must exactly match the key in your OpenAPI spec's `webhooks` fi
 
 Callbacks describe out-of-band requests that your API sends to a URL provided by the caller, such as event notifications tied to a specific operation. When an OpenAPI operation defines `callbacks`, Mintlify renders them on the endpoint page in a collapsible section between the request body and response sections. Each callback shows its HTTP method and expression, and reuses the same body and response components as the parent operation.
 
-For more information on defining callbacks, see [Callbacks](https://spec.openapis.org/oas/v3.1.0#callback-object) in the OpenAPI documentation.
+For more information on defining callbacks, see [Callbacks](https://spec.openapis.org/oas/v3.2.0#callback-object) in the OpenAPI documentation.
 
 Define callbacks on the operation in your OpenAPI spec:
 
@@ -868,106 +868,3 @@ paths:
                 "200":
                   description: Callback received
 ```
-
-## OpenAPI 3.2 features
-
-OpenAPI 3.2 documents (`openapi: 3.2.0`) are validated against the official 3.2 schema and support every addition listed here. Documents written for 3.0 or 3.1 keep working unchanged.
-
-### Tag hierarchies
-
-Tags can declare `parent`, `kind`, and `summary` to build nested navigation groups and sidebar pills. See [Nested groups from tag hierarchies](#nested-groups-from-tag-hierarchies).
-
-### QUERY and custom methods
-
-The `query` operation is a fixed Path Item field like `get` or `post`. Other methods go under `additionalOperations`, keyed by their uppercase method name. Both generate endpoint pages, playground requests, and code samples.
-
-```yaml
-paths:
-  /plants:
-    query:
-      summary: Search plants
-    additionalOperations:
-      PURGE:
-        summary: Purge the plant cache
-```
-
-Reference these operations in MDX frontmatter with the same method name you used in the specification. Fixed methods are case-insensitive, while custom methods are uppercase:
-
-```mdx
----
-openapi: "openapi.yaml PURGE /plants"
----
-```
-
-`WEBHOOK` cannot be used as a custom method because it identifies [webhook pages](#webhooks).
-
-### Whole query string parameters
-
-Describe the entire query string with a single `in: querystring` parameter whose `content` gives the media type. The playground renders it as its own **Query string** input and serializes `application/x-www-form-urlencoded`, `application/json`, and `text/*` content exactly once. An operation can have at most one `querystring` parameter and cannot combine it with `in: query` parameters.
-
-```yaml
-parameters:
-  - name: filter
-    in: querystring
-    content:
-      application/json:
-        schema:
-          type: object
-          properties:
-            color:
-              type: string
-```
-
-### Streaming responses
-
-Use `itemSchema` instead of `schema` on a sequential media type such as `text/event-stream`, `application/jsonl`, `application/x-ndjson`, `application/json-seq`, or `multipart/mixed` to describe each item in the stream. Endpoint pages show the item fields under **Each item in the stream**, and the playground displays the response incrementally as it arrives with a **Stop** control. Streams larger than 10 MB are truncated in the viewer, and streams sent through the Mintlify proxy end after 5 minutes.
-
-```yaml
-responses:
-  "200":
-    description: Plant events
-    content:
-      text/event-stream:
-        itemSchema:
-          type: object
-          properties:
-            event:
-              type: string
-```
-
-### Data and serialized example values
-
-Example Objects can carry `dataValue` for the logical value and `serializedValue` for the exact wire representation. Response examples render `serializedValue` verbatim with syntax highlighting based on the media type. For request examples, the playground prefills inputs from `dataValue` (or from a parsed `serializedValue` for JSON, form-urlencoded, and `multipart/form-data` media) and builds the request sample from those inputs. `externalValue` points to a hosted serialized document.
-
-### Security schemes
-
-- **Device authorization flow**: OAuth 2.0 schemes can declare `flows.deviceAuthorization` with a `deviceAuthorizationUrl` and `tokenUrl`. The playground shows a **Connect** panel that requests a device code, displays the user code and verification URL, polls the token endpoint, and applies the access token to the request. Public clients (`client_id` only) are supported.
-- **Metadata URL**: `oauth2MetadataUrl` is listed with the flow details on the endpoint page.
-- **Deprecated schemes**: Schemes marked `deprecated: true` show a deprecated pill and label in the authorization selector.
-- **URI references**: Security requirement keys can reference a scheme by URI fragment, such as `#/components/securitySchemes/oauth`, in addition to the component name. References to other documents are not supported.
-
-### Discriminator default mapping
-
-Set `discriminator.defaultMapping` to the schema used when the discriminating property is absent or unmapped. That variant is listed first in the docs, selected by default in the playground, and used for generated examples. The value must be a `mapping` value, a `components.schemas` name, or a same-document reference. When the schema lists its variants in `oneOf` or `anyOf`, the default must be one of them.
-
-### Parameter serialization
-
-- `style: cookie` on `in: cookie` parameters follows RFC 6265 and applies no percent-encoding.
-- `allowReserved: true` on query and path parameters keeps reserved characters unencoded in generated requests and code samples. Query delimiters (`&`, `=`, `#`) and `/` in path segments are still encoded.
-- `prefixEncoding` and `itemEncoding` on multipart Media Type Objects and Encoding Objects set per-part content types. They require `itemSchema` or an array `schema`.
-- Header parameter names and the keys of `headers` maps must be valid HTTP field names, as defined in RFC 9110. Validation fails for names with spaces or other characters that HTTP doesn't allow in a header name.
-
-### Document-level fields
-
-- `$self` is preserved as the document's base URI.
-- `servers[].name` labels each entry in the base URL selector. Every server variable can appear at most once in a server URL.
-- Responses can use `summary` alone or with `description`; the heading shows `description` when present, otherwise `summary`.
-- Reusable Media Type Objects in `components.mediaTypes` can be referenced from any `content` map with `$ref`.
-
-### Limitations
-
-- Operations that live only under `components.pathItems` do not generate pages. Reference them from `paths` instead.
-- Browsers do not let the playground set a `Cookie` header, so `in: cookie` parameters appear in code samples but are not sent by live requests.
-- `multipart/mixed` and `multipart/related` bodies, including ones with file parts, are sent and shown in code samples as one framed message, so every part keeps its content type. For `multipart/form-data` bodies, live browser requests and the Node `fetch` sample use `FormData`, which cannot set a content type on a non-file field, so those parts are sent as plain fields.
-- XML Object fields (`nodeType` and IRI namespaces) are accepted but not checked or rendered; the playground does not generate XML bodies.
-- Webhook pages resolve to the first operation on a webhook Path Item, so declare one operation per webhook.
