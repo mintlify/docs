@@ -199,13 +199,37 @@ Si un appel à `create_node`, `update_node`, `move_node` ou `delete_node` laisse
   ### Gestion de projet
 </div>
 
-Le mode code gère les opérations au niveau du projet qui n'ont pas d'outil dédié, comme la gestion des workflows, des paramètres de projet, des membres, de la facturation, des intégrations, des analyses et du partage des [pages privées](/fr/editor/pages#private-pages). Les outils du mode code ne nécessitent pas de `checkout`.
+Les outils de gestion de projet gèrent les opérations au niveau du projet, comme la gestion des workflows, des paramètres de projet, des domaines personnalisés, des sources Git, de l'authentification, des membres, des analyses et du partage des [pages privées](/fr/editor/pages#private-pages). Ils ne nécessitent pas de `checkout`.
 
-- **`search_code_operations`**: Recherche les méthodes de gestion de projet disponibles pour le mode code. Chaque résultat inclut le schéma d'entrée complet de la méthode.
-- **`execute_code`**: Exécute un script TypeScript sur les méthodes de gestion de projet. Les scopes accordés à la connexion contrôlent chaque méthode, et toute méthode qui ne vous a pas été accordée renvoie une erreur d'autorisation.
+Chaque outil prend un `subdomain` correspondant au projet ciblé. Les connexions à l'échelle de l'organisation doivent transmettre `subdomain`. Appelez `list_deployments` pour le trouver. Les outils de lecture acceptent aussi `subdomains`, une liste de 25 projets maximum, et renvoient un résultat ou une erreur pour chacun. La plupart des outils prennent un objet `request` dont le champ `action` sélectionne l'opération. Par exemple :
+
+```json
+{
+  "subdomain": "acme",
+  "request": { "action": "noindex", "noindex": true }
+}
+```
+
+Outils de lecture :
+
+- **`get_deployment_settings`**: Lit en un seul appel les paramètres du dashboard d'un projet, ses sources Git, l'état de ses noms d'hôte personnalisés et ses vérifications de sources. La configuration Slack et les snippets sont facultatifs.
+- **`get_analytics_report`**: Lit un rapport d'analyse prédéfini, comme les pages vues, les pages populaires, les référents, les retours, les conversations de l'assistant ou la qualité de la recherche. Sélectionnez le rapport avec `request.report`. Les résultats volumineux sont paginés avec `maxRows` et `rowOffset`. Pour des requêtes personnalisées, utilisez `query_analytics`.
+- **`get_workflows`**: Liste les workflows, récupère un workflow ou parcourt ses exécutions.
+- **`list_repos_and_prs`**: Liste les dépôts connectés, les pull requests d'un dépôt ou les intégrations disponibles pour un workflow.
+
+Outils d'écriture :
+
+- **`update_deployment_settings`**: Modifie un paramètre du dashboard, comme `noindex`, `base_path`, `name`, `disable_ai_chat`, `search_settings`, `privacy`, `custom_scripts` ou un module complémentaire. Utilisez `update_config` pour les paramètres de `docs.json`.
+- **`manage_custom_domain`**: Ajoute ou supprime un domaine personnalisé, provisionne son nom d'hôte ou relance la validation du nom d'hôte.
+- **`manage_git_source`**: Ajoute, met à jour, supprime ou réordonne les dépôts Git à partir desquels un projet est compilé, ou définit la source de base.
+- **`manage_access_auth`**: Configure ou supprime l'[authentification](/fr/deploy/authentication-setup) du site, ajoute ou supprime des mots de passe, configure l'authentification des utilisateurs finaux ou change celle qui est active.
+- **`manage_workflow`**: Crée, met à jour, active ou désactive, supprime ou déclenche un workflow.
+- **`manage_members_sharing`**: Liste ou retire des membres de l'organisation, met à jour leurs rôles ou gère les autorisations et déplacements des pages privées.
+
+Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afin que l'outil d'IA puisse confirmer la modification sans second appel. Chaque action vérifie les scopes accordés à la connexion et votre rôle dans le dashboard. Une action pour laquelle vous n'êtes pas autorisé renvoie une erreur comme `insufficient_scope`.
 
 <Warning>
-  Les écritures du mode code s'appliquent immédiatement au projet en ligne. Elles ne créent pas de branche et n'ouvrent pas de pull request. Confirmez la modification prévue avant de demander à un outil d'IA de mettre à jour des workflows, des paramètres, des membres, la facturation ou des intégrations.
+  Les écritures de gestion de projet s'appliquent immédiatement au projet en ligne. Elles ne créent pas de branche et n'ouvrent pas de pull request. Confirmez la modification prévue avant de demander à un outil d'IA de mettre à jour des workflows, des paramètres, des domaines, l'authentification ou des membres.
 </Warning>
 
 <div id="session">
