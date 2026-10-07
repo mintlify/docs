@@ -139,6 +139,7 @@ openapi: "openapi/users.json GET /users"
 ```
 
 - Always include the spec file path when the repo contains more than one spec. Mintlify uploads every spec in the repo, even unreferenced ones, and `openapi: "GET /users"` without a path can resolve to the wrong spec.
+- The `openapi`, `api`, and `asyncapi` frontmatter values must each be a single string referencing one endpoint. A list or other non-string value fails the deployment.
 - Webhooks (OpenAPI 3.1+): `openapi: "openapi.json webhook orderUpdated"`, where the name matches a key in `webhooks`.
 - Data models: `openapi-schema: "openapi.json OrderItem"` renders a `components.schemas` entry. The file path is optional unless schema names collide across specs.
 - Generate MDX files from a spec with `npx @mintlify/scraping@latest openapi-file <path-to-spec> -o <folder>`.
@@ -207,7 +208,7 @@ Generate pages from an SDL schema by adding `graphql` to a tab or group in `navi
 
 - A tab with `graphql` may include `groups` only (no `pages`, `versions`, `languages`) and cannot also have `openapi` or `asyncapi`.
 - By default, Mintlify generates **Queries**, **Mutations**, and **Types** (object, input, enum, interface, union) sections.
-- To curate pages, list selectors in `pages` of the tab or group that declares `graphql` (or its nested groups): `QUERY <field>`, `MUTATION <field>`, `TYPE <name>`. Kinds must be uppercase. Dotted paths (`MUTATION cart.createCart`) select namespaced operations; `TYPE` does not accept dotted paths.
+- To curate pages, list selectors in `pages` of the tab or group that declares `graphql` (or its nested groups): `QUERY <field>`, `MUTATION <field>`, `TYPE <name>`. Kinds must be uppercase. Dotted paths (`MUTATION cart.createCart`) select namespaced operations; `TYPE` does not accept dotted paths. The sidebar labels a nested operation with its last segment (`createCart`); the page URL keeps the full path (`.../cart/createCart`).
 - If any page is a selector, the full generated sections are skipped. Regular page paths still work alongside selectors. An unmatched selector fails the build.
 
 ## Playground configuration
