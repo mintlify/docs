@@ -524,7 +524,7 @@ Props:
 - `label` (string, required): Date or version identifier.
 - `description` (string): Version or release name.
 - `tags` (string[]): Filterable tags.
-- `rss` (object): Custom RSS entry with `title` and `description`.
+- `rss` (object): Custom RSS entry with `title`, `description`, and `date` (overrides the Git-derived publication date).
 
 ## Visibility
 

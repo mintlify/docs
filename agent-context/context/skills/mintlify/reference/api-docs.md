@@ -5,7 +5,7 @@ Setting up API documentation with OpenAPI, AsyncAPI, and MDX manual pages.
 ## OpenAPI setup
 
 Spec requirements:
-- OpenAPI 3.0 or 3.1, in JSON or YAML, stored in the repo or hosted at a public URL.
+- OpenAPI 3.0, 3.1, or 3.2, in JSON or YAML, stored in the repo or hosted at a public URL. 3.2 is backward compatible with 3.1: a 3.1 document works as 3.2 once its `openapi` version is updated.
 - `$ref` supports internal references only. External references are not supported.
 - Include a `servers` field with the API base URL. Without it, the playground falls back to simple mode because it can't send requests.
 - Define `components.securitySchemes` and `security` to get auth inputs in the playground.
@@ -36,6 +36,40 @@ Add an `openapi` field to a navigation element (tab, group, anchor, and so on) t
 }
 ```
 
+### Nested groups from tag hierarchies
+
+In OpenAPI 3.2 documents, tags can declare `parent`, `kind`, and `summary`, which Mintlify uses to build nested navigation groups for auto-populated pages. OpenAPI 3.0 and 3.1 documents keep one flat group per tag, based on each operation's first tag.
+
+- `parent`: Nests the tag's group inside the parent tag's group.
+- `summary`: Sets the group label. If the tag also has `x-group`, `x-group` wins.
+- `kind`: `nav` or unset creates a navigation group. `badge` shows the tag's `summary` (or `name`) as a sidebar pill next to the endpoint and creates no group. Any other value (such as `audience`) creates neither.
+
+```yaml
+openapi: 3.2.0
+tags:
+  - name: store
+    summary: Store
+    kind: nav
+  - name: plants
+    summary: Plants
+    parent: store
+    kind: nav
+  - name: beta
+    summary: Beta
+    kind: badge
+paths:
+  /plants:
+    get:
+      summary: List plants
+      tags: [beta, plants]
+```
+
+Here **List plants** appears under **Store** > **Plants** with a **Beta** pill, and its URL follows `plants`.
+
+- With several tags, Mintlify places an operation using the first tag with `kind: nav`, else the first declared tag with no `kind`, else the first tag not declared in `tags`. The page URL follows that tag.
+- `tag` in `x-mint.metadata` overrides badge pills for that endpoint.
+- Mintlify validates the 3.2 tag tree: duplicate tag names, a `parent` referencing a missing tag, or cyclic parents fail validation.
+
 ### Overlays
 
 Transform an OpenAPI spec without editing its source file using [OpenAPI Overlay](https://spec.openapis.org/overlay/v1.1.0.html) documents (Overlay versions 1.0 and 1.1). List overlays with the object form of `openapi`, which works anywhere `openapi` is accepted, including navigation elements and arrays:
@@ -56,7 +90,7 @@ An overlay document has an `overlay` version, an `info` object with `title` and 
 
 ### File uploads
 
-For OpenAPI 3.1 specs, describe a file upload field as a string schema with a binary `contentMediaType` inside a `multipart/form-data` request body. The playground renders it as a file input and sends the request as multipart form data.
+For OpenAPI 3.1 and 3.2 specs, describe a file upload field as a string schema with a binary `contentMediaType` inside a `multipart/form-data` request body. The playground renders it as a file input and sends the request as multipart form data.
 
 ```json
 {
@@ -106,7 +140,7 @@ openapi: "openapi/users.json GET /users"
 
 - Always include the spec file path when the repo contains more than one spec. Mintlify uploads every spec in the repo, even unreferenced ones, and `openapi: "GET /users"` without a path can resolve to the wrong spec.
 - The `openapi`, `api`, and `asyncapi` frontmatter values must each be a single string referencing one endpoint. A list or other non-string value fails the deployment.
-- Webhooks (OpenAPI 3.1): `openapi: "openapi.json webhook orderUpdated"`, where the name matches a key in `webhooks`.
+- Webhooks (OpenAPI 3.1+): `openapi: "openapi.json webhook orderUpdated"`, where the name matches a key in `webhooks`.
 - Data models: `openapi-schema: "openapi.json OrderItem"` renders a `components.schemas` entry. The file path is optional unless schema names collide across specs.
 - Generate MDX files from a spec with `npx @mintlify/scraping@latest openapi-file <path-to-spec> -o <folder>`.
 
