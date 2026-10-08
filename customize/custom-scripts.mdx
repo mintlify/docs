@@ -95,10 +95,14 @@ footer {
 }
 ```
 
-Mintlify exposes two types of CSS targeting hooks:
+CSS targeting hooks use different syntax:
 
 - **ID selectors**: unique page-level elements targeted with `#value { }` in CSS
-- **Element selectors**: component and layout elements targeted with `value { }` in CSS (no `#` or `.` prefix)
+- **Class selectors**: component and layout classes targeted with `.value { }` in CSS, such as `.card`.
+- **Element selectors**: HTML tags targeted with `value { }` in CSS, such as `footer`.
+- **Attribute selectors**: component parts or states targeted with brackets, such as `[data-component-part="card-icon"]`.
+
+These selectors are not interchangeable. For example, `.card` targets a class, while `card` targets a tag named `<card>`. Hooks depend on the rendered theme, component, configuration, and state. See the [customization skill](/customize/agent-skill) for exact syntax, availability, lifecycle, and compatibility references.
 
 <Tip>
   Use inspect element to find references to elements you're looking to customize.
@@ -106,7 +110,7 @@ Mintlify exposes two types of CSS targeting hooks:
 
 ### ID selectors
 
-Each ID appears once per page. Use these as `#value` in CSS. For example, `#navbar { background: red; }`.
+Use these as `#value` in CSS. For example, `#navbar { background: red; }`. A hook exists only when its owning element renders; inspect the active mounted layout during navigation transitions.
 
 <AccordionGroup>
 <Accordion title="Page layout">
@@ -188,9 +192,9 @@ Each ID appears once per page. Use these as `#value` in CSS. For example, `#navb
 </Accordion>
 </AccordionGroup>
 
-### Element selectors
+### Class and element hooks
 
-Multiple instances of these elements can appear on a page. Use these as `value` in CSS. For example, `accordion { border: 1px solid red; }`.
+Multiple instances of these hooks can appear on a page. The list gives hook names; inspect the rendered element to determine whether the name is a class or a tag. For example, use `.accordion { border: 1px solid red; }` for the accordion class and `footer { margin-top: 2rem; }` for the HTML footer element.
 
 <AccordionGroup>
   <Accordion title="Content components">
@@ -363,7 +367,7 @@ Multiple instances of these elements can appear on a page. Use these as `value` 
 
     - `nav-dropdown-item[data-active]`: Active item in a nav dropdown.
     - `mobile-nav-tabs-item[data-active]`: Active tab in the mobile nav.
-    - `sidebar-group[data-active]`: Active sidebar group.
+    - `.sidebar-group:has(> li[data-active])`: Sidebar group containing the current page. The group itself has no `data-active`; its page and nested-group items do.
     - `#sidebar-content li[data-active]`: Active sidebar link.
     - `.nav-tabs-item[data-active]`: Active top nav tab. Only applies to simple tabs; tabs with dropdown menus do not receive `data-active`. Note the leading `.`: this targets a class on a standard `<a>` element, unlike most other components which use custom element names.
     - `toc-item[data-active]`: Active table of contents item.
@@ -413,6 +417,52 @@ Multiple instances of these elements can appear on a page. Use these as `value` 
   </Accordion>
 </AccordionGroup>
 
+### Change the sidebar width
+
+Set the `--sidebar-width` CSS variable to change the width of the sidebar on desktop. The content area, header, and footer adjust to the new width, so you don't need to override `#sidebar` or offset other elements yourself.
+
+```css style.css
+:root {
+  --sidebar-width: 20rem;
+}
+```
+
+If you don't set the variable, each theme uses its default sidebar width:
+
+| Theme | Default width |
+| :--- | :--- |
+| Mint, Linden, Willow, Aspen, Sequoia | `18rem` |
+| Maple, Palm | `19rem` |
+| Almond | `16.5rem` |
+| Luma | `14rem` |
+
+In the Palm theme, the variable sets the width of the expanded sidebar. The collapsed sidebar keeps its fixed width.
+
+### Change the content width
+
+Set the `--content-width` CSS variable to change the maximum width of the text column on pages that use the default [page mode](/organize/pages#page-mode). The value sets the width of the text itself. Each theme adds its own padding around the text, so the same value produces the same text width in every theme.
+
+```css style.css
+:root {
+  --content-width: 768px;
+}
+```
+
+The text column never grows wider than the space between the sidebar and the table of contents. If you set a large value, the column fills the available space without overlapping other elements.
+
+If you don't set the variable, each theme uses its default content width:
+
+| Theme | Default width |
+| :--- | :--- |
+| Mint, Palm, Aspen | No maximum. The text fills the available space. |
+| Linden | No maximum on smaller screens. `35.75rem` on extra-large screens. |
+| Maple | `36rem`. `42rem` on the largest screens. |
+| Willow | `600px` |
+| Almond | `36rem` |
+| Sequoia, Luma | `40.5rem` |
+
+`--content-width` does not affect pages in `wide`, `center`, `custom`, or `frame` mode.
+
 ## Custom JavaScript
 
 Custom JavaScript lets you add custom executable code globally. It is the equivalent of adding a `<script>` tag with JavaScript code into every page.
@@ -443,6 +493,31 @@ gtag('config', 'TAG_ID');
 <Warning>
   Use with caution to avoid introducing security vulnerabilities.
 </Warning>
+
+### Run code on every page
+
+Custom JavaScript runs once per visit. When a reader moves between pages, Mintlify swaps the page content without reloading, so code that changes page content only runs on the first page. Listen for the `mintlify:navigate` event to run it again after each navigation. The event fires on `window` once the new page renders, with the new path in `event.detail.path`. It does not fire on the initial load, so call your function once yourself.
+
+```js Add a button to every heading
+function addCopyButtons() {
+  document.querySelectorAll('#content h2[id]').forEach((heading) => {
+    if (heading.querySelector('.copy-link')) return;
+
+    const button = document.createElement('button');
+    button.className = 'copy-link';
+    button.textContent = 'Copy link';
+    button.addEventListener('click', () => {
+      navigator.clipboard.writeText(`${location.origin}${location.pathname}#${heading.id}`);
+    });
+    heading.append(button);
+  });
+}
+
+addCopyButtons();
+window.addEventListener('mintlify:navigate', addCopyButtons);
+```
+
+Use the event instead of a `MutationObserver` on `document.body`, which runs on every DOM change and slows down large pages. To track clicks, use a single listener on `document` instead; it keeps working across navigations without the event.
 
 ### Set API playground server variables
 

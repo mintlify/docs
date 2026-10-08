@@ -68,13 +68,13 @@ title: "Page title"
 mode: "custom"
 ---
 
-# Frame: like custom but keeps sidebar (Aspen, Almond, and Luma themes only)
+# Frame: like custom but keeps sidebar
 ---
 title: "Page title"
 mode: "frame"
 ---
 
-# Center: removes sidebar and TOC, centers content (Mint and Linden themes only)
+# Center: removes sidebar and TOC, centers content (Maple and Almond keep the sidebar)
 ---
 title: "Page title"
 mode: "center"

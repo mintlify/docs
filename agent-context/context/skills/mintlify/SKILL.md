@@ -1,6 +1,6 @@
 ---
 name: mintlify
-description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, or working with API references. Routes to detailed reference files for all components and configuration options.
+description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, working with API references, or customizing appearance and browser behavior with CSS, JavaScript, React, and snippets, including styling one page or component, colors, fonts, sidebar or content width, hiding elements, and custom scripts. Routes to detailed reference files for all components and configuration options.
 ---
 
 # Mintlify reference
@@ -19,6 +19,7 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
 | `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | `reference/product-context.md` | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
+| `reference/customization/index.md` | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
 
 ## MCP servers
 
@@ -37,7 +38,7 @@ Tools:
 
 Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
-Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Project management changes made through code mode apply immediately to the live project without a branch or pull request.
+Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Project management tool changes apply immediately to the live project without a branch or pull request.
 
 Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
@@ -50,7 +51,7 @@ Key tools:
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree. If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation invalid (for example, a page at the root next to tabs), the response includes a `navigationErrors` field. Fix these errors before `save`, because Mintlify can drop invalid nodes from the published navigation.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`upload_image`** / **`finalize_image_upload`** — Add a local image to the session branch. Call `upload_image` with the destination `path` (for example, `images/dashboard.png`), `contentType`, and exact `size` in bytes. `PUT` the file bytes to the returned `uploadUrl` with the returned `headers`, then call `finalize_image_upload` with the `uploadId` and the same `path`. Use the returned `src` in MDX or in the `docs.json` `logo` or `favicon` fields. Uploading to an existing `path` replaces the image. Mintlify only accepts SVGs for logos and favicons, so pass `purpose: "logo"` to both tools. Images publish with the session on `save`.
-- **`search_code_operations`** / **`execute_code`** — Code mode for project-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics, private-page sharing). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live project, so confirm the intended change first.
+- **Project management tools** — Read with `get_deployment_settings`, `get_analytics_report`, `get_workflows`, and `list_repos_and_prs`. Write with `update_deployment_settings`, `manage_custom_domain`, `manage_git_source`, `manage_access_auth`, `manage_workflow`, and `manage_members_sharing`. Pass `subdomain` (required on org-wide connections; read tools also accept `subdomains`, up to 25) and a `request` object whose `action` (or `report`) selects the operation. No `checkout` required. Writes apply immediately to the live project and return the updated `state`, so confirm the intended change first.
 
 Private pages: `list_nodes` accepts `visibility: "private"` to list the private pages and folders the OAuth user can access (ignores other filters, returns each node's `role`). `read`, `edit_page`, `write_page`, `update_node`, and `delete_node` accept `private-page-<uuid>` or `private-folder-<uuid>` node ids; `create_node` accepts `visibility: "private"` with `data.type: "page"` or `"group"`. Private-page operations require an OAuth session (the admin MCP rejects client and machine-to-machine tokens), work without a `checkout`, and enforce role requirements: read for reads, editor or higher for writes and updates, manager for deletes. The caller becomes the manager of any node they create.
 - **`diff`** — See all changes relative to the deploy branch.
@@ -65,6 +66,8 @@ Keep each session focused on one change. Smaller sessions produce easier-to-revi
 Before substantial content work, read `reference/product-context.md` and check for `.mintlify/product-brief.md`.
 
 Read the project's `docs.json` file first. It defines the site's navigation, theme, colors, and configuration.
+
+For appearance or browser behavior changes, read `reference/customization/index.md`.
 
 Search for existing content before creating new pages. You may need to update an existing page, add a section, or link to existing content rather than duplicating.
 

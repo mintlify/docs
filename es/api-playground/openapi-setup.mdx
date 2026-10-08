@@ -4,13 +4,13 @@ description: "Genera documentación de API interactiva desde archivos OpenAPI co
 keywords: ["OpenAPI", "Especificación de API", "Swagger"]
 ---
 
-OpenAPI es una especificación para describir APIs. Mintlify es compatible con documentos OpenAPI 3.0 y 3.1 para generar documentación de API interactiva y mantenerla actualizada.
+OpenAPI es una especificación para describir APIs. Mintlify es compatible con documentos OpenAPI 3.0, 3.1 y 3.2 para generar documentación de API interactiva y mantenerla actualizada.
 
 <div id="add-an-openapi-specification-file">
   ## Agrega un archivo de especificación OpenAPI
 </div>
 
-Para documentar tus endpoints con OpenAPI, necesitas una o más especificaciones OpenAPI válidas en formato JSON o YAML que sigan la [especificación OpenAPI 3.0 o 3.1](https://swagger.io/specification/).
+Para documentar tus endpoints con OpenAPI, necesitas una o más especificaciones OpenAPI válidas en formato JSON o YAML que sigan la [especificación OpenAPI 3.0, 3.1 o 3.2](https://swagger.io/specification/).
 
 Agrega especificaciones OpenAPI a tu repositorio de documentación o alójalas en línea donde puedas acceder a ellas mediante una URL. Las especificaciones almacenadas en tu repositorio se [sirven como archivos descargables](/es/create/files) en la ruta correspondiente de tu dominio de documentación. Por ejemplo, `https://your-domain/docs/openapi.json`.
 
@@ -84,7 +84,7 @@ Recomendamos los siguientes recursos para aprender y elaborar tu especificación
 * [La CLI de Mint](https://www.npmjs.com/package/mint) para validar tu documento de OpenAPI con el comando: `mint validate`.
 
 <Note>
-  La Guía de OpenAPI de Swagger corresponde a OpenAPI v3.0, pero casi toda la información es aplicable a v3.1. Para obtener más información sobre las diferencias entre v3.0 y v3.1, consulta [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) en el blog de OpenAPI.
+  La Guía de OpenAPI de Swagger corresponde a OpenAPI v3.0, pero casi toda la información es aplicable a v3.1 y v3.2. Para obtener más información sobre las diferencias entre v3.0 y v3.1, consulta [Migrating from OpenAPI 3.0 to 3.1.0](https://www.openapis.org/blog/2021/02/16/migrating-from-openapi-3-0-to-3-1-0) en el blog de OpenAPI. OpenAPI 3.2 es compatible con versiones anteriores de 3.1, así que no hace falta ninguna migración: un documento 3.1 funciona como 3.2 en cuanto actualizas su versión `openapi`. Consulta [Upgrading from OpenAPI 3.1 to 3.2](https://learn.openapis.org/upgrading/v3.1-to-v3.2.html) para ver qué añade 3.2.
 </Note>
 
 <div id="specify-the-base-url-for-your-api">
@@ -113,7 +113,7 @@ Si tu API tiene endpoints que se encuentran en distintas URL, puedes [sobrescrib
   ### Configura cargas de archivos
 </div>
 
-En las especificaciones OpenAPI 3.1, define una carga de archivo como un esquema de tipo string con un `contentMediaType` binario. El playground de la API reconoce el campo como un selector de archivos y lo envía como parte de una solicitud `multipart/form-data`.
+En las especificaciones OpenAPI 3.1 y 3.2, define una carga de archivo como un esquema de tipo string con un `contentMediaType` binario. El playground de la API reconoce el campo como un selector de archivos y lo envía como parte de una solicitud `multipart/form-data`.
 
 Usa esta configuración cuando un endpoint acepte un archivo dentro de una solicitud multipart. También puedes usar `contentEncoding` para describir cómo se codifica el contenido del archivo. Un valor `contentEncoding` sin un `contentMediaType` binario sigue siendo un campo de texto. Para archivos codificados en base64, establece `contentEncoding` en `base64` o `base64url`. El playground trata ambos valores como un archivo base64. Para otros valores o cuando no se define ningún valor, el playground usa el procesamiento de archivos binarios.
 
@@ -552,6 +552,49 @@ Esto es útil cuando deseas un nombre de grupo legible que difiera del tag usado
 
 En este ejemplo, el grupo de navegación se muestra como "User Management", pero la URL de la página generada sigue usando el nombre del tag `user-management` como segmento de la ruta.
 
+<div id="nested-groups-from-tag-hierarchies">
+  ### Grupos anidados a partir de jerarquías de tags
+</div>
+
+En los documentos OpenAPI 3.2, los tags pueden declarar los campos `parent`, `kind` y `summary`. Mintlify usa estos campos para crear grupos de navegación anidados para las páginas de API generadas automáticamente. Los documentos OpenAPI 3.0 y 3.1 mantienen un grupo plano por tag, según el primer tag de cada operación.
+
+- `parent`: anida el grupo del tag dentro del grupo del tag padre.
+- `summary`: define la etiqueta del grupo. Si un tag también tiene `x-group`, `x-group` tiene prioridad.
+- `kind`: controla cómo usa Mintlify el tag.
+  - `nav` o sin `kind`: crea un grupo de navegación.
+  - `badge`: muestra el `summary` del tag, o su `name` si no tiene `summary`, como una píldora junto al endpoint en la barra lateral. Los tags `badge` no crean grupos de navegación.
+  - Cualquier otro valor, como `audience`: no crea ni un grupo de navegación ni una píldora.
+
+```yaml
+openapi: 3.2.0
+tags:
+  - name: store
+    summary: Store
+    kind: nav
+  - name: plants
+    summary: Plants
+    parent: store
+    kind: nav
+  - name: care-guides
+    summary: Care guides
+    parent: store
+    kind: nav
+  - name: beta
+    summary: Beta
+    kind: badge
+paths:
+  /plants:
+    get:
+      summary: List plants
+      tags: [beta, plants]
+```
+
+En este ejemplo, el endpoint **List plants** aparece en **Store** > **Plants** en la barra lateral con una píldora **Beta**. La URL de la página sigue el tag `plants`, no `beta`, aunque `beta` aparezca primero.
+
+Cuando una operación tiene varios tags, Mintlify la ubica usando el primer tag con `kind: nav`. Si no hay ninguno, Mintlify usa el primer tag declarado sin `kind` y, después, el primer tag que no esté declarado en `tags`. Para mostrar una píldora distinta en un endpoint concreto, usa `tag` en los [metadatos de `x-mint`](#metadata). Tiene prioridad sobre los tags `badge`.
+
+Mintlify valida el árbol de tags en los documentos OpenAPI 3.2. La validación falla si dos tags comparten nombre, si un `parent` hace referencia a un tag que no existe o si las referencias a `parent` forman un ciclo.
+
 <div id="auto-populate-api-pages">
   ## Generar automáticamente páginas de API
 </div>
@@ -827,7 +870,7 @@ Los webhooks son devoluciones de llamada (callbacks) HTTP que tu API envía para
 
 Agrega un campo `webhooks` a tu documento de OpenAPI junto con el campo `paths`.
 
-Para obtener más información sobre cómo definir webhooks, consulta [Webhooks](https://spec.openapis.org/oas/v3.1.0#oasWebhooks) en la documentación de OpenAPI.
+Para obtener más información sobre cómo definir webhooks, consulta [Webhooks](https://spec.openapis.org/oas/v3.2.0#oas-webhooks) en la documentación de OpenAPI.
 
 Para crear una página MDX para un webhook (OpenAPI 3.1+), usa `webhook` en lugar de un método HTTP:
 
@@ -849,7 +892,7 @@ Los callbacks describen solicitudes fuera de banda que tu API envía a una URL p
 
 No necesitas configurar nada para mostrar los callbacks. Si tu especificación de OpenAPI define `callbacks` en una operación, aparecerán automáticamente en la página del endpoint generada.
 
-Para obtener más información sobre cómo definir callbacks, consulta [Callbacks](https://spec.openapis.org/oas/v3.1.0#callback-object) en la documentación de OpenAPI.
+Para obtener más información sobre cómo definir callbacks, consulta [Callbacks](https://spec.openapis.org/oas/v3.2.0#callback-object) en la documentación de OpenAPI.
 
 Ejemplo de definición de callback en una operación:
 
