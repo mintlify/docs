@@ -16,7 +16,7 @@ Available on all commands.
 
 ## Local development
 
-- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--signed-in` previews as a signed-in reader with no groups; without `--signed-in` or `--groups`, the preview shows the signed-out view. `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP.
+- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--signed-in` previews as a signed-in reader with no groups; without `--signed-in` or `--groups`, the preview shows the signed-out view. `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP. The preview generates each page's OG image from local files at `/_mintlify/og/<page-path>.png` (`index.png` for the home page) and regenerates it on every request. Each page's `og:image` meta tag points to that image unless the page sets a custom `og:image`.
 - `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups` mocks user groups (space-separated). `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files.
 - `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups` includes restricted pages (space-separated). `--disable-openapi` skips OpenAPI processing.
 
