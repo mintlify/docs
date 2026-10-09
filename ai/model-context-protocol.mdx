@@ -323,6 +323,63 @@ You can manage your client credentials from **Settings → Security & access →
   Treat client secrets like passwords. Do not commit them to source control or expose them in client-side code. Use environment variables or a secrets manager to store them.
 </Warning>
 
+#### Request access on behalf of a user
+
+If your site uses [OAuth 2.0 authentication](/deploy/authentication-setup#oauth-2-0-setup), your server can request an access token for a specific user by passing that user's OAuth access token with the client credentials grant. The returned access token carries the user's [groups](/deploy/authentication-setup#control-access-with-groups), so the MCP server returns only the content that user can access. The user does not go through a login redirect.
+
+Use this when you run your own AI agent or MCP server and want to relay search results from your docs with each user's permissions. For example, your MCP server can call `/authed/mcp` for each user and return the results alongside your own tools, so your users only connect to one MCP endpoint.
+
+Mintlify gets the user's groups from your identity provider, not from your server. When your server sends a user token, Mintlify calls the **Info API URL** in your [OAuth configuration](/deploy/authentication-setup#oauth-2-0-setup) with that token, the same way it does when the user signs in to your docs. The user's groups replace any groups assigned to the client credential.
+
+**Requirements**
+
+- Your site uses OAuth 2.0 authentication with an **Info API URL**. Sites that read groups from [OAuth token claims](/deploy/authentication-setup#use-groups-from-oauth-token-claims), JWT, or password authentication can't use this option.
+- Your **Info API URL** accepts the access token your server holds. If your identity provider issued the token for a different audience and your endpoint rejects it, the request fails.
+- The client credential has **Allow user tokens** turned on.
+
+<Steps>
+  <Step title="Allow user tokens on a client credential">
+    1. In your dashboard, go to **Settings → Security & access → MCP**.
+    2. In the **Client credentials** section, click **Generate**.
+    3. Turn on **Allow user tokens**.
+    4. Enter a label and click **Generate**.
+    5. Copy the **client ID** and **client secret**.
+  </Step>
+  <Step title="Exchange the user's token for an access token">
+    Send the user's OAuth access token in the `subject_token` parameter of a client credentials request.
+
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=client_credentials' \
+      -d 'subject_token=USER_OAUTH_ACCESS_TOKEN'
+    ```
+
+    The response includes an access token scoped to that user. It does not include a refresh token.
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "token_type": "Bearer",
+      "expires_in": 600,
+      "scope": "mcp:search"
+    }
+    ```
+
+    If your **Info API URL** rejects the token or returns a response that doesn't match the [user data format](/deploy/authentication-setup#user-data-format), the token endpoint returns an `invalid_grant` error.
+  </Step>
+  <Step title="Call the MCP server as the user">
+    Use the access token as a bearer token when you call the `/authed/mcp` endpoint, the same as any other client credential access token.
+
+    Cache the access token for each user until it expires instead of requesting one on every MCP call. When it expires, send the user's current OAuth access token again. Mintlify calls your **Info API URL** each time, so changes to the user's groups take effect on the next request. If your user info response includes `expiresAt`, the access token expires no later than that time.
+  </Step>
+</Steps>
+
+<Warning>
+  A client credential with **Allow user tokens** turned on can act as any user whose OAuth access token it holds. Only turn it on for credentials used by servers you control.
+</Warning>
+
 ### Rate limits
 
 To protect availability, Mintlify applies rate limits to MCP servers.
