@@ -26,7 +26,7 @@ function subscribeToExampleUser(render) {
 }
 ```
 
-`mintlify:navigate` fires on `window` with `CustomEvent<{ path: string }>` after client-side navigation renders a new page. It does not fire on the initial load, so run your setup once and again on each event:
+`mintlify:navigate` fires on `window` with `CustomEvent<{ path: string; search: string; hash: string }>` once per page change, after the new page renders. `path` matches `html[data-current-path]`. It does not fire on the initial load or on query/hash-only changes. Run your setup once and again on each event:
 
 ```js
 function onEveryPage(run) {
