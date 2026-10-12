@@ -73,7 +73,9 @@ Every admin MCP session binds to a single Git branch. The flow is:
     If your connection has access to more than one project, call `list_deployments` to see which `subdomain` values you can check out. Skip this step if your connection covers only a single project.
   </Step>
   <Step title="Check out a branch">
-    The first required call is `checkout {subdomain}`. It creates a fresh `admin-mcp/<slug>-<sha>` branch from that project's deploy branch (or attaches to an existing branch you name). It also returns an `editorUrl` you can open to follow along in the dashboard editor.
+    Before you edit, call `checkout {subdomain}`. It creates a fresh `admin-mcp/<slug>-<sha>` branch from that project's deploy branch (or attaches to an existing branch you name). It also returns an `editorUrl` you can open to follow along in the dashboard editor.
+
+    `read`, `search`, and `list_nodes` don't need a checkout. Without a session, they read the current content of your deploy branch. After you check out, they read the session branch, including edits made in the session. On an organization-wide connection, pass `subdomain` to choose the project.
 
     To skip the session branch and edit your deploy branch directly, pass it as `branch`. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly).
 
@@ -162,8 +164,8 @@ To revoke a credential, click the delete icon next to it.
 
 ### Content
 
-- **`read`**: Fetch the full MDX of any page on the session branch. Pass in a file path or UUID. To read a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID from `list_nodes` with `visibility: "private"`. Private reads work without a checkout and require an OAuth session. The admin MCP rejects client and machine-to-machine tokens for private-page access.
-- **`search`**: Find lines matching a substring or regular expression across every page.
+- **`read`**: Fetch the full MDX of any page on the session branch, or on your deploy branch when no session is open. Pass in a file path or UUID. To read a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID from `list_nodes` with `visibility: "private"`. Private reads work without a checkout and require an OAuth session. The admin MCP rejects client and machine-to-machine tokens for private-page access.
+- **`search`**: Find lines matching a substring or regular expression across every page. Searches your deploy branch when no session is open.
 - **`edit_page`**: Apply a targeted edit to a page. To edit a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID as `path`. Private edits require an OAuth session with an editor role or higher on the page and work without a checkout.
 - **`write_page`**: Overwrite a page's full MDX content. Accepts a `private-page-<uuid>` node ID to overwrite a private page under the same OAuth and role requirements as `edit_page`. Use `create_node` to create a new private page.
 
@@ -182,7 +184,7 @@ Mintlify checks that the uploaded file's contents match its extension before sav
 
 ### Navigation
 
-- **`list_nodes`**: Walk the navigation tree with optional filters. Filter by `parentId` (use `recursive: true` to include all descendants), one or more node types, or any division scope: `language`, `version`, `tab`, `dropdown`, `anchor`, `product`, or `item`. Results paginate through an opaque `cursor`. Pass `visibility: "private"` to list the [private pages](/editor/pages#private-pages) and folders the OAuth user can access instead of the branch navigation tree. Private listing works without a checkout, ignores the other filters, and returns each node's `role`.
+- **`list_nodes`**: Walk the navigation tree of the session branch, or of your deploy branch when no session is open, with optional filters. Filter by `parentId` (use `recursive: true` to include all descendants), one or more node types, or any division scope: `language`, `version`, `tab`, `dropdown`, `anchor`, `product`, or `item`. Results paginate through an opaque `cursor`. Pass `visibility: "private"` to list the [private pages](/editor/pages#private-pages) and folders the OAuth user can access instead of the branch navigation tree. Private listing works without a checkout, ignores the other filters, and returns each node's `role`.
 - **`create_node`**: Add a new page, group, tab, anchor, version, language, product, or dropdown. Pass `visibility: "private"` with `data.type: "page"` or `data.type: "group"` to create a [private page](/editor/pages#private-pages) or private folder in the caller's private tree. The caller becomes the node's manager. Private creation requires an OAuth session, works without a checkout, and places the node at the private root or under an existing `private-folder-<uuid>` parent. For new pages, the response includes an `editorUrl` that opens the page in your dashboard.
 - **`update_node`**: Update a node's properties in place (rename a group, change an icon, set a default version). Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node ID to rename a [private page](/editor/pages#private-pages) or folder or change its icon or tag. Private updates require an OAuth session with an editor role or higher and work without a checkout.
 - **`move_node`**: Move a node, including renaming a page's path.
