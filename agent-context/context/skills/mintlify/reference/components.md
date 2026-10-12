@@ -241,6 +241,8 @@ Props:
 - `deprecated` (boolean): Mark as deprecated.
 - `default` (any): Default value.
 - `placeholder` (string): Playground input placeholder.
+- `pre` (string[]): Labels shown before the parameter name.
+- `post` (string[]): Labels shown after the parameter name.
 
 ### ResponseField
 

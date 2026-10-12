@@ -32,7 +32,7 @@ Read-only access to Mintlify's published documentation. Use it when the referenc
 Tools:
 - `search_mintlify` — Search the Mintlify knowledge base by query. Good for finding guides, examples, and API references.
 - `query_docs_filesystem_mintlify` — Browse the docs file tree (`ls`, `cat`, `grep`, `find`, etc.). Good for reading a specific docs page.
-- `submit_feedback` — Report a docs page that is incorrect, outdated, confusing, or incomplete.
+- `submit_feedback` — Report a docs page that is incorrect, outdated, confusing, or incomplete. The path (relative path or full URL) must match a published page or a redirect source; otherwise the tool returns an error and records nothing.
 
 ### Mintlify Admin
 
