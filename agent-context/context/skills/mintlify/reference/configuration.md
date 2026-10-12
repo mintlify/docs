@@ -433,13 +433,42 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 
 ```json
 "thumbnails": {
+  "preset": "headline",
   "appearance": "light",
+  "surface": "brand",
   "background": "/images/thumbnail-bg.svg",
   "fonts": {
     "family": "Inter"
+  },
+  "eyebrow": {
+    "source": "tab",
+    "style": "bar",
+    "color": "#FDE68A"
   }
 }
 ```
+
+- `preset`: Layout. `"classic"` (logo top left), `"headline"` (title at the top, logo bottom right), or `"minimal"` (centered text above a logo panel). Omit for the default layout. With a preset, the eyebrow always uses a monospace font.
+- `appearance`: `"light"` or `"dark"`. Default: the site color scheme.
+- `surface`: Background style for preset thumbnails only. `"brand"` (default) tints the background and glow with the primary color hue, or uses `background.color` if set. `"neutral"` uses the site background color with no glow.
+- `background`: Image path or absolute URL. On preset thumbnails, it replaces the `surface` background and glow.
+- `fonts.family` (required with `fonts`): Google Fonts family name, or the name of a self-hosted font. `fonts.source`: URL or path to a self-hosted font file. `fonts.format`: `"woff"`, `"ttf"`, or `"otf"`; required with `source` (`woff2` is not supported). If the font fails to load, thumbnails use the default font.
+- `eyebrow.source`: Navigation level whose name appears above the title: `"group"` (default), `"tab"`, `"dropdown"`, `"anchor"`, `"language"`, `"product"`, `"version"`, `"item"`, or `"none"` to hide it. Falls back to the group name when the page is not inside that level.
+- `eyebrow.style`: `"plain"`, `"bar"`, or `"pill"` on preset thumbnails. Default: `"bar"` for `classic`, `"pill"` for `headline`, `"plain"` for `minimal`.
+- `eyebrow.color`: Hex color on preset thumbnails. Default: derived from theme colors.
+
+To override thumbnails for one page, add a `thumbnail` object to the page frontmatter. To override them for a section, add `thumbnail` to a group, tab, anchor, dropdown, product, version, language, or menu item in `docs.json`. An override accepts `preset`, `appearance`, `surface`, `background`, and `eyebrow`. In an override, `eyebrow` is the literal text shown above the title (`""` hides it), and `background: ""` removes an inherited image. Eyebrow `source`, `style`, and `color` are site-wide only. Mintlify resolves each key separately: page frontmatter first, then the nearest navigation section that sets it, then `thumbnails`. Invalid override values are ignored.
+
+```yaml
+---
+title: "Webhooks"
+thumbnail:
+  preset: minimal
+  eyebrow: "API Reference"
+---
+```
+
+Preview a page's thumbnail locally with `mint og` (see the CLI reference).
 
 ## Error handling
 
