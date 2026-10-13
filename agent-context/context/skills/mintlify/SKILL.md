@@ -1,6 +1,6 @@
 ---
 name: mintlify
-description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, working with API references, or customizing appearance and browser behavior with CSS, JavaScript, React, and snippets, including styling one page or component, colors, fonts, sidebar or content width, hiding elements, and custom scripts. Routes to detailed reference files for all components and configuration options.
+description: Set up, write, and publish documentation sites with Mintlify, and work on existing Mintlify projects. Use when the user wants to create a docs site for a repo or product, turn a docs/ folder or README into a hosted docs site, document an API from an OpenAPI spec, migrate docs from Docusaurus, GitBook, ReadMe, Fern, or another platform, preview docs locally, or publish docs to a shareable URL. Also use when editing a project with docs.json, including pages, navigation, components, API references, and customizing appearance or browser behavior with CSS, JavaScript, React, and snippets.
 ---
 
 # Mintlify reference
@@ -20,6 +20,23 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | `reference/product-context.md` | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
 | `reference/customization/index.md` | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
+
+## Starting a new docs site
+
+If the user wants a new docs site, wants to publish docs, or has no `docs.json` yet, run this workflow yourself. Ask the user only for information or approvals you cannot supply. Do not send them to a browser-first quickstart when you can run terminal commands.
+
+1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`.
+2. Scaffold into a new, empty directory with `mint new <directory> --name <name>`, or keep the user's existing docs and add a `docs.json`. Never use `--force` on a directory with user files. If the repo already has Markdown docs, reuse that content instead of writing placeholder pages.
+3. Run `mint dev --no-open` as a background process from the directory containing `docs.json`. Report the local URL so the user can preview. Run `mint validate` and `mint broken-links` and fix issues you caused.
+4. Publish only when the user wants a shareable URL. Run `mint status` first. If it shows an organization, use the existing account. Otherwise run `mint login` for existing users, or ask for first name, last name, company, and email and run `mint signup --firstName <first> --lastName <last> --company <company> --email <email>` as a background process. It waits for email verification. Tell the user to click the verification link. Never invent signup details.
+5. After verification and onboarding, run `mint status` again to get the subdomain. If no subdomain appears, ask the user to finish connecting a GitHub repository in the onboarding browser tab, then retry. Commit and push to the connected repository to deploy. Do not overwrite an existing repository with starter content.
+6. Verify that `https://<subdomain>.mintlify.site` loads before you report the URL.
+
+The user only needs the browser for email verification, OAuth approval, and connecting GitHub.
+
+### Migrating from another platform
+
+For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. The scraper only handles simple public sites. Complex sites migrate from source files.
 
 ## MCP servers
 

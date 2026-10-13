@@ -1,6 +1,6 @@
 ---
 name: mintlify
-description: Build and maintain documentation sites with Mintlify. Use when creating docs pages, configuring navigation, adding components, or setting up API references.
+description: Set up, write, and publish documentation sites with Mintlify. Use when the user wants to create a docs site for a repo or product, publish docs to a shareable URL, migrate docs from another platform, create docs pages, configure navigation, add components, or set up API references.
 license: MIT
 compatibility: Requires Node.js for CLI. Works with any Git-based workflow.
 metadata:
@@ -17,6 +17,19 @@ metadata:
 Mintlify is a documentation platform that transforms MDX files into documentation sites. Configure site-wide settings in the `docs.json` file, write content in MDX with YAML frontmatter, and favor built-in components over custom components.
 
 Full schema at [mintlify.com/docs.json](https://mintlify.com/docs.json).
+
+## Set up a new docs site
+
+If the user wants a new docs site, wants to publish docs, or has no `docs.json` yet, run this workflow yourself. Ask the user only for information or approvals you cannot supply. Do not send them to a browser-first quickstart when you can run terminal commands.
+
+1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`.
+2. Scaffold into a new, empty directory with `mint new <directory> --name <name>`, or keep the user's existing docs and add a `docs.json`. Never use `--force` on a directory with user files. If the repo already has Markdown docs, reuse that content instead of writing placeholder pages.
+3. Run `mint dev --no-open` as a background process from the directory containing `docs.json`. Report the local URL so the user can preview. Run `mint validate` and `mint broken-links` and fix issues you caused.
+4. Publish only when the user wants a shareable URL. Run `mint status` first. If it shows an organization, use the existing account. Otherwise run `mint login` for existing users, or ask for first name, last name, company, and email and run `mint signup --firstName <first> --lastName <last> --company <company> --email <email>` as a background process. It waits for email verification. Tell the user to click the verification link. Never invent signup details.
+5. After verification and onboarding, run `mint status` again to get the subdomain. If no subdomain appears, ask the user to finish connecting a GitHub repository in the onboarding browser tab, then retry. Commit and push to the connected repository to deploy. Do not overwrite an existing repository with starter content.
+6. Verify that `https://<subdomain>.mintlify.site` loads before you report the URL.
+
+The user only needs the browser for email verification, OAuth approval, and connecting GitHub. For the full workflow and troubleshooting, see the [quickstart](https://mintlify.com/docs/quickstart). To move existing docs from Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide in the [migration overview](https://mintlify.com/docs/migration).
 
 ## Before you write
 
