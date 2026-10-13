@@ -58,14 +58,15 @@ Write access to a Mintlify project. Requires OAuth on first use. Complete authen
 
 Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Project management tool changes apply immediately to the live project without a branch or pull request.
 
-Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
+Workflow: `read`, `search`, `list_nodes`, and `read_comments` work without a checkout and read the deploy branch. To edit, call `checkout`, then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
 
 Key tools:
-- **`checkout`** — Start a session on a branch (required first call). Returns a branch-level `editorUrl` to preview changes live.
+- **`checkout`** — Start a session on a branch (required before editing). Returns a branch-level `editorUrl` to preview changes live.
 - **`list_branches`** — List existing branches; call before `checkout` to attach to one.
 - **`list_deployments`** — Discover which project(s) this connection can access.
 - **`read`** / **`search`** — Fetch a page's MDX or search across pages.
 - **`edit_page`** / **`write_page`** — Apply targeted edits or overwrite a page.
+- **`read_comments`** / **`add_comment`** / **`reply_to_comment`** / **`resolve_comment`** — Read open editor comment threads on a page, start a thread on exact text, reply as the agent, or resolve threads. Adding, replying and resolving require an OAuth session and a checkout on the thread's branch.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree. If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation invalid (for example, a page at the root next to tabs), the response includes a `navigationErrors` field. Fix these errors before `save`, because Mintlify can drop invalid nodes from the published navigation.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
 - **`upload_image`** / **`finalize_image_upload`** — Add a local image to the session branch. Call `upload_image` with the destination `path` (for example, `images/dashboard.png`), `contentType`, and exact `size` in bytes. `PUT` the file bytes to the returned `uploadUrl` with the returned `headers`, then call `finalize_image_upload` with the `uploadId` and the same `path`. Use the returned `src` in MDX or in the `docs.json` `logo` or `favicon` fields. Uploading to an existing `path` replaces the image. Mintlify only accepts SVGs for logos and favicons, so pass `purpose: "logo"` to both tools. Images publish with the session on `save`.

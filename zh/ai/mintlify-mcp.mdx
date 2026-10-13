@@ -83,7 +83,9 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
     如果你的连接可以访问多个项目，请调用 `list_deployments` 以查看可用于 checkout 的 `subdomain` 值。如果你的连接仅覆盖单个项目，请跳过此步骤。
   </Step>
   <Step title="检出 branch">
-    第一次必需的调用是 `checkout {subdomain}`。它会从该项目的部署 branch 基础上创建一个全新的 `admin-mcp/<slug>-<sha>` branch (或附加到你指定的现有 branch)。它还会返回一个 `editorUrl`，你可以打开它在控制台编辑器中实时跟进。
+    在编辑之前，请调用 `checkout {subdomain}`。它会从该项目的部署 branch 基础上创建一个全新的 `admin-mcp/<slug>-<sha>` branch (或附加到你指定的现有 branch)。它还会返回一个 `editorUrl`，你可以打开它在控制台编辑器中实时跟进。
+
+    `read`、`search`、`list_nodes` 和 `read_comments` 无需 checkout。没有会话时，它们读取部署 branch 的当前内容。checkout 之后，它们读取会话 branch，包括会话中所做的编辑。在组织范围的连接上，请传入 `subdomain` 来选择项目。
 
     要跳过会话 branch 并直接编辑部署 branch，请将其作为 `branch` 传入。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)。
 
@@ -184,8 +186,8 @@ Claude、ChatGPT 和 Cursor 等常用 MCP 客户端始终可以完成 OAuth 登�
   ### 内容
 </div>
 
-- **`read`**: 获取会话 branch 上任意页面的完整 MDX。可以传入页面路径（如 `/quickstart`），也可以传入编辑器 URL 中的页面 ID（`~/` 之后的部分），让 AI 工具直接通过编辑器链接打开页面。要读取[私有页面](/zh/editor/pages#private-pages)，请传入通过 `list_nodes` 加 `visibility: "private"` 获取的 `private-page-<uuid>` 节点 ID。私有读取无需 checkout，但需要 OAuth 会话。管理员 MCP 会拒绝使用客户端令牌和机器到机器令牌访问私有页面。
-- **`search`**: 在所有页面中查找匹配子字符串或正则表达式的行。
+- **`read`**: 获取会话 branch 上任意页面的完整 MDX；没有打开的会话时，则获取部署 branch 上的页面。可以传入页面路径（如 `/quickstart`），也可以传入编辑器 URL 中的页面 ID（`~/` 之后的部分），让 AI 工具直接通过编辑器链接打开页面。要读取[私有页面](/zh/editor/pages#private-pages)，请传入通过 `list_nodes` 加 `visibility: "private"` 获取的 `private-page-<uuid>` 节点 ID。私有读取无需 checkout，但需要 OAuth 会话。管理员 MCP 会拒绝使用客户端令牌和机器到机器令牌访问私有页面。
+- **`search`**: 在所有页面中查找匹配子字符串或正则表达式的行。没有打开的会话时，搜索部署 branch。
 - **`edit_page`**: 对页面进行有针对性的编辑。要编辑[私有页面](/zh/editor/pages#private-pages)，请将其 `private-page-<uuid>` 节点 ID 作为 `path` 传入。私有编辑需要在该页面拥有 editor 或更高角色的 OAuth 会话，且无需 checkout。
 - **`write_page`**: 覆盖页面的完整 MDX 内容。可接受 `private-page-<uuid>` 节点 ID 以覆盖私有页面，其 OAuth 与角色要求与 `edit_page` 相同。要创建新的私有页面，请使用 `create_node`。
 
@@ -204,11 +206,24 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 
 Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配。上传到已存在的 `path` 会替换该图片。Mintlify 仅接受用于 logo 和 favicon 的 SVG 文件，因此上传 SVG 时，请向两个工具都传入 `purpose: "logo"`。已保存的图片会显示在 `get_session_state` 中，并在你调用 `save` 时随会话的其他更改一起发布。
 
+<div id="comments">
+  ### 评论
+</div>
+
+处理团队在控制台编辑器中留下的[评论和建议](/zh/editor/collaborate#comments)。
+
+- **`read_comments`**: 列出页面上未解决的评论和建议线程，按从旧到新排序。`path` 接受与 `read` 相同的格式。每个线程包含 `threadId`、`type`（`comment` 或 `suggestion`）、线程锚定的 `quotedText`、建议的 `suggestedText`，以及 `comments`（每条包含 `author`、`content` 和 `createdAt`）。如果锚定的文本已不在页面上，线程会包含 `anchorRemoved: true`，`quotedText` 显示原始引用。无需 checkout。
+- **`add_comment`**: 在页面上发起新的评论线程，不会更改页面内容。可用于给团队留下反馈，而不是直接编辑。`path` 接受与 `read` 相同的格式，`content` 为评论内容，`quotedText` 为要锚定的最短且唯一的可见文本片段，且须位于同一段落或标题内。请使用渲染后的文字，而不是 Markdown 或 MDX 语法。例如，引用 `custom domain`，而不是 `[custom domain](/path)`。返回新的 `threadId`。如果页面上没有该文本，会返回 `no_match` 错误。如果匹配到多处，会返回 `not_unique` 错误，此时请引用更长的片段。
+- **`reply_to_comment`**: 通过 `threadId` 和 `content` 回复线程。传入 `resolve: true` 可同时解决该线程。Mintlify 会以 agent 身份代表授权用户发布回复，回复会实时显示在控制台编辑器中。
+- **`resolve_comment`**: 解决线程而不回复。
+
+`add_comment`、`reply_to_comment` 和 `resolve_comment` 需要 OAuth 会话和 checkout。`add_comment` 在会话 branch 上发起线程。`reply_to_comment` 和 `resolve_comment` 只能处理会话 branch 上的线程。要处理部署 branch 上的线程，请将部署 branch 作为 `branch` 传给 `checkout`。如果部署 branch 要求 pull request，`checkout` 会改为创建会话 branch，你将无法通过管理员 MCP 回复或解决部署 branch 上的线程。你可以回复建议线程，但必须在编辑器中接受或拒绝建议。管理员 MCP 不支持私有页面上的评论。
+
 <div id="navigation">
   ### 导航
 </div>
 
-- **`list_nodes`**: 遍历导航树，可使用可选筛选条件。按 `parentId` 筛选 (使用 `recursive: true` 包含所有后代)、按一个或多个节点类型筛选，或按任意分区范围筛选：`language`、`version`、`tab`、`dropdown`、`anchor`、`product` 或 `item`。结果通过不透明的 `cursor` 分页。传入 `visibility: "private"` 可以列出 OAuth 用户有权访问的[私有页面](/zh/editor/pages#private-pages)和文件夹，而不是 branch 的导航树。私有列表无需 checkout，会忽略其他筛选条件，并返回每个节点的 `role`。
+- **`list_nodes`**: 遍历会话 branch 的导航树（没有打开的会话时为部署 branch 的导航树），可使用可选筛选条件。按 `parentId` 筛选 (使用 `recursive: true` 包含所有后代)、按一个或多个节点类型筛选，或按任意分区范围筛选：`language`、`version`、`tab`、`dropdown`、`anchor`、`product` 或 `item`。结果通过不透明的 `cursor` 分页。传入 `visibility: "private"` 可以列出 OAuth 用户有权访问的[私有页面](/zh/editor/pages#private-pages)和文件夹，而不是 branch 的导航树。私有列表无需 checkout，会忽略其他筛选条件，并返回每个节点的 `role`。
 - **`create_node`**: 添加新的页面、组、tab、anchor、版本、语言、产品或 dropdown。传入 `visibility: "private"` 并配合 `data.type: "page"` 或 `data.type: "group"`，可在调用者的私有树中创建[私有页面](/zh/editor/pages#private-pages)或私有文件夹。调用者会成为该节点的 manager。私有创建需要 OAuth 会话，无需 checkout，并会将节点放在私有根目录下，或放在现有的 `private-folder-<uuid>` 父节点下。对于新页面，响应中会包含一个在控制台中打开该页面的 `editorUrl`。
 - **`update_node`**: 就地更新节点属性 (重命名组、更改图标、设置默认版本)。可接受 `private-page-<uuid>` 或 `private-folder-<uuid>` 节点 ID，用于重命名[私有页面](/zh/editor/pages#private-pages)或私有文件夹，或更改其图标或 tag。私有更新需要具有 editor 或更高角色的 OAuth 会话，且无需 checkout。
 - **`move_node`**: 移动节点，包括重命名页面的路径。
@@ -280,6 +295,7 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
 - _“检出一个名为 `add-billing-faq` 的 branch，并在 FAQ 组下创建一个名为 'Billing' 的新页面。为这个 Linear 工单中的五个问题草拟答案。”_
 - _“找出每一个提到已废弃的 `legacy_token` 字段的页面，并将示例更新为使用 `api_key`。保存为一个标题为 'docs: replace legacy\_token references' 的 PR。”_
 - _“重新组织 API 参考：将 webhooks 页面移入名为 'Webhooks' 的新组，并更新图标以与该部分其他内容保持一致。”_
+- _“读取快速入门页面上未解决的评论，完成所要求的编辑，并回复每个线程，处理完毕后将其解决。”_
 
 <div id="best-practices">
   ## 最佳实践

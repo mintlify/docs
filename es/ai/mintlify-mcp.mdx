@@ -83,7 +83,9 @@ Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
     Si tu conexión tiene acceso a más de un proyecto, llama a `list_deployments` para ver qué valores de `subdomain` puedes usar en checkout. Omite este paso si tu conexión cubre solo un proyecto.
   </Step>
   <Step title="Hacer checkout de una rama">
-    La primera llamada requerida es `checkout {subdomain}`. Crea una nueva rama `admin-mcp/<slug>-<sha>` a partir de la rama de despliegue de ese proyecto (o se adjunta a una rama existente que indiques). También devuelve un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel.
+    Antes de editar, llama a `checkout {subdomain}`. Crea una nueva rama `admin-mcp/<slug>-<sha>` a partir de la rama de despliegue de ese proyecto (o se adjunta a una rama existente que indiques). También devuelve un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel.
+
+    `read`, `search`, `list_nodes` y `read_comments` no necesitan un checkout. Sin una sesión, leen el contenido actual de tu rama de despliegue. Después del checkout, leen la rama de la sesión, incluidas las ediciones realizadas en la sesión. En una conexión de toda la organización, pasa `subdomain` para elegir el proyecto.
 
     Para omitir la rama de sesión y editar directamente tu rama de despliegue, pásala como `branch`. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly).
 
@@ -184,8 +186,8 @@ Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
   ### Contenido
 </div>
 
-- **`read`**: Obtén el MDX completo de cualquier página en la rama de la sesión. Pasa una ruta de página como `/quickstart`, o el ID de página de una URL del editor (el segmento después de `~/`), para que una herramienta de IA pueda abrir una página directamente desde un enlace del editor. Para leer una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` obtenido de `list_nodes` con `visibility: "private"`. Las lecturas privadas funcionan sin un checkout y requieren una sesión OAuth. El Admin MCP rechaza los tokens de cliente y de máquina a máquina para el acceso a páginas privadas.
-- **`search`**: Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas.
+- **`read`**: Obtén el MDX completo de cualquier página en la rama de la sesión, o en tu rama de despliegue cuando no hay ninguna sesión abierta. Pasa una ruta de página como `/quickstart`, o el ID de página de una URL del editor (el segmento después de `~/`), para que una herramienta de IA pueda abrir una página directamente desde un enlace del editor. Para leer una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` obtenido de `list_nodes` con `visibility: "private"`. Las lecturas privadas funcionan sin un checkout y requieren una sesión OAuth. El Admin MCP rechaza los tokens de cliente y de máquina a máquina para el acceso a páginas privadas.
+- **`search`**: Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas. Busca en tu rama de despliegue cuando no hay ninguna sesión abierta.
 - **`edit_page`**: Aplica una edición dirigida a una página. Para editar una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` como `path`. Las ediciones privadas requieren una sesión OAuth con rol de editor o superior en la página y funcionan sin un checkout.
 - **`write_page`**: Sobrescribe el contenido MDX completo de una página. Acepta un ID de nodo `private-page-<uuid>` para sobrescribir una página privada bajo los mismos requisitos de OAuth y rol que `edit_page`. Usa `create_node` para crear una nueva página privada.
 
@@ -204,11 +206,24 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 
 Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Mintlify solo acepta archivos SVG para logotipos y favicons, así que pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes guardadas aparecen en `get_session_state` y se publican con el resto de la sesión cuando llamas a `save`.
 
+<div id="comments">
+  ### Comentarios
+</div>
+
+Trabaja con los [comentarios y sugerencias](/es/editor/collaborate#comments) que tu equipo deja en el editor del panel.
+
+- **`read_comments`**: Lista los hilos de comentarios y sugerencias abiertos en una página, del más antiguo al más reciente. Pasa `path` en los mismos formatos que `read`. Cada hilo incluye un `threadId`, su `type` (`comment` o `suggestion`), el `quotedText` al que está anclado, el `suggestedText` de las sugerencias y sus `comments` con el `author`, el `content` y el `createdAt` de cada uno. Si el texto anclado ya no existe en la página, el hilo incluye `anchorRemoved: true` y `quotedText` muestra la cita original. Funciona sin un checkout.
+- **`add_comment`**: Inicia un nuevo hilo de comentarios en una página sin cambiar su contenido. Úsalo para dejar comentarios a tu equipo en lugar de editar. Pasa `path` en los mismos formatos que `read`, el `content` del comentario y `quotedText`: el fragmento de texto visible único más corto al que anclarlo, dentro de un párrafo o encabezado. Usa las palabras renderizadas, no la sintaxis de Markdown o MDX. Por ejemplo, cita `custom domain`, no `[custom domain](/path)`. Devuelve el nuevo `threadId`. Si el texto no está en la página, el error es `no_match`. Si coincide más de una vez, el error es `not_unique`, así que cita un fragmento más largo.
+- **`reply_to_comment`**: Responde a un hilo por `threadId` con `content`. Pasa `resolve: true` para resolver también el hilo. Mintlify publica la respuesta como el agente en nombre del usuario que autorizó la conexión, y aparece en tiempo real en el editor del panel.
+- **`resolve_comment`**: Resuelve un hilo sin responder.
+
+`add_comment`, `reply_to_comment` y `resolve_comment` requieren una sesión OAuth y un checkout. `add_comment` inicia hilos en la rama de la sesión. `reply_to_comment` y `resolve_comment` solo actúan sobre hilos de la rama de la sesión. Para actuar sobre hilos de tu rama de despliegue, pasa la rama de despliegue como `branch` a `checkout`. Si tu rama de despliegue requiere pull requests, `checkout` crea una rama de sesión en su lugar y no puedes responder ni resolver los hilos de la rama de despliegue desde el Admin MCP. Puedes responder a hilos de sugerencias, pero debes aceptar o rechazar las sugerencias en el editor. Los comentarios en páginas privadas no están disponibles a través del Admin MCP.
+
 <div id="navigation">
   ### Navegación
 </div>
 
-- **`list_nodes`**: Recorre el árbol de navegación con filtros opcionales. Filtra por `parentId` (usa `recursive: true` para incluir todos los descendientes), uno o más tipos de nodo, o cualquier ámbito de división: `language`, `version`, `tab`, `dropdown`, `anchor`, `product` o `item`. Los resultados se paginan a través de un `cursor` opaco. Pasa `visibility: "private"` para listar las [páginas privadas](/es/editor/pages#private-pages) y carpetas a las que el usuario OAuth tiene acceso, en lugar del árbol de navegación de la rama. El listado privado funciona sin un checkout, ignora los demás filtros y devuelve el `role` de cada nodo.
+- **`list_nodes`**: Recorre el árbol de navegación de la rama de la sesión, o de tu rama de despliegue cuando no hay ninguna sesión abierta, con filtros opcionales. Filtra por `parentId` (usa `recursive: true` para incluir todos los descendientes), uno o más tipos de nodo, o cualquier ámbito de división: `language`, `version`, `tab`, `dropdown`, `anchor`, `product` o `item`. Los resultados se paginan a través de un `cursor` opaco. Pasa `visibility: "private"` para listar las [páginas privadas](/es/editor/pages#private-pages) y carpetas a las que el usuario OAuth tiene acceso, en lugar del árbol de navegación de la rama. El listado privado funciona sin un checkout, ignora los demás filtros y devuelve el `role` de cada nodo.
 - **`create_node`**: Agrega una nueva página, grupo, pestaña, ancla, versión, idioma, producto o desplegable. Pasa `visibility: "private"` con `data.type: "page"` o `data.type: "group"` para crear una [página privada](/es/editor/pages#private-pages) o carpeta privada en el árbol privado del autor de la llamada. El autor de la llamada se convierte en el manager del nodo. La creación privada requiere una sesión OAuth, funciona sin un checkout y coloca el nodo en la raíz privada o bajo un padre `private-folder-<uuid>` existente. Para las páginas nuevas, la respuesta incluye un `editorUrl` que abre la página en tu panel.
 - **`update_node`**: Actualiza las propiedades de un nodo en su lugar (renombrar un grupo, cambiar un icono, establecer una versión predeterminada). Acepta un ID de nodo `private-page-<uuid>` o `private-folder-<uuid>` para renombrar una [página privada](/es/editor/pages#private-pages) o carpeta o cambiar su icono o etiqueta. Las actualizaciones privadas requieren una sesión OAuth con rol de editor o superior y funcionan sin un checkout.
 - **`move_node`**: Mueve un nodo, incluido renombrar la ruta de una página.
@@ -280,6 +295,7 @@ Después de conectarte al Admin MCP, puedes manejarlo con prompts en lenguaje na
 - _"Haz checkout de una rama llamada `add-billing-faq` y crea una nueva página bajo el grupo FAQ titulada 'Billing'. Redacta respuestas para las cinco preguntas de este issue de Linear."_
 - _"Encuentra todas las páginas que mencionen el campo obsoleto `legacy_token` y actualiza el ejemplo para que use `api_key` en su lugar. Guarda como PR titulada 'docs: replace legacy\_token references'."_
 - _"Reorganiza la referencia de API: mueve las páginas de webhooks a un nuevo grupo llamado 'Webhooks' y actualiza los iconos para que coincidan con el resto de la sección."_
+- _"Lee los comentarios abiertos en la página de inicio rápido, haz las ediciones solicitadas y responde a cada hilo, resolviéndolo cuando esté atendido."_
 
 <div id="best-practices">
   ## Buenas prácticas
