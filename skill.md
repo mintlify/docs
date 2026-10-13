@@ -20,14 +20,17 @@ Full schema at [mintlify.com/docs.json](https://mintlify.com/docs.json).
 
 ## Set up a new docs site
 
+<!-- TODO: The quickstart (snippets/agent-setup-workflow.mdx) signs up before scaffolding; this skill scaffolds and previews first. Decide whether to keep this order or match the quickstart. Remove this comment before merging. -->
+
 If the user wants a new docs site, wants to publish docs, or has no `docs.json` yet, run this workflow yourself. Ask the user only for information or approvals you cannot supply. Do not send them to a browser-first quickstart when you can run terminal commands.
 
-1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`.
-2. Scaffold into a new, empty directory with `mint new <directory> --name <name>`, or keep the user's existing docs and add a `docs.json`. Never use `--force` on a directory with user files. If the repo already has Markdown docs, reuse that content instead of writing placeholder pages.
+1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`. If it's installed, run `mint update`.
+2. Scaffold into a new, empty directory with `mint new <directory> --name <name> --theme <theme>` (ask which theme the user wants if they haven't said), or keep the user's existing docs and add a `docs.json`. Never use `--force` on a directory with user files. If the repo already has Markdown docs, reuse that content instead of writing placeholder pages.
 3. Run `mint dev --no-open` as a background process from the directory containing `docs.json`. Report the local URL so the user can preview. Run `mint validate` and `mint broken-links` and fix issues you caused.
 4. Publish only when the user wants a shareable URL. Run `mint status` first. If it shows an organization, use the existing account. Otherwise run `mint login` for existing users, or ask for first name, last name, company, and email and run `mint signup --firstName <first> --lastName <last> --company <company> --email <email>` as a background process. It waits for email verification. Tell the user to click the verification link. Never invent signup details.
-5. After verification and onboarding, run `mint status` again to get the subdomain. If no subdomain appears, ask the user to finish connecting a GitHub repository in the onboarding browser tab, then retry. Commit and push to the connected repository to deploy. Do not overwrite an existing repository with starter content.
-6. Verify that `https://<subdomain>.mintlify.site` loads before you report the URL.
+5. After verification and onboarding, run `mint status` again to get the subdomain. If no subdomain appears, ask the user to finish selecting or connecting a GitHub repository in the onboarding browser tab, then retry.
+6. If your project isn't already a clone of the connected repository, ask the user for its URL (`mint status` doesn't show it) and clone it. If the user connected their own docs repository, preserve its content. If Mintlify created the repository, it contains starter content; replace that with the project from step 2. Commit and push to deploy.
+7. Verify that `https://<subdomain>.mintlify.site` loads before you report the URL.
 
 The user only needs the browser for email verification, OAuth approval, and connecting GitHub. For the full workflow and troubleshooting, see the [quickstart](https://mintlify.com/docs/quickstart). To move existing docs from Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide in the [migration overview](https://mintlify.com/docs/migration).
 
@@ -315,7 +318,7 @@ Before submitting:
 
 ### Migrations
 
-If a user asks about migrating to Mintlify, ask if they are using ReadMe or Docusaurus. If they are, use the [@mintlify/scraping](https://www.npmjs.com/package/@mintlify/scraping) CLI to migrate content. Run it with Puppeteer installed (`npx -p @mintlify/scraping@latest -p puppeteer mintlify-scrape section <url>`) so the scraper can render the site navigation. If they are using a different platform to host their documentation, help them manually convert their content to MDX pages using Mintlify components.
+If a user asks about migrating to Mintlify, ask which platform hosts their current docs. For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide in the [migration overview](https://mintlify.com/docs/migration). For any other platform, follow the [manual migration](https://mintlify.com/docs/migration/manual) guide.
 
 ### Hidden pages
 
