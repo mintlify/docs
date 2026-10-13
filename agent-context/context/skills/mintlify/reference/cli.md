@@ -66,7 +66,7 @@ Query documentation analytics from the terminal. Requires `mint login` and a Pro
 
 ## Telemetry
 
-The CLI collects usage telemetry by default (command name, CLI version, OS, architecture, Node.js version, whether it runs in CI or an interactive terminal, and the detected AI coding agent name). When you are logged in, telemetry events also include your account email; logged-out usage stays anonymous. Opt out with `--telemetry false` or by setting either environment variable:
+The CLI collects usage telemetry by default (command name, CLI version, OS, architecture, Node.js version, whether it runs in CI or an interactive terminal, whether this is its first run on the machine, whether you are logged in, and the detected AI coding agent name). When you are logged in, telemetry events also include your account email; logged-out usage stays anonymous. Opt out with `--telemetry false` or by setting either environment variable:
 
 | Variable | Value | Description |
 |----------|-------|-------------|
