@@ -271,6 +271,8 @@ The playground renders responses automatically based on the `Content-Type` heade
 - `video/*` — rendered with a built-in video player.
 - All other types — displayed in a code block.
 
+When an operation's responses in the OpenAPI spec declare a streaming media type (`text/event-stream`, `application/jsonl`, `application/x-ndjson`, `application/json-seq`, or `multipart/mixed`), the playground streams the response as plain text as it arrives, and readers can click **Stop** to end it. Requests with a `multipart/form-data` body don't stream.
+
 ## Parameter anchor links
 
 Every parameter in the playground has a clickable anchor link. Hover over a parameter name to reveal the link icon, then click to copy a direct URL to that parameter. The URL format is `your-docs-url/endpoint-path#parameter-name`. For nested parameters, the anchor includes the parent path.

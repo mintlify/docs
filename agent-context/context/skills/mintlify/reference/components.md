@@ -552,12 +552,16 @@ Show different content to humans (web UI), AI agents (Markdown output), or reade
 <Visibility for={{ groups: ["admin", "enterprise"] }}>
   Admins and enterprise customers can configure SSO from the **Security** tab.
 </Visibility>
+
+<Visibility for={{ groups: { includes: ["staff"], excludes: ["contractor"] } }}>
+  Find the internal runbook in the team wiki.
+</Visibility>
 ```
 
 Props:
-- `for` (string | object, required): `"humans"`, `"agents"`, `"signed-in"`, `"signed-out"`, or `{ groups: [...] }`. Use a static value; content with a computed `for` value (variable or conditional) is excluded from Markdown output.
+- `for` (string | object, required): `"humans"`, `"agents"`, `"signed-in"`, `"signed-out"`, `{ groups: [...] }`, or `{ groups: { includes: [...], excludes: [...] } }` (set at least one list). Use a static value; content with a computed `for` value (variable or conditional) is excluded from Markdown output.
 
-Sign-in and group rules require site authentication. `signed-in` renders only for readers with an active session; `signed-out` only for readers who are not signed in; `groups` only for signed-in readers in at least one listed group. Markdown output and `llms-full.txt` always get the signed-out view: `signed-in` and `groups` content is removed and `signed-out` content is included. These rules hide content in the browser only; the content is still sent to every reader. For sensitive content, use a separate page with the `groups` frontmatter field.
+Sign-in and group rules require site authentication. `signed-in` renders only for readers with an active session; `signed-out` only for readers who are not signed in; `groups` only for signed-in readers in at least one listed group. With `includes`/`excludes`, excludes take priority; a rule with only `excludes` renders for everyone outside the excluded groups, including signed-out readers. `groups: ["*"]` matches every signed-in reader; `*` is not allowed in `excludes`. Markdown output and `llms-full.txt` always get the signed-out view: `signed-in` and `groups` content is removed and `signed-out` content is included. These rules hide content in the browser only; the content is still sent to every reader. For sensitive content, use a separate page with the `groups` frontmatter field.
 
 ## View
 
