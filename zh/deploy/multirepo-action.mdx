@@ -1,0 +1,177 @@
+---
+title: "使用 GitHub Actions 合并仓库"
+sidebarTitle: "多仓库 GitHub Action"
+description: "使用 Mintlify 多仓库 GitHub Action，将多个仓库中的文档复制到一个文档仓库，并将它们的导航合并到单个 docs.json 中。"
+keywords: ["multirepo", "multi-repo", "GitHub Action", "aggregate", "sync", "child repositories", "sourceRef"]
+---
+
+{/* vale Vale.Terms = NO */}
+Mintlify 多仓库 GitHub Action [`mintlify/multirepo-action`](https://github.com/mintlify/multirepo-action) 可以将任意数量子仓库中的文档复制到一个父文档仓库中。它会将每个子仓库的导航合并到单个 `docs.json` 中，因此 Mintlify 会像部署其他单仓库站点一样部署父仓库。
+{/* vale Vale.Terms = YES */}
+
+当你的文档分布在多个仓库中，并且你希望通过配置文件而不是控制台来管理来源列表时，请使用此 Action。如需在不复制内容的情况下合并仓库，请参阅[多仓库项目](/zh/deploy/multi-repo)。
+
+<div id="how-it-works">
+  ## 工作原理
+</div>
+
+每次运行时，该 Action 会：
+
+1. 并行获取每个子仓库，并且只下载包含其文档的文件夹。
+2. 将每个子仓库的内容复制到父仓库中的目标文件夹。目标同时也是 URL 路径，因此位于 `api` 的子仓库会发布在 `/api`。
+3. 重写子仓库 `.md` 和 `.mdx` 文件中的根相对链接、图片和 snippet 导入，使其包含目标路径。例如，`/guides/start` 会变为 `/api/guides/start`。
+4. 基于 `docs.base.json` 文件生成 `docs.json`，并合并每个子仓库的导航、变量和重定向。
+5. 创建或更新包含这些更改的拉取请求，或直接推送更改。
+
+如果任何子仓库获取或合并失败，该 Action 会失败，且不会更改父仓库。
+
+<div id="requirements">
+  ## 要求
+</div>
+
+- 一个已连接到你的 Mintlify 项目的 GitHub 父仓库
+- 每个子仓库中都有一个包含 `navigation` 对象的 `docs.json` 文件
+- 对于私有子仓库，需要一个 GitHub App 安装令牌，或一个对每个子仓库都具有 `contents: read` 权限的细粒度个人访问令牌
+
+<div id="set-up-the-action">
+  ## 设置 Action
+</div>
+
+<Steps>
+  <Step title="创建基础配置">
+    在父仓库中，将 `docs.json` 重命名为 `docs.base.json`。该 Action 每次运行时都会基于此文件生成 `docs.json`。
+
+    在每个子仓库导航应出现的位置添加一个 `sourceRef` 条目。`sourceRef` 使用与[多仓库项目](/zh/deploy/multi-repo#reference-navigation-from-another-source)相同的语法。
+
+    ```json docs.base.json
+    {
+      "$schema": "https://mintlify.com/docs.json",
+      "theme": "mint",
+      "name": "Acme",
+      "colors": { "primary": "#16A34A" },
+      "navigation": {
+        "tabs": [
+          { "tab": "Guides", "pages": ["index", "quickstart"] },
+          { "tab": "API", "pages": [{ "sourceRef": "acme/api" }] }
+        ]
+      }
+    }
+    ```
+
+    该 Action 会将每个 `sourceRef` 替换为子仓库中同类型的导航数组。例如，`tabs` 中的 `sourceRef` 会变为子仓库的 `navigation.tabs`。`pages` 中的 `sourceRef` 会变为子仓库的 `pages`；如果子仓库没有 `pages`，则变为其 `groups`。
+
+    没有 `sourceRef` 的子仓库会被添加到基础配置顶层 `products`、`tabs`、`anchors` 或 `dropdowns` 的末尾。
+  </Step>
+
+  <Step title="列出子仓库">
+    在父仓库中创建 `.github/mintlify-multirepo.yml`。
+
+    ```yaml .github/mintlify-multirepo.yml
+    sources:
+      - repo: acme/api
+        path: docs
+        destination: api
+        name: API reference
+      - repo: acme/sdk-js
+        ref: v2
+        path: docs
+        destination: sdks/js
+        exclude: [README.md, "drafts/**"]
+    ```
+
+    | 字段 | 是否必填 | 描述 |
+    | --- | --- | --- |
+    | `repo` | 是 | 子仓库，格式为 `owner/repo`。 |
+    | `destination` | 是 | 父仓库中的文件夹，也是子仓库内容的 URL 路径。 |
+    | `path` | 否 | 子仓库中包含其 `docs.json` 的文件夹。默认为仓库根目录。 |
+    | `ref` | 否 | 分支、标签或完整的提交 SHA。默认为子仓库的默认分支。 |
+    | `name` | 否 | 子仓库没有 `sourceRef` 时使用的导航标签。默认为子仓库 `docs.json` 中的 `name`。 |
+    | `exclude` | 否 | 要跳过的文件的 glob 模式。 |
+    | `rewriteLinks` | 否 | 设置为 `false` 可在复制内容时不重写链接。默认为 `true`。 |
+
+    该 Action 从不复制点文件（dotfiles）、符号链接、`node_modules` 或子仓库的 `docs.json`。只会合并子仓库的 `navigation`、`variables` 和 `redirects`。其他设置（如主题和颜色）来自 `docs.base.json`。
+  </Step>
+
+  <Step title="添加工作流">
+    在父仓库中创建 `.github/workflows/multirepo.yml`。此示例会每小时运行一次，也可按需运行，并在子仓库发送 `docs-updated` 事件时运行。
+
+    ```yaml .github/workflows/multirepo.yml
+    name: Combine docs
+
+    on:
+      workflow_dispatch:
+      schedule:
+        - cron: "0 * * * *"
+      repository_dispatch:
+        types: [docs-updated]
+
+    concurrency:
+      group: mintlify-multirepo
+      cancel-in-progress: true
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    jobs:
+      sync:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/create-github-app-token@v3
+            id: app
+            with:
+              app-id: ${{ vars.DOCS_APP_ID }}
+              private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+              owner: ${{ github.repository_owner }}
+          - uses: actions/checkout@v7
+          - uses: mintlify/multirepo-action@v1
+            with:
+              token: ${{ steps.app.outputs.token }}
+    ```
+
+    如果所有子仓库都是公开的，请删除 `create-github-app-token` 步骤和 `token` 输入。
+
+    默认情况下，该 Action 会创建或更新一个包含更改的拉取请求。合并该拉取请求即可部署。要允许工作流创建拉取请求，请在父仓库的 **Settings** > **Actions** > **General** 中启用 **Allow GitHub Actions to create and approve pull requests**。如需将更改直接推送到分支，请设置 `mode: push`。
+  </Step>
+
+  <Step title="可选：在子仓库变更时同步">
+    如需在子仓库发生变更时立即同步，请在每个子仓库中添加一个通知父仓库的工作流。将 `acme/docs` 替换为你的父仓库。`DOCS_DISPATCH_TOKEN` 需要对父仓库具有 `contents: write` 权限。
+
+    ```yaml .github/workflows/notify-docs.yml
+    name: Notify docs repository
+
+    on:
+      push:
+        branches: [main]
+        paths: ["docs/**"]
+
+    jobs:
+      notify:
+        runs-on: ubuntu-latest
+        steps:
+          - env:
+              GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+            run: gh api repos/acme/docs/dispatches -f event_type=docs-updated
+    ```
+  </Step>
+</Steps>
+
+<div id="edit-synced-content">
+  ## 编辑同步的内容
+</div>
+
+该 Action 每次运行时都会替换每个目标文件夹和 `docs.json`。请在子仓库中编辑内容，在 `docs.base.json` 中编辑站点设置。直接在父仓库中对同步文件所做的更改（包括通过 [Web 编辑器](/zh/editor/index)所做的更改）会在下次同步时被覆盖。
+
+当你从 `.github/mintlify-multirepo.yml` 中移除某个子仓库时，该 Action 会在下次运行时删除其文件夹。
+
+<div id="link-between-children">
+  ## 在子仓库之间链接
+</div>
+
+{/* vale Vale.Terms = NO */}
+在子仓库中编写链接时，就像该子仓库是一个独立站点一样。该 Action 会将子仓库的目标路径添加到根相对链接中，因此在 `destination: api` 的子仓库中，`[Start](/quickstart)` 会变为 `/api/quickstart`。
+
+该 Action 不会更改已指向其他子仓库目标路径的链接。例如，当 `sdks/js` 是另一个子仓库的目标路径时，`[SDK](/sdks/js/install)` 保持不变。该 Action 不会重写代码块中的链接。
+{/* vale Vale.Terms = YES */}
+
+有关所有输入、输出和令牌选项，请参阅 [Action README](https://github.com/mintlify/multirepo-action#readme)。
