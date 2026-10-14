@@ -17,7 +17,7 @@ import AdminMcpCodex from "/snippets/fr/admin-mcp-codex.mdx";
 
 Le serveur Admin MCP donne aux outils d'IA un accès en écriture à votre contenu et à vos paramètres Mintlify. Utilisez-le pour mettre à jour le contenu et accéder à votre tableau de bord. Avec l'Admin MCP, vous pouvez utiliser vos outils d'IA préférés pour modifier des pages, restructurer la navigation, mettre à jour `docs.json`, ouvrir des pull requests, modifier des paramètres, créer des workflows, et plus encore.
 
-Connectez n'importe quel client MCP comme Claude, Claude Code, ChatGPT ou Cursor au serveur Admin MCP. Utilisez-le pour collaborer sur votre contenu et vos paramètres Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Les modifications de contenu se produisent sur une branche et sont livrées via une pull request ou un commit lorsque vous appelez `save`. Les changements de [gestion de projet](#project-management), tels que les mises à jour de workflows et de paramètres, s'appliquent immédiatement au projet en ligne. Si votre organisation dispose de plusieurs projets, une seule connexion Admin MCP peut accéder à tous ces projets et basculer entre eux.
+Connectez n'importe quel client MCP comme Claude, Claude Code, ChatGPT ou Cursor au serveur Admin MCP. Utilisez-le pour collaborer sur votre contenu et vos paramètres Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Les modifications de contenu arrivent sur votre branche de déploiement sous forme de modifications non publiées, ou sur une branche avec une pull request lorsque vous appelez `checkout`. Elles sont livrées lorsque vous appelez `save` ou fusionnez la pull request. Les changements de [gestion de projet](#project-management), tels que les mises à jour de workflows et de paramètres, s'appliquent immédiatement au projet en ligne. Si votre organisation dispose de plusieurs projets, une seule connexion Admin MCP peut accéder à tous ces projets et basculer entre eux.
 
 <Note>
   Le serveur Admin MCP permet aux outils d'IA d'accéder à votre tableau de bord Mintlify. Considérez-le comme un outil avec un accès en écriture. Connectez-le uniquement depuis des outils d'IA de confiance, examinez chaque pull request avant de la fusionner, et sachez que les changements de gestion de projet s'appliquent immédiatement, sans pull request.
@@ -50,7 +50,7 @@ Avant de connecter l'Admin MCP, confirmez ce qui suit :
   ## Se connecter à l'Admin MCP
 </div>
 
-Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify pour vous connecter à l'Admin MCP. Les outils d'IA échangent cette connexion contre un jeton de session limité à un ou plusieurs projets, selon la manière dont vous accordez l'accès. Une connexion limitée à des projets spécifiques ne peut faire de checkout que sur ces projets. Une connexion à l'échelle de l'organisation peut faire le checkout de n'importe quel projet de votre organisation.
+Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify pour vous connecter à l'Admin MCP. Les outils d'IA échangent cette connexion contre un jeton de session limité à un ou plusieurs projets, selon la manière dont vous accordez l'accès. Une connexion limitée à des projets spécifiques ne peut accéder qu'à ces projets. Une connexion à l'échelle de l'organisation peut accéder à n'importe quel projet de votre organisation.
 
 Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.mintlify.com/products/mcp) ou suivez les étapes ci-dessous pour votre outil préféré.
 
@@ -76,80 +76,91 @@ Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.m
   ## Comment fonctionne une session
 </div>
 
-Chaque session Admin MCP est liée à une seule branche Git. Le flux est le suivant :
+Vous n'avez pas besoin d'ouvrir une session avant de modifier. Votre première modification en ouvre une sur votre branche de déploiement, sauf si votre projet exige une pull request. Le déroulement est le suivant :
 
 <Steps>
   <Step title="Découvrir les projets (facultatif)">
-    Si votre connexion a accès à plusieurs projets, appelez `list_deployments` pour voir les valeurs de `subdomain` que vous pouvez utiliser dans checkout. Passez cette étape si votre connexion ne couvre qu'un seul projet.
-  </Step>
-  <Step title="Extraire une branche">
-    Avant de modifier, appelez `checkout {subdomain}`. Il crée une nouvelle branche `admin-mcp/<slug>-<sha>` à partir de la branche de déploiement de ce projet (ou se rattache à une branche existante que vous nommez). Il renvoie également une `editorUrl` que vous pouvez ouvrir pour suivre l'évolution dans l'éditeur du tableau de bord.
-
-    `read`, `search`, `list_nodes` et `read_comments` ne nécessitent pas de checkout. Sans session, ils lisent le contenu actuel de votre branche de déploiement. Après le checkout, ils lisent la branche de session, y compris les modifications effectuées dans la session. Sur une connexion à l'échelle de l'organisation, transmettez `subdomain` pour choisir le projet.
-
-    Pour ignorer la branche de session et modifier directement votre branche de déploiement, passez-la comme `branch`. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly).
-
-    Appelez `list_branches` avant `checkout` si vous avez besoin de découvrir ou de filtrer les branches existantes du dépôt d'un projet.
+    Si votre connexion a accès à plusieurs projets, appelez `list_deployments` pour voir quelles valeurs de `subdomain` vous pouvez utiliser. Ignorez cette étape si votre connexion ne couvre qu'un seul projet.
   </Step>
   <Step title="Lire, rechercher et modifier">
-    L'IA utilise des outils tels que `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` et `update_config` pour effectuer des modifications. Sur une branche de session, Mintlify commite automatiquement vos modifications sur la branche, environ 15 secondes après le dernier changement. Cela inclut le contenu des pages, les modifications de navigation et les mises à jour de `docs.json`. Le premier commit ouvre une pull request vers votre branche de déploiement. La pull request s'ouvre en brouillon si [Create draft pull requests by default](/fr/editor/settings#create-draft-pull-requests-by-default) est activé. Rien n'atteint votre branche de déploiement tant que vous n'appelez pas `save` ou ne fusionnez pas la pull request.
+    L'IA utilise des outils comme `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` et `update_config` pour apporter des modifications. Sur une connexion à l'échelle de l'organisation, passez `subdomain` pour choisir le projet.
+
+    Sans checkout, les modifications arrivent sur votre branche de déploiement sous forme de modifications non publiées. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly). Si votre projet exige une pull request, la modification échoue avec un message `Checkout required` qui en explique la raison, et Mintlify ne change rien. Appelez `checkout` pour continuer. Consultez [Travailler sur une branche](#work-on-a-branch).
   </Step>
   <Step title="Examiner le diff">
-    Appelez `diff` à tout moment pour voir exactement ce qui a changé depuis votre branche de déploiement. Ouvrez une `editorUrl` dans votre tableau de bord pour voir les mêmes changements rendus. Lorsque `create_node` ajoute une page, il renvoie une `editorUrl` qui ouvre directement cette page.
+    Appelez `diff` à tout moment pour voir exactement ce qui a changé depuis votre branche de déploiement. Sans session ouverte, `diff` et `get_session_state` portent sur votre branche de déploiement. Ouvrez un `editorUrl` dans votre tableau de bord pour voir les mêmes modifications rendues. Lorsque `create_node` ajoute une page, il renvoie un `editorUrl` qui ouvre directement cette page.
   </Step>
   <Step title="Enregistrer">
-    Appelez `save` pour pousser la branche vers Git. `mode: "auto"` (par défaut) ouvre une pull request. Si le paramètre de revue de l'agent du projet est push-to-main et que la branche de déploiement n'est pas protégée, Mintlify fusionne immédiatement la pull request (la réponse inclut `merged: true`). Utilisez `mode: "pr"` pour toujours ouvrir une pull request et la laisser ouverte pour révision. Utilisez `mode: "commit"` pour pousser directement sur une branche de PR existante sans ouvrir de nouvelle PR.
+    Appelez `save` avec un `title` pour publier vos modifications. Sur votre branche de déploiement, `save` commite vos propres modifications en attente. Sur une branche, `save` commite tout ce qui est en attente et renvoie la pull request de la branche, en en ouvrant une s'il n'y en a pas. `save` ne fusionne jamais de pull request. Un nouvel appel sans rien de nouveau à commiter renvoie la pull request existante. Si vous n'avez rien modifié avec cette connexion, `save` renvoie `Nothing to save`.
 
-    Lorsque `save` ouvre ou met à jour une pull request, la réponse inclut une `editorUrl` qui ouvre la première page créée ou modifiée sur la branche. Si les changements ne concernent que la configuration, le lien ouvre la branche. Les sauvegardes fusionnées immédiatement ne renvoient pas d'`editorUrl`.
+    La réponse inclut un `editorUrl` qui ouvre la première page créée ou mise à jour. Si les modifications ne concernent que la configuration, le lien ouvre la branche. Les anciens clients peuvent toujours passer `mode`, mais `save` l'ignore.
   </Step>
   <Step title="Abandonner si nécessaire">
-    Appelez `discard_session` pour abandonner toutes les modifications en session et libérer la branche.
+    Appelez `discard_session` pour abandonner vos modifications. Ce qu'il supprime dépend de l'endroit où vous avez modifié. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly) et [Travailler sur une branche](#work-on-a-branch).
   </Step>
 </Steps>
 
 <Tip>
-  Si votre connexion a accès à plusieurs projets, chaque projet dont vous faites le checkout conserve sa propre session et sa propre branche en mémoire simultanément.
+  Si votre connexion a accès à plusieurs projets, chaque projet conserve sa propre session en mémoire en même temps.
 
-  Appeler `checkout` à nouveau avec un `subdomain` ou une branche différente change la session active. Cela ne supprime pas les autres. Pour abandonner un brouillon en cours plutôt que de simplement en changer, appelez `discard_session`.
+  Appeler `checkout` pour un autre `subdomain` change la session active. Cela n'abandonne pas les autres.
 </Tip>
 
 <div id="edit-the-deploy-branch-directly">
   ## Modifier directement la branche de déploiement
 </div>
 
-Passez votre branche de déploiement à `checkout` pour la modifier comme dans l'[éditeur du tableau de bord](/fr/editor/publish). Par exemple, `checkout { subdomain: "acme", branch: "main" }`. Mintlify lie la session à la branche de déploiement au lieu de créer une branche `admin-mcp/*`. Le checkout est plus rapide et aucune pull request n'est créée.
+Lorsque rien n'exige de pull request, l'Admin MCP modifie votre branche de déploiement comme vous le faites dans l'[éditeur du tableau de bord](/fr/editor/publish). Vous n'appelez pas `checkout` et aucune pull request n'est créée.
 
 L'outil d'IA agit en votre nom sur la branche de déploiement :
 
 - **Les modifications sont visibles en direct par les collaborateurs.** Toute autre personne qui modifie la branche de déploiement dans le tableau de bord voit les modifications de l'IA au fur et à mesure.
-- **`save` publie uniquement vos modifications.** Il ignore `mode` et commite vos modifications en attente directement sur la branche de déploiement, comme un clic sur **Publish** dans l'éditeur. Les modifications non publiées des autres restent en attente. Vos propres modifications non publiées dans l'éditeur du tableau de bord sont également publiées.
+- **`save` publie uniquement vos modifications.** Il commite vos modifications en attente directement sur la branche de déploiement, comme un clic sur **Publish** dans l'éditeur. Les modifications non publiées des autres restent en attente. Vos propres modifications non publiées dans l'éditeur du tableau de bord sont également publiées.
 - **`discard_session` annule uniquement vos modifications.** Il renvoie `discardedChanges` avec le nombre de modifications annulées. Les modifications des autres et la branche elle-même restent intactes.
 - **`get_session_state` liste uniquement vos modifications.**
 
 Mintlify suit les modifications par page. Si vous et une autre personne avez modifié la même page, `save` publie la page entière et `discard_session` annule la page entière, y compris les modifications de l'autre personne.
 
-Dans l'un des cas suivants, Mintlify crée plutôt une branche de session à partir de la branche de déploiement. `checkout` renvoie une `note` qui en explique la raison :
+Les modifications sur la branche de déploiement échouent avec `Checkout required` dans l'un des cas suivants :
 
+- **Pousser directement sur votre branche de déploiement** est désactivé dans vos [paramètres de publication](#publishing).
 - La protection de votre branche de déploiement exige des pull requests, ou Mintlify ne peut pas vérifier vos règles de protection de branche.
 - La modification de la branche de déploiement est verrouillée dans l'éditeur du tableau de bord.
-- **Pousser directement sur votre branche de déploiement** est désactivé dans vos [paramètres de publication](#publishing).
 - Vous vous êtes connecté avec un jeton client ou machine à machine au lieu d'une connexion OAuth. Ces jetons ne sont pas liés à un utilisateur et n'ont donc pas de modifications « propres ».
+
+<div id="work-on-a-branch">
+  ## Travailler sur une branche
+</div>
+
+Appelez `checkout` lorsque votre projet exige une pull request, ou lorsque vous en voulez une malgré tout. Passez exactement l'un de ces arguments :
+
+- **`title`** : Crée une nouvelle branche à partir de votre branche de déploiement. Mintlify la nomme `<your-name>/<title-slug>`, comme l'éditeur du tableau de bord nomme les branches, et l'initialise à partir de votre contenu publié. La pull request s'ouvre avec ce titre. Par exemple, `checkout { subdomain: "acme", title: "Add tips page" }`.
+- **`branch`** : S'attache à une branche existante autre que votre branche de déploiement. Appelez `list_branches` pour découvrir les branches du dépôt d'un projet.
+
+`checkout` refuse votre branche de déploiement et les branches qui n'existent pas. Il renvoie le `branchName`, un `editorUrl` que vous pouvez ouvrir pour suivre l'avancement dans l'éditeur du tableau de bord et, parfois, une `note`.
+
+Sur une branche, Mintlify commite automatiquement vos modifications, environ 15 secondes après la dernière modification. Cela inclut le contenu des pages, les modifications de navigation et les mises à jour de `docs.json`. Le premier commit ouvre une pull request vers votre branche de déploiement. La pull request s'ouvre en brouillon si [Create draft pull requests by default](/fr/editor/settings#create-draft-pull-requests-by-default) est activé. Rien n'atteint votre branche de déploiement tant que quelqu'un n'a pas fusionné la pull request.
+
+`discard_session` se comporte différemment selon la manière dont vous avez ouvert la branche :
+
+- **Créée avec `title`** : Mintlify supprime la branche et ferme sa pull request, même si la branche contient des commits. Cela équivaut à supprimer une branche dans l'éditeur du tableau de bord.
+- **Attachée avec `branch`** : Mintlify termine votre session et laisse la branche et sa pull request intactes.
+
+Après `discard_session`, votre prochaine modification va de nouveau sur votre branche de déploiement, sauf si votre projet exige une pull request.
 
 <div id="publishing">
   ## Publication
 </div>
 
-La section **Publication** de la page **MCP → Configure** dans la barre latérale de votre tableau de bord contrôle ce qui se passe lorsque `save` s'exécute avec `mode: "auto"`. Activez **Pousser directement sur votre branche de déploiement** pour que Mintlify pousse les modifications directement sur votre branche de déploiement. Désactivez-la pour que `save` ouvre une pull request à la place.
+La section **Publication** de la page **MCP → Configure** dans la barre latérale de votre tableau de bord contrôle si l'Admin MCP peut modifier votre branche de déploiement sans checkout. Activez **Pousser directement sur votre branche de déploiement** pour permettre aux outils d'IA de modifier et de publier directement sur votre branche de déploiement. Désactivez-la pour exiger `checkout` et une pull request pour les modifications MCP.
 
 Ce bouton partage le même paramètre `agentReviewProcess` que l'agent Slack et l'agent du tableau de bord, donc toute modification ici s'applique également à ces flux.
 
 Le bouton est désactivé dans trois cas :
 
-- **Votre branche de déploiement requiert une pull request.** Si des règles de protection de branche ou des approbations requises empêchent les push directs, les modifications MCP ouvrent toujours une pull request, quel que soit ce paramètre.
+- **Votre branche de déploiement requiert une pull request.** Si des règles de protection de branche ou des approbations requises empêchent les push directs, les modifications MCP passent toujours par une pull request, quel que soit ce paramètre.
 - **Mintlify héberge votre projet.** Pour les sites hébergés par Mintlify, les modifications MCP sont toujours poussées directement, sauf si la protection de branche exige tout de même une pull request.
 - **Vous n'êtes pas administrateur.** La modification de ce paramètre requiert le [rôle d'administrateur](/fr/dashboard/roles) sur votre projet. Les éditeurs et les lecteurs voient le bouton désactivé avec une bannière de permission.
-
-Vous pouvez également remplacer ce paramètre appel par appel en passant un `mode` explicite à `save`. Définissez `"pr"` pour toujours ouvrir une pull request, ou `"commit"` pour pousser sur une branche de PR existante sans ouvrir de nouvelle PR.
 
 <div id="redirect-uris">
   ## URI de redirection
@@ -217,7 +228,7 @@ Travaillez avec les [commentaires et suggestions](/fr/editor/collaborate#comment
 - **`reply_to_comment`**: Répond à un fil par `threadId` avec `content`. Transmettez `resolve: true` pour également résoudre le fil. Mintlify publie la réponse en tant qu'agent au nom de l'utilisateur qui a autorisé la connexion, et elle apparaît en direct dans l'éditeur du tableau de bord.
 - **`resolve_comment`**: Résout un fil sans répondre.
 
-`add_comment`, `reply_to_comment` et `resolve_comment` nécessitent une session OAuth et un checkout. `add_comment` démarre des fils sur la branche de session. `reply_to_comment` et `resolve_comment` n'agissent que sur les fils de la branche de session. Pour agir sur les fils de votre branche de déploiement, transmettez la branche de déploiement comme `branch` à `checkout`. Si votre branche de déploiement exige des pull requests, `checkout` crée une branche de session à la place et vous ne pouvez pas répondre aux fils de la branche de déploiement ni les résoudre depuis l'Admin MCP. Vous pouvez répondre aux fils de suggestions, mais vous devez accepter ou rejeter les suggestions dans l'éditeur. Les commentaires sur les pages privées ne sont pas disponibles via l'Admin MCP.
+`add_comment`, `reply_to_comment` et `resolve_comment` nécessitent une session OAuth. Sans checkout, ils agissent sur les fils de votre branche de déploiement. Après avoir appelé `checkout`, ils agissent sur les fils de cette branche. Vous pouvez répondre aux fils de suggestions, mais vous devez accepter ou rejeter les suggestions dans l'éditeur. Les commentaires sur les pages privées ne sont pas disponibles via l'Admin MCP.
 
 <div id="navigation">
   ### Navigation
@@ -279,12 +290,12 @@ Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afi
 </div>
 
 - **`list_deployments`**: Liste les projets auxquels votre connexion peut accéder, en renvoyant chaque `{subdomain, name}`. Appelez ceci pour découvrir quel `subdomain` transmettre à `checkout`.
-- **`checkout`**: Lie une session à une branche pour un `subdomain` de projet donné, ou change quelle session de projet est active. Passez la branche de déploiement comme `branch` pour [la modifier directement](#edit-the-deploy-branch-directly).
+- **`checkout`**: [Travaille sur une branche](#work-on-a-branch) autre que la branche de déploiement, ou change quelle session de projet est active. Passez exactement l'un de `title` (crée une nouvelle branche et une pull request) ou `branch` (s'attache à une branche existante). Inutile pour [modifier directement la branche de déploiement](#edit-the-deploy-branch-directly).
 - **`list_branches`**: Liste les branches Git disponibles pour le dépôt d'un projet, avec un filtrage `query` optionnel. Renvoie les noms de branches, le nombre total et la branche de déploiement. Appelez ceci avant `checkout` pour vous rattacher à une branche existante par son nom.
 - **`get_session_state`**: Inspecte la branche en cours, les fichiers modifiés et le diff de navigation en attente. Sur la branche de déploiement, liste uniquement vos modifications.
 - **`diff`**: Liste toutes les modifications entre la session et votre branche de déploiement. Chaque fichier modifié et chaque entrée `docs.json` incluent `authors` et `byYou`. `authors` liste les membres dont l'entrée contient les modifications non publiées. `byYou` vaut `true` lorsque l'entrée inclut vos propres modifications. Utilisez `byYou` pour distinguer vos modifications de celles d'un collègue sur une branche partagée.
-- **`save`**: Ouvre une pull request ou pousse un commit sur la branche de session. Mintlify fusionne automatiquement la PR lorsque le projet est configuré pour pousser les modifications de l'agent vers `main` et que la branche de déploiement n'est pas protégée. Sur la branche de déploiement, commite directement uniquement vos modifications en attente.
-- **`discard_session`**: Abandonne la session et ses modifications en cours. Sur la branche de déploiement, annule uniquement vos modifications en attente.
+- **`save`**: Sur la branche de déploiement, commite directement uniquement vos modifications en attente. Sur une branche, commite les modifications en attente et renvoie la pull request de la branche, en en ouvrant une si nécessaire. `save` ne fusionne jamais.
+- **`discard_session`**: Termine la session. Sur la branche de déploiement, annule uniquement vos modifications en attente. Sur une branche créée avec `title`, supprime la branche et ferme sa pull request.
 
 <div id="example-prompts">
   ## Exemples de prompts
@@ -292,7 +303,7 @@ Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afi
 
 Une fois l'Admin MCP connecté, vous pouvez le piloter avec des prompts en langage naturel. Par exemple :
 
-- _"Extrais une branche appelée `add-billing-faq` et crée une nouvelle page sous le groupe FAQ intitulée 'Billing'. Rédige des réponses aux cinq questions de ce ticket Linear."_
+- _"Crée une branche intitulée 'Add billing FAQ' et crée une nouvelle page sous le groupe FAQ intitulée 'Billing'. Rédige des réponses aux cinq questions de ce ticket Linear."_
 - _"Trouve toutes les pages qui mentionnent le champ déprécié `legacy_token` et mets à jour l'exemple pour utiliser `api_key` à la place. Enregistre comme une PR intitulée 'docs: replace legacy\_token references'."_
 - _"Réorganise la référence d'API : déplace les pages webhooks dans un nouveau groupe appelé 'Webhooks' et mets à jour les icônes pour qu'elles correspondent au reste de la section."_
 - _"Lis les commentaires ouverts sur la page de démarrage rapide, effectue les modifications demandées et réponds à chaque fil, en le résolvant une fois traité."_
@@ -310,17 +321,13 @@ Une fois l'Admin MCP connecté, vous pouvez le piloter avec des prompts en langa
     L'Admin MCP est suffisamment puissant pour réécrire des centaines de pages en une seule session. Avant de fusionner, lisez le diff de la PR et parcourez l'aperçu rendu. Ne validez pas des changements importants sans les examiner.
   </Accordion>
 
-  <Accordion title="Utiliser des slugs pour les noms de branches">
-    Passez un `slug` à `checkout` (par exemple, `add-quickstart`) pour que la branche générée automatiquement soit lisible. Sans cela, le nom de la branche dérive du jeton de session et est difficile à reconnaître dans votre dépôt.
-  </Accordion>
-
   <Accordion title="Garder les sessions ciblées">
     Limitez chaque session à un seul changement. Des sessions plus petites produisent des pull requests plus faciles à examiner et préservent les fenêtres de contexte des agents. Utilisez `discard_session` puis `checkout` à nouveau pour passer à un travail sans lien.
   </Accordion>
 </AccordionGroup>
 
 <Note>
-  Les sessions conservent une branche en mémoire côté Mintlify. Si vous abandonnez une session sans l'enregistrer ou la supprimer, la branche persiste jusqu'à ce que votre prochain checkout l'écrase. Évitez de laisser des branches `admin-mcp/*` obsolètes dans votre dépôt. Nettoyez-les périodiquement.
+  Si vous délaissez une branche créée avec `checkout` sans appeler `discard_session`, la branche et sa pull request restent dans votre dépôt. Appelez `discard_session` pour supprimer une branche dont vous n'avez plus besoin, ou fermez sa pull request.
 </Note>
 
 <div id="disconnect-or-revoke-access">
