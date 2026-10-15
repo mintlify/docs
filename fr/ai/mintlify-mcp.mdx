@@ -17,7 +17,7 @@ import AdminMcpCodex from "/snippets/fr/admin-mcp-codex.mdx";
 
 Le serveur Admin MCP donne aux outils d'IA un accès en écriture à votre contenu et à vos paramètres Mintlify. Utilisez-le pour mettre à jour le contenu et accéder à votre tableau de bord. Avec l'Admin MCP, vous pouvez utiliser vos outils d'IA préférés pour modifier des pages, restructurer la navigation, mettre à jour `docs.json`, ouvrir des pull requests, modifier des paramètres, créer des workflows, et plus encore.
 
-Connectez n'importe quel client MCP comme Claude, Claude Code, ChatGPT ou Cursor au serveur Admin MCP. Utilisez-le pour collaborer sur votre contenu et vos paramètres Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Les modifications de contenu arrivent sur votre branche de déploiement sous forme de modifications non publiées, ou sur une branche avec une pull request lorsque vous appelez `checkout`. Elles sont livrées lorsque vous appelez `save` ou fusionnez la pull request. Les changements de [gestion de projet](#project-management), tels que les mises à jour de workflows et de paramètres, s'appliquent immédiatement au projet en ligne. Si votre organisation dispose de plusieurs projets, une seule connexion Admin MCP peut accéder à tous ces projets et basculer entre eux.
+Connectez n'importe quel client MCP comme Claude, Claude Code, ChatGPT ou Cursor au serveur Admin MCP. Utilisez-le pour collaborer sur votre contenu et vos paramètres Mintlify avec les mêmes outils que vous utilisez pour écrire du code. Chaque appel à un outil de contenu indique la branche sur laquelle il travaille. Les modifications sur votre branche de déploiement arrivent sous forme de modifications non publiées, et celles sur toute autre branche passent par une pull request. Elles sont livrées lorsque vous appelez `save` ou fusionnez la pull request. Les changements de [gestion de projet](#project-management), tels que les mises à jour de workflows et de paramètres, s'appliquent immédiatement au projet en ligne. Si votre organisation dispose de plusieurs projets, une seule connexion Admin MCP peut accéder à tous ces projets et basculer entre eux.
 
 <Note>
   Le serveur Admin MCP permet aux outils d'IA d'accéder à votre tableau de bord Mintlify. Considérez-le comme un outil avec un accès en écriture. Connectez-le uniquement depuis des outils d'IA de confiance, examinez chaque pull request avant de la fusionner, et sachez que les changements de gestion de projet s'appliquent immédiatement, sans pull request.
@@ -72,11 +72,13 @@ Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.m
   </Tab>
 </Tabs>
 
-<div id="how-a-session-works">
-  ## Comment fonctionne une session
+<div id="how-editing-works">
+  ## Fonctionnement de l'édition
 </div>
 
-Vous n'avez pas besoin d'ouvrir une session avant de modifier. Votre première modification en ouvre une sur votre branche de déploiement, sauf si votre projet exige une pull request. Le déroulement est le suivant :
+Chaque outil de contenu accepte un argument `branch`. Les outils qui modifient le contenu, comme `edit_page`, `create_node`, `update_config`, `save` et `discard`, l'exigent. Les outils de lecture, comme `read`, `search`, `list_nodes`, `status` et `diff`, utilisent votre branche de déploiement par défaut lorsque vous l'omettez. L'Admin MCP ne mémorise pas de branche d'un appel à l'autre, donc l'outil d'IA passe `branch` à chaque fois. Les requêtes portant sur des [pages privées](/fr/editor/pages#private-pages) n'ont pas besoin de `branch`.
+
+Le déroulement est le suivant :
 
 <Steps>
   <Step title="Découvrir les projets (facultatif)">
@@ -85,74 +87,68 @@ Vous n'avez pas besoin d'ouvrir une session avant de modifier. Votre première m
   <Step title="Lire, rechercher et modifier">
     L'IA utilise des outils comme `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` et `update_config` pour apporter des modifications. Sur une connexion à l'échelle de l'organisation, passez `subdomain` pour choisir le projet.
 
-    Sans checkout, les modifications arrivent sur votre branche de déploiement sous forme de modifications non publiées. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly). Si votre projet exige une pull request, la modification échoue avec un message `Checkout required` qui en explique la raison, et Mintlify ne change rien. Appelez `checkout` pour continuer. Consultez [Travailler sur une branche](#work-on-a-branch).
+    Passez votre branche de déploiement comme `branch` pour la modifier directement. Les modifications arrivent sous forme de modifications non publiées. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly). Si votre projet exige une pull request, Mintlify refuse la modification avec un message qui en explique la raison et ne change rien. Appelez plutôt `create_branch` et passez le `branchName` renvoyé comme `branch`. Consultez [Travailler sur une branche](#work-on-a-branch).
   </Step>
   <Step title="Examiner le diff">
-    Appelez `diff` à tout moment pour voir exactement ce qui a changé depuis votre branche de déploiement. Sans session ouverte, `diff` et `get_session_state` portent sur votre branche de déploiement. Ouvrez un `editorUrl` dans votre tableau de bord pour voir les mêmes modifications rendues. Lorsque `create_node` ajoute une page, il renvoie un `editorUrl` qui ouvre directement cette page.
+    Appelez `diff` à tout moment pour voir exactement ce qui a changé sur une branche par rapport à votre branche de déploiement. Appelez `status` pour obtenir un résumé des fichiers modifiés, des clés `docs.json` modifiées et des modifications de navigation. Les deux portent sur votre branche de déploiement lorsque vous omettez `branch`. Ouvrez un `editorUrl` dans votre tableau de bord pour voir les mêmes modifications rendues. Lorsque `create_node` ajoute une page, il renvoie un `editorUrl` qui ouvre directement cette page.
   </Step>
   <Step title="Enregistrer">
-    Appelez `save` avec un `title` pour publier vos modifications. Sur votre branche de déploiement, `save` commite vos propres modifications en attente. Sur une branche, `save` commite tout ce qui est en attente et renvoie la pull request de la branche, en en ouvrant une s'il n'y en a pas. `save` ne fusionne jamais de pull request. Un nouvel appel sans rien de nouveau à commiter renvoie la pull request existante. Si vous n'avez rien modifié avec cette connexion, `save` renvoie `Nothing to save`.
+    Appelez `save` avec la `branch` et un `title` pour publier vos modifications. Sur votre branche de déploiement, `save` commite vos propres modifications en attente. Sur une branche, `save` commite tout ce qui est en attente et renvoie la pull request de la branche, en en ouvrant une s'il n'y en a pas. `save` ne fusionne jamais de pull request. Un nouvel appel sans rien de nouveau à commiter renvoie la pull request existante. S'il n'y a rien à commiter et aucune pull request, `save` renvoie `no_pending_changes`.
 
     La réponse inclut un `editorUrl` qui ouvre la première page créée ou mise à jour. Si les modifications ne concernent que la configuration, le lien ouvre la branche. Les anciens clients peuvent toujours passer `mode`, mais `save` l'ignore.
   </Step>
   <Step title="Abandonner si nécessaire">
-    Appelez `discard_session` pour abandonner vos modifications. Ce qu'il supprime dépend de l'endroit où vous avez modifié. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly) et [Travailler sur une branche](#work-on-a-branch).
+    Appelez `discard` avec la `branch` pour abandonner vos modifications. Ce qu'il supprime dépend de la branche. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly) et [Travailler sur une branche](#work-on-a-branch).
   </Step>
 </Steps>
 
 <Tip>
-  Si votre connexion a accès à plusieurs projets, chaque projet conserve sa propre session en mémoire en même temps.
-
-  Appeler `checkout` pour un autre `subdomain` change la session active. Cela n'abandonne pas les autres.
+  Chaque appel indique son propre projet et sa propre branche, vous pouvez donc travailler sur plusieurs projets ou branches dans une même conversation sans passer de l'un à l'autre.
 </Tip>
 
 <div id="edit-the-deploy-branch-directly">
   ## Modifier directement la branche de déploiement
 </div>
 
-Lorsque rien n'exige de pull request, l'Admin MCP modifie votre branche de déploiement comme vous le faites dans l'[éditeur du tableau de bord](/fr/editor/publish). Vous n'appelez pas `checkout` et aucune pull request n'est créée.
+Lorsque rien n'exige de pull request, passez votre branche de déploiement comme `branch` et l'Admin MCP la modifie comme vous le faites dans l'[éditeur du tableau de bord](/fr/editor/publish). Vous n'appelez pas `create_branch` et aucune pull request n'est créée.
 
 L'outil d'IA agit en votre nom sur la branche de déploiement :
 
 - **Les modifications sont visibles en direct par les collaborateurs.** Toute autre personne qui modifie la branche de déploiement dans le tableau de bord voit les modifications de l'IA au fur et à mesure.
 - **`save` publie uniquement vos modifications.** Il commite vos modifications en attente directement sur la branche de déploiement, comme un clic sur **Publish** dans l'éditeur. Les modifications non publiées des autres restent en attente. Vos propres modifications non publiées dans l'éditeur du tableau de bord sont également publiées.
-- **`discard_session` annule uniquement vos modifications.** Il renvoie `discardedChanges` avec le nombre de modifications annulées. Les modifications des autres et la branche elle-même restent intactes.
-- **`get_session_state` liste uniquement vos modifications.**
+- **`discard` annule uniquement vos modifications.** Il renvoie `discardedChanges` avec le nombre de modifications annulées. Les modifications des autres et la branche elle-même restent intactes.
+- **`status` liste uniquement vos modifications.**
 
-Mintlify suit les modifications par page. Si vous et une autre personne avez modifié la même page, `save` publie la page entière et `discard_session` annule la page entière, y compris les modifications de l'autre personne.
+Mintlify suit les modifications par page. Si vous et une autre personne avez modifié la même page, `save` publie la page entière et `discard` annule la page entière, y compris les modifications de l'autre personne.
 
-Les modifications sur la branche de déploiement échouent avec `Checkout required` dans l'un des cas suivants :
+Mintlify refuse les modifications sur la branche de déploiement, et ne change rien, dans l'un des cas suivants :
 
 - **Pousser directement sur votre branche de déploiement** est désactivé dans vos [paramètres de publication](#publishing).
 - La protection de votre branche de déploiement exige des pull requests, ou Mintlify ne peut pas vérifier vos règles de protection de branche.
 - La modification de la branche de déploiement est verrouillée dans l'éditeur du tableau de bord.
 - Vous vous êtes connecté avec un jeton client ou machine à machine au lieu d'une connexion OAuth. Ces jetons ne sont pas liés à un utilisateur et n'ont donc pas de modifications « propres ».
 
+Mintlify vérifie ces conditions à chaque modification et met en cache vos règles de protection de branche pendant 30 secondes au maximum. Les outils de commentaires continuent de fonctionner sur la branche de déploiement lorsque les modifications y sont refusées. Si votre branche de déploiement se met à exiger une pull request après que vous l'avez modifiée, `save` renvoie `branch_protected` et vos modifications restent en attente. Ouvrez l'éditeur du tableau de bord pour les déplacer vers une nouvelle branche.
+
 <div id="work-on-a-branch">
   ## Travailler sur une branche
 </div>
 
-Appelez `checkout` lorsque votre projet exige une pull request, ou lorsque vous en voulez une malgré tout. Passez exactement l'un de ces arguments :
+Appelez `create_branch` avec un `title` lorsque votre projet exige une pull request, ou lorsque vous en voulez une malgré tout. Mintlify crée une nouvelle branche à partir de votre branche de déploiement, la nomme `<your-name>/<title-slug>` comme l'éditeur du tableau de bord nomme les branches, et l'initialise à partir de votre contenu publié. La pull request s'ouvre avec ce titre. Par exemple, `create_branch { subdomain: "acme", title: "Add tips page" }`.
 
-- **`title`** : Crée une nouvelle branche à partir de votre branche de déploiement. Mintlify la nomme `<your-name>/<title-slug>`, comme l'éditeur du tableau de bord nomme les branches, et l'initialise à partir de votre contenu publié. La pull request s'ouvre avec ce titre. Par exemple, `checkout { subdomain: "acme", title: "Add tips page" }`.
-- **`branch`** : S'attache à une branche existante autre que votre branche de déploiement. Appelez `list_branches` pour découvrir les branches du dépôt d'un projet.
+`create_branch` renvoie le `branchName`, la `baseBranch` et le `baseSha` de départ, une `note` et un `editorUrl` que vous pouvez ouvrir pour suivre l'avancement dans l'éditeur du tableau de bord. Passez le `branchName` comme `branch` dans tous les appels suivants.
 
-`checkout` refuse votre branche de déploiement et les branches qui n'existent pas. Il renvoie le `branchName`, un `editorUrl` que vous pouvez ouvrir pour suivre l'avancement dans l'éditeur du tableau de bord et, parfois, une `note`.
+Pour travailler sur une branche existante, passez son nom comme `branch`. Appelez `list_branches` pour découvrir les branches du dépôt d'un projet. Mintlify refuse les appels sur des branches qui n'existent pas.
 
 Sur une branche, Mintlify commite automatiquement vos modifications, environ 15 secondes après la dernière modification. Cela inclut le contenu des pages, les modifications de navigation et les mises à jour de `docs.json`. Le premier commit ouvre une pull request vers votre branche de déploiement. La pull request s'ouvre en brouillon si [Create draft pull requests by default](/fr/editor/settings#create-draft-pull-requests-by-default) est activé. Rien n'atteint votre branche de déploiement tant que quelqu'un n'a pas fusionné la pull request.
 
-`discard_session` se comporte différemment selon la manière dont vous avez ouvert la branche :
-
-- **Créée avec `title`** : Mintlify supprime la branche et ferme sa pull request, même si la branche contient des commits. Cela équivaut à supprimer une branche dans l'éditeur du tableau de bord.
-- **Attachée avec `branch`** : Mintlify termine votre session et laisse la branche et sa pull request intactes.
-
-Après `discard_session`, votre prochaine modification va de nouveau sur votre branche de déploiement, sauf si votre projet exige une pull request.
+`discard` sur une branche autre que votre branche de déploiement supprime la branche et ferme sa pull request, même si la branche contient des commits. Cela équivaut à supprimer une branche dans l'éditeur du tableau de bord. `discard` ne supprime que les branches que vous avez créées dans Mintlify. Pour toute autre branche, il refuse et ne change rien.
 
 <div id="publishing">
   ## Publication
 </div>
 
-La section **Publication** de la page **MCP → Configure** dans la barre latérale de votre tableau de bord contrôle si l'Admin MCP peut modifier votre branche de déploiement sans checkout. Activez **Pousser directement sur votre branche de déploiement** pour permettre aux outils d'IA de modifier et de publier directement sur votre branche de déploiement. Désactivez-la pour exiger `checkout` et une pull request pour les modifications MCP.
+La section **Publication** de la page **MCP → Configure** dans la barre latérale de votre tableau de bord contrôle si l'Admin MCP peut modifier votre branche de déploiement sans pull request. Activez **Pousser directement sur votre branche de déploiement** pour permettre aux outils d'IA de modifier et de publier directement sur votre branche de déploiement. Désactivez-la pour exiger `create_branch` et une pull request pour les modifications MCP.
 
 Ce bouton partage le même paramètre `agentReviewProcess` que l'agent Slack et l'agent du tableau de bord, donc toute modification ici s'applique également à ces flux.
 
@@ -197,17 +193,17 @@ Pour révoquer un identifiant, cliquez sur l'icône de suppression à côté de 
   ### Contenu
 </div>
 
-- **`read`**: Récupère le MDX complet de n'importe quelle page sur la branche de session, ou sur votre branche de déploiement lorsqu'aucune session n'est ouverte. Transmettez un chemin de page comme `/quickstart`, ou l'ID de page d'une URL de l'éditeur (le segment après `~/`), pour qu'un outil d'IA puisse ouvrir une page directement depuis un lien de l'éditeur. Pour lire une [page privée](/fr/editor/pages#private-pages), transmettez son ID de nœud `private-page-<uuid>` obtenu depuis `list_nodes` avec `visibility: "private"`. Les lectures privées fonctionnent sans checkout et nécessitent une session OAuth. L'Admin MCP refuse les jetons client et machine à machine pour l'accès aux pages privées.
-- **`search`**: Trouve les lignes correspondant à une sous-chaîne ou à une expression régulière dans toutes les pages. Recherche dans votre branche de déploiement lorsqu'aucune session n'est ouverte.
-- **`edit_page`**: Applique une modification ciblée à une page. Pour modifier une [page privée](/fr/editor/pages#private-pages), transmettez son ID de nœud `private-page-<uuid>` comme `path`. Les modifications privées nécessitent une session OAuth avec un rôle d'editor ou supérieur sur la page et fonctionnent sans checkout.
+- **`read`**: Récupère le MDX complet de n'importe quelle page sur `branch`, ou sur votre branche de déploiement lorsque vous l'omettez. Transmettez un chemin de fichier ou un UUID. Pour lire une [page privée](/fr/editor/pages#private-pages), transmettez son ID de nœud `private-page-<uuid>` obtenu depuis `list_nodes` avec `visibility: "private"`. Les lectures privées n'ont pas besoin de `branch` et nécessitent une session OAuth. L'Admin MCP refuse les jetons client et machine à machine pour l'accès aux pages privées.
+- **`search`**: Trouve les lignes correspondant à une sous-chaîne ou à une expression régulière dans toutes les pages. Recherche dans `branch`, ou dans votre branche de déploiement lorsque vous l'omettez.
+- **`edit_page`**: Applique une modification ciblée à une page. Pour modifier une [page privée](/fr/editor/pages#private-pages), transmettez son ID de nœud `private-page-<uuid>` comme `path`. Les modifications privées nécessitent une session OAuth avec un rôle d'editor ou supérieur sur la page et n'ont pas besoin de `branch`.
 - **`write_page`**: Réécrit le contenu MDX complet d'une page. Accepte un ID de nœud `private-page-<uuid>` pour réécrire une page privée avec les mêmes exigences OAuth et de rôle que `edit_page`. Utilisez `create_node` pour créer une nouvelle page privée.
 
 <div id="images">
   ### Images
 </div>
 
-- **`upload_image`** : Démarre le téléversement d'un fichier image local vers la branche de session. Transmettez le `path` de destination (par exemple, `images/dashboard.png`), le `contentType` du fichier et sa `size` exacte en octets. Renvoie un `uploadId`, une `uploadUrl` présignée et les `headers` à envoyer avec le téléversement.
-- **`finalize_image_upload`** : Enregistre l'image téléversée sur la branche de session. Transmettez l'`uploadId` et le même `path`. Renvoie le `src` à référencer dans le MDX avec `edit_page` ou `write_page`, ou dans les champs `logo` ou `favicon` de `docs.json` avec `update_config`.
+- **`upload_image`** : Démarre le téléversement d'un fichier image local vers `branch`. Transmettez le `path` de destination (par exemple, `images/dashboard.png`), le `contentType` du fichier et sa `size` exacte en octets. Renvoie un `uploadId`, une `uploadUrl` présignée et les `headers` à envoyer avec le téléversement.
+- **`finalize_image_upload`** : Enregistre l'image téléversée sur `branch`. Transmettez l'`uploadId` et le même `path`. Renvoie le `src` à référencer dans le MDX avec `edit_page` ou `write_page`, ou dans les champs `logo` ou `favicon` de `docs.json` avec `update_config`.
 
 Après `upload_image`, l'outil d'IA téléverse les octets du fichier vers `uploadUrl` avec une requête `PUT` et les en-têtes renvoyés. Par exemple :
 
@@ -215,7 +211,7 @@ Après `upload_image`, l'outil d'IA téléverse les octets du fichier vers `uplo
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify vérifie que le contenu du fichier téléversé correspond à son extension avant de l'enregistrer. Un téléversement vers un `path` existant remplace cette image. Mintlify n'accepte les fichiers SVG que pour les logos et les favicons : transmettez `purpose: "logo"` aux deux outils lorsque vous en téléversez un. Les images enregistrées apparaissent dans `get_session_state` et sont publiées avec le reste de la session lorsque vous appelez `save`.
+Mintlify vérifie que le contenu du fichier téléversé correspond à son extension avant de l'enregistrer. Un téléversement vers un `path` existant remplace cette image. Mintlify n'accepte les fichiers SVG que pour les logos et les favicons : transmettez `purpose: "logo"` aux deux outils lorsque vous en téléversez un. Les images enregistrées apparaissent dans `status` et sont publiées avec le reste de vos modifications lorsque vous appelez `save`.
 
 <div id="comments">
   ### Commentaires
@@ -223,23 +219,23 @@ Mintlify vérifie que le contenu du fichier téléversé correspond à son exten
 
 Travaillez avec les [commentaires et suggestions](/fr/editor/collaborate#comments) que votre équipe laisse dans l'éditeur du tableau de bord.
 
-- **`read_comments`**: Liste les fils de commentaires et de suggestions ouverts sur une page, du plus ancien au plus récent. Transmettez `path` sous les mêmes formes que pour `read`. Chaque fil inclut un `threadId`, son `type` (`comment` ou `suggestion`), le `quotedText` auquel il est ancré, le `suggestedText` des suggestions et ses `comments` avec l'`author`, le `content` et le `createdAt` de chacun. Si le texte ancré n'existe plus sur la page, le fil inclut `anchorRemoved: true` et `quotedText` affiche la citation d'origine. Fonctionne sans checkout.
+- **`read_comments`**: Liste les fils de commentaires et de suggestions ouverts sur une page, du plus ancien au plus récent. Transmettez `path` sous les mêmes formes que pour `read`. Chaque fil inclut un `threadId`, son `type` (`comment` ou `suggestion`), le `quotedText` auquel il est ancré, le `suggestedText` des suggestions et ses `comments` avec l'`author`, le `content` et le `createdAt` de chacun. Si le texte ancré n'existe plus sur la page, le fil inclut `anchorRemoved: true` et `quotedText` affiche la citation d'origine. Lit les fils de `branch`, ou de votre branche de déploiement lorsque vous l'omettez.
 - **`add_comment`**: Démarre un nouveau fil de commentaires sur une page sans modifier son contenu. Utilisez-le pour laisser un retour à votre équipe au lieu de modifier la page. Transmettez `path` sous les mêmes formes que pour `read`, le `content` du commentaire et `quotedText` : le plus court passage de texte visible et unique auquel l'ancrer, dans un seul paragraphe ou titre. Utilisez les mots affichés, pas la syntaxe Markdown ou MDX. Par exemple, citez `custom domain`, pas `[custom domain](/path)`. Renvoie le nouveau `threadId`. Si le texte n'est pas sur la page, l'erreur est `no_match`. S'il correspond à plusieurs endroits, l'erreur est `not_unique` : citez alors un passage plus long.
 - **`suggest_edit`**: Propose une suggestion avec suivi des modifications sur une page au lieu de la modifier. Le texte original reste sur la page, barré, et le remplacement apparaît à côté. Rien ne change tant que quelqu'un n'a pas accepté ou rejeté la suggestion dans l'éditeur du tableau de bord. Transmettez `path` sous les mêmes formes que pour `read`, `oldString` et `newString`. `oldString` est le plus court passage de texte visible et unique à remplacer, dans un seul paragraphe ou titre. Utilisez les mots affichés, pas la syntaxe Markdown ou MDX. Transmettez un `newString` vide pour suggérer une suppression, et un `note` facultatif pour expliquer la modification. Renvoie le nouveau `threadId` avec `originalText` et `suggestedText`, réduits au passage qui change. Si la même suggestion est déjà ouverte, la réponse inclut `alreadyExists: true` et le `threadId` existant. Les erreurs `no_match` et `not_unique` fonctionnent comme pour `add_comment`. L'erreur est `no_change` lorsque les deux chaînes sont identiques, et `conflicting_annotation` lorsque le texte chevauche une autre suggestion ouverte.
 - **`reply_to_comment`**: Répond à un fil par `threadId` avec `content`. Transmettez `resolve: true` pour également résoudre le fil. Mintlify publie la réponse en tant qu'agent au nom de l'utilisateur qui a autorisé la connexion, et elle apparaît en direct dans l'éditeur du tableau de bord.
 - **`resolve_comment`**: Résout un fil sans répondre.
 
-`add_comment`, `suggest_edit`, `reply_to_comment` et `resolve_comment` nécessitent une session OAuth. Sans checkout, ils agissent sur les fils de votre branche de déploiement. Après avoir appelé `checkout`, ils agissent sur les fils de cette branche. Vous pouvez répondre aux fils de suggestions, mais vous devez accepter ou rejeter les suggestions dans l'éditeur. Les commentaires sur les pages privées ne sont pas disponibles via l'Admin MCP.
+`add_comment`, `suggest_edit`, `reply_to_comment` et `resolve_comment` nécessitent une session OAuth et une `branch`. Ils agissent sur les fils de cette branche et fonctionnent sur votre branche de déploiement même lorsque ses modifications exigent une pull request. Vous pouvez répondre aux fils de suggestions, mais vous devez accepter ou rejeter les suggestions dans l'éditeur. Les commentaires sur les pages privées ne sont pas disponibles via l'Admin MCP.
 
 <div id="navigation">
   ### Navigation
 </div>
 
-- **`list_nodes`**: Parcourt l'arbre de navigation de la branche de session, ou de votre branche de déploiement lorsqu'aucune session n'est ouverte, avec des filtres optionnels. Filtrez par `parentId` (utilisez `recursive: true` pour inclure tous les descendants), un ou plusieurs types de nœuds, ou n'importe quel scope de division : `language`, `version`, `tab`, `dropdown`, `anchor`, `product` ou `item`. Les résultats se paginent via un `cursor` opaque. Transmettez `visibility: "private"` pour lister les [pages privées](/fr/editor/pages#private-pages) et dossiers auxquels l'utilisateur OAuth a accès, au lieu de l'arbre de navigation de la branche. Le listing privé fonctionne sans checkout, ignore les autres filtres et renvoie le `role` de chaque nœud.
-- **`create_node`**: Ajoute une nouvelle page, un groupe, un onglet, une ancre, une version, une langue, un produit ou une liste déroulante. Transmettez `visibility: "private"` avec `data.type: "page"` ou `data.type: "group"` pour créer une [page privée](/fr/editor/pages#private-pages) ou un dossier privé dans l'arbre privé de l'appelant. L'appelant devient le manager du nœud. La création privée nécessite une session OAuth, fonctionne sans checkout et place le nœud à la racine privée ou sous un parent `private-folder-<uuid>` existant. Pour les nouvelles pages, la réponse inclut une `editorUrl` qui ouvre la page dans votre tableau de bord.
-- **`update_node`**: Met à jour les propriétés d'un nœud sur place (renommer un groupe, modifier une icône, définir une version par défaut). Accepte un ID de nœud `private-page-<uuid>` ou `private-folder-<uuid>` pour renommer une [page privée](/fr/editor/pages#private-pages) ou un dossier, ou changer son icône ou son tag. Les mises à jour privées nécessitent une session OAuth avec un rôle d'editor ou supérieur et fonctionnent sans checkout.
+- **`list_nodes`**: Parcourt l'arbre de navigation de `branch`, ou de votre branche de déploiement lorsque vous l'omettez, avec des filtres optionnels. Filtrez par `parentId` (utilisez `recursive: true` pour inclure tous les descendants), un ou plusieurs types de nœuds, ou n'importe quel scope de division : `language`, `version`, `tab`, `dropdown`, `anchor`, `product` ou `item`. Les résultats se paginent via un `cursor` opaque. Transmettez `visibility: "private"` pour lister les [pages privées](/fr/editor/pages#private-pages) et dossiers auxquels l'utilisateur OAuth a accès, au lieu de l'arbre de navigation de la branche. Le listing privé ignore `branch` et les autres filtres, et renvoie le `role` de chaque nœud.
+- **`create_node`**: Ajoute une nouvelle page, un groupe, un onglet, une ancre, une version, une langue, un produit ou une liste déroulante. Transmettez `visibility: "private"` avec `data.type: "page"` ou `data.type: "group"` pour créer une [page privée](/fr/editor/pages#private-pages) ou un dossier privé dans l'arbre privé de l'appelant. L'appelant devient le manager du nœud. La création privée nécessite une session OAuth, n'a pas besoin de `branch` et place le nœud à la racine privée ou sous un parent `private-folder-<uuid>` existant. Pour les nouvelles pages, la réponse inclut une `editorUrl` qui ouvre la page dans votre tableau de bord.
+- **`update_node`**: Met à jour les propriétés d'un nœud sur place (renommer un groupe, modifier une icône, définir une version par défaut). Accepte un ID de nœud `private-page-<uuid>` ou `private-folder-<uuid>` pour renommer une [page privée](/fr/editor/pages#private-pages) ou un dossier, ou changer son icône ou son tag. Les mises à jour privées nécessitent une session OAuth avec un rôle d'editor ou supérieur et n'ont pas besoin de `branch`.
 - **`move_node`**: Déplace un nœud, y compris renommer le chemin d'une page.
-- **`delete_node`**: Supprime un nœud de la navigation. Accepte un ID de nœud `private-page-<uuid>` ou `private-folder-<uuid>` pour supprimer une [page privée](/fr/editor/pages#private-pages) ou un dossier de l'arbre privé de l'appelant. Les suppressions privées nécessitent une session OAuth avec un rôle de manager sur le nœud et fonctionnent sans checkout.
+- **`delete_node`**: Supprime un nœud de la navigation. Accepte un ID de nœud `private-page-<uuid>` ou `private-folder-<uuid>` pour supprimer une [page privée](/fr/editor/pages#private-pages) ou un dossier de l'arbre privé de l'appelant. Les suppressions privées nécessitent une session OAuth avec un rôle de manager sur le nœud et n'ont pas besoin de `branch`.
 
 Si un appel à `create_node`, `update_node`, `move_node` ou `delete_node` laisse la navigation dans un état invalide, la réponse inclut un champ `navigationErrors` qui décrit le problème. Par exemple, une page placée à la racine à côté d'onglets renvoie `navigationErrors`. Mintlify peut retirer les nœuds invalides de la navigation publiée. Corrigez donc ces erreurs avant d'appeler `save`.
 
@@ -253,7 +249,7 @@ Si un appel à `create_node`, `update_node`, `move_node` ou `delete_node` laisse
   ### Gestion de projet
 </div>
 
-Les outils de gestion de projet gèrent les opérations au niveau du projet, comme la gestion des workflows, des paramètres de projet, des domaines personnalisés, des sources Git, de l'authentification, des membres, des analyses et du partage des [pages privées](/fr/editor/pages#private-pages). Ils ne nécessitent pas de `checkout`.
+Les outils de gestion de projet gèrent les opérations au niveau du projet, comme la gestion des workflows, des paramètres de projet, des domaines personnalisés, des sources Git, de l'authentification, des membres, des analyses et du partage des [pages privées](/fr/editor/pages#private-pages). Ils agissent sur le projet en direct, pas sur une branche.
 
 Chaque outil prend un `subdomain` correspondant au projet ciblé. Les connexions à l'échelle de l'organisation doivent transmettre `subdomain`. Appelez `list_deployments` pour le trouver. Les outils de lecture acceptent aussi `subdomains`, une liste de 25 projets maximum, et renvoient un résultat ou une erreur pour chacun. La plupart des outils prennent un objet `request` dont le champ `action` sélectionne l'opération. Par exemple :
 
@@ -286,17 +282,17 @@ Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afi
   Les écritures de gestion de projet s'appliquent immédiatement au projet en ligne. Elles ne créent pas de branche et n'ouvrent pas de pull request. Confirmez la modification prévue avant de demander à un outil d'IA de mettre à jour des workflows, des paramètres, des domaines, l'authentification ou des membres.
 </Warning>
 
-<div id="session">
-  ### Session
+<div id="branches-and-publishing">
+  ### Branches et publication
 </div>
 
-- **`list_deployments`**: Liste les projets auxquels votre connexion peut accéder, en renvoyant chaque `{subdomain, name}`. Appelez ceci pour découvrir quel `subdomain` transmettre à `checkout`.
-- **`checkout`**: [Travaille sur une branche](#work-on-a-branch) autre que la branche de déploiement, ou change quelle session de projet est active. Passez exactement l'un de `title` (crée une nouvelle branche et une pull request) ou `branch` (s'attache à une branche existante). Inutile pour [modifier directement la branche de déploiement](#edit-the-deploy-branch-directly).
-- **`list_branches`**: Liste les branches Git disponibles pour le dépôt d'un projet, avec un filtrage `query` optionnel. Renvoie les noms de branches, le nombre total et la branche de déploiement. Appelez ceci avant `checkout` pour vous rattacher à une branche existante par son nom.
-- **`get_session_state`**: Inspecte la branche en cours, les fichiers modifiés et le diff de navigation en attente. Sur la branche de déploiement, liste uniquement vos modifications.
-- **`diff`**: Liste toutes les modifications entre la session et votre branche de déploiement. Chaque fichier modifié et chaque entrée `docs.json` incluent `authors` et `byYou`. `authors` liste les membres dont l'entrée contient les modifications non publiées. `byYou` vaut `true` lorsque l'entrée inclut vos propres modifications. Utilisez `byYou` pour distinguer vos modifications de celles d'un collègue sur une branche partagée.
+- **`list_deployments`**: Liste les projets auxquels votre connexion peut accéder, en renvoyant chaque `{subdomain, name}`. Appelez ceci pour découvrir quel `subdomain` transmettre.
+- **`create_branch`**: Crée une nouvelle branche à partir de votre branche de déploiement avec un `title` qui nomme aussi sa pull request. Renvoie le `branchName` à passer comme `branch`. Consultez [Travailler sur une branche](#work-on-a-branch). Vous n'en avez pas besoin pour [modifier directement la branche de déploiement](#edit-the-deploy-branch-directly).
+- **`list_branches`**: Liste les branches Git disponibles pour le dépôt d'un projet, avec un filtrage `query` optionnel. Renvoie les noms de branches, le nombre total et la branche de déploiement. Passez n'importe laquelle comme `branch`.
+- **`status`**: Liste les fichiers modifiés, les clés `docs.json` modifiées et le diff de navigation en attente sur `branch`, ou sur votre branche de déploiement lorsque vous l'omettez. Sur la branche de déploiement, liste uniquement vos modifications.
+- **`diff`**: Liste toutes les modifications entre `branch` et votre branche de déploiement. Chaque fichier modifié et chaque entrée `docs.json` incluent `authors` et `byYou`. `authors` liste les membres dont l'entrée contient les modifications non publiées. `byYou` vaut `true` lorsque l'entrée inclut vos propres modifications. Utilisez `byYou` pour distinguer vos modifications de celles d'un collègue sur une branche partagée.
 - **`save`**: Sur la branche de déploiement, commite directement uniquement vos modifications en attente. Sur une branche, commite les modifications en attente et renvoie la pull request de la branche, en en ouvrant une si nécessaire. `save` ne fusionne jamais.
-- **`discard_session`**: Termine la session. Sur la branche de déploiement, annule uniquement vos modifications en attente. Sur une branche créée avec `title`, supprime la branche et ferme sa pull request.
+- **`discard`**: Abandonne les modifications sur `branch`. Sur la branche de déploiement, annule uniquement vos modifications en attente. Sur une autre branche que vous avez créée, supprime la branche et ferme sa pull request.
 
 <div id="example-prompts">
   ## Exemples de prompts
@@ -315,20 +311,20 @@ Une fois l'Admin MCP connecté, vous pouvez le piloter avec des prompts en langa
 
 <AccordionGroup>
   <Accordion title="Ouvrir l'URL de l'éditeur">
-    `checkout` renvoie une `editorUrl` pour la branche. `create_node` et `save` renvoient une `editorUrl` pour la page modifiée. Ouvrez ces liens dans un onglet séparé pour pouvoir voir les modifications de l'IA s'afficher en direct dans l'éditeur du tableau de bord pendant que vous rédigez vos prompts.
+    `create_branch` renvoie une `editorUrl` pour la branche. `create_node` et `save` renvoient une `editorUrl` pour la page modifiée. Ouvrez ces liens dans un onglet séparé pour pouvoir voir les modifications de l'IA s'afficher en direct dans l'éditeur du tableau de bord pendant que vous rédigez vos prompts.
   </Accordion>
 
   <Accordion title="Examiner chaque PR">
     L'Admin MCP est suffisamment puissant pour réécrire des centaines de pages en une seule session. Avant de fusionner, lisez le diff de la PR et parcourez l'aperçu rendu. Ne validez pas des changements importants sans les examiner.
   </Accordion>
 
-  <Accordion title="Garder les sessions ciblées">
-    Limitez chaque session à un seul changement. Des sessions plus petites produisent des pull requests plus faciles à examiner et préservent les fenêtres de contexte des agents. Utilisez `discard_session` puis `checkout` à nouveau pour passer à un travail sans lien.
+  <Accordion title="Garder les branches ciblées">
+    Limitez chaque branche à un seul changement. Des branches plus petites produisent des pull requests plus faciles à examiner et préservent les fenêtres de contexte des agents. Appelez à nouveau `create_branch` pour commencer un travail sans lien.
   </Accordion>
 </AccordionGroup>
 
 <Note>
-  Si vous délaissez une branche créée avec `checkout` sans appeler `discard_session`, la branche et sa pull request restent dans votre dépôt. Appelez `discard_session` pour supprimer une branche dont vous n'avez plus besoin, ou fermez sa pull request.
+  Si vous délaissez une branche créée avec `create_branch` sans appeler `discard`, la branche et sa pull request restent dans votre dépôt. Appelez `discard` pour supprimer une branche dont vous n'avez plus besoin, ou fermez sa pull request.
 </Note>
 
 <div id="disconnect-or-revoke-access">

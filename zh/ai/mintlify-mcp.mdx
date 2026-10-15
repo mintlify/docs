@@ -17,7 +17,7 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
 
 管理员 MCP 服务器赋予 AI 工具对你的 Mintlify 内容和设置的写入权限。可使用它来更新内容并访问你的控制台。借助管理员 MCP，你可以使用你常用的 AI 工具来编辑页面、调整导航结构、更新 `docs.json`、提交拉取请求、修改设置、创建工作流等等。
 
-将任意 MCP 客户端 (例如 Claude、Claude Code、ChatGPT 或 Cursor) 连接到管理员 MCP 服务器。连接后，你可以使用与编写代码相同的工具协同处理你的 Mintlify 内容和设置。内容编辑会作为未发布的更改落在你的部署 branch 上；如果你调用了 `checkout`，则会落在带有拉取请求的 branch 上。你调用 `save` 或合并拉取请求时，这些编辑才会交付。[项目管理](#project-management)更改 (例如工作流和设置更新) 会立即应用到线上项目。如果你的组织有多个项目，单个管理员 MCP 连接即可访问所有这些项目并在它们之间切换。
+将任意 MCP 客户端 (例如 Claude、Claude Code、ChatGPT 或 Cursor) 连接到管理员 MCP 服务器。连接后，你可以使用与编写代码相同的工具协同处理你的 Mintlify 内容和设置。每次内容工具调用都会指定其操作的 branch。对部署 branch 的编辑会作为未发布的更改落在该 branch 上，对其他任何 branch 的编辑则通过拉取请求进行。你调用 `save` 或合并拉取请求时，这些编辑才会交付。[项目管理](#project-management)更改 (例如工作流和设置更新) 会立即应用到线上项目。如果你的组织有多个项目，单个管理员 MCP 连接即可访问所有这些项目并在它们之间切换。
 
 <Note>
   管理员 MCP 服务器允许 AI 工具访问你的 Mintlify 控制台。请将其视为拥有写入权限的工具。仅从受信任的 AI 工具连接它，在合并前审查每一个拉取请求，并注意项目管理更改会在没有拉取请求的情况下立即生效。
@@ -72,11 +72,13 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
   </Tab>
 </Tabs>
 
-<div id="how-a-session-works">
-  ## 会话的工作方式
+<div id="how-editing-works">
+  ## 编辑的工作方式
 </div>
 
-编辑前无需先打开会话。除非你的项目要求拉取请求，否则你的第一次编辑会在部署 branch 上打开一个会话。流程如下：
+每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`save` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。
+
+流程如下：
 
 <Steps>
   <Step title="发现项目（可选）">
@@ -85,74 +87,68 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
   <Step title="读取、搜索和编辑">
     AI 使用 `search`、`read`、`list_nodes`、`edit_page`、`write_page`、`create_node` 和 `update_config` 等工具进行更改。在组织范围的连接上，请传入 `subdomain` 来选择项目。
 
-    不执行 checkout 时，编辑会作为未发布的更改落在你的部署 branch 上。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)。如果你的项目要求拉取请求，编辑会失败并返回说明原因的 `Checkout required` 消息，Mintlify 不会做任何更改。请调用 `checkout` 继续。参见[在 branch 上工作](#work-on-a-branch)。
+    将部署 branch 作为 `branch` 传入即可直接编辑它。编辑会作为未发布的更改落在该 branch 上。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)。如果你的项目要求拉取请求，Mintlify 会拒绝该编辑并返回说明原因的消息，且不会做任何更改。此时请调用 `create_branch`，并将返回的 `branchName` 作为 `branch` 传入。参见[在 branch 上工作](#work-on-a-branch)。
   </Step>
   <Step title="审查差异">
-    随时调用 `diff` 查看与你的部署 branch 相比发生了哪些更改。没有打开会话时，`diff` 和 `get_session_state` 会报告你的部署 branch。在控制台中打开 `editorUrl`，可以看到相同更改的渲染效果。当 `create_node` 添加页面时，会返回一个直接打开该页面的 `editorUrl`。
+    随时调用 `diff` 查看某个 branch 与你的部署 branch 相比发生了哪些更改。调用 `status` 可获取已编辑文件、已更改的 `docs.json` 键和导航更改的摘要。省略 `branch` 时，两者都会报告你的部署 branch。在控制台中打开 `editorUrl`，可以看到相同更改的渲染效果。当 `create_node` 添加页面时，会返回一个直接打开该页面的 `editorUrl`。
   </Step>
   <Step title="保存">
-    调用 `save` 并传入 `title` 以发布你的编辑。在部署 branch 上，`save` 会提交你自己的待处理更改。在 branch 上，`save` 会提交所有待处理内容并返回该 branch 的拉取请求，如果还没有拉取请求则会创建一个。`save` 从不合并拉取请求。在没有新内容可提交时再次调用，会返回现有的拉取请求。如果你还没有通过此连接编辑任何内容，`save` 会返回 `Nothing to save`。
+    调用 `save` 并传入 `branch` 和 `title` 以发布你的编辑。在部署 branch 上，`save` 会提交你自己的待处理更改。在 branch 上，`save` 会提交所有待处理内容并返回该 branch 的拉取请求，如果还没有拉取请求则会创建一个。`save` 从不合并拉取请求。在没有新内容可提交时再次调用，会返回现有的拉取请求。如果既没有可提交的内容也没有拉取请求，`save` 会返回 `no_pending_changes`。
 
     响应中包含一个 `editorUrl`，用于打开第一个新建或更新的页面。如果更改只涉及配置，该链接会打开 branch。旧版客户端仍可传入 `mode`，但 `save` 会忽略它。
   </Step>
   <Step title="按需丢弃">
-    调用 `discard_session` 放弃你的编辑。它会删除哪些内容取决于你在哪里编辑。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)和[在 branch 上工作](#work-on-a-branch)。
+    调用 `discard` 并传入 `branch` 以放弃你的编辑。它会删除哪些内容取决于该 branch。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)和[在 branch 上工作](#work-on-a-branch)。
   </Step>
 </Steps>
 
 <Tip>
-  如果你的连接可以访问多个项目，每个项目都会同时在内存中保留其各自的会话。
-
-  针对不同的 `subdomain` 调用 `checkout` 会切换当前活动的会话，而不会丢弃其他会话。
+  每次调用都会指定其项目和 branch，因此你可以在同一个对话中处理多个项目或 branch，而无需在它们之间切换。
 </Tip>
 
 <div id="edit-the-deploy-branch-directly">
   ## 直接编辑部署 branch
 </div>
 
-当没有任何条件要求拉取请求时，管理员 MCP 会像你在[控制台编辑器](/zh/editor/publish)中一样编辑你的部署 branch。你无需调用 `checkout`，也不会创建拉取请求。
+当没有任何条件要求拉取请求时，将部署 branch 作为 `branch` 传入，管理员 MCP 就会像你在[控制台编辑器](/zh/editor/publish)中一样编辑它。你无需调用 `create_branch`，也不会创建拉取请求。
 
 在部署 branch 上，AI 工具以你的身份操作：
 
 - **编辑对协作者实时可见。** 在控制台中编辑部署 branch 的其他人会实时看到 AI 的更改。
 - **`save` 只发布你的更改。** 它将你的待处理更改直接提交到部署 branch，效果等同于在编辑器中点击 **Publish**。其他人未发布的更改保持待处理状态。你在控制台编辑器中未发布的编辑也会一并发布。
-- **`discard_session` 只撤销你的更改。** 它返回 `discardedChanges`，表示撤销的更改数量。其他人的更改和 branch 本身不受影响。
-- **`get_session_state` 只列出你的更改。**
+- **`discard` 只撤销你的更改。** 它返回 `discardedChanges`，表示撤销的更改数量。其他人的更改和 branch 本身不受影响。
+- **`status` 只列出你的更改。**
 
-Mintlify 按页面跟踪更改。如果你和其他人编辑了同一页面，`save` 会发布整个页面，`discard_session` 会撤销整个页面，包括其他人的编辑。
+Mintlify 按页面跟踪更改。如果你和其他人编辑了同一页面，`save` 会发布整个页面，`discard` 会撤销整个页面，包括其他人的编辑。
 
-在以下任一情况下，对部署 branch 的编辑会失败并返回 `Checkout required`：
+在以下任一情况下，Mintlify 会拒绝对部署 branch 的编辑，且不会做任何更改：
 
 - 你的[发布设置](#publishing)中关闭了 **直接推送到你的部署 branch**。
 - 部署 branch 的保护规则要求拉取请求，或 Mintlify 无法检查你的 branch 保护规则。
 - 部署 branch 的编辑在控制台编辑器中被锁定。
 - 你使用客户端令牌或机器到机器令牌连接，而不是 OAuth 登录。这些令牌未关联到用户，因此没有"自己的"更改。
 
+Mintlify 会在每次编辑时检查这些条件，并将你的 branch 保护规则缓存最多 30 秒。当对部署 branch 的编辑被拒绝时，评论工具仍可在其上使用。如果你编辑部署 branch 之后它开始要求拉取请求，`save` 会返回 `branch_protected`，你的更改保持待处理状态。请打开控制台编辑器，将这些更改移到新的 branch。
+
 <div id="work-on-a-branch">
   ## 在 branch 上工作
 </div>
 
-当你的项目要求拉取请求，或者你本身就想要一个拉取请求时，请调用 `checkout`。请恰好传入以下参数之一：
+当你的项目要求拉取请求，或者你本身就想要一个拉取请求时，请调用 `create_branch` 并传入 `title`。Mintlify 会从部署 branch 创建一个新的 branch，按照与控制台编辑器相同的方式将其命名为 `<your-name>/<title-slug>`，并基于你已发布的内容进行初始化。拉取请求会以此标题打开。例如 `create_branch { subdomain: "acme", title: "Add tips page" }`。
 
-- **`title`**：从部署 branch 创建一个新的 branch。Mintlify 会将其命名为 `<your-name>/<title-slug>`，与控制台编辑器命名 branch 的方式相同，并基于你已发布的内容进行初始化。拉取请求会以此标题打开。例如 `checkout { subdomain: "acme", title: "Add tips page" }`。
-- **`branch`**：附加到部署 branch 以外的现有 branch。调用 `list_branches` 可发现项目仓库中的 branch。
+`create_branch` 返回 `branchName`、起始的 `baseBranch` 和 `baseSha`、一个 `note`，以及一个可在控制台编辑器中实时跟进的 `editorUrl`。在之后的每次调用中，将 `branchName` 作为 `branch` 传入。
 
-`checkout` 会拒绝部署 branch 和不存在的 branch。它返回 `branchName`、一个可在控制台编辑器中实时跟进的 `editorUrl`，有时还会返回 `note`。
+要在现有 branch 上工作，请将其名称作为 `branch` 传入。调用 `list_branches` 可发现项目仓库中的 branch。Mintlify 会拒绝针对不存在的 branch 的调用。
 
 在 branch 上，Mintlify 会在最后一次更改约 15 秒后自动提交你的编辑，包括页面内容、导航更改和 `docs.json` 更新。首次提交会打开一个针对部署 branch 的拉取请求。如果启用了[默认创建草稿 pull request](/zh/editor/settings#create-draft-pull-requests-by-default)，拉取请求会以草稿形式打开。在有人合并该拉取请求之前，任何更改都不会进入你的部署 branch。
 
-`discard_session` 的行为取决于你打开 branch 的方式：
-
-- **使用 `title` 创建**：Mintlify 会删除该 branch 并关闭其拉取请求，即使该 branch 已有提交。这与在控制台编辑器中删除 branch 的效果相同。
-- **使用 `branch` 附加**：Mintlify 会结束你的会话，不会改动该 branch 及其拉取请求。
-
-执行 `discard_session` 之后，你的下一次编辑会重新进入部署 branch，除非你的项目要求拉取请求。
+在部署 branch 以外的 branch 上，`discard` 会删除该 branch 并关闭其拉取请求，即使该 branch 已有提交。这与在控制台编辑器中删除 branch 的效果相同。`discard` 只会删除你在 Mintlify 中创建的 branch。对于其他 branch，它会拒绝操作且不做任何更改。
 
 <div id="publishing">
   ## 发布
 </div>
 
-控制台侧边栏中 **MCP → Configure** 页面上的 **发布** 部分用于控制管理员 MCP 是否可以在不执行 checkout 的情况下编辑你的部署 branch。开启 **直接推送到你的部署 branch**，AI 工具即可直接编辑并发布到你的部署 branch。关闭它，MCP 编辑将需要 `checkout` 和拉取请求。
+控制台侧边栏中 **MCP → Configure** 页面上的 **发布** 部分用于控制管理员 MCP 是否可以在不使用拉取请求的情况下编辑你的部署 branch。开启 **直接推送到你的部署 branch**，AI 工具即可直接编辑并发布到你的部署 branch。关闭它，MCP 编辑将需要 `create_branch` 和拉取请求。
 
 此开关与 Slack 和控制台代理共享相同的 `agentReviewProcess` 设置，因此在这里所做的任何更改都会同样应用于那些流程。
 
@@ -197,17 +193,17 @@ Claude、ChatGPT 和 Cursor 等常用 MCP 客户端始终可以完成 OAuth 登�
   ### 内容
 </div>
 
-- **`read`**: 获取会话 branch 上任意页面的完整 MDX；没有打开的会话时，则获取部署 branch 上的页面。可以传入页面路径（如 `/quickstart`），也可以传入编辑器 URL 中的页面 ID（`~/` 之后的部分），让 AI 工具直接通过编辑器链接打开页面。要读取[私有页面](/zh/editor/pages#private-pages)，请传入通过 `list_nodes` 加 `visibility: "private"` 获取的 `private-page-<uuid>` 节点 ID。私有读取无需 checkout，但需要 OAuth 会话。管理员 MCP 会拒绝使用客户端令牌和机器到机器令牌访问私有页面。
-- **`search`**: 在所有页面中查找匹配子字符串或正则表达式的行。没有打开的会话时，搜索部署 branch。
-- **`edit_page`**: 对页面进行有针对性的编辑。要编辑[私有页面](/zh/editor/pages#private-pages)，请将其 `private-page-<uuid>` 节点 ID 作为 `path` 传入。私有编辑需要在该页面拥有 editor 或更高角色的 OAuth 会话，且无需 checkout。
+- **`read`**: 获取 `branch` 上任意页面的完整 MDX；省略 `branch` 时，则获取部署 branch 上的页面。可以传入文件路径或 UUID。要读取[私有页面](/zh/editor/pages#private-pages)，请传入通过 `list_nodes` 加 `visibility: "private"` 获取的 `private-page-<uuid>` 节点 ID。私有读取无需 `branch`，但需要 OAuth 会话。管理员 MCP 会拒绝使用客户端令牌和机器到机器令牌访问私有页面。
+- **`search`**: 在所有页面中查找匹配子字符串或正则表达式的行。搜索 `branch`；省略时搜索部署 branch。
+- **`edit_page`**: 对页面进行有针对性的编辑。要编辑[私有页面](/zh/editor/pages#private-pages)，请将其 `private-page-<uuid>` 节点 ID 作为 `path` 传入。私有编辑需要在该页面拥有 editor 或更高角色的 OAuth 会话，且无需 `branch`。
 - **`write_page`**: 覆盖页面的完整 MDX 内容。可接受 `private-page-<uuid>` 节点 ID 以覆盖私有页面，其 OAuth 与角色要求与 `edit_page` 相同。要创建新的私有页面，请使用 `create_node`。
 
 <div id="images">
   ### 图片
 </div>
 
-- **`upload_image`**: 开始将本地图片文件上传到会话 branch。传入目标 `path` (例如 `images/dashboard.png`)、文件的 `contentType` 以及以字节为单位的确切 `size`。返回 `uploadId`、预签名的 `uploadUrl`，以及上传时需要发送的 `headers`。
-- **`finalize_image_upload`**: 将已上传的图片保存到会话 branch。传入 `uploadId` 和相同的 `path`。返回 `src`，你可以通过 `edit_page` 或 `write_page` 在 MDX 中引用它，或通过 `update_config` 在 `docs.json` 的 `logo` 或 `favicon` 字段中引用它。
+- **`upload_image`**: 开始将本地图片文件上传到 `branch`。传入目标 `path` (例如 `images/dashboard.png`)、文件的 `contentType` 以及以字节为单位的确切 `size`。返回 `uploadId`、预签名的 `uploadUrl`，以及上传时需要发送的 `headers`。
+- **`finalize_image_upload`**: 将已上传的图片保存到 `branch`。传入 `uploadId` 和相同的 `path`。返回 `src`，你可以通过 `edit_page` 或 `write_page` 在 MDX 中引用它，或通过 `update_config` 在 `docs.json` 的 `logo` 或 `favicon` 字段中引用它。
 
 调用 `upload_image` 后，AI 工具会使用 `PUT` 请求和返回的请求头将文件字节上传到 `uploadUrl`。例如：
 
@@ -215,7 +211,7 @@ Claude、ChatGPT 和 Cursor 等常用 MCP 客户端始终可以完成 OAuth 登�
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配。上传到已存在的 `path` 会替换该图片。Mintlify 仅接受用于 logo 和 favicon 的 SVG 文件，因此上传 SVG 时，请向两个工具都传入 `purpose: "logo"`。已保存的图片会显示在 `get_session_state` 中，并在你调用 `save` 时随会话的其他更改一起发布。
+Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配。上传到已存在的 `path` 会替换该图片。Mintlify 仅接受用于 logo 和 favicon 的 SVG 文件，因此上传 SVG 时，请向两个工具都传入 `purpose: "logo"`。已保存的图片会显示在 `status` 中，并在你调用 `save` 时随你的其他编辑一起发布。
 
 <div id="comments">
   ### 评论
@@ -223,23 +219,23 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
 
 处理团队在控制台编辑器中留下的[评论和建议](/zh/editor/collaborate#comments)。
 
-- **`read_comments`**: 列出页面上未解决的评论和建议线程，按从旧到新排序。`path` 接受与 `read` 相同的格式。每个线程包含 `threadId`、`type`（`comment` 或 `suggestion`）、线程锚定的 `quotedText`、建议的 `suggestedText`，以及 `comments`（每条包含 `author`、`content` 和 `createdAt`）。如果锚定的文本已不在页面上，线程会包含 `anchorRemoved: true`，`quotedText` 显示原始引用。无需 checkout。
+- **`read_comments`**: 列出页面上未解决的评论和建议线程，按从旧到新排序。`path` 接受与 `read` 相同的格式。每个线程包含 `threadId`、`type`（`comment` 或 `suggestion`）、线程锚定的 `quotedText`、建议的 `suggestedText`，以及 `comments`（每条包含 `author`、`content` 和 `createdAt`）。如果锚定的文本已不在页面上，线程会包含 `anchorRemoved: true`，`quotedText` 显示原始引用。读取 `branch` 上的线程；省略时读取部署 branch 上的线程。
 - **`add_comment`**: 在页面上发起新的评论线程，不会更改页面内容。可用于给团队留下反馈，而不是直接编辑。`path` 接受与 `read` 相同的格式，`content` 为评论内容，`quotedText` 为要锚定的最短且唯一的可见文本片段，且须位于同一段落或标题内。请使用渲染后的文字，而不是 Markdown 或 MDX 语法。例如，引用 `custom domain`，而不是 `[custom domain](/path)`。返回新的 `threadId`。如果页面上没有该文本，会返回 `no_match` 错误。如果匹配到多处，会返回 `not_unique` 错误，此时请引用更长的片段。
 - **`suggest_edit`**: 在页面上提出带修订标记的建议，而不是直接编辑。原文会以删除线形式保留在页面上，替换内容显示在其旁边。在有人于控制台编辑器中接受或拒绝该建议之前，页面内容不会改变。`path` 接受与 `read` 相同的格式，并传入 `oldString` 和 `newString`。`oldString` 为要替换的最短且唯一的可见文本片段，且须位于同一段落或标题内。请使用渲染后的文字，而不是 Markdown 或 MDX 语法。传入空的 `newString` 可建议删除，可选的 `note` 用于说明修改原因。返回新的 `threadId`，以及裁剪到实际变更片段的 `originalText` 和 `suggestedText`。如果相同的建议已处于打开状态，响应会包含 `alreadyExists: true` 和现有的 `threadId`。`no_match` 和 `not_unique` 错误与 `add_comment` 相同。两个字符串相同时返回 `no_change` 错误，文本与另一条打开的建议重叠时返回 `conflicting_annotation` 错误。
 - **`reply_to_comment`**: 通过 `threadId` 和 `content` 回复线程。传入 `resolve: true` 可同时解决该线程。Mintlify 会以 agent 身份代表授权用户发布回复，回复会实时显示在控制台编辑器中。
 - **`resolve_comment`**: 解决线程而不回复。
 
-`add_comment`、`suggest_edit`、`reply_to_comment` 和 `resolve_comment` 需要 OAuth 会话。不执行 checkout 时，它们处理部署 branch 上的线程。调用 `checkout` 之后，它们处理该 branch 上的线程。你可以回复建议线程，但必须在编辑器中接受或拒绝建议。管理员 MCP 不支持私有页面上的评论。
+`add_comment`、`suggest_edit`、`reply_to_comment` 和 `resolve_comment` 需要 OAuth 会话和 `branch`。它们处理该 branch 上的线程，即使对部署 branch 的编辑要求拉取请求，它们也可以在部署 branch 上使用。你可以回复建议线程，但必须在编辑器中接受或拒绝建议。管理员 MCP 不支持私有页面上的评论。
 
 <div id="navigation">
   ### 导航
 </div>
 
-- **`list_nodes`**: 遍历会话 branch 的导航树（没有打开的会话时为部署 branch 的导航树），可使用可选筛选条件。按 `parentId` 筛选 (使用 `recursive: true` 包含所有后代)、按一个或多个节点类型筛选，或按任意分区范围筛选：`language`、`version`、`tab`、`dropdown`、`anchor`、`product` 或 `item`。结果通过不透明的 `cursor` 分页。传入 `visibility: "private"` 可以列出 OAuth 用户有权访问的[私有页面](/zh/editor/pages#private-pages)和文件夹，而不是 branch 的导航树。私有列表无需 checkout，会忽略其他筛选条件，并返回每个节点的 `role`。
-- **`create_node`**: 添加新的页面、组、tab、anchor、版本、语言、产品或 dropdown。传入 `visibility: "private"` 并配合 `data.type: "page"` 或 `data.type: "group"`，可在调用者的私有树中创建[私有页面](/zh/editor/pages#private-pages)或私有文件夹。调用者会成为该节点的 manager。私有创建需要 OAuth 会话，无需 checkout，并会将节点放在私有根目录下，或放在现有的 `private-folder-<uuid>` 父节点下。对于新页面，响应中会包含一个在控制台中打开该页面的 `editorUrl`。
-- **`update_node`**: 就地更新节点属性 (重命名组、更改图标、设置默认版本)。可接受 `private-page-<uuid>` 或 `private-folder-<uuid>` 节点 ID，用于重命名[私有页面](/zh/editor/pages#private-pages)或私有文件夹，或更改其图标或 tag。私有更新需要具有 editor 或更高角色的 OAuth 会话，且无需 checkout。
+- **`list_nodes`**: 遍历 `branch` 的导航树（省略时为部署 branch 的导航树），可使用可选筛选条件。按 `parentId` 筛选 (使用 `recursive: true` 包含所有后代)、按一个或多个节点类型筛选，或按任意分区范围筛选：`language`、`version`、`tab`、`dropdown`、`anchor`、`product` 或 `item`。结果通过不透明的 `cursor` 分页。传入 `visibility: "private"` 可以列出 OAuth 用户有权访问的[私有页面](/zh/editor/pages#private-pages)和文件夹，而不是 branch 的导航树。私有列表会忽略 `branch` 和其他筛选条件，并返回每个节点的 `role`。
+- **`create_node`**: 添加新的页面、组、tab、anchor、版本、语言、产品或 dropdown。传入 `visibility: "private"` 并配合 `data.type: "page"` 或 `data.type: "group"`，可在调用者的私有树中创建[私有页面](/zh/editor/pages#private-pages)或私有文件夹。调用者会成为该节点的 manager。私有创建需要 OAuth 会话，无需 `branch`，并会将节点放在私有根目录下，或放在现有的 `private-folder-<uuid>` 父节点下。对于新页面，响应中会包含一个在控制台中打开该页面的 `editorUrl`。
+- **`update_node`**: 就地更新节点属性 (重命名组、更改图标、设置默认版本)。可接受 `private-page-<uuid>` 或 `private-folder-<uuid>` 节点 ID，用于重命名[私有页面](/zh/editor/pages#private-pages)或私有文件夹，或更改其图标或 tag。私有更新需要具有 editor 或更高角色的 OAuth 会话，且无需 `branch`。
 - **`move_node`**: 移动节点，包括重命名页面的路径。
-- **`delete_node`**: 从导航中移除节点。可接受 `private-page-<uuid>` 或 `private-folder-<uuid>` 节点 ID，用于从调用者的私有树中删除[私有页面](/zh/editor/pages#private-pages)或私有文件夹。私有删除需要在该节点上具有 manager 角色的 OAuth 会话，且无需 checkout。
+- **`delete_node`**: 从导航中移除节点。可接受 `private-page-<uuid>` 或 `private-folder-<uuid>` 节点 ID，用于从调用者的私有树中删除[私有页面](/zh/editor/pages#private-pages)或私有文件夹。私有删除需要在该节点上具有 manager 角色的 OAuth 会话，且无需 `branch`。
 
 如果 `create_node`、`update_node`、`move_node` 或 `delete_node` 调用使导航处于无效状态，响应中会包含描述该问题的 `navigationErrors` 字段。例如，将页面放在根级别并与 tab 并列时会返回 `navigationErrors`。Mintlify 可能会从已发布的导航中移除无效节点，因此请在调用 `save` 之前修复这些错误。
 
@@ -253,7 +249,7 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
   ### 项目管理
 </div>
 
-项目管理工具用于处理项目级操作，例如管理工作流、项目设置、自定义域名、Git 源、认证、成员、分析，以及[私有页面](/zh/editor/pages#private-pages)的共享。这些工具不需要执行 `checkout`。
+项目管理工具用于处理项目级操作，例如管理工作流、项目设置、自定义域名、Git 源、认证、成员、分析，以及[私有页面](/zh/editor/pages#private-pages)的共享。这些工具作用于线上项目，而不是某个 branch。
 
 每个工具都接收一个 `subdomain`，用于指定要操作的项目。组织级连接必须传入 `subdomain`。调用 `list_deployments` 查找它。读取工具还接受 `subdomains`，即最多 25 个项目的列表，并为每个项目返回结果或错误。大多数工具接收一个 `request` 对象，其 `action` 字段用于选择操作。例如：
 
@@ -286,17 +282,17 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
   项目管理写入会立即应用到线上项目。它们不会创建 branch，也不会打开拉取请求。在提示 AI 工具更新工作流、设置、域名、认证或成员之前，请先确认预期的更改。
 </Warning>
 
-<div id="session">
-  ### 会话
+<div id="branches-and-publishing">
+  ### branch 与发布
 </div>
 
-- **`list_deployments`**: 列出你的连接可以访问的项目，返回每个 `{subdomain, name}`。调用此项以了解要传递给 `checkout` 的 `subdomain`。
-- **`checkout`**: [在部署 branch 以外的 branch 上工作](#work-on-a-branch)，或切换当前活动的项目会话。请恰好传入 `title`（创建新 branch 和拉取请求）或 `branch`（附加到现有 branch）之一。[直接编辑部署 branch](#edit-the-deploy-branch-directly) 时无需调用。
-- **`list_branches`**: 列出某个项目仓库可用的 Git branch，可选用 `query` 进行筛选。返回 branch 名称、总数以及部署 branch。在 `checkout` 之前调用此项，可按名称附加到现有 branch。
-- **`get_session_state`**: 查看当前 branch、已编辑的文件和待处理的导航差异。在部署 branch 上，只列出你的更改。
-- **`diff`**: 列出会话与你的部署 branch 之间的所有更改。每个已更改的文件和 `docs.json` 条目都包含 `authors` 和 `byYou`。`authors` 列出该条目中包含其未发布编辑的成员。当该条目包含你自己的编辑时，`byYou` 为 `true`。在共享 branch 上，可使用 `byYou` 区分你的更改和同事的更改。
+- **`list_deployments`**: 列出你的连接可以访问的项目，返回每个 `{subdomain, name}`。调用此项以了解要传递的 `subdomain`。
+- **`create_branch`**: 从部署 branch 创建一个新的 branch，并传入同时用作其拉取请求标题的 `title`。返回要作为 `branch` 传入的 `branchName`。参见[在 branch 上工作](#work-on-a-branch)。[直接编辑部署 branch](#edit-the-deploy-branch-directly) 时不需要它。
+- **`list_branches`**: 列出某个项目仓库可用的 Git branch，可选用 `query` 进行筛选。返回 branch 名称、总数以及部署 branch。其中任意一个都可以作为 `branch` 传入。
+- **`status`**: 列出 `branch`（省略时为部署 branch）上已编辑的文件、已更改的 `docs.json` 键和待处理的导航差异。在部署 branch 上，只列出你的更改。
+- **`diff`**: 列出 `branch` 与你的部署 branch 之间的所有更改。每个已更改的文件和 `docs.json` 条目都包含 `authors` 和 `byYou`。`authors` 列出该条目中包含其未发布编辑的成员。当该条目包含你自己的编辑时，`byYou` 为 `true`。在共享 branch 上，可使用 `byYou` 区分你的更改和同事的更改。
 - **`save`**: 在部署 branch 上，只将你的待处理更改直接提交。在 branch 上，提交待处理更改并返回该 branch 的拉取请求，必要时创建一个。`save` 从不合并。
-- **`discard_session`**: 结束会话。在部署 branch 上，只撤销你的待处理更改。在使用 `title` 创建的 branch 上，删除该 branch 并关闭其拉取请求。
+- **`discard`**: 放弃 `branch` 上的编辑。在部署 branch 上，只撤销你的待处理更改。在你创建的其他 branch 上，删除该 branch 并关闭其拉取请求。
 
 <div id="example-prompts">
   ## 示例提示词
@@ -315,20 +311,20 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
 
 <AccordionGroup>
   <Accordion title="打开编辑器 URL">
-    `checkout` 会返回 branch 的 `editorUrl`。`create_node` 和 `save` 会返回已更改页面的 `editorUrl`。在单独的标签页中打开这些链接，这样你就可以在提示时实时观察 AI 的更改在控制台编辑器中渲染。
+    `create_branch` 会返回 branch 的 `editorUrl`。`create_node` 和 `save` 会返回已更改页面的 `editorUrl`。在单独的标签页中打开这些链接，这样你就可以在提示时实时观察 AI 的更改在控制台编辑器中渲染。
   </Accordion>
 
   <Accordion title="审查每一个 PR">
     管理员 MCP 强大到足以在一次会话中重写数百个页面。在合并之前，请阅读 PR 差异并大致浏览渲染预览。不要对大量更改做盲目通过。
   </Accordion>
 
-  <Accordion title="保持会话聚焦">
-    让每个会话专注于一项更改。更小的会话能生成更易审查的拉取请求，并能节省代理的上下文窗口。使用 `discard_session` 后再次 `checkout` 以切换到无关的工作。
+  <Accordion title="保持 branch 聚焦">
+    让每个 branch 专注于一项更改。更小的 branch 能生成更易审查的拉取请求，并能节省代理的上下文窗口。再次调用 `create_branch` 以开始无关的工作。
   </Accordion>
 </AccordionGroup>
 
 <Note>
-  如果你放弃了通过 `checkout` 创建的 branch 而没有丢弃它，该 branch 及其拉取请求会保留在你的仓库中。调用 `discard_session` 可删除不再需要的 branch，你也可以关闭其拉取请求。
+  如果你放弃了通过 `create_branch` 创建的 branch 而没有丢弃它，该 branch 及其拉取请求会保留在你的仓库中。调用 `discard` 可删除不再需要的 branch，你也可以关闭其拉取请求。
 </Note>
 
 <div id="disconnect-or-revoke-access">
