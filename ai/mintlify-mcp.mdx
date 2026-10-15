@@ -15,7 +15,7 @@ import AdminMcpCodex from "/snippets/admin-mcp-codex.mdx";
 
 The admin MCP server gives AI tools write access to your Mintlify content and settings. Use it to update content and access your dashboard. With the admin MCP, you can use your preferred AI tools to edit pages, restructure navigation, update `docs.json`, open pull requests, change settings, create workflows, and more.
 
-Connect an MCP client such as Claude, Claude Code, ChatGPT, or Cursor to the admin MCP server. Use it to collaborate on your Mintlify content and settings with the same tools you use to write code. Each content tool call names the branch it works on. Edits to your deploy branch land as unpublished changes, and edits to any other branch go through a pull request. They ship when you call `save` or merge the pull request. [Project management](#project-management) changes, such as workflow and settings updates, apply immediately to the live project. If your organization has multiple projects, a single admin MCP connection can access and switch between all of them.
+Connect an MCP client such as Claude, Claude Code, ChatGPT, or Cursor to the admin MCP server. Use it to collaborate on your Mintlify content and settings with the same tools you use to write code. Content edits land on your deploy branch as unpublished changes, or on a branch with a pull request when you call `checkout`. They ship when you call `save` or merge the pull request. [Project management](#project-management) changes, such as workflow and settings updates, apply immediately to the live project. If your organization has multiple projects, a single admin MCP connection can access and switch between all of them.
 
 <Note>
   The admin MCP server allows AI tools to access your Mintlify dashboard. Treat it as a tool with write access. Connect it only from trusted AI tools, review every pull request before merging, and be aware that project management changes apply immediately without a pull request.
@@ -64,11 +64,9 @@ Connect your tools to the admin MCP from [your dashboard](https://app.mintlify.c
   </Tab>
 </Tabs>
 
-## How editing works
+## How a session works
 
-Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `save`, and `discard`, require it. Read tools, such as `read`, `search`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`.
-
-The flow is:
+You don't need to open a session before you edit. Your first edit opens one on your deploy branch, unless your project requires a pull request. The flow is:
 
 <Steps>
   <Step title="Discover projects (optional)">
@@ -77,62 +75,68 @@ The flow is:
   <Step title="Read, search, and edit">
     The AI uses tools like `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node`, and `update_config` to make changes. On an organization-wide connection, pass `subdomain` to choose the project.
 
-    Pass your deploy branch as `branch` to edit it directly. Edits land as unpublished changes. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly). If your project requires a pull request, Mintlify refuses the edit with a message that explains why and changes nothing. Call `create_branch` and pass the returned `branchName` as `branch` instead. See [Work on a branch](#work-on-a-branch).
+    Without a checkout, edits land on your deploy branch as unpublished changes. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly). If your project requires a pull request, the edit fails with a `Checkout required` message that explains why, and Mintlify changes nothing. Call `checkout` to continue. See [Work on a branch](#work-on-a-branch).
   </Step>
   <Step title="Review the diff">
-    Call `diff` at any time to see exactly what changed on a branch compared to your deploy branch. Call `status` for a summary of edited files, changed `docs.json` keys, and navigation changes. Both report your deploy branch when you omit `branch`. Open an `editorUrl` in your dashboard to see the same changes rendered. When `create_node` adds a page, it returns an `editorUrl` that opens that page directly.
+    Call `diff` at any time to see exactly what changed since your deploy branch. With no session open, `diff` and `get_session_state` report your deploy branch. Open an `editorUrl` in your dashboard to see the same changes rendered. When `create_node` adds a page, it returns an `editorUrl` that opens that page directly.
   </Step>
   <Step title="Save">
-    Call `save` with the `branch` and a `title` to publish your edits. On your deploy branch, `save` commits your own pending changes. On a branch, `save` commits anything pending and returns the branch's pull request, opening one if none exists. `save` never merges a pull request. Calling it again with nothing new to commit returns the existing pull request. If there is nothing to commit and no pull request, `save` returns `no_pending_changes`.
+    Call `save` with a `title` to publish your edits. On your deploy branch, `save` commits your own pending changes. On a branch, `save` commits anything pending and returns the branch's pull request, opening one if none exists. `save` never merges a pull request. Calling it again with nothing new to commit returns the existing pull request. If you haven't edited anything with this connection, `save` returns `Nothing to save`.
 
     The response includes an `editorUrl` that opens the first created or updated page. If the changes only touch configuration, the link opens the branch. Older clients can still pass `mode`, but `save` ignores it.
   </Step>
   <Step title="Discard if needed">
-    Call `discard` with the `branch` to abandon your edits. What it removes depends on the branch. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly) and [Work on a branch](#work-on-a-branch).
+    Call `discard_session` to abandon your edits. What it removes depends on where you edited. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly) and [Work on a branch](#work-on-a-branch).
   </Step>
 </Steps>
 
 <Tip>
-  Each call names its own project and branch, so you can work across several projects or branches in one conversation without switching between them.
+  If your connection has access to multiple projects, each project keeps its own session in memory at the same time.
+
+  Calling `checkout` for a different `subdomain` switches which session is active. It doesn't discard the others.
 </Tip>
 
 ## Edit the deploy branch directly
 
-When nothing requires a pull request, pass your deploy branch as `branch` and the admin MCP edits it the same way you do in the [dashboard editor](/editor/publish). You don't call `create_branch`, and you don't get a pull request.
+When nothing requires a pull request, the admin MCP edits your deploy branch the same way you do in the [dashboard editor](/editor/publish). You don't call `checkout`, and you don't get a pull request.
 
 The AI tool acts as you on the deploy branch:
 
 - **Edits are live to collaborators.** Anyone else editing the deploy branch in the dashboard sees the AI's changes as they happen.
 - **`save` publishes only your changes.** It commits your pending changes straight to the deploy branch, like clicking **Publish** in the editor. Other people's unpublished changes stay pending. Your own unpublished edits from the dashboard editor publish too.
-- **`discard` reverts only your changes.** It returns `discardedChanges` with the number of changes it reverted. Other people's changes and the branch itself stay untouched.
-- **`status` lists only your changes.**
+- **`discard_session` reverts only your changes.** It returns `discardedChanges` with the number of changes it reverted. Other people's changes and the branch itself stay untouched.
+- **`get_session_state` lists only your changes.**
 
-Mintlify tracks changes per page. If you and someone else both edited the same page, `save` publishes the whole page and `discard` reverts the whole page, including the other person's edits.
+Mintlify tracks changes per page. If you and someone else both edited the same page, `save` publishes the whole page and `discard_session` reverts the whole page, including the other person's edits.
 
-Mintlify refuses edits to the deploy branch, and changes nothing, when any of the following is true:
+Edits to the deploy branch fail with `Checkout required` when any of the following is true:
 
 - **Push directly to your deploy branch** is off in your [publishing settings](#publishing).
 - Branch protection on your deploy branch requires pull requests, or Mintlify can't check your branch protection rules.
 - Editing the deploy branch is locked in the dashboard editor.
 - You connected with a client or machine-to-machine token instead of an OAuth login. These tokens aren't tied to a user, so they have no "own" changes.
 
-Mintlify checks these conditions on every edit and caches your branch protection rules for up to 30 seconds. Comment tools still work on the deploy branch when edits to it are refused. If your deploy branch starts requiring a pull request after you edit it, `save` returns `branch_protected` and your changes stay pending. Open the dashboard editor to move them to a new branch.
-
 ## Work on a branch
 
-Call `create_branch` with a `title` when your project requires a pull request, or when you want one anyway. Mintlify starts a new branch off your deploy branch, names it `<your-name>/<title-slug>` the same way the dashboard editor names branches, and seeds it from your published content. The pull request opens with this title. For example, `create_branch { subdomain: "acme", title: "Add tips page" }`.
+Call `checkout` when your project requires a pull request, or when you want one anyway. Pass exactly one of these arguments:
 
-`create_branch` returns the `branchName`, the `baseBranch` and `baseSha` it started from, a `note`, and an `editorUrl` you can open to follow along in the dashboard editor. Pass the `branchName` as `branch` in every later call.
+- **`title`**: Start a new branch off your deploy branch. Mintlify names it `<your-name>/<title-slug>`, the same way the dashboard editor names branches, and seeds it from your published content. The pull request opens with this title. For example, `checkout { subdomain: "acme", title: "Add tips page" }`.
+- **`branch`**: Attach to an existing branch other than your deploy branch. Call `list_branches` to discover branches in a project's repository.
 
-To work on an existing branch, pass its name as `branch`. Call `list_branches` to discover branches in a project's repository. Mintlify refuses calls on branches that don't exist.
+`checkout` refuses your deploy branch and branches that don't exist. It returns the `branchName`, an `editorUrl` you can open to follow along in the dashboard editor, and sometimes a `note`.
 
 On a branch, Mintlify commits your edits automatically, about 15 seconds after the last change. This includes page content, navigation changes, and `docs.json` updates. The first commit opens a pull request against your deploy branch. The pull request opens as a draft if [Create draft pull requests by default](/editor/settings#create-draft-pull-requests-by-default) is on. Nothing reaches your deploy branch until someone merges the pull request.
 
-`discard` on a branch other than your deploy branch deletes the branch and closes its pull request, even if the branch has commits. This matches deleting a branch in the dashboard editor. `discard` only deletes branches you created in Mintlify. For any other branch, it refuses and changes nothing.
+`discard_session` behaves differently depending on how you opened the branch:
+
+- **Started with `title`**: Mintlify deletes the branch and closes its pull request, even if the branch has commits. This matches deleting a branch in the dashboard editor.
+- **Attached with `branch`**: Mintlify ends your session and leaves the branch and its pull request alone.
+
+After `discard_session`, your next edit goes to your deploy branch again, unless your project requires a pull request.
 
 ## Publishing
 
-The **Publishing** section on the **MCP → Configure** page in your dashboard sidebar controls whether the admin MCP can edit your deploy branch without a pull request. Toggle **Push directly to your deploy branch** on to let AI tools edit and publish to your deploy branch directly. Toggle it off to require `create_branch` and a pull request for MCP edits.
+The **Publishing** section on the **MCP → Configure** page in your dashboard sidebar controls whether the admin MCP can edit your deploy branch without a checkout. Toggle **Push directly to your deploy branch** on to let AI tools edit and publish to your deploy branch directly. Toggle it off to require `checkout` and a pull request for MCP edits.
 
 This toggle shares the same `agentReviewProcess` setting as the Slack and dashboard agent, so any change here also applies to those flows.
 
@@ -169,15 +173,15 @@ To revoke a credential, click the delete icon next to it.
 
 ### Content
 
-- **`read`**: Fetch the full MDX of any page on `branch`, or on your deploy branch when you omit it. Pass in a file path or UUID. To read a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID from `list_nodes` with `visibility: "private"`. Private reads don't need a `branch` and require an OAuth session. The admin MCP rejects client and machine-to-machine tokens for private-page access.
-- **`search`**: Find lines matching a substring or regular expression across every page on `branch`. Searches your deploy branch when you omit it.
-- **`edit_page`**: Apply a targeted edit to a page. To edit a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID as `path`. Private edits require an OAuth session with an editor role or higher on the page and don't need a `branch`.
+- **`read`**: Fetch the full MDX of any page on the session branch, or on your deploy branch when no session is open. Pass in a file path or UUID. To read a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID from `list_nodes` with `visibility: "private"`. Private reads work without a checkout and require an OAuth session. The admin MCP rejects client and machine-to-machine tokens for private-page access.
+- **`search`**: Find lines matching a substring or regular expression across every page. Searches your deploy branch when no session is open.
+- **`edit_page`**: Apply a targeted edit to a page. To edit a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID as `path`. Private edits require an OAuth session with an editor role or higher on the page and work without a checkout.
 - **`write_page`**: Overwrite a page's full MDX content. Accepts a `private-page-<uuid>` node ID to overwrite a private page under the same OAuth and role requirements as `edit_page`. Use `create_node` to create a new private page.
 
 ### Images
 
-- **`upload_image`**: Start uploading a local image file to `branch`. Pass the destination `path` (for example, `images/dashboard.png`), the file's `contentType`, and its exact `size` in bytes. Returns an `uploadId`, a presigned `uploadUrl`, and the `headers` to send with the upload.
-- **`finalize_image_upload`**: Save the uploaded image to `branch`. Pass the `uploadId` and the same `path`. Returns the `src` to reference in MDX with `edit_page` or `write_page`, or in the `logo` or `favicon` fields of `docs.json` with `update_config`.
+- **`upload_image`**: Start uploading a local image file to the session branch. Pass the destination `path` (for example, `images/dashboard.png`), the file's `contentType`, and its exact `size` in bytes. Returns an `uploadId`, a presigned `uploadUrl`, and the `headers` to send with the upload.
+- **`finalize_image_upload`**: Save the uploaded image to the session branch. Pass the `uploadId` and the same `path`. Returns the `src` to reference in MDX with `edit_page` or `write_page`, or in the `logo` or `favicon` fields of `docs.json` with `update_config`.
 
 After `upload_image`, the AI tool uploads the file bytes to `uploadUrl` with a `PUT` request and the returned headers. For example:
 
@@ -185,27 +189,27 @@ After `upload_image`, the AI tool uploads the file bytes to `uploadUrl` with a `
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Mintlify only accepts SVG files for logos and favicons, so pass `purpose: "logo"` to both tools when you upload one. Saved images appear in `status` and publish with your other edits when you call `save`.
+Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Mintlify only accepts SVG files for logos and favicons, so pass `purpose: "logo"` to both tools when you upload one. Saved images appear in `get_session_state` and publish with the rest of the session when you call `save`.
 
 ### Comments
 
 Work with the [comments and suggestions](/editor/collaborate#comments) that your team leaves in the dashboard editor.
 
-- **`read_comments`**: List the open comment and suggestion threads on a page, oldest first. Pass `path` in the same forms as `read`. Each thread includes a `threadId`, its `type` (`comment` or `suggestion`), the `quotedText` it's anchored to, the `suggestedText` for suggestions, and its `comments` with each `author`, `content`, and `createdAt`. If the anchored text no longer exists on the page, the thread includes `anchorRemoved: true` and `quotedText` shows the original quote. Reads threads on `branch`, or on your deploy branch when you omit it.
+- **`read_comments`**: List the open comment and suggestion threads on a page, oldest first. Pass `path` in the same forms as `read`. Each thread includes a `threadId`, its `type` (`comment` or `suggestion`), the `quotedText` it's anchored to, the `suggestedText` for suggestions, and its `comments` with each `author`, `content`, and `createdAt`. If the anchored text no longer exists on the page, the thread includes `anchorRemoved: true` and `quotedText` shows the original quote. Works without a checkout.
 - **`add_comment`**: Start a new comment thread on a page without changing its content. Use it to leave feedback for your team instead of editing. Pass `path` in the same forms as `read`, the `content` of the comment, and `quotedText`: the smallest unique span of visible text to anchor to, within one paragraph or heading. Use rendered words, not Markdown or MDX syntax. For example, quote `custom domain`, not `[custom domain](/path)`. Returns the new `threadId`. If the text isn't on the page, the error is `no_match`. If it matches more than once, the error is `not_unique`, so quote a longer span.
 - **`suggest_edit`**: Propose a tracked-changes suggestion on a page instead of editing it. The original text stays on the page with a strikethrough and the replacement appears alongside it. Nothing changes until someone accepts or rejects the suggestion in the dashboard editor. Pass `path` in the same forms as `read`, `oldString`, and `newString`. `oldString` is the smallest unique span of visible text to replace, within one paragraph or heading. Use rendered words, not Markdown or MDX syntax. Pass an empty `newString` to suggest a deletion, and an optional `note` to explain the change. Returns the new `threadId` with the `originalText` and `suggestedText`, trimmed to the span that changes. If the same suggestion is already open, the response includes `alreadyExists: true` and the existing `threadId`. The `no_match` and `not_unique` errors work as they do for `add_comment`. The error is `no_change` when both strings are the same, and `conflicting_annotation` when the text overlaps another open suggestion.
 - **`reply_to_comment`**: Reply to a thread by `threadId` with `content`. Pass `resolve: true` to also resolve the thread. Mintlify posts the reply as the agent on behalf of the authorizing user, and it appears live in the dashboard editor.
 - **`resolve_comment`**: Resolve a thread without replying.
 
-`add_comment`, `suggest_edit`, `reply_to_comment`, and `resolve_comment` require an OAuth session and a `branch`. They act on the threads left on that branch, and work on your deploy branch even when edits to it require a pull request. You can reply to suggestion threads, but you must accept or reject suggestions in the editor. Comments on private pages aren't available through the admin MCP.
+`add_comment`, `suggest_edit`, `reply_to_comment`, and `resolve_comment` require an OAuth session. Without a checkout, they act on threads on your deploy branch. After you call `checkout`, they act on threads on that branch. You can reply to suggestion threads, but you must accept or reject suggestions in the editor. Comments on private pages aren't available through the admin MCP.
 
 ### Navigation
 
-- **`list_nodes`**: Walk the navigation tree of `branch`, or of your deploy branch when you omit it, with optional filters. Filter by `parentId` (use `recursive: true` to include all descendants), one or more node types, or any division scope: `language`, `version`, `tab`, `dropdown`, `anchor`, `product`, or `item`. Results paginate through an opaque `cursor`. Pass `visibility: "private"` to list the [private pages](/editor/pages#private-pages) and folders the OAuth user can access instead of the branch navigation tree. Private listing ignores `branch` and the other filters, and returns each node's `role`.
-- **`create_node`**: Add a new page, group, tab, anchor, version, language, product, or dropdown. Pass `visibility: "private"` with `data.type: "page"` or `data.type: "group"` to create a [private page](/editor/pages#private-pages) or private folder in the caller's private tree. The caller becomes the node's manager. Private creation requires an OAuth session, doesn't need a `branch`, and places the node at the private root or under an existing `private-folder-<uuid>` parent. For new pages, the response includes an `editorUrl` that opens the page in your dashboard.
-- **`update_node`**: Update a node's properties in place (rename a group, change an icon, set a default version). Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node ID to rename a [private page](/editor/pages#private-pages) or folder or change its icon or tag. Private updates require an OAuth session with an editor role or higher and don't need a `branch`.
+- **`list_nodes`**: Walk the navigation tree of the session branch, or of your deploy branch when no session is open, with optional filters. Filter by `parentId` (use `recursive: true` to include all descendants), one or more node types, or any division scope: `language`, `version`, `tab`, `dropdown`, `anchor`, `product`, or `item`. Results paginate through an opaque `cursor`. Pass `visibility: "private"` to list the [private pages](/editor/pages#private-pages) and folders the OAuth user can access instead of the branch navigation tree. Private listing works without a checkout, ignores the other filters, and returns each node's `role`.
+- **`create_node`**: Add a new page, group, tab, anchor, version, language, product, or dropdown. Pass `visibility: "private"` with `data.type: "page"` or `data.type: "group"` to create a [private page](/editor/pages#private-pages) or private folder in the caller's private tree. The caller becomes the node's manager. Private creation requires an OAuth session, works without a checkout, and places the node at the private root or under an existing `private-folder-<uuid>` parent. For new pages, the response includes an `editorUrl` that opens the page in your dashboard.
+- **`update_node`**: Update a node's properties in place (rename a group, change an icon, set a default version). Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node ID to rename a [private page](/editor/pages#private-pages) or folder or change its icon or tag. Private updates require an OAuth session with an editor role or higher and work without a checkout.
 - **`move_node`**: Move a node, including renaming a page's path.
-- **`delete_node`**: Remove a node from the navigation. Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node ID to delete a [private page](/editor/pages#private-pages) or folder from the caller's private tree. Private deletions require an OAuth session with a manager role on the node and don't need a `branch`.
+- **`delete_node`**: Remove a node from the navigation. Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node ID to delete a [private page](/editor/pages#private-pages) or folder from the caller's private tree. Private deletions require an OAuth session with a manager role on the node and work without a checkout.
 
 If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation in an invalid state, the response includes a `navigationErrors` field that describes the problem. For example, a page placed at the root next to tabs returns `navigationErrors`. Mintlify can drop invalid nodes from the published navigation, so fix these errors before you call `save`.
 
@@ -215,7 +219,7 @@ If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the
 
 ### Project management
 
-Project management tools handle project-level operations, such as managing workflows, project settings, custom domains, Git sources, authentication, members, analytics, and [private page](/editor/pages#private-pages) sharing. They act on the live project, not on a branch.
+Project management tools handle project-level operations, such as managing workflows, project settings, custom domains, Git sources, authentication, members, analytics, and [private page](/editor/pages#private-pages) sharing. They don't require a `checkout`.
 
 Each tool takes a `subdomain` for the project to act on. Organization-wide connections must pass `subdomain`. Call `list_deployments` to find it. Read tools also accept `subdomains`, a list of up to 25 projects, and return a result or error for each one. Most tools take a `request` object whose `action` field selects the operation. For example:
 
@@ -248,15 +252,15 @@ Write tools return the project's updated state under `state`, so the AI tool can
   Project management writes apply immediately to the live project. They don't create a branch or open a pull request. Confirm the intended change before prompting an AI tool to update workflows, settings, domains, authentication, or members.
 </Warning>
 
-### Branches and publishing
+### Session
 
-- **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name}`. Call this to discover which `subdomain` to pass.
-- **`create_branch`**: Start a new branch off your deploy branch with a `title` that also names its pull request. Returns the `branchName` to pass as `branch`. See [Work on a branch](#work-on-a-branch). You don't need it to [edit the deploy branch directly](#edit-the-deploy-branch-directly).
-- **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Pass any of them as `branch`.
-- **`status`**: List the edited files, changed `docs.json` keys, and pending navigation diff on `branch`, or on your deploy branch when you omit it. On the deploy branch, lists only your changes.
-- **`diff`**: List all changes between `branch` and your deploy branch. Each changed file and `docs.json` entry includes `authors` and `byYou`. `authors` lists the members whose unpublished edits the entry contains. `byYou` is `true` when the entry includes your own edits. Use `byYou` to tell your changes apart from a colleague's on a shared branch.
+- **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name}`. Call this to discover which `subdomain` to pass to `checkout`.
+- **`checkout`**: [Work on a branch](#work-on-a-branch) other than the deploy branch, or switch which project's session is active. Pass exactly one of `title` (start a new branch and pull request) or `branch` (attach to an existing branch). You don't need it to [edit the deploy branch directly](#edit-the-deploy-branch-directly).
+- **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Call this before `checkout` to attach to an existing branch by name.
+- **`get_session_state`**: Inspect the current branch, edited files, and pending navigation diff. On the deploy branch, lists only your changes.
+- **`diff`**: List all changes between the session and your deploy branch. Each changed file and `docs.json` entry includes `authors` and `byYou`. `authors` lists the members whose unpublished edits the entry contains. `byYou` is `true` when the entry includes your own edits. Use `byYou` to tell your changes apart from a colleague's on a shared branch.
 - **`save`**: On the deploy branch, commit only your pending changes directly. On a branch, commit pending changes and return the branch's pull request, opening one if needed. `save` never merges.
-- **`discard`**: Abandon the edits on `branch`. On the deploy branch, reverts only your pending changes. On another branch you created, deletes the branch and closes its pull request.
+- **`discard_session`**: End the session. On the deploy branch, reverts only your pending changes. On a branch you started with `title`, deletes the branch and closes its pull request.
 
 ## Example prompts
 
@@ -271,20 +275,20 @@ After you connect the admin MCP, you can drive it with natural-language prompts.
 
 <AccordionGroup>
   <Accordion title="Open the editor URL">
-    `create_branch` returns an `editorUrl` for the branch. `create_node` and `save` return an `editorUrl` for the page that changed. Open these links in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
+    `checkout` returns an `editorUrl` for the branch. `create_node` and `save` return an `editorUrl` for the page that changed. Open these links in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
   </Accordion>
 
   <Accordion title="Review every PR">
     The admin MCP is powerful enough to rewrite hundreds of pages in a single session. Before merging, read the PR diff and skim the rendered preview. Don't rubber-stamp large changes.
   </Accordion>
 
-  <Accordion title="Keep branches focused">
-    Keep each branch focused on one change. Smaller branches produce pull requests that are easier to review and preserve agents' context windows. Call `create_branch` again to start unrelated work.
+  <Accordion title="Keep sessions focused">
+    Keep each session focused on one change. Smaller sessions produce pull requests that are easier to review and preserve agents' context windows. Use `discard_session` and `checkout` again to pivot to unrelated work.
   </Accordion>
 </AccordionGroup>
 
 <Note>
-  If you abandon a branch you started with `create_branch` without discarding it, the branch and its pull request stay in your repository. Call `discard` to delete a branch you no longer need, or close its pull request.
+  If you abandon a branch you started with `checkout` without discarding it, the branch and its pull request stay in your repository. Call `discard_session` to delete a branch you no longer need, or close its pull request.
 </Note>
 
 ## Disconnect or revoke access
