@@ -1,0 +1,167 @@
+---
+title: "Combine repositories with GitHub Actions"
+sidebarTitle: "Multi-repo GitHub Action"
+description: "Use the Mintlify multi-repo GitHub Action to copy docs from many repositories into one docs repository and merge their navigation into a single docs.json."
+keywords: ["multirepo", "multi-repo", "GitHub Action", "aggregate", "sync", "child repositories", "sourceRef"]
+---
+
+{/* vale Vale.Terms = NO */}
+The Mintlify multi-repo GitHub Action, [`mintlify/multirepo-action`](https://github.com/mintlify/multirepo-action), copies docs from any number of child repositories into one parent docs repository. It merges each child's navigation into a single `docs.json`, so Mintlify deploys the parent like any other single-repository site.
+{/* vale Vale.Terms = YES */}
+
+Use the action when your docs live in many repositories and you want to manage the list of sources in a config file instead of the dashboard. To combine repositories without copying content, see [Multi-repository projects](/deploy/multi-repo).
+
+## How it works
+
+On each run, the action:
+
+1. Fetches each child repository in parallel, downloading only the folder that contains its docs.
+2. Copies each child's content into a destination folder in the parent repository. The destination is also the URL path, so a child at `api` publishes at `/api`.
+3. Rewrites root-relative links, images, and snippet imports in the child's `.md` and `.mdx` files to include the destination. For example, `/guides/start` becomes `/api/guides/start`.
+4. Generates `docs.json` from a `docs.base.json` file, with each child's navigation, variables, and redirects merged in.
+5. Opens or updates a pull request with the changes, or pushes them directly.
+
+If any child fails to fetch or merge, the action fails without changing the parent repository.
+
+## Requirements
+
+- A parent repository on GitHub connected to your Mintlify project
+- A `docs.json` file with a `navigation` object in each child repository
+- For private child repositories, a GitHub App installation token or a fine-grained personal access token with `contents: read` on every child
+
+## Set up the action
+
+<Steps>
+  <Step title="Create a base configuration">
+    In the parent repository, rename `docs.json` to `docs.base.json`. The action generates `docs.json` from this file on every run.
+
+    Add a `sourceRef` entry where each child's navigation should appear. A `sourceRef` uses the same syntax as [multi-repository projects](/deploy/multi-repo#reference-navigation-from-another-source).
+
+    ```json docs.base.json
+    {
+      "$schema": "https://mintlify.com/docs.json",
+      "theme": "mint",
+      "name": "Acme",
+      "colors": { "primary": "#16A34A" },
+      "navigation": {
+        "tabs": [
+          { "tab": "Guides", "pages": ["index", "quickstart"] },
+          { "tab": "API", "pages": [{ "sourceRef": "acme/api" }] }
+        ]
+      }
+    }
+    ```
+
+    The action replaces each `sourceRef` with the child's navigation array of the same kind. For example, a `sourceRef` inside `tabs` becomes the child's `navigation.tabs`. A `sourceRef` inside `pages` becomes the child's `pages`, or its `groups` if it has no `pages`.
+
+    Children without a `sourceRef` are added to the end of the base's top-level `products`, `tabs`, `anchors`, or `dropdowns`.
+  </Step>
+
+  <Step title="List the child repositories">
+    Create `.github/mintlify-multirepo.yml` in the parent repository.
+
+    ```yaml .github/mintlify-multirepo.yml
+    sources:
+      - repo: acme/api
+        path: docs
+        destination: api
+        name: API reference
+      - repo: acme/sdk-js
+        ref: v2
+        path: docs
+        destination: sdks/js
+        exclude: [README.md, "drafts/**"]
+    ```
+
+    | Field | Required | Description |
+    | --- | --- | --- |
+    | `repo` | Yes | The child repository, as `owner/repo`. |
+    | `destination` | Yes | Folder in the parent repository and URL path for the child's content. |
+    | `path` | No | Folder in the child that contains its `docs.json`. Defaults to the repository root. |
+    | `ref` | No | Branch, tag, or full commit SHA. Defaults to the child's default branch. |
+    | `name` | No | Navigation label used when the child has no `sourceRef`. Defaults to the `name` in the child's `docs.json`. |
+    | `exclude` | No | Glob patterns for files to skip. |
+    | `rewriteLinks` | No | Set to `false` to copy content without rewriting links. Defaults to `true`. |
+
+    The action never copies dotfiles, symlinks, `node_modules`, or the child's `docs.json`. Only the child's `navigation`, `variables`, and `redirects` are merged. Other settings, like theme and colors, come from `docs.base.json`.
+  </Step>
+
+  <Step title="Add the workflow">
+    Create `.github/workflows/multirepo.yml` in the parent repository. This example runs every hour, on demand, and when a child repository sends a `docs-updated` event.
+
+    ```yaml .github/workflows/multirepo.yml
+    name: Combine docs
+
+    on:
+      workflow_dispatch:
+      schedule:
+        - cron: "0 * * * *"
+      repository_dispatch:
+        types: [docs-updated]
+
+    concurrency:
+      group: mintlify-multirepo
+      cancel-in-progress: true
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    jobs:
+      sync:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/create-github-app-token@v3
+            id: app
+            with:
+              app-id: ${{ vars.DOCS_APP_ID }}
+              private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+              owner: ${{ github.repository_owner }}
+          - uses: actions/checkout@v7
+          - uses: mintlify/multirepo-action@v1
+            with:
+              token: ${{ steps.app.outputs.token }}
+    ```
+
+    If all child repositories are public, remove the `create-github-app-token` step and the `token` input.
+
+    By default, the action opens or updates one pull request with the changes. Merge it to deploy. To let the workflow open pull requests, enable **Allow GitHub Actions to create and approve pull requests** in the parent repository's **Settings** > **Actions** > **General**. To push changes directly to the branch instead, set `mode: push`.
+  </Step>
+
+  <Step title="Optional: Sync when a child changes">
+    To sync as soon as a child repository changes, add a workflow to each child that notifies the parent. Replace `acme/docs` with your parent repository. `DOCS_DISPATCH_TOKEN` needs `contents: write` access on the parent repository.
+
+    ```yaml .github/workflows/notify-docs.yml
+    name: Notify docs repository
+
+    on:
+      push:
+        branches: [main]
+        paths: ["docs/**"]
+
+    jobs:
+      notify:
+        runs-on: ubuntu-latest
+        steps:
+          - env:
+              GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+            run: gh api repos/acme/docs/dispatches -f event_type=docs-updated
+    ```
+  </Step>
+</Steps>
+
+## Edit synced content
+
+The action replaces each destination folder and `docs.json` on every run. Edit content in the child repositories and site settings in `docs.base.json`. Changes made directly to synced files in the parent repository, including through the [web editor](/editor/index), are overwritten on the next sync.
+
+When you remove a child from `.github/mintlify-multirepo.yml`, the action deletes its folder on the next run.
+
+## Link between children
+
+{/* vale Vale.Terms = NO */}
+Write links in a child repository as if the child were its own site. The action adds the child's destination to root-relative links, so `[Start](/quickstart)` in a child with `destination: api` becomes `/api/quickstart`.
+
+The action doesn't change links that already point to another child's destination. For example, `[SDK](/sdks/js/install)` stays the same when `sdks/js` is another child's destination. The action doesn't rewrite links inside code blocks.
+{/* vale Vale.Terms = YES */}
+
+For all inputs, outputs, and token options, see the [action README](https://github.com/mintlify/multirepo-action#readme).

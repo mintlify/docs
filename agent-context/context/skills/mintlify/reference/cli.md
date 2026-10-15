@@ -16,13 +16,14 @@ Available on all commands.
 
 ## Local development
 
-- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP.
+- `mint dev` — Start local preview at localhost:3000. `--port` sets the port. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--signed-in` previews as a signed-in reader with no groups; without `--signed-in` or `--groups`, the preview shows the signed-out view. `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP. The preview generates each page's OG image from local files at `/_mintlify/og/<page-path>.png` (`index.png` for the home page) and regenerates it on every request. Each page's `og:image` meta tag points to that image unless the page sets a custom `og:image`.
+- `mint og [page]` — Render a page's social preview (OG) image to a PNG using the `docs.json` `thumbnails` settings and page or section `thumbnail` overrides. `page` defaults to `index`. `--preset` (`classic`, `headline`, `minimal`), `--surface` (`brand`, `neutral`), and `--appearance` (`light`, `dark`) try settings without editing `docs.json`. `--output <file>` sets the PNG path (default: a temporary file). `--no-open` skips opening the image; it is also skipped when `CI` is set. Warnings (title too long, missing logo, font load failure, low contrast) don't change the exit code. Exits `1` if `docs.json` is invalid or the page doesn't exist.
 - `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups` mocks user groups (space-separated). `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files.
 - `mint export` — Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups` includes restricted pages (space-separated). `--disable-openapi` skips OpenAPI processing.
 
 ## Content quality
 
-- `mint broken-links` — Check for broken internal links. `--files <paths...>` limits the check to specific files or globs. `--check-anchors` validates `#` anchors. `--check-external` checks external URLs. `--check-redirects` checks that redirect destinations in `docs.json` resolve. `--check-snippets` checks links inside `<Snippet>` components.
+- `mint broken-links` — Check for broken internal links. `--files <paths...>` limits the check to specific files or globs. `--check-anchors` validates `#` anchors. `--check-external` checks external URLs. `--check-redirects` checks that redirect destinations in `docs.json` resolve. `--check-snippets` checks that snippet import paths resolve. Relative and `#` links inside snippets are checked against each page that renders the snippet.
 - `mint a11y` — Accessibility checks (alt text, color contrast). `--skip-contrast` or `--skip-alt-text` to narrow scope.
 - `mint test` — Scan content for code blocks and generate unit tests that validate them, run by a local coding agent. Requires `mint login` and the agent SDK installed in the project: `npm install @anthropic-ai/claude-agent-sdk @anthropic-ai/sdk @modelcontextprotocol/sdk` (Claude, default) or `npm install @openai/codex-sdk` (Codex). Interactive; only pages in the `docs.json` navigation appear for selection. Writes generated test projects to `tests/mint-test/<run-id>/` and run reports/history to `.mintlify/test/`. Add both paths to `.gitignore` to avoid committing test artifacts. When a previous run report exists, the next interactive run offers **Update tests** (rerun the same pages with the same agent and model), **Review last test run** (browse saved results without running anything), or **Start a brand new test** (pick an agent and pages from scratch). Exits `0` when every test passes, `1` otherwise.
 - `mint score [url]` — Score a docs site's AI/agent readiness. Checks llms.txt, MCP discoverability, robots.txt, sitemap, structured data, response latency, and more. Requires `mint login`. Defaults to your configured subdomain. `--format` accepts `table` (default), `plain`, or `json`.
@@ -58,26 +59,6 @@ Query documentation analytics from the terminal. Requires `mint login` and a Pro
 
 - `mint new [directory]` — Scaffold a new Mintlify docs site. `--name` and `--theme` set initial config. `--template` selects a pre-defined template. `--force` overwrites an existing directory.
 
-## MCP setup
-
-- `mint index [options]` — Install the hosted Mintlify Index MCP server (`https://index.mintlify.com/mcp`) in supported coding agents. The server exposes a `context` tool for researching libraries, frameworks, SDKs, APIs, and CLI tools across all public Mintlify sites. Separate from the [Mintlify Docs MCP server](/ai/model-context-protocol), which searches a single site.
-
-  Client flags (pass one or more to skip the interactive picker): `--claude`, `--cursor`, `--vscode`, `--codex`, `--opencode`, `--windsurf`, `--zed`. Other flags: `--project` writes project-level configuration where the client supports it (Windsurf always writes MCP config globally); `--yes`, `-y` configures every detected client without prompts.
-
-  The command adds a `mintlify-index` server entry plus a usage rule (for every client except Zed) that tells the agent to prefer the `context` tool over web search for documentation research. Reruns update the existing entry and rule and leave unrelated configuration intact. If a JSON/JSONC config file is invalid, the command reports an error and does not write to it.
-
-  Standard configuration paths per client:
-
-  | Client | Global | Project |
-  |--------|--------|---------|
-  | Claude Code | `~/.claude.json` | `.mcp.json` |
-  | Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` |
-  | VS Code | User `mcp.json` | `.vscode/mcp.json` |
-  | Codex | `~/.codex/config.toml` | `.codex/config.toml` |
-  | OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` |
-  | Windsurf | `~/.codeium/windsurf/mcp_config.json` | Global only |
-  | Zed | User `settings.json` | `.zed/settings.json` |
-
 ## Maintenance
 
 - `mint update` — Update the CLI to the latest version.
@@ -85,7 +66,7 @@ Query documentation analytics from the terminal. Requires `mint login` and a Pro
 
 ## Telemetry
 
-The CLI collects usage telemetry by default (command name, CLI version, OS, architecture, Node.js version, whether it runs in CI or an interactive terminal, and the detected AI coding agent name). When you are logged in, telemetry events also include your account email; logged-out usage stays anonymous. Opt out with `--telemetry false` or by setting either environment variable:
+The CLI collects usage telemetry by default (command name, CLI version, OS, architecture, Node.js version, whether it runs in CI or an interactive terminal, whether this is its first run on the machine, whether you are logged in, and the detected AI coding agent name). When you are logged in, telemetry events also include your account email; logged-out usage stays anonymous. Opt out with `--telemetry false` or by setting either environment variable:
 
 | Variable | Value | Description |
 |----------|-------|-------------|

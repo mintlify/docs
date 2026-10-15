@@ -241,6 +241,8 @@ Props:
 - `deprecated` (boolean): Mark as deprecated.
 - `default` (any): Default value.
 - `placeholder` (string): Playground input placeholder.
+- `pre` (string[]): Labels shown before the parameter name.
+- `post` (string[]): Labels shown after the parameter name.
 
 ### ResponseField
 
@@ -524,11 +526,11 @@ Props:
 - `label` (string, required): Date or version identifier.
 - `description` (string): Version or release name.
 - `tags` (string[]): Filterable tags.
-- `rss` (object): Custom RSS entry with `title` and `description`.
+- `rss` (object): Custom RSS entry with `title`, `description`, and `date` (overrides the Git-derived publication date).
 
 ## Visibility
 
-Show different content to humans (web UI) versus AI agents (Markdown output). Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt`.
+Show different content to humans (web UI), AI agents (Markdown output), or readers based on sign-in state and groups. Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt`.
 
 ```mdx
 <Visibility for="humans">
@@ -538,10 +540,28 @@ Show different content to humans (web UI) versus AI agents (Markdown output). Co
 <Visibility for="agents">
   To create an account, call `POST /v1/accounts` with a valid email.
 </Visibility>
+
+<Visibility for="signed-in">
+  Go to your account settings to manage your API keys.
+</Visibility>
+
+<Visibility for="signed-out">
+  Sign in to see the API keys for your account.
+</Visibility>
+
+<Visibility for={{ groups: ["admin", "enterprise"] }}>
+  Admins and enterprise customers can configure SSO from the **Security** tab.
+</Visibility>
+
+<Visibility for={{ groups: { includes: ["staff"], excludes: ["contractor"] } }}>
+  Find the internal runbook in the team wiki.
+</Visibility>
 ```
 
 Props:
-- `for` (string, required): `"humans"` or `"agents"`.
+- `for` (string | object, required): `"humans"`, `"agents"`, `"signed-in"`, `"signed-out"`, `{ groups: [...] }`, or `{ groups: { includes: [...], excludes: [...] } }` (set at least one list). Use a static value; content with a computed `for` value (variable or conditional) is excluded from Markdown output.
+
+Sign-in and group rules require site authentication. `signed-in` renders only for readers with an active session; `signed-out` only for readers who are not signed in; `groups` only for signed-in readers in at least one listed group. With `includes`/`excludes`, excludes take priority; a rule with only `excludes` renders for everyone outside the excluded groups, including signed-out readers. `groups: ["*"]` matches every signed-in reader; `*` is not allowed in `excludes`. Markdown output and `llms-full.txt` always get the signed-out view: `signed-in` and `groups` content is removed and `signed-out` content is included. These rules hide content in the browser only; the content is still sent to every reader. For sensitive content, use a separate page with the `groups` frontmatter field.
 
 ## View
 

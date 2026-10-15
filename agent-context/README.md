@@ -14,6 +14,14 @@ Single source of truth, maintained in the Mintlify documentation repository, for
 
 Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target repositories, except for Kiro's required `plugin.json`, which is generated from its target configuration. This project generates the shared skill and each client's MCP configuration file.
 
+## Install the Mintlify skill
+
+`context/skills/mintlify/` covers authoring, configuration, and customization. Customization guidance lives in `reference/customization/`. Install the folder with:
+
+```bash
+npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/context/skills/mintlify --skill mintlify
+```
+
 ## Local development
 
 Requires Node.js 22 or newer. The only dependency is `ajv`, used to validate generated Agent Plugins artifacts.

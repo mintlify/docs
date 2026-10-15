@@ -1,6 +1,6 @@
 ---
 name: mintlify
-description: Comprehensive reference for building Mintlify documentation sites. Use when creating pages, configuring docs.json, adding components, setting up navigation, or working with API references. Routes to detailed reference files for all components and configuration options.
+description: Set up, write, and publish documentation sites with Mintlify, and work on existing Mintlify projects. Use when the user wants to create a docs site for a repo or product, turn a docs/ folder or README into a hosted docs site, document an API from an OpenAPI spec, migrate docs from Docusaurus, GitBook, ReadMe, Fern, or another platform, preview docs locally, or publish docs to a shareable URL. Also use when editing a project with docs.json, including pages, navigation, components, API references, and customizing appearance or browser behavior with CSS, JavaScript, React, and snippets.
 ---
 
 # Mintlify reference
@@ -19,6 +19,25 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/api-docs.md` | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
 | `reference/cli.md` | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | `reference/product-context.md` | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
+| `reference/customization/index.md` | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
+
+## Starting a new docs site
+
+If the user wants a new docs site, wants to publish docs, or has no `docs.json` yet, run this workflow yourself. Ask the user only for information or approvals you cannot supply. Do not send them to a browser-first quickstart when you can run terminal commands.
+
+1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`. If it's installed, run `mint update`.
+2. Run `mint status`. If it shows an organization, use the existing account. Otherwise, ask whether the user has a Mintlify account. If they do, run `mint login`. If not, ask for first name, last name, company, and email and run `mint signup --firstName <first> --lastName <last> --company <company> --email <email>` as a background process. It waits for email verification. Tell the user to click the verification link and finish onboarding in the browser. Never invent signup details.
+3. After verification and onboarding, run `mint status` again to confirm an organization and subdomain. If no subdomain appears, ask the user to finish selecting or connecting a GitHub repository in the onboarding browser tab, then retry.
+4. Unless you're already working in it, ask the user for the URL of the connected repository (`mint status` doesn't show it) and clone it. If the user connected their own docs repository, preserve its content, and add a `docs.json` if it has none. If Mintlify created the repository, it contains starter content; replace that with the user's existing Markdown docs instead of writing placeholder pages. Use `mint new <directory> --name <name> --theme <theme>` only if the user wants a different theme than the starter, and scaffold into a new, empty directory. Never use `--force` on a directory with user files.
+5. Run `mint dev --no-open` as a background process from the directory containing `docs.json`. Report the local URL so the user can preview. Run `mint validate` and `mint broken-links` and fix issues you caused.
+6. Commit and push to the connected repository to deploy.
+7. Verify that `https://<subdomain>.mintlify.site` loads before you report the URL.
+
+The user only needs the browser for email verification, OAuth approval, and connecting GitHub.
+
+### Migrating from another platform
+
+For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. The scraper only handles simple public sites. Complex sites migrate from source files.
 
 ## MCP servers
 
@@ -31,40 +50,43 @@ Read-only access to Mintlify's published documentation. Use it when the referenc
 Tools:
 - `search_mintlify` — Search the Mintlify knowledge base by query. Good for finding guides, examples, and API references.
 - `query_docs_filesystem_mintlify` — Browse the docs file tree (`ls`, `cat`, `grep`, `find`, etc.). Good for reading a specific docs page.
-- `submit_feedback` — Report a docs page that is incorrect, outdated, confusing, or incomplete.
+- `submit_feedback` — Report a docs page that is incorrect, outdated, confusing, or incomplete. The path (relative path or full URL) must match a published page or a redirect source; otherwise the tool returns an error and records nothing.
 
 ### Mintlify Admin
 
 Write access to a Mintlify project. Requires OAuth on first use. Complete authentication in the browser when prompted.
 
-Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Content changes buffer on a session branch; nothing touches the deploy branch until `save`. Project management changes made through code mode apply immediately to the live project without a branch or pull request.
+Use this server when the user wants to edit their Mintlify content, restructure navigation, or open a pull request. Every content tool takes a `branch` argument: required on edits, `save`, `discard` and comment writes, optional on reads (defaults to the deploy branch). Nothing is remembered between calls, so pass `branch` every time. Edits on the deploy branch land as unpublished changes and publish on `save`. Edits on any other branch go through a pull request. Project management tool changes apply immediately to the live project without a branch or pull request.
 
-Workflow: call `checkout` first (always), then use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` to make changes, then call `save` to publish (or `discard_session` to abandon).
+Workflow: use `read`/`search`/`edit_page`/`write_page`/`list_nodes`/`create_node`/`update_node`/`move_node`/`delete_node`/`update_config` with a `branch` to make changes, then call `save` with the `branch` and a `title` to publish (or `discard` to abandon). Pass the deploy branch to edit it directly. If the project requires a pull request (**Push directly to your deploy branch** is off, branch protection requires pull requests, deploy branch editing is locked, or the connection uses a client or machine-to-machine token), edits to the deploy branch are refused with the reason and change nothing. Call `create_branch` and pass its `branchName` as `branch` instead.
 
 Key tools:
-- **`checkout`** — Start a session on a branch (required first call). Returns a branch-level `editorUrl` to preview changes live.
-- **`list_branches`** — List existing branches; call before `checkout` to attach to one.
+- **`create_branch`** — Start a new branch off the deploy branch with a `title` that also names its pull request. Returns `branchName` and a branch-level `editorUrl` to preview changes live. On a branch, Mintlify commits edits automatically about 15 seconds after the last change, and the first commit opens a pull request.
+- **`list_branches`** — List existing branches; pass any of them as `branch`. Branches that don't exist are refused.
 - **`list_deployments`** — Discover which project(s) this connection can access.
 - **`read`** / **`search`** — Fetch a page's MDX or search across pages.
 - **`edit_page`** / **`write_page`** — Apply targeted edits or overwrite a page.
+- **`read_comments`** / **`add_comment`** / **`reply_to_comment`** / **`resolve_comment`** — Read open editor comment threads on a page, start a thread on exact text, reply as the agent, or resolve threads. Adding, replying and resolving require an OAuth session and act on the threads of `branch`; they work on the deploy branch even when edits to it require a pull request.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`** — Manage the navigation tree. If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation invalid (for example, a page at the root next to tabs), the response includes a `navigationErrors` field. Fix these errors before `save`, because Mintlify can drop invalid nodes from the published navigation.
 - **`update_config`** — Modify `docs.json` (theme, nav roots, integrations, SEO).
-- **`upload_image`** / **`finalize_image_upload`** — Add a local image to the session branch. Call `upload_image` with the destination `path` (for example, `images/dashboard.png`), `contentType`, and exact `size` in bytes. `PUT` the file bytes to the returned `uploadUrl` with the returned `headers`, then call `finalize_image_upload` with the `uploadId` and the same `path`. Use the returned `src` in MDX or in the `docs.json` `logo` or `favicon` fields. Uploading to an existing `path` replaces the image. Mintlify only accepts SVGs for logos and favicons, so pass `purpose: "logo"` to both tools. Images publish with the session on `save`.
-- **`search_code_operations`** / **`execute_code`** — Code mode for project-level operations with no dedicated tool (workflows, settings, members, billing, integrations, analytics, private-page sharing). Search available methods, then run a TypeScript script against them. No `checkout` required. Writes apply immediately to the live project, so confirm the intended change first.
+- **`upload_image`** / **`finalize_image_upload`** — Add a local image to `branch`. Call `upload_image` with the destination `path` (for example, `images/dashboard.png`), `contentType`, and exact `size` in bytes. `PUT` the file bytes to the returned `uploadUrl` with the returned `headers`, then call `finalize_image_upload` with the `uploadId` and the same `path`. Use the returned `src` in MDX or in the `docs.json` `logo` or `favicon` fields. Uploading to an existing `path` replaces the image. Mintlify only accepts SVGs for logos and favicons, so pass `purpose: "logo"` to both tools. Images publish with your other edits on `save`.
+- **Project management tools** — Read with `get_deployment_settings`, `get_analytics_report`, `get_workflows`, and `list_repos_and_prs`. Write with `update_deployment_settings`, `manage_custom_domain`, `manage_git_source`, `manage_access_auth`, `manage_workflow`, and `manage_members_sharing`. Pass `subdomain` (required on org-wide connections; read tools also accept `subdomains`, up to 25) and a `request` object whose `action` (or `report`) selects the operation. Writes apply immediately to the live project and return the updated `state`, so confirm the intended change first.
 
-Private pages: `list_nodes` accepts `visibility: "private"` to list the private pages and folders the OAuth user can access (ignores other filters, returns each node's `role`). `read`, `edit_page`, `write_page`, `update_node`, and `delete_node` accept `private-page-<uuid>` or `private-folder-<uuid>` node ids; `create_node` accepts `visibility: "private"` with `data.type: "page"` or `"group"`. Private-page operations require an OAuth session (the admin MCP rejects client and machine-to-machine tokens), work without a `checkout`, and enforce role requirements: read for reads, editor or higher for writes and updates, manager for deletes. The caller becomes the manager of any node they create.
-- **`diff`** — See all changes relative to the deploy branch.
-- **`get_session_state`** — Check the current session's status.
-- **`save`** — Publish the session. `mode: "auto"` (default) opens a PR, and Mintlify merges it immediately when the project's publishing setting allows direct pushes and the deploy branch isn't protected. `mode: "pr"` always opens a PR and leaves it open for review. `mode: "commit"` pushes to an existing PR branch without opening a new PR. Changing the publishing setting in the dashboard requires the admin role. Unless the save merges immediately, the response includes an `editorUrl` that opens the first created or updated page.
-- **`discard_session`** — Drop all in-session changes.
+Private pages: `list_nodes` accepts `visibility: "private"` to list the private pages and folders the OAuth user can access (ignores other filters, returns each node's `role`). `read`, `edit_page`, `write_page`, `update_node`, and `delete_node` accept `private-page-<uuid>` or `private-folder-<uuid>` node ids; `create_node` accepts `visibility: "private"` with `data.type: "page"` or `"group"`. Private-page operations require an OAuth session (the admin MCP rejects client and machine-to-machine tokens), need no `branch`, and enforce role requirements: read for reads, editor or higher for writes and updates, manager for deletes. The caller becomes the manager of any node they create.
+- **`diff`** — See all changes on `branch` relative to the deploy branch.
+- **`status`** — List unpublished edited files, `docs.json` keys and nav changes on `branch`. On the deploy branch, lists only your changes.
+- **`save`** — Publish `branch` with a `title`. On the deploy branch, commits only your pending changes. On a branch, commits anything pending and returns the branch's pull request, opening one if none exists. `save` never merges a pull request and ignores `mode`. Returns `no_pending_changes` when there is nothing to commit and no pull request. The response includes an `editorUrl` that opens the first created or updated page.
+- **`discard`** — On the deploy branch, reverts only your pending changes. On another branch, deletes the branch and closes its pull request, but only if you created it; otherwise changes nothing.
 
-Keep each session focused on one change. Smaller sessions produce easier-to-review PRs. Open the `editorUrl` to watch changes render live. Prefer the page-level `editorUrl` from `create_node` or `save` over the one from `checkout`.
+Keep each branch focused on one change. Smaller branches produce easier-to-review PRs. Open the `editorUrl` to watch changes render live. Prefer the page-level `editorUrl` from `create_node` or `save` over the one from `create_branch`.
 
 ## Before you start
 
 Before substantial content work, read `reference/product-context.md` and check for `.mintlify/product-brief.md`.
 
 Read the project's `docs.json` file first. It defines the site's navigation, theme, colors, and configuration.
+
+For appearance or browser behavior changes, read `reference/customization/index.md`.
 
 Search for existing content before creating new pages. You may need to update an existing page, add a section, or link to existing content rather than duplicating.
 
@@ -221,7 +243,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`, `mint index` (install the Mintlify Index MCP server in supported coding agents). Read `reference/cli.md` for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`. Read `reference/cli.md` for full flags and subcommands.
 
 ## Writing standards
 

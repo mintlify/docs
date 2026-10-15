@@ -1,0 +1,177 @@
+---
+title: "Combinar repositorios con GitHub Actions"
+sidebarTitle: "GitHub Action multi-repositorio"
+description: "Usa la GitHub Action multi-repositorio de Mintlify para copiar documentación de muchos repositorios en un único repositorio de documentación y combinar su navegación en un solo docs.json."
+keywords: ["multirepo", "multi-repo", "GitHub Action", "aggregate", "sync", "child repositories", "sourceRef"]
+---
+
+{/* vale Vale.Terms = NO */}
+La GitHub Action multi-repositorio de Mintlify, [`mintlify/multirepo-action`](https://github.com/mintlify/multirepo-action), copia documentación desde cualquier número de repositorios secundarios a un único repositorio de documentación principal. Combina la navegación de cada repositorio secundario en un solo `docs.json`, de modo que Mintlify implementa el repositorio principal como cualquier otro sitio de un único repositorio.
+{/* vale Vale.Terms = YES */}
+
+Usa la acción cuando tu documentación esté repartida en muchos repositorios y quieras gestionar la lista de fuentes en un archivo de configuración en lugar de en el panel. Para combinar repositorios sin copiar contenido, consulta [Proyectos multi-repositorio](/es/deploy/multi-repo).
+
+<div id="how-it-works">
+  ## Cómo funciona
+</div>
+
+En cada ejecución, la acción:
+
+1. Obtiene cada repositorio secundario en paralelo y descarga solo la carpeta que contiene su documentación.
+2. Copia el contenido de cada repositorio secundario en una carpeta de destino del repositorio principal. El destino también es la ruta de URL, por lo que un repositorio secundario en `api` se publica en `/api`.
+3. Reescribe los enlaces relativos a la raíz, las imágenes y las importaciones de snippets en los archivos `.md` y `.mdx` del repositorio secundario para incluir el destino. Por ejemplo, `/guides/start` se convierte en `/api/guides/start`.
+4. Genera `docs.json` a partir de un archivo `docs.base.json`, combinando la navegación, las variables y las redirecciones de cada repositorio secundario.
+5. Abre o actualiza una pull request con los cambios, o los envía directamente.
+
+Si la obtención o la combinación de algún repositorio secundario falla, la acción falla sin modificar el repositorio principal.
+
+<div id="requirements">
+  ## Requisitos
+</div>
+
+- Un repositorio principal en GitHub conectado a tu proyecto de Mintlify
+- Un archivo `docs.json` con un objeto `navigation` en cada repositorio secundario
+- Para repositorios secundarios privados, un token de instalación de una GitHub App o un token de acceso personal detallado con `contents: read` en cada repositorio secundario
+
+<div id="set-up-the-action">
+  ## Configurar la acción
+</div>
+
+<Steps>
+  <Step title="Crear una configuración base">
+    En el repositorio principal, cambia el nombre de `docs.json` a `docs.base.json`. La acción genera `docs.json` a partir de este archivo en cada ejecución.
+
+    Añade una entrada `sourceRef` donde deba aparecer la navegación de cada repositorio secundario. Un `sourceRef` usa la misma sintaxis que los [proyectos multi-repositorio](/es/deploy/multi-repo#reference-navigation-from-another-source).
+
+    ```json docs.base.json
+    {
+      "$schema": "https://mintlify.com/docs.json",
+      "theme": "mint",
+      "name": "Acme",
+      "colors": { "primary": "#16A34A" },
+      "navigation": {
+        "tabs": [
+          { "tab": "Guides", "pages": ["index", "quickstart"] },
+          { "tab": "API", "pages": [{ "sourceRef": "acme/api" }] }
+        ]
+      }
+    }
+    ```
+
+    La acción reemplaza cada `sourceRef` por el arreglo de navegación del mismo tipo del repositorio secundario. Por ejemplo, un `sourceRef` dentro de `tabs` se convierte en el `navigation.tabs` del repositorio secundario. Un `sourceRef` dentro de `pages` se convierte en las `pages` del repositorio secundario, o en sus `groups` si no tiene `pages`.
+
+    Los repositorios secundarios sin `sourceRef` se añaden al final de los `products`, `tabs`, `anchors` o `dropdowns` de nivel superior de la base.
+  </Step>
+
+  <Step title="Enumerar los repositorios secundarios">
+    Crea `.github/mintlify-multirepo.yml` en el repositorio principal.
+
+    ```yaml .github/mintlify-multirepo.yml
+    sources:
+      - repo: acme/api
+        path: docs
+        destination: api
+        name: API reference
+      - repo: acme/sdk-js
+        ref: v2
+        path: docs
+        destination: sdks/js
+        exclude: [README.md, "drafts/**"]
+    ```
+
+    | Campo | Obligatorio | Descripción |
+    | --- | --- | --- |
+    | `repo` | Sí | El repositorio secundario, como `owner/repo`. |
+    | `destination` | Sí | Carpeta del repositorio principal y ruta de URL para el contenido del repositorio secundario. |
+    | `path` | No | Carpeta del repositorio secundario que contiene su `docs.json`. De forma predeterminada, la raíz del repositorio. |
+    | `ref` | No | Rama, etiqueta o SHA de commit completo. De forma predeterminada, la rama predeterminada del repositorio secundario. |
+    | `name` | No | Etiqueta de navegación que se usa cuando el repositorio secundario no tiene `sourceRef`. De forma predeterminada, el `name` del `docs.json` del repositorio secundario. |
+    | `exclude` | No | Patrones glob de archivos que se omiten. |
+    | `rewriteLinks` | No | Establécelo en `false` para copiar contenido sin reescribir enlaces. De forma predeterminada, `true`. |
+
+    La acción nunca copia archivos ocultos (dotfiles), enlaces simbólicos, `node_modules` ni el `docs.json` del repositorio secundario. Solo se combinan `navigation`, `variables` y `redirects` del repositorio secundario. El resto de la configuración, como el tema y los colores, proviene de `docs.base.json`.
+  </Step>
+
+  <Step title="Añadir el flujo de trabajo">
+    Crea `.github/workflows/multirepo.yml` en el repositorio principal. Este ejemplo se ejecuta cada hora, bajo demanda y cuando un repositorio secundario envía un evento `docs-updated`.
+
+    ```yaml .github/workflows/multirepo.yml
+    name: Combine docs
+
+    on:
+      workflow_dispatch:
+      schedule:
+        - cron: "0 * * * *"
+      repository_dispatch:
+        types: [docs-updated]
+
+    concurrency:
+      group: mintlify-multirepo
+      cancel-in-progress: true
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    jobs:
+      sync:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/create-github-app-token@v3
+            id: app
+            with:
+              app-id: ${{ vars.DOCS_APP_ID }}
+              private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+              owner: ${{ github.repository_owner }}
+          - uses: actions/checkout@v7
+          - uses: mintlify/multirepo-action@v1
+            with:
+              token: ${{ steps.app.outputs.token }}
+    ```
+
+    Si todos los repositorios secundarios son públicos, elimina el paso `create-github-app-token` y la entrada `token`.
+
+    De forma predeterminada, la acción abre o actualiza una única pull request con los cambios. Fusiónala para implementar. Para permitir que el flujo de trabajo abra pull requests, activa **Allow GitHub Actions to create and approve pull requests** en **Settings** > **Actions** > **General** del repositorio principal. Para enviar los cambios directamente a la rama, establece `mode: push`.
+  </Step>
+
+  <Step title="Opcional: sincronizar cuando cambie un repositorio secundario">
+    Para sincronizar en cuanto cambie un repositorio secundario, añade a cada repositorio secundario un flujo de trabajo que notifique al repositorio principal. Reemplaza `acme/docs` por tu repositorio principal. `DOCS_DISPATCH_TOKEN` necesita acceso `contents: write` al repositorio principal.
+
+    ```yaml .github/workflows/notify-docs.yml
+    name: Notify docs repository
+
+    on:
+      push:
+        branches: [main]
+        paths: ["docs/**"]
+
+    jobs:
+      notify:
+        runs-on: ubuntu-latest
+        steps:
+          - env:
+              GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+            run: gh api repos/acme/docs/dispatches -f event_type=docs-updated
+    ```
+  </Step>
+</Steps>
+
+<div id="edit-synced-content">
+  ## Editar el contenido sincronizado
+</div>
+
+La acción reemplaza cada carpeta de destino y `docs.json` en cada ejecución. Edita el contenido en los repositorios secundarios y la configuración del sitio en `docs.base.json`. Los cambios realizados directamente en los archivos sincronizados del repositorio principal, incluidos los hechos con el [editor web](/es/editor/index), se sobrescriben en la siguiente sincronización.
+
+Cuando eliminas un repositorio secundario de `.github/mintlify-multirepo.yml`, la acción elimina su carpeta en la siguiente ejecución.
+
+<div id="link-between-children">
+  ## Enlazar entre repositorios secundarios
+</div>
+
+{/* vale Vale.Terms = NO */}
+Escribe los enlaces de un repositorio secundario como si fuera un sitio independiente. La acción añade el destino del repositorio secundario a los enlaces relativos a la raíz, por lo que `[Start](/quickstart)` en un repositorio secundario con `destination: api` se convierte en `/api/quickstart`.
+
+La acción no modifica los enlaces que ya apuntan al destino de otro repositorio secundario. Por ejemplo, `[SDK](/sdks/js/install)` no cambia cuando `sdks/js` es el destino de otro repositorio secundario. La acción no reescribe los enlaces dentro de bloques de código.
+{/* vale Vale.Terms = YES */}
+
+Para ver todas las entradas, salidas y opciones de token, consulta el [README de la acción](https://github.com/mintlify/multirepo-action#readme).
