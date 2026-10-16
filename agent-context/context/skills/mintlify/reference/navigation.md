@@ -461,6 +461,6 @@ Design a navigation structure for **customer-facing documentation**. This is NOT
 - **Configuration**: Settings, customization, environment setup
 - **FAQ / Troubleshooting**: Common issues and solutions
 
-Use polished, customer-facing names throughout the navigation. Write every tab, group, anchor, page title, and `sidebarTitle` in professional Title Case (for example, "Getting Started", "Account Management", and "API Reference"), except for product names whose official casing differs. Never expose lowercase slug text or casual placeholders such as "getting started", "page 1", "new page", or "untitled". When the source material does not provide a final name, choose a credible temporary label appropriate to the product, such as "Product Overview", "Core Concepts", or "Integration Guide".
+Use polished, customer-facing names throughout the navigation. Write every tab, group, anchor, page title, and `sidebarTitle` in professional sentence case (for example, "Getting started", "Account management", and "API reference"), except for product names whose official casing differs. Never expose lowercase slug text or casual placeholders such as "getting started", "page 1", "new page", or "untitled". When the source material does not provide a final name, choose a credible temporary label appropriate to the product, such as "Product overview", "Core concepts", or "Integration guide".
 
 Exclude anything that is purely internal: deployment scripts, internal tooling, database migrations, CI/CD config, internal architecture decisions.
