@@ -21,8 +21,6 @@ try {
     'product-context.md',
     'project-settings.md',
     'publishing-and-review.md',
-    'site-generation.md',
-    'site-kinds.md',
     'writing.md',
   ];
   for (const file of sharedFiles) {
