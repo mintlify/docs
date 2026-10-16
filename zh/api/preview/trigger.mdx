@@ -12,13 +12,13 @@ keywords: ["preview", "preview deployment", "branch preview", "staging"]
   ## 分支要求
 </div>
 
-`branch` 必须存在于与你的 Mintlify 项目连接的仓库中。此端点不支持 fork 上的分支。Mintlify GitHub 应用必须安装在仓库上才能构建预览，因此无法从 fork 分支构建预览。有关如何预览来自 fork 的更改，请参阅[Fork 拉取请求](/zh/deploy/preview-deployments#fork-pull-requests)。
+`branch` 必须存在于与你的 Mintlify 项目连接的仓库中，并且你必须已安装 Mintlify GitHub 应用。此端点不支持 fork 上的分支。有关如何预览来自 fork 的更改，请参阅[Fork 拉取请求](/zh/deploy/preview-deployments#fork-pull-requests)。
 
 <div id="use-cases">
   ## 用例
 </div>
 
-- **CI/CD 流水线**：在拉取请求被打开或更新时自动创建预览部署。
+- **CI/CD 流水线**：在用户打开或更新拉取请求时自动创建预览部署。
 - **定时预览**：按计划为长期运行的功能分支生成预览。
 - **自定义工具**：将预览创建集成到内部工作流或 Slack 机器人中。
 
@@ -26,7 +26,29 @@ keywords: ["preview", "preview deployment", "branch preview", "staging"]
   ## 预览的访问权限
 </div>
 
-通过此端点创建的预览可公开访问，除非你为预览启用了身份验证，该设置会应用于你部署中的所有预览。你无法通过此端点为单个预览设置密码保护。请参阅[限制预览部署的访问权限](/zh/deploy/preview-deployments#restrict-access-to-preview-deployments)。
+默认情况下，通过此端点创建的预览可公开访问，除非你为预览启用了身份验证。请参阅[限制预览部署的访问权限](/zh/deploy/preview-deployments#restrict-access-to-preview-deployments)。
+
+要限制对特定预览的访问，请在请求体中传入 `auth` 对象。Mintlify 会在将部署加入队列之前，将访问设置应用于该预览。如果省略 `auth`，预览将保留其当前的访问设置。
+
+- `{ "type": "password", "password": "..." }`：任何拥有密码的人都可以查看该预览。密码长度必须至少为 8 个字符。设置密码会替换该预览上已有的任何密码。
+- `{ "type": "mintlify" }`：只有已登录 Mintlify 的组织成员才能查看该预览。
+
+```bash
+curl --request POST \
+  --url https://api.mintlify.com/v1/project/preview/{projectId} \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "branch": "feature/new-guide",
+    "auth": { "type": "password", "password": "review-pass-123" }
+  }'
+```
+
+设置 `auth` 需满足以下要求：
+
+- 你的方案必须包含预览部署身份验证。否则，该端点返回 `403`。
+- 你的站点必须已启用[身份验证](/zh/deploy/authentication-setup)或预览身份验证。否则，该端点返回 `409`。
+- 必须在预览本身上启用身份验证。否则，该端点返回 `409`。
 
 <div id="rate-limits">
   ## 速率限制
