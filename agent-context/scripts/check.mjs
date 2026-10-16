@@ -19,6 +19,10 @@ try {
     'configuration.md',
     'navigation.md',
     'product-context.md',
+    'project-settings.md',
+    'publishing-and-review.md',
+    'site-building.md',
+    'writing.md',
   ];
   for (const file of sharedFiles) {
     const contents = await Promise.all(

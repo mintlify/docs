@@ -413,3 +413,52 @@ Navigation elements can nest within each other. Common combinations:
 - Products containing tabs
 - Versions containing tabs
 - Anchors containing groups
+
+## Placing pages
+
+- A page appears in the sidebar only when its path is listed in `navigation`. Paths are extensionless with no leading slash (`guides/auth`, never `/guides/auth` or `guides/auth.mdx`) and must match the file path exactly; a mismatched path creates a second, empty page.
+- Put a new page in the group that already holds its siblings (the pages in the same directory), unless the user named another place.
+- Through the Mintlify Admin MCP server, use the navigation tools for one-off changes: `create_node` with a `parentId` (and optional 0-based `order`) to add a page or group under a specific parent, `move_node` to move or reorder, `update_node` to rename a group or tab or change a page's frontmatter, and `delete_node` to remove a page or group and everything under it. Find node ids with `list_nodes`. Fix any `navigationErrors` a call returns before publishing.
+- Edit `docs.json` directly (or `update_config` for settings outside `navigation`) for whole-site structure: restructuring into tabs and groups, or reordering many pages at once. A full rewrite of `navigation` replaces it, so every page that should stay must be listed; anything you leave out disappears from the sidebar.
+- A listed path with no page behind it shows a placeholder. Write its content in the same change or do not list it.
+- Do not leave empty groups behind, and do not create a group nobody asked for.
+- When you delete or move a published page, fix links to it and add a redirect.
+- Unrecognized keys are dropped during validation. Read back any setting you are unsure about, and look a key up before you introduce it.
+
+## Designing or restructuring a sidebar
+
+Only when asked to design or reorganize navigation, not for single moves.
+
+### Keep navigation compact
+
+A bloated sidebar is the most common quality issue in generated docs. Size the structure to the content: a small site may need one tab and a few groups, a large product more. Keep it scannable:
+
+- Add a tab only for a distinct audience or product area, not to split up a long list.
+- A group with one page usually should not be a group; merge small groups into a broader parent.
+- Combine closely related topics into a single page rather than splitting into many thin pages.
+
+**Grouping principles:**
+- Prefer FEWER, BROADER groups over MANY, NARROW ones
+- BAD: "Authentication", "API Keys", "OAuth", "SSO" as 4 separate groups → GOOD: single "Authentication" group with pages for each method
+- BAD: one group per API resource → GOOD: single "API Reference" group containing resource pages
+- If two groups would each have only 2-3 pages, merge them into one group
+
+**Anti-patterns:**
+- Do NOT create a group for every feature: group features by theme
+- Do NOT mirror source code directory structure in navigation
+- Do NOT create groups named after implementation details (e.g., "Models", "Controllers", "Services")
+- Do NOT create a "Miscellaneous" or "Other" catch-all group: redistribute those pages
+
+Design a navigation structure for **customer-facing documentation**. This is NOT a developer wiki or open-source repo reference. Structure content around what end-users and integrators need:
+
+- **Getting Started**: Account setup, authentication, first integration
+- **Core Concepts**: Product terminology, key workflows, data model
+- **Guides**: Step-by-step walkthroughs of common use cases
+- **API Reference**: Public API endpoints customers interact with
+- **SDKs & Libraries**: Client libraries, code examples
+- **Configuration**: Settings, customization, environment setup
+- **FAQ / Troubleshooting**: Common issues and solutions
+
+Use polished, customer-facing names throughout the navigation. Write every tab, group, anchor, page title, and `sidebarTitle` in professional sentence case (for example, "Getting started", "Account management", and "API reference"), except for product names whose official casing differs. Never expose lowercase slug text or casual placeholders such as "getting started", "page 1", "new page", or "untitled". When the source material does not provide a final name, choose a credible temporary label appropriate to the product, such as "Product overview", "Core concepts", or "Integration guide".
+
+Exclude anything that is purely internal: deployment scripts, internal tooling, database migrations, CI/CD config, internal architecture decisions.
