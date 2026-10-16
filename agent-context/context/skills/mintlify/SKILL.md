@@ -23,6 +23,7 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/writing.md` | Before creating a page or writing more than a sentence or two: the no-invention rule, page creation and editing steps, quality bar, audience, titles and descriptions, links. |
 | `reference/publishing-and-review.md` | Publishing, branches and pull requests, "is this live" questions, undoing changes, and reviewing a page with suggestions and comments. |
 | `reference/project-settings.md` | Reading or changing dashboard settings (domains, git sources, auth, members, workflows, search, add-ons), settings no tool covers, and analytics questions. |
+| `reference/site-building.md` | Building or migrating a whole site, a section, or more than a handful of pages: research sizing, generation order, landing page, structure for common kinds of site, porting rules. |
 
 ## Starting a new docs site
 
@@ -47,35 +48,11 @@ When you have no local checkout and no CLI (for example, editing through the Min
 - Preview with the `editorUrl` the tools return instead of `mint dev`. Validation runs on every write, so fix any error a write returns instead of running `mint validate`.
 - Publish with `publish` instead of pushing, and only when the user asks.
 - Keep the product brief from `reference/product-context.md` in the conversation instead of writing `.mintlify/product-brief.md`.
-- For a new site, follow "Building out a site's content" below against the existing project.
-
-### Building out a site's content
-
-When you generate or rebuild a site or a section:
-
-- Size research to what you were given. With no sources, write a short starter set (6 to 8 pages of 150 to 300 words) with visible placeholders for product-specific facts instead of researching the web. With a named product, URL, repository or spec, read enough of it to get the real facts; do not crawl everything.
-- Write `docs.json` first with the full planned `navigation`, then write every listed page once, with its final content, at exactly the listed path. A listed page with no content shows as a placeholder.
-- Reuse `index` as the introduction and rewrite `quickstart`; remove starter pages you don't keep.
-- When there is an OpenAPI or AsyncAPI spec, reference it in navigation (see `reference/api-docs.md`) instead of hand-writing endpoint pages.
-- Build the landing page from components (`<Card>`, `<Columns>`, `<Steps>`), not `"mode": "custom"`, raw HTML or Tailwind.
-- Do not publish as part of generation. End with what you created, the assumptions you made, and what the user should review.
-
-Match the structure to the kind of site:
-
-- **Developer docs**: get started (introduction, a quickstart to a first successful call, authentication), core concepts, task guides, SDK and CLI pages, and reference (errors, rate limits, webhooks, changelog). The API reference goes in its own tab, generated from the spec. Every guide shows a complete request and response.
-- **Help center**: organized around customer problems, not features: get started, account and billing, one group per product area named as the UI names it, integrations, troubleshooting with symptom titles, FAQ, contact. One question per article, titled in the customer's words and answered in the first paragraph.
-- **Knowledge base** (internal team wiki): tabs per department or audience, each starting with an overview page that names its owner, then onboarding, policies, runbooks and how-tos. Name real systems, channels and owners, or placeholders for them.
-- **Product guide** (end-user docs): one group per product area in the order users meet them, each with an overview and task pages ("Create a project") that go from goal to result with `<Steps>` and bold UI labels.
+- For a new site, follow `reference/site-building.md` against the existing project.
 
 ### Migrating from another platform
 
-For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. The scraper only handles simple public sites. Complex sites migrate from source files.
-
-When porting existing docs from any source, including uploads and exports:
-
-- Preserve the source wording and structure. Change only what the format requires: frontmatter, MDX and components, links, image paths and file layout. Rewrite or restructure only when the user asks.
-- Mirror the source's sections and page granularity.
-- Port every file in the requested scope, in batches if needed. If you stop, name the blocker and the files not ported.
+For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in `reference/site-building.md`.
 
 ## MCP servers
 
@@ -121,8 +98,6 @@ Keep each branch focused on one change. Smaller branches produce easier-to-revie
 ## Before you start
 
 Before substantial content work, read `reference/product-context.md` and check for `.mintlify/product-brief.md`.
-
-Before creating a page or writing more than a sentence or two, read `reference/writing.md`.
 
 Read the project's `docs.json` file first. It defines the site's navigation, theme, colors, and configuration.
 
