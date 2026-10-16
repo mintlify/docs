@@ -125,6 +125,8 @@ project/
 
 Store images in an `images/` directory. Reference with root-relative paths. All images require descriptive alt text.
 
+Mintlify automatically optimizes images stored in the repository and referenced with root-relative paths: it serves AVIF or WebP when supported, compresses them, generates resized versions up to 2500px wide, and adds width and height. Don't convert or resize these images yourself. GIFs, SVG and ICO files, images referenced by absolute URL, and images on authenticated pages are served unoptimized, so compress GIFs and externally hosted images before adding them.
+
 ```mdx
 ![Dashboard showing analytics overview](/images/dashboard.png)
 ```
