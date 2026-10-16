@@ -11,7 +11,7 @@ Every command, flag, field, parameter, default, limit, price, response, error an
 - Do not reference features that do not exist in the source material.
 - When you have no source for a product, say what you assumed and keep the site small. The most common complaint is a confidently wrong description of the user's company or product.
 - Do not guess the company from an unrelated website. If a fetched page clearly describes a different business, do not use it.
-- Do not build bespoke cards from raw HTML; use `<Card>` inside `<Columns>` or `<CardGroup>`.
+- Do not build bespoke cards from raw HTML; use `<Card>` inside `<Columns>`.
 
 ## Creating a page
 
