@@ -15,7 +15,7 @@ import AdminMcpCodex from "/snippets/admin-mcp-codex.mdx";
 
 The admin MCP server gives AI tools write access to your Mintlify content and settings. Use it to update content and access your dashboard. With the admin MCP, you can use your preferred AI tools to edit pages, restructure navigation, update `docs.json`, open pull requests, change settings, create workflows, and more.
 
-Connect an MCP client such as Claude, Claude Code, ChatGPT, or Cursor to the admin MCP server. Use it to collaborate on your Mintlify content and settings with the same tools you use to write code. Each content tool call names the branch it works on. Edits to your deploy branch land as unpublished changes, and edits to any other branch go through a pull request. They ship when you call `save` or merge the pull request. [Project management](#project-management) changes, such as workflow and settings updates, apply immediately to the live project. If your organization has multiple projects, a single admin MCP connection can access and switch between all of them.
+Connect an MCP client such as Claude, Claude Code, ChatGPT, or Cursor to the admin MCP server. Use it to collaborate on your Mintlify content and settings with the same tools you use to write code. Each content tool call names the branch it works on. Edits to your deploy branch land as unpublished changes, and edits to any other branch go through a pull request. They ship when you call `publish` or merge the pull request. [Project management](#project-management) changes, such as workflow and settings updates, apply immediately to the live project. If your organization has multiple projects, a single admin MCP connection can access and switch between all of them.
 
 <Note>
   The admin MCP server allows AI tools to access your Mintlify dashboard. Treat it as a tool with write access. Connect it only from trusted AI tools, review every pull request before merging, and be aware that project management changes apply immediately without a pull request.
@@ -28,7 +28,7 @@ The admin MCP is a hosted Mintlify service at `https://mcp.mintlify.com`. Every 
 |  | Admin MCP | Search MCP |
 | :-- | :-- | :-- |
 | **Audience** | Your team | Your end users |
-| **Access** | Read, edit, restructure, save, create workflows, manage settings | Read and search one site's published pages |
+| **Access** | Read, edit, restructure, publish, create workflows, manage settings | Read and search one site's published pages |
 | **Endpoint** | `https://mcp.mintlify.com` | `/mcp` on your site domain |
 | **Output** | Content edits, navigation changes, pull requests, workflow runs | Search results and page content from your site |
 
@@ -37,7 +37,7 @@ The admin MCP is a hosted Mintlify service at `https://mcp.mintlify.com`. Every 
 Before connecting the admin MCP, confirm the following:
 
 - **Mintlify account**: You need a Mintlify account with access to the project you want to edit. The OAuth session inherits your dashboard permissions, so admin-only actions (such as `update_config` on protected settings) require an admin role on the project.
-- **Git provider access**: The GitHub, GitLab, or Bitbucket connection for the project must have write access to the deploy branch's repository. `save` opens PRs through the same integration used for normal deploys.
+- **Git provider access**: The GitHub, GitLab, or Bitbucket connection for the project must have write access to the deploy branch's repository. `publish` opens PRs through the same integration used for normal deploys.
 - **MCP client**: An MCP-capable AI tool such as Claude, Claude Code, ChatGPT, Cursor, or Codex.
 
 ## Connect to the admin MCP
@@ -66,7 +66,7 @@ Connect your tools to the admin MCP from [your dashboard](https://app.mintlify.c
 
 ## How editing works
 
-Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `save`, and `discard`, require it. Read tools, such as `read`, `search`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`.
+Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`.
 
 The flow is:
 
@@ -82,12 +82,12 @@ The flow is:
   <Step title="Review the diff">
     Call `diff` at any time to see exactly what changed on a branch compared to your deploy branch. Call `status` for a summary of edited files, changed `docs.json` keys, and navigation changes. Both report your deploy branch when you omit `branch`. Open an `editorUrl` in your dashboard to see the same changes rendered. When `create_node` adds a page, it returns an `editorUrl` that opens that page directly.
   </Step>
-  <Step title="Save">
-    Call `save` with the `branch` and a `title` to publish your edits. On your deploy branch, `save` commits your own pending changes. On a branch, `save` commits anything pending and returns the branch's pull request, opening one if none exists. Calling it again with nothing new to commit returns the existing pull request. If there is nothing to commit and no pull request, `save` returns `no_pending_changes`.
+  <Step title="Publish">
+    Call `publish` with the `branch` and a `title` to publish your edits. The admin MCP tells the AI tool to call `publish` only when you ask it to publish, ship, or merge, so your edits stay unpublished until you do. On your deploy branch, `publish` commits your own pending changes. On a branch, `publish` commits anything pending and returns the branch's pull request, opening one if none exists. Calling it again with nothing new to commit returns the existing pull request. If there is nothing to commit and no pull request, `publish` returns `no_pending_changes`.
 
-    `save` doesn't merge the pull request unless you pass `merge: true`. With `merge: true`, `save` also merges the pull request into your deploy branch and returns `merged: true`. Mintlify only allows the merge when it would accept edits to your deploy branch directly. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly). Otherwise, `save` returns `merge_not_allowed` with the reason and leaves the pull request open for review. Ask the AI tool to merge only when you want the changes to skip review.
+    `publish` doesn't merge the pull request unless you pass `merge: true`. With `merge: true`, `publish` also merges the pull request into your deploy branch and returns `merged: true`. Mintlify only allows the merge when it would accept edits to your deploy branch directly. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly). Otherwise, `publish` returns `merge_not_allowed` with the reason and leaves the pull request open for review. Ask the AI tool to merge only when you want the changes to skip review.
 
-    The response includes an `editorUrl` that opens the first created or updated page. If the changes only touch configuration, the link opens the branch. Older clients can still pass `mode`, but `save` ignores it.
+    The response includes an `editorUrl` that opens the first created or updated page. If the changes only touch configuration, the link opens the branch. Older clients can still pass `mode`, but `publish` ignores it.
   </Step>
   <Step title="Discard if needed">
     Call `discard` with the `branch` to abandon your edits. What it removes depends on the branch. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly) and [Work on a branch](#work-on-a-branch).
@@ -105,11 +105,11 @@ When nothing requires a pull request, pass your deploy branch as `branch` and th
 The AI tool acts as you on the deploy branch:
 
 - **Edits are live to collaborators.** Anyone else editing the deploy branch in the dashboard sees the AI's changes as they happen.
-- **`save` publishes only your changes.** It commits your pending changes straight to the deploy branch, like clicking **Publish** in the editor. Other people's unpublished changes stay pending. Your own unpublished edits from the dashboard editor publish too.
+- **`publish` publishes only your changes.** It commits your pending changes straight to the deploy branch, like clicking **Publish** in the editor. Other people's unpublished changes stay pending. Your own unpublished edits from the dashboard editor publish too.
 - **`discard` reverts only your changes.** It returns `discardedChanges` with the number of changes it reverted. Other people's changes and the branch itself stay untouched.
 - **`status` lists only your changes.**
 
-Mintlify tracks changes per page. If you and someone else both edited the same page, `save` publishes the whole page and `discard` reverts the whole page, including the other person's edits.
+Mintlify tracks changes per page. If you and someone else both edited the same page, `publish` publishes the whole page and `discard` reverts the whole page, including the other person's edits.
 
 Mintlify refuses edits to the deploy branch, and changes nothing, when any of the following is true:
 
@@ -118,7 +118,7 @@ Mintlify refuses edits to the deploy branch, and changes nothing, when any of th
 - Editing the deploy branch is locked in the dashboard editor.
 - You connected with a client or machine-to-machine token instead of an OAuth login. These tokens aren't tied to a user, so they have no "own" changes.
 
-Mintlify checks these conditions on every edit and caches your branch protection rules for up to 30 seconds. Comment tools still work on the deploy branch when edits to it are refused. If your deploy branch starts requiring a pull request after you edit it, `save` returns `branch_protected` and your changes stay pending. Open the dashboard editor to move them to a new branch.
+Mintlify checks these conditions on every edit and caches your branch protection rules for up to 30 seconds. Comment tools still work on the deploy branch when edits to it are refused. If your deploy branch starts requiring a pull request after you edit it, `publish` returns `branch_protected` and your changes stay pending. Open the dashboard editor to move them to a new branch.
 
 ## Work on a branch
 
@@ -187,7 +187,7 @@ After `upload_image`, the AI tool uploads the file bytes to `uploadUrl` with a `
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Mintlify only accepts SVG files for logos and favicons, so pass `purpose: "logo"` to both tools when you upload one. Saved images appear in `status` and publish with your other edits when you call `save`.
+Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Mintlify only accepts SVG files for logos and favicons, so pass `purpose: "logo"` to both tools when you upload one. Saved images appear in `status` and publish with your other edits when you call `publish`.
 
 ### Comments
 
@@ -209,7 +209,7 @@ Work with the [comments and suggestions](/editor/collaborate#comments) that your
 - **`move_node`**: Move a node, including renaming a page's path.
 - **`delete_node`**: Remove a node from the navigation. Accepts a `private-page-<uuid>` or `private-folder-<uuid>` node ID to delete a [private page](/editor/pages#private-pages) or folder from the caller's private tree. Private deletions require an OAuth session with a manager role on the node and don't need a `branch`.
 
-If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation in an invalid state, the response includes a `navigationErrors` field that describes the problem. For example, a page placed at the root next to tabs returns `navigationErrors`. Mintlify can drop invalid nodes from the published navigation, so fix these errors before you call `save`.
+If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation in an invalid state, the response includes a `navigationErrors` field that describes the problem. For example, a page placed at the root next to tabs returns `navigationErrors`. Mintlify can drop invalid nodes from the published navigation, so fix these errors before you call `publish`.
 
 ### Configuration
 
@@ -257,7 +257,7 @@ Write tools return the project's updated state under `state`, so the AI tool can
 - **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Pass any of them as `branch`.
 - **`status`**: List the edited files, changed `docs.json` keys, and pending navigation diff on `branch`, or on your deploy branch when you omit it. On the deploy branch, lists only your changes.
 - **`diff`**: List all changes between `branch` and your deploy branch. Each changed file and `docs.json` entry includes `authors` and `byYou`. `authors` lists the members whose unpublished edits the entry contains. `byYou` is `true` when the entry includes your own edits. Use `byYou` to tell your changes apart from a colleague's on a shared branch.
-- **`save`**: On the deploy branch, commit only your pending changes directly. On a branch, commit pending changes and return the branch's pull request, opening one if needed. Pass `merge: true` to also merge the pull request when edits to the deploy branch are allowed.
+- **`publish`**: On the deploy branch, commit only your pending changes directly. On a branch, commit pending changes and return the branch's pull request, opening one if needed. Pass `merge: true` to also merge the pull request when edits to the deploy branch are allowed.
 - **`discard`**: Abandon the edits on `branch`. On the deploy branch, reverts only your pending changes. On another branch you created, deletes the branch and closes its pull request.
 
 ## Example prompts
@@ -265,7 +265,7 @@ Write tools return the project's updated state under `state`, so the AI tool can
 After you connect the admin MCP, you can drive it with natural-language prompts. For example:
 
 - _"Start a branch titled 'Add billing FAQ' and create a new page under the FAQ group titled 'Billing'. Draft answers for the five questions in this Linear issue."_
-- _"Find every page that mentions the deprecated `legacy_token` field and update the example to use `api_key` instead. Save as a PR titled 'docs: replace legacy\_token references'."_
+- _"Find every page that mentions the deprecated `legacy_token` field and update the example to use `api_key` instead. Publish it as a PR titled 'docs: replace legacy\_token references'."_
 - _"Reorganize the API reference: move the webhooks pages into a new group called 'Webhooks' and update the icons to match the rest of the section."_
 - _"Read the open comments on the quickstart page, make the requested edits, and reply to each thread, resolving it once addressed."_
 
@@ -273,7 +273,7 @@ After you connect the admin MCP, you can drive it with natural-language prompts.
 
 <AccordionGroup>
   <Accordion title="Open the editor URL">
-    `create_branch` returns an `editorUrl` for the branch. `create_node` and `save` return an `editorUrl` for the page that changed. Open these links in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
+    `create_branch` returns an `editorUrl` for the branch. `create_node` and `publish` return an `editorUrl` for the page that changed. Open these links in a separate tab so you can watch the AI's changes render live in the dashboard editor while you prompt.
   </Accordion>
 
   <Accordion title="Review every PR">
