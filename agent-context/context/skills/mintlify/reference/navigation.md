@@ -435,8 +435,8 @@ A bloated sidebar is the #1 quality issue in generated docs. Keep navigation tig
 
 **Hard limits:**
 - Maximum 2-3 tabs (most projects need only 1-2)
-- Maximum 4-5 groups per tab
-- Never create a group with fewer than 2 pages: merge small groups into a broader parent
+- Maximum 4-8 groups per tab
+- Consider merging small groups into a broader parent. If a group has only 1 page, it may not need to be a group.
 - Combine closely related topics into a single page rather than splitting into many thin pages
 
 **Grouping principles:**

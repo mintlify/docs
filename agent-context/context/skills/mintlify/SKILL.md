@@ -44,7 +44,7 @@ The user only needs the browser for email verification, OAuth approval, and conn
 
 When you have no local checkout and no CLI (for example, editing through the Mintlify Admin MCP server or inside the Mintlify editor), skip the `mint`, `git` and file-system steps in this skill:
 
-- Read and change pages, navigation and `docs.json` with the Admin MCP tools below, on a `branch`.
+- Read and change pages, navigation and `docs.json` with the Admin MCP tools on a `branch`.
 - Create pages with `create_node`; `write_page` only replaces an existing page.
 - Preview with the `editorUrl` the tools return instead of `mint dev`. Validation runs on every write, so fix any error a write returns instead of running `mint validate`.
 - Publish with `publish` instead of pushing, and only when the user asks.

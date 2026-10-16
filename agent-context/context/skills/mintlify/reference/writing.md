@@ -87,20 +87,20 @@ The default audience is the product's end users and integrators. When the user a
 
 These apply when you author a new page or are asked to improve metadata. Do not rewrite existing titles the user did not ask about.
 
-Every MDX page must set `title`, `sidebarTitle`, and `description` in its frontmatter, and must open with a strong first paragraph.
+Every MDX page must set `title` and `description` in its frontmatter, and must open with a strong first paragraph. `sidebarTitle` is optional for pages that have long `titles`.
 
 ### Title requirements
 
-50-60 characters long. Use content-specific titles: never the generic "[Page name] - [Product]" pattern. Every title must be unique across the site.
+Up to 60 characters long. Use content-specific titles: never the generic "[Page name] - [Product]" pattern. Every title must be unique across the site.
 
 Good titles communicate why someone would read the page.
 
-### Sidebar title requirements (MANDATORY)
+### Sidebar title requirements (optional)
 
-Set `sidebarTitle` on EVERY page. This is the label shown in the navigation sidebar and tabs: keep it short so the sidebar stays scannable. The full SEO `title` is for the page header and meta tags, never for the sidebar.
+Set `sidebarTitle` on pages with long titles. This is the label shown in the navigation sidebar and tabs: keep it short so the sidebar stays scannable. The full SEO `title` is for the page header and meta tags, never for the sidebar.
 
 - 1-3 words maximum
-- Use Title Case
+- Use sentence case
 - Never repeat the product name: it is already shown in the logo
 - Never restate the section/group name
 - Should read like a TOC entry: "Introduction", "Quickstart", "Brokers", "Retry Strategy", "Fairness Queues", "Publishing", "Consuming"
@@ -112,7 +112,7 @@ Bad sidebarTitle (do NOT do these):
 - `"Installing Broccoli Queue in Your Rust Project"`: sentence-length
 
 Good sidebarTitle:
-- `"Introduction"`, `"Quickstart"`, `"Installation"`, `"Brokers"`, `"Retry Strategy"`
+- `"Introduction"`, `"Quickstart"`, `"Installation"`, `"Brokers"`, `"Retry strategy"`
 
 Example title patterns (use as inspiration, not as exact templates):
 - **Intro / overview**: `[Product]: [one-line value prop]`
@@ -125,7 +125,7 @@ Example title patterns (use as inspiration, not as exact templates):
 
 ### Description requirements
 
-130-155 characters long (never under 130, never over 160). Must contain a description of the page's content, not a restatement of the title. Every description must be unique across the site.
+130-160 characters long. Must contain a description of the page's content, not a restatement of the title. Every description must be unique across the site.
 
 Example description patterns (use as inspiration, not as exact templates):
 - **Intro / overview**: `[Product] is [what it does]. [One key differentiator].`

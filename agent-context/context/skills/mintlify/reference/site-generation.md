@@ -81,14 +81,13 @@ The landing page is the first thing users see. Use Mintlify's built-in component
 
 1. **Frontmatter**: Set `title` and `description` that welcome users and summarize the product
 2. **Intro paragraph**: Brief welcome and product summary
-3. **Navigation cards**: `<CardGroup>` with `<Card>` components linking to key sections (Quick Start, API Reference, Guides, etc.)
+3. **Navigation cards**: `<Columns>` with `<Card>` components linking to key sections (Quick Start, API Reference, Guides, etc.)
 4. **Getting started**: Optionally include a `<Steps>` block showing a 3–4 step onboarding flow
 
 #### Rules
 
-- Use ONLY Mintlify components (`<Card>`, `<CardGroup>`, `<Steps>`, `<Note>`, `<Tip>`, etc.): no raw HTML divs, no Tailwind classes, no inline styles
-- Every `<Card>` must have a valid `href` to an existing page and an `icon` prop with a Font Awesome icon name
-- Include at least one `<CardGroup cols={2}>` with cards pointing to the most important sections
+- Use ONLY Mintlify components (`<Card>`, `<Columns>`, `<Steps>`, `<Note>`, `<Tip>`, etc.): no raw HTML divs, no Tailwind classes, no inline styles
+- Every `<Card>` must have a valid `href` to an existing page and an `icon` prop from the icon library the project uses (Font Awesome, Lucide, or Tabler)
 - Keep content concise: the landing page is a navigation hub, not a wall of text
 - Write from the customer's perspective ("Get started", "Explore the API", etc.)
 
