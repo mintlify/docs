@@ -431,13 +431,11 @@ Only when asked to design or reorganize navigation, not for single moves.
 
 ### Keep navigation compact
 
-A bloated sidebar is the #1 quality issue in generated docs. Keep navigation tight and scannable.
+A bloated sidebar is the most common quality issue in generated docs. Size the structure to the content: a small site may need one tab and a few groups, a large product more. Keep it scannable:
 
-**Hard limits:**
-- Maximum 2-3 tabs (most projects need only 1-2)
-- Maximum 4-8 groups per tab
-- Consider merging small groups into a broader parent. If a group has only 1 page, it may not need to be a group.
-- Combine closely related topics into a single page rather than splitting into many thin pages
+- Add a tab only for a distinct audience or product area, not to split up a long list.
+- A group with one page usually should not be a group; merge small groups into a broader parent.
+- Combine closely related topics into a single page rather than splitting into many thin pages.
 
 **Grouping principles:**
 - Prefer FEWER, BROADER groups over MANY, NARROW ones
