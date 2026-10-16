@@ -12,13 +12,13 @@ La réponse inclut un `statusId` que vous pouvez transmettre à [Get deployment 
   ## Exigences relatives à la branche
 </div>
 
-La `branch` doit exister dans le dépôt connecté à votre projet Mintlify. Ce point de terminaison ne prend pas en charge les branches de forks. L'application GitHub Mintlify doit être installée sur un dépôt pour générer une prévisualisation, elle ne peut donc pas générer de prévisualisations à partir de branches de forks. Consultez [Pull requests de forks](/fr/deploy/preview-deployments#fork-pull-requests) pour savoir comment prévisualiser les modifications d'un fork.
+La `branch` doit exister dans le dépôt connecté à votre projet Mintlify et l'application GitHub Mintlify doit être installée. Cet endpoint ne prend pas en charge les branches de forks. Consultez [Pull requests de forks](/fr/deploy/preview-deployments#fork-pull-requests) pour savoir comment prévisualiser les modifications d'un fork.
 
 <div id="use-cases">
   ## Cas d'utilisation
 </div>
 
-- **Pipelines CI/CD** : Créez automatiquement des déploiements de prévisualisation lorsque des pull requests sont ouvertes ou mises à jour.
+- **Pipelines CI/CD** : Créez automatiquement des déploiements de prévisualisation lorsque des utilisateurs ouvrent ou mettent à jour des pull requests.
 - **Prévisualisations planifiées** : Générez des prévisualisations de branches de fonctionnalités de longue durée selon un calendrier.
 - **Outillage personnalisé** : Intégrez la création de prévisualisations dans des workflows internes ou des bots Slack.
 
@@ -26,7 +26,29 @@ La `branch` doit exister dans le dépôt connecté à votre projet Mintlify. Ce 
   ## Accès aux prévisualisations
 </div>
 
-Les prévisualisations créées avec cet endpoint sont accessibles publiquement, sauf si vous activez l'authentification pour vos prévisualisations, qui s'applique alors à chaque prévisualisation de votre déploiement. Vous ne pouvez pas protéger par mot de passe une prévisualisation individuelle via cet endpoint. Consultez [Restreindre l'accès aux déploiements de prévisualisation](/fr/deploy/preview-deployments#restrict-access-to-preview-deployments).
+Par défaut, les prévisualisations créées avec cet endpoint sont accessibles publiquement, sauf si vous activez l'authentification pour vos prévisualisations. Consultez [Restreindre l'accès aux déploiements de prévisualisation](/fr/deploy/preview-deployments#restrict-access-to-preview-deployments).
+
+Pour restreindre l'accès à une prévisualisation spécifique, transmettez un objet `auth` dans le corps de la requête. Mintlify applique le paramètre d'accès à la prévisualisation avant de mettre le déploiement en file d'attente. Si vous omettez `auth`, la prévisualisation conserve ses paramètres d'accès actuels.
+
+- `{ "type": "password", "password": "..." }` : Toute personne disposant du mot de passe peut consulter la prévisualisation. Les mots de passe doivent comporter au moins 8 caractères. La définition d'un mot de passe remplace tout mot de passe existant sur la prévisualisation.
+- `{ "type": "mintlify" }` : Seuls les membres de votre organisation connectés à Mintlify peuvent consulter la prévisualisation.
+
+```bash
+curl --request POST \
+  --url https://api.mintlify.com/v1/project/preview/{projectId} \
+  --header 'Authorization: Bearer <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "branch": "feature/new-guide",
+    "auth": { "type": "password", "password": "review-pass-123" }
+  }'
+```
+
+La définition de `auth` est soumise aux exigences suivantes :
+
+- Votre offre doit inclure l'authentification des déploiements de prévisualisation. Sinon, l'endpoint renvoie une erreur `403`.
+- Votre site doit avoir l'[authentification](/fr/deploy/authentication-setup) ou l'authentification des prévisualisations activée. Sinon, l'endpoint renvoie une erreur `409`.
+- L'authentification doit être activée sur la prévisualisation elle-même. Sinon, l'endpoint renvoie une erreur `409`.
 
 <div id="rate-limits">
   ## Limites de débit
