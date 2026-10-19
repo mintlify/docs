@@ -66,7 +66,7 @@ Connect your tools to the admin MCP from [your dashboard](https://app.mintlify.c
 
 ## How editing works
 
-Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`.
+Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`. Private pages are only available in internal projects. In other projects, private page requests return `private_pages_unavailable`.
 
 The flow is:
 
@@ -88,6 +88,9 @@ The flow is:
     `publish` doesn't merge the pull request unless you pass `merge: true`. With `merge: true`, `publish` also merges the pull request into your deploy branch and returns `merged: true`. Mintlify only allows the merge when it would accept edits to your deploy branch directly. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly). Otherwise, `publish` returns `merge_not_allowed` with the reason and leaves the pull request open for review. Ask the AI tool to merge only when you want the changes to skip review.
 
     The response includes an `editorUrl` that opens the first created or updated page. If the changes only touch configuration, the link opens the branch. Older clients can still pass `mode`, but `publish` ignores it.
+  </Step>
+  <Step title="Check the deployment">
+    When `publish` commits to your deploy branch, directly or by merging the pull request, the response includes a `commitSha` and a `deployment` object. Your changes aren't live on your site until the deployment finishes. Call `deployment_status` with the `commitSha` to check progress. The AI tool checks again about every 30 seconds until `live` is `true`, or stops and reports the `message` if the state is `failed`, `not_live`, or `skipped`.
   </Step>
   <Step title="Discard if needed">
     Call `discard` with the `branch` to abandon your edits. What it removes depends on the branch. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly) and [Work on a branch](#work-on-a-branch).
@@ -158,14 +161,9 @@ Credentials let AI apps and gateways connect to the admin MCP without an interac
 2. Click **Create credential**.
 3. Copy the secret. The dashboard shows the secret only once.
 
-To revoke a credential, click the delete icon next to it.
+Credentials can read content, but they can't change it. Tools that edit, comment on, branch, publish, or discard content require an OAuth login and return `user_principal_required` for a credential.
 
-{/* TODO: Confirm with Sam or James how admin MCP credentials work, then fill in:
-  - What fields the Create credential dialog asks for (label, projects, scopes, role?).
-  - What the dashboard returns (client ID and secret, or a single token).
-  - How a client authenticates with it: token endpoint and grant type, or a bearer header sent directly to https://mcp.mintlify.com. Add a code example.
-  - Which permissions the credential has, since it isn't tied to a user. The "Edit the deploy branch directly" section already notes that client tokens have no "own" changes.
-  - Whether credentials support group scoping like search MCP client credentials. */}
+To revoke a credential, click the delete icon next to it.
 
 ## What the admin MCP can do
 
@@ -232,6 +230,8 @@ Read tools:
 
 - **`get_deployment_settings`**: Read a project's dashboard settings, Git sources, custom hostname status, and source checks in one call. Slack configuration and snippets are opt-in.
 - **`get_analytics_report`**: Read a prebuilt analytics report, such as page views, popular pages, referrals, feedback, assistant chats, or search quality. Select the report with `request.report`. Large results paginate with `maxRows` and `rowOffset`. For custom queries, use `query_analytics`.
+- **`get_analytics_schema`**: Read the tables, events, and SQL rules that `query_analytics` accepts. The AI tool calls it once before writing a query.
+- **`query_analytics`**: Run one read-only `SELECT` query on your site's analytics, such as page views, search, assistant, feedback, and agent and human traffic. Results are already scoped to the project. If analytics queries aren't enabled for the project, both analytics query tools return a `not_enabled` error.
 - **`get_workflows`**: List workflows, get one workflow, or page through its runs.
 - **`list_repos_and_prs`**: List connected repositories, a repository's pull requests, or available integrations to use in a workflow.
 
@@ -242,7 +242,8 @@ Write tools:
 - **`manage_git_source`**: Add, update, remove, or reorder the Git repositories a project builds from, or set the base source.
 - **`manage_access_auth`**: Configure or remove site [authentication](/deploy/authentication-setup), add or delete passwords, configure end-user authentication, or switch which one is active.
 - **`manage_workflow`**: Create, update, enable or disable, delete, or trigger a workflow.
-- **`manage_members_sharing`**: List or remove organization members, update their roles, or manage private page grants and moves.
+- **`manage_workflow_prs`**: Merge or close a pull request that an [automation](/automations) run opened. To merge a pull request for a branch the AI tool edited, use `publish` with `merge: true` instead.
+- **`manage_members_sharing`**: List or remove organization members, update their roles, or manage private page grants and moves in internal projects.
 
 Write tools return the project's updated state under `state`, so the AI tool can confirm the change without a second call. Each action checks the connection's granted scopes and your dashboard role. An action you aren't authorized for returns an error such as `insufficient_scope`.
 
@@ -258,6 +259,7 @@ Write tools return the project's updated state under `state`, so the AI tool can
 - **`status`**: List the edited files, changed `docs.json` keys, and pending navigation diff on `branch`, or on your deploy branch when you omit it. On the deploy branch, lists only your changes.
 - **`diff`**: List all changes between `branch` and your deploy branch. Each changed file and `docs.json` entry includes `authors` and `byYou`. `authors` lists the members whose unpublished edits the entry contains. `byYou` is `true` when the entry includes your own edits. Use `byYou` to tell your changes apart from a colleague's on a shared branch.
 - **`publish`**: On the deploy branch, commit only your pending changes directly. On a branch, commit pending changes and return the branch's pull request, opening one if needed. Pass `merge: true` to also merge the pull request when edits to the deploy branch are allowed.
+- **`deployment_status`**: Check whether published changes are live on your site. Pass the `commitSha` from `publish`, or omit it to check the latest deployment. Returns the `state`, such as `building`, `live`, or `failed`, a `live` boolean, and a `message`.
 - **`discard`**: Abandon the edits on `branch`. On the deploy branch, reverts only your pending changes. On another branch you created, deletes the branch and closes its pull request.
 
 ## Example prompts
@@ -293,10 +295,8 @@ After you connect the admin MCP, you can drive it with natural-language prompts.
 
 Disconnect the admin MCP when you no longer want an AI tool to edit your project, or when you want to force a fresh OAuth login.
 
-{/* TODO: The dashboard Settings sidebar no longer shows a Security & access section. Confirm where Connected apps lives now and update the path in the first bullet below. */}
-
-- **Revoke the OAuth grant**: In your Mintlify dashboard, navigate to **Settings → Security & access → Connected apps** and revoke the entry for the AI tool you connected. Revoking invalidates the tool's access token within 30 seconds. After that, tool calls fail and the tool must complete a new OAuth login on the next call.
-- **Delete a credential**: To revoke access for an AI app or gateway that uses a [credential](#credentials), go to **MCP → Credentials** in your dashboard sidebar and delete it.
+- **Revoke the OAuth grant**: In your Mintlify dashboard, navigate to the [MCP settings](https://app.mintlify.com/products/mcp) in your dashboard and revoke the entry for the AI tool you connected. Revoking invalidates the tool's access token within 30 seconds. After that, tool calls fail and the tool must complete a new OAuth login on the next call.
+- **Delete a credential**: To revoke access for an AI app or gateway that uses a [credential](#credentials), go to the [Credentials](https://app.mintlify.com/products/mcp/admin-credentials) page in your MCP settings and delete it.
 - **Remove the connector in the client**:
   - Claude: **Settings → Connectors**, then remove the admin MCP entry.
   - Claude Code: `claude mcp remove mintlify`.
