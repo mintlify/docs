@@ -1,6 +1,6 @@
 ---
 title: "Serveur Admin Model Context Protocol (MCP)"
-shortTitle: "Admin MCP"
+sidebarTitle: "Admin MCP"
 description: "Donnez à Claude, ChatGPT, Cursor et autres outils d'IA un accès en écriture à votre contenu et tableau de bord Mintlify pour modifier pages, réglages et PRs."
 keywords: ["MCP", "write access", "AI", "editing", "Claude", "ChatGPT", "Cursor", "branch", "pull request"]
 ---
@@ -76,7 +76,7 @@ Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.m
   ## Fonctionnement de l'édition
 </div>
 
-Chaque outil de contenu accepte un argument `branch`. Les outils qui modifient le contenu, comme `edit_page`, `create_node`, `update_config`, `publish` et `discard`, l'exigent. Les outils de lecture, comme `read`, `search`, `list_nodes`, `status` et `diff`, utilisent votre branche de déploiement par défaut lorsque vous l'omettez. L'Admin MCP ne mémorise pas de branche d'un appel à l'autre, donc l'outil d'IA passe `branch` à chaque fois. Les requêtes portant sur des [pages privées](/fr/editor/pages#private-pages) n'ont pas besoin de `branch`.
+Chaque outil de contenu accepte un argument `branch`. Les outils qui modifient le contenu, comme `edit_page`, `create_node`, `update_config`, `publish` et `discard`, l'exigent. Les outils de lecture, comme `read`, `search`, `list_nodes`, `status` et `diff`, utilisent votre branche de déploiement par défaut lorsque vous l'omettez. L'Admin MCP ne mémorise pas de branche d'un appel à l'autre, donc l'outil d'IA passe `branch` à chaque fois. Les requêtes portant sur des [pages privées](/fr/editor/pages#private-pages) n'ont pas besoin de `branch`. Les pages privées ne sont disponibles que dans les projets internes. Dans les autres projets, les requêtes sur des pages privées renvoient `private_pages_unavailable`.
 
 Le déroulement est le suivant :
 
@@ -98,8 +98,9 @@ Le déroulement est le suivant :
     `publish` ne fusionne pas la pull request, sauf si vous passez `merge: true`. Avec `merge: true`, `publish` fusionne aussi la pull request dans votre branche de déploiement et renvoie `merged: true`. Mintlify n'autorise la fusion que s'il accepterait des modifications directes sur votre branche de déploiement. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly). Sinon, `publish` renvoie `merge_not_allowed` avec la raison et laisse la pull request ouverte pour relecture. Demandez à l'outil d'IA de fusionner uniquement lorsque vous voulez que les modifications contournent la relecture.
 
     La réponse inclut un `editorUrl` qui ouvre la première page créée ou mise à jour. Si les modifications ne concernent que la configuration, le lien ouvre la branche. Les anciens clients peuvent toujours passer `mode`, mais `publish` l'ignore.
-
-    Lorsque vos modifications atteignent la branche de déploiement, la réponse inclut aussi un objet `deployment` avec le statut du déploiement du site. Vos modifications ne sont pas en ligne sur votre site de documentation tant que `deployment.live` n'est pas `true`. Appelez `deployment_status` avec le `commitSha` renvoyé pour suivre la progression. Le MCP d'administration indique à l'outil d'IA de signaler que la modification est toujours en cours de publication et de vérifier à nouveau environ toutes les 30 secondes. Si le déploiement se termine par `failed`, `not_live` ou `skipped`, l'outil d'IA arrête de vérifier et partage le `message` renvoyé.
+  </Step>
+  <Step title="Vérifier le déploiement">
+    Lorsque `publish` commite sur votre branche de déploiement, directement ou en fusionnant la pull request, la réponse inclut un `commitSha` et un objet `deployment`. Vos modifications ne sont pas en ligne sur votre site tant que le déploiement n'est pas terminé. Appelez `deployment_status` avec le `commitSha` pour suivre la progression. L'outil d'IA vérifie à nouveau environ toutes les 30 secondes jusqu'à ce que `live` vaille `true`, ou s'arrête et rapporte le `message` si l'état est `failed`, `not_live` ou `skipped`.
   </Step>
   <Step title="Abandonner si nécessaire">
     Appelez `discard` avec la `branch` pour abandonner vos modifications. Ce qu'il supprime dépend de la branche. Consultez [Modifier directement la branche de déploiement](#edit-the-deploy-branch-directly) et [Travailler sur une branche](#work-on-a-branch).
@@ -180,14 +181,9 @@ Les identifiants permettent aux applications et passerelles d'IA de se connecter
 2. Cliquez sur **Create credential**.
 3. Copiez le secret. Le tableau de bord n'affiche le secret qu'une seule fois.
 
-Pour révoquer un identifiant, cliquez sur l'icône de suppression à côté de celui-ci.
+Les identifiants peuvent lire le contenu, mais pas le modifier. Les outils qui modifient, commentent, créent des branches, publient ou abandonnent du contenu nécessitent une connexion OAuth et renvoient `user_principal_required` pour un identifiant.
 
-{/* TODO: Confirm with Sam or James how admin MCP credentials work, then fill in:
-  - What fields the Create credential dialog asks for (label, projects, scopes, role?).
-  - What the dashboard returns (client ID and secret, or a single token).
-  - How a client authenticates with it: token endpoint and grant type, or a bearer header sent directly to https://mcp.mintlify.com. Add a code example.
-  - Which permissions the credential has, since it isn't tied to a user. The "Edit the deploy branch directly" section already notes that client tokens have no "own" changes.
-  - Whether credentials support group scoping like search MCP client credentials. */}
+Pour révoquer un identifiant, cliquez sur l'icône de suppression à côté de celui-ci.
 
 <div id="what-the-admin-mcp-can-do">
   ## Ce que l'Admin MCP peut faire
@@ -268,6 +264,8 @@ Outils de lecture :
 
 - **`get_deployment_settings`**: Lit en un seul appel les paramètres du dashboard d'un projet, ses sources Git, l'état de ses noms d'hôte personnalisés et ses vérifications de sources. La configuration Slack et les snippets sont facultatifs.
 - **`get_analytics_report`**: Lit un rapport d'analyse prédéfini, comme les pages vues, les pages populaires, les référents, les retours, les conversations de l'assistant ou la qualité de la recherche. Sélectionnez le rapport avec `request.report`. Les résultats volumineux sont paginés avec `maxRows` et `rowOffset`. Pour des requêtes personnalisées, utilisez `query_analytics`.
+- **`get_analytics_schema`**: Lit les tables, les événements et les règles SQL acceptés par `query_analytics`. L'outil d'IA l'appelle une fois avant d'écrire une requête.
+- **`query_analytics`**: Exécute une requête `SELECT` en lecture seule sur les analyses de votre site, comme les pages vues, la recherche, l'assistant, les retours et le trafic des agents et des humains. Les résultats sont déjà limités au projet. Si les requêtes d'analyse ne sont pas activées pour le projet, les deux outils de requête d'analyse renvoient une erreur `not_enabled`.
 - **`get_workflows`**: Liste les workflows, récupère un workflow ou parcourt ses exécutions.
 - **`list_repos_and_prs`**: Liste les dépôts connectés, les pull requests d'un dépôt ou les intégrations disponibles pour un workflow.
 
@@ -278,7 +276,8 @@ Outils d'écriture :
 - **`manage_git_source`**: Ajoute, met à jour, supprime ou réordonne les dépôts Git à partir desquels un projet est compilé, ou définit la source de base.
 - **`manage_access_auth`**: Configure ou supprime l'[authentification](/fr/deploy/authentication-setup) du site, ajoute ou supprime des mots de passe, configure l'authentification des utilisateurs finaux ou change celle qui est active.
 - **`manage_workflow`**: Crée, met à jour, active ou désactive, supprime ou déclenche un workflow.
-- **`manage_members_sharing`**: Liste ou retire des membres de l'organisation, met à jour leurs rôles ou gère les autorisations et déplacements des pages privées.
+- **`manage_workflow_prs`**: Fusionne ou ferme une pull request ouverte par une exécution d'[automatisation](/fr/automations). Pour fusionner une pull request d'une branche modifiée par l'outil d'IA, utilisez plutôt `publish` avec `merge: true`.
+- **`manage_members_sharing`**: Liste ou retire des membres de l'organisation, met à jour leurs rôles ou gère les autorisations et déplacements des pages privées dans les projets internes.
 
 Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afin que l'outil d'IA puisse confirmer la modification sans second appel. Chaque action vérifie les scopes accordés à la connexion et votre rôle dans le dashboard. Une action pour laquelle vous n'êtes pas autorisé renvoie une erreur comme `insufficient_scope`.
 
@@ -338,10 +337,8 @@ Une fois l'Admin MCP connecté, vous pouvez le piloter avec des prompts en langa
 
 Déconnectez l'Admin MCP lorsque vous ne souhaitez plus qu'un outil d'IA modifie votre projet, ou lorsque vous souhaitez forcer une nouvelle connexion OAuth.
 
-{/* TODO: The dashboard Settings sidebar no longer shows a Security & access section. Confirm where Connected apps lives now and update the path in the first bullet below. */}
-
-- **Révoquer l'autorisation OAuth** : Dans votre tableau de bord Mintlify, accédez à **Settings → Security & access → Connected apps** et révoquez l'entrée pour l'outil d'IA que vous avez connecté. La révocation invalide le jeton d'accès de l'outil dans un délai de 30 secondes. Ensuite, les appels d'outils échouent et l'outil doit compléter une nouvelle connexion OAuth lors du prochain appel.
-- **Supprimer un identifiant** : Pour révoquer l'accès d'une application ou d'une passerelle d'IA qui utilise un [identifiant](#credentials), accédez à **MCP → Credentials** dans la barre latérale de votre tableau de bord et supprimez-le.
+- **Révoquer l'autorisation OAuth** : Dans votre tableau de bord Mintlify, accédez aux [paramètres MCP](https://app.mintlify.com/products/mcp) et révoquez l'entrée pour l'outil d'IA que vous avez connecté. La révocation invalide le jeton d'accès de l'outil dans un délai de 30 secondes. Ensuite, les appels d'outils échouent et l'outil doit compléter une nouvelle connexion OAuth lors du prochain appel.
+- **Supprimer un identifiant** : Pour révoquer l'accès d'une application ou d'une passerelle d'IA qui utilise un [identifiant](#credentials), accédez à la page [Credentials](https://app.mintlify.com/products/mcp/admin-credentials) de vos paramètres MCP et supprimez-le.
 - **Supprimer le connecteur dans le client** :
   - Claude : **Settings → Connectors**, puis supprimez l'entrée Admin MCP.
   - Claude Code : `claude mcp remove mintlify`.

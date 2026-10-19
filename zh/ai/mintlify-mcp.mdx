@@ -76,7 +76,7 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
   ## 编辑的工作方式
 </div>
 
-每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`publish` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。
+每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`publish` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。私有页面仅在内部项目中可用。在其他项目中，私有页面请求会返回 `private_pages_unavailable`。
 
 流程如下：
 
@@ -98,8 +98,9 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
     除非你传入 `merge: true`，否则 `publish` 不会合并拉取请求。传入 `merge: true` 时，`publish` 还会将拉取请求合并到你的部署 branch，并返回 `merged: true`。只有在 Mintlify 接受直接编辑你的部署 branch 时，才允许合并。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)。否则，`publish` 会返回 `merge_not_allowed` 及原因，并保持拉取请求为打开状态以供审核。只有在你希望更改跳过审核时，才让 AI 工具执行合并。
 
     响应中包含一个 `editorUrl`，用于打开第一个新建或更新的页面。如果更改只涉及配置，该链接会打开 branch。旧版客户端仍可传入 `mode`，但 `publish` 会忽略它。
-
-    当你的更改进入部署 branch 时，响应中还会包含一个 `deployment` 对象，表示站点部署的状态。在 `deployment.live` 为 `true` 之前，你的更改不会在文档站点上线。使用返回的 `commitSha` 调用 `deployment_status` 来查看进度。admin MCP 会让 AI 工具告知你更改仍在发布中，并大约每 30 秒再检查一次。如果部署最终为 `failed`、`not_live` 或 `skipped`，AI 工具会停止检查并告知返回的 `message`。
+  </Step>
+  <Step title="检查部署">
+    当 `publish` 提交到你的部署 branch 时（无论是直接提交还是通过合并拉取请求），响应中会包含一个 `commitSha` 和一个 `deployment` 对象。在部署完成之前，你的更改不会在站点上线。使用 `commitSha` 调用 `deployment_status` 以检查进度。AI 工具大约每 30 秒检查一次，直到 `live` 为 `true`；如果状态为 `failed`、`not_live` 或 `skipped`，则停止并报告 `message`。
   </Step>
   <Step title="按需丢弃">
     调用 `discard` 并传入 `branch` 以放弃你的编辑。它会删除哪些内容取决于该 branch。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)和[在 branch 上工作](#work-on-a-branch)。
@@ -180,14 +181,9 @@ Claude、ChatGPT 和 Cursor 等常用 MCP 客户端始终可以完成 OAuth 登�
 2. 点击 **Create credential**。
 3. 复制密钥。控制台只会显示一次该密钥。
 
-要撤销凭据，请点击其旁边的删除图标。
+凭据可以读取内容，但不能更改内容。编辑、评论、创建 branch、发布或丢弃内容的工具需要 OAuth 登录，使用凭据调用时会返回 `user_principal_required`。
 
-{/* TODO: Confirm with Sam or James how admin MCP credentials work, then fill in:
-  - What fields the Create credential dialog asks for (label, projects, scopes, role?).
-  - What the dashboard returns (client ID and secret, or a single token).
-  - How a client authenticates with it: token endpoint and grant type, or a bearer header sent directly to https://mcp.mintlify.com. Add a code example.
-  - Which permissions the credential has, since it isn't tied to a user. The "Edit the deploy branch directly" section already notes that client tokens have no "own" changes.
-  - Whether credentials support group scoping like search MCP client credentials. */}
+要撤销凭据，请点击其旁边的删除图标。
 
 <div id="what-the-admin-mcp-can-do">
   ## 管理员 MCP 可以做什么
@@ -268,6 +264,8 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
 
 - **`get_deployment_settings`**: 一次调用即可读取项目的仪表板设置、Git 源、自定义主机名状态和源检查。Slack 配置和代码片段需要选择性开启。
 - **`get_analytics_report`**: 读取预构建的分析报告，例如页面浏览量、热门页面、来源、反馈、助手对话或搜索质量。使用 `request.report` 选择报告。较大的结果通过 `maxRows` 和 `rowOffset` 分页。如需自定义查询，请使用 `query_analytics`。
+- **`get_analytics_schema`**: 读取 `query_analytics` 接受的表、事件和 SQL 规则。AI 工具会在编写查询前调用一次。
+- **`query_analytics`**: 对你站点的分析数据运行一条只读 `SELECT` 查询，例如页面浏览量、搜索、助手、反馈，以及 Agent 和人类流量。结果已限定在该项目范围内。如果项目未启用分析查询，这两个分析查询工具都会返回 `not_enabled` 错误。
 - **`get_workflows`**: 列出工作流、获取单个工作流，或分页查看其运行记录。
 - **`list_repos_and_prs`**: 列出已连接的仓库、某个仓库的拉取请求，或可在工作流中使用的集成。
 
@@ -278,7 +276,8 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
 - **`manage_git_source`**: 添加、更新、移除或重新排序项目构建所用的 Git 仓库，或设置基础源。
 - **`manage_access_auth`**: 配置或移除站点[认证](/zh/deploy/authentication-setup)、添加或删除密码、配置终端用户认证，或切换当前启用的认证方式。
 - **`manage_workflow`**: 创建、更新、启用或禁用、删除或触发工作流。
-- **`manage_members_sharing`**: 列出或移除组织成员、更新其角色，或管理私有页面的授权和移动。
+- **`manage_workflow_prs`**: 合并或关闭由[自动化](/zh/automations)运行创建的拉取请求。要合并 AI 工具编辑过的 branch 的拉取请求，请改用带 `merge: true` 的 `publish`。
+- **`manage_members_sharing`**: 列出或移除组织成员、更新其角色，或在内部项目中管理私有页面的授权和移动。
 
 写入工具会在 `state` 下返回项目更新后的状态，因此 AI 工具无需再次调用即可确认更改。每个操作都会检查连接被授予的作用域以及你在仪表板中的角色。未获授权的操作会返回 `insufficient_scope` 等错误。
 
@@ -338,10 +337,8 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
 
 当你不再希望某个 AI 工具编辑你的项目，或想要强制重新完成 OAuth 登录时，请断开管理员 MCP。
 
-{/* TODO: The dashboard Settings sidebar no longer shows a Security & access section. Confirm where Connected apps lives now and update the path in the first bullet below. */}
-
-- **撤销 OAuth 授权**：在你的 Mintlify 控制台中，前往 **Settings → Security & access → Connected apps**，然后撤销你所连接的 AI 工具对应的条目。撤销会在 30 秒内使该工具的访问令牌失效。此后工具调用会失败，工具在下次调用时必须完成新的 OAuth 登录。
-- **删除凭据**：要撤销使用[凭据](#credentials)的 AI 应用或网关的访问权限，请在控制台侧边栏中前往 **MCP → Credentials** 并将其删除。
+- **撤销 OAuth 授权**：在你的 Mintlify 控制台中，前往 [MCP 设置](https://app.mintlify.com/products/mcp)，然后撤销你所连接的 AI 工具对应的条目。撤销会在 30 秒内使该工具的访问令牌失效。此后工具调用会失败，工具在下次调用时必须完成新的 OAuth 登录。
+- **删除凭据**：要撤销使用[凭据](#credentials)的 AI 应用或网关的访问权限，请前往 MCP 设置中的 [Credentials](https://app.mintlify.com/products/mcp/admin-credentials) 页面并将其删除。
 - **在客户端中移除连接器**：
   - Claude：**Settings → Connectors**，然后移除管理员 MCP 条目。
   - Claude Code：`claude mcp remove mintlify`。
