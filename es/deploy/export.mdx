@@ -12,7 +12,7 @@ Usa `mint export` para empaquetar todo tu sitio de documentación en un archivo 
 
 Esto es útil cuando necesitas distribuir documentación a usuarios que no pueden acceder a tu sitio en producción, como clientes on-premise o revisiones internas de cumplimiento.
 
-Las exportaciones no son totalmente autocontenidas. Algunos recursos se cargan desde hosts externos en tiempo de ejecución, y las exportaciones deben servirse desde la raíz de un dominio. Los entornos aislados (air-gapped) y el alojamiento de una exportación dentro de otra aplicación o bajo una subruta no son totalmente compatibles. Revisa las [limitaciones](#limitations) antes de desplegar una exportación en un entorno sin acceso a internet.
+La CLI empaqueta en el archivo los iconos, las fuentes y los estilos de LaTeX que usa tu sitio, por lo que la documentación exportada funciona en entornos aislados (air-gapped) sin acceso a internet. Las exportaciones deben servirse desde la raíz de un dominio. Revisa las [limitaciones](#limitations) antes de desplegar una exportación.
 
 <div id="prerequisites">
   ## Requisitos previos
@@ -28,18 +28,22 @@ Las exportaciones no son totalmente autocontenidas. Algunos recursos se cargan d
 - Las exportaciones offline no admiten búsqueda. Para añadir búsqueda offline, indexa el HTML exportado con una herramienta de búsqueda estática.
 - Las exportaciones offline no admiten el asistente de Mintlify.
 - Las exportaciones offline deben servirse desde la raíz de un dominio, como `http://localhost:3000/`. No se admite servir una exportación bajo una subruta, como `/docs`.
-- Algunos recursos se cargan desde hosts externos en tiempo de ejecución. Sin acceso a internet, o detrás de una Content Security Policy que bloquee estos hosts, no se cargan.
+- Las exportaciones offline no incluyen analytics ni otras [integraciones](/es/organize/settings-integrations) configuradas en tu `docs.json`.
+- Las imágenes y otros archivos que tus páginas referencian mediante una URL externa no se empaquetan. Guárdalos en tu proyecto para incluirlos en el archivo.
 
-<div id="assets-that-load-from-external-hosts">
-  ### Recursos que se cargan desde hosts externos
+<div id="bundled-assets">
+  ### Recursos empaquetados
 </div>
 
-| Recurso | Cómo evitar la solicitud externa |
-|---|---|
-| Iconos referenciados por nombre, como los iconos de Font Awesome y Lucide | Usa [iconos de imagen personalizados](/es/components/icons#custom-image-icons) almacenados en tu proyecto. |
-| Iconos de lenguaje de los bloques de código y banderas del selector de idioma | Ninguna. Siempre se cargan desde la CDN de Mintlify. |
-| Hojas de estilo de LaTeX | Si tu contenido no usa expresiones matemáticas, establece [`styling.latex`](/es/organize/settings-appearance#styling) en `false`. |
-| Google Fonts y fuentes alojadas externamente | Usa [fuentes locales](/es/customize/fonts#local-fonts) almacenadas en tu proyecto. |
+Cuando ejecutas `mint export`, la CLI descarga los recursos que tu sitio carga desde hosts externos y los guarda en el archivo. Esto incluye:
+
+- Iconos referenciados por nombre, como los iconos de Font Awesome y Lucide.
+- Iconos de lenguaje de los bloques de código y banderas del selector de idioma.
+- Google Fonts y fuentes alojadas externamente.
+- Hojas de estilo y fuentes de LaTeX.
+- Archivos referenciados desde las hojas de estilo empaquetadas.
+
+El equipo que ejecuta `mint export` necesita acceso a internet para descargar estos recursos. La CLI solo descarga recursos de hosts públicos. Si un recurso no se descarga, la CLI muestra una advertencia `could not bundle <url>` y la documentación exportada carga ese recurso desde su host original.
 
 <div id="export-your-site">
   ## Exportar tu sitio
@@ -92,7 +96,11 @@ El archivo exportado contiene tus páginas prerrenderizadas, sus recursos empaqu
 | Archivo | Propósito |
 |---|---|
 | Páginas HTML | Versión pre-renderizada de cada página de tu navegación |
+| Archivos `index.txt` | Datos de página para la navegación del lado del cliente, guardados junto al HTML de cada página |
 | `_next/static/` | CSS, JavaScript y otros recursos estáticos empaquetados |
+| `_mintlify/export-assets/` | Iconos, fuentes y otros recursos descargados desde hosts externos |
+| `llms.txt` | Índice de las páginas exportadas para herramientas de IA |
+| `README.md` | Instrucciones para ver la exportación y alojarla en tu propio servidor |
 | `serve.js` | Servidor HTTP de Node.js sin dependencias que sirve el sitio |
 | `Start Docs.command` | Lanzador para macOS. Haz doble clic para abrir la documentación. |
 | `Start Docs.bat` | Lanzador para Windows. Haz doble clic para abrir la documentación. |
@@ -129,3 +137,15 @@ Comparte el archivo zip con cualquier persona que tenga Node.js instalado. Para 
     </Note>
   </Tab>
 </Tabs>
+
+<div id="host-the-export-on-your-own-server">
+  ## Alojar la exportación en tu propio servidor
+</div>
+
+Para alojar una exportación en tu propio servidor web en lugar de usar `serve.js`, sirve la carpeta descomprimida como archivos estáticos desde la raíz de un dominio con estas reglas:
+
+1. **Páginas:** Sirve `<path>/index.html` para una solicitud a `/<path>`.
+2. **Navegación del lado del cliente:** Para una solicitud con un encabezado `RSC: 1` o un parámetro de consulta `_rsc`, sirve `<path>/index.txt` con `Content-Type: text/x-component` y `Vary: RSC`. Sin esta regla, cada clic en un enlace carga una página completa.
+3. **Caché:** Sirve `_next/static/*` y `_mintlify/export-assets/*` con `Cache-Control: public, max-age=31536000, immutable`. Sirve las páginas y los archivos `index.txt` con `Cache-Control: no-cache`.
+
+`serve.js` implementa las tres reglas, así que puedes usarlo como referencia.
