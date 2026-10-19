@@ -14,6 +14,7 @@ How changes reach the live site, how to answer "is this live", and how to review
 - `publish` with the `branch` and a `title`. On the deploy branch it commits your pending changes. On another branch it commits anything pending and returns the branch's pull request, opening one if none exists. Pass `merge: true` only when the user asks to merge and deploy-branch edits are allowed.
 - When the project requires pull requests, edits to the deploy branch are refused with the reason. Call `create_branch` and work on the branch it returns.
 - Report exactly what the result returned: the commit, the pull request link, or the failure reason. Never say a pull request was opened without its link. `no_pending_changes` means there was nothing to publish.
+- When `publish` returns a `deployment` object, the changes are not live until `deployment.live` is `true`. Call `deployment_status` with the `commitSha` about every 30 seconds until it reports `live`. Stop on `failed`, `not_live` or `skipped` and give the user `message`.
 - `discard` abandons your pending changes on the deploy branch, or deletes a branch you created.
 
 ## Undo

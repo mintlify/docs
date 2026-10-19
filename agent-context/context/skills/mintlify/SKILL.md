@@ -91,6 +91,7 @@ Private pages: `list_nodes` accepts `visibility: "private"` to list the private 
 - **`diff`** — See all changes on `branch` relative to the deploy branch.
 - **`status`** — List unpublished edited files, `docs.json` keys and nav changes on `branch`. On the deploy branch, lists only your changes.
 - **`publish`** — Publish `branch` with a `title`. Call it only when the user asks to publish, ship, or merge, never on your own after an edit. On the deploy branch, commits only your pending changes. On a branch, commits anything pending and returns the branch's pull request, opening one if none exists. Pass `merge: true` to also merge that pull request, only when the user asks and deploy-branch edits are allowed; otherwise it returns `merge_not_allowed` and leaves the pull request open. `publish` ignores `mode`. Returns `no_pending_changes` when there is nothing to commit and no pull request. The response includes an `editorUrl` that opens the first created or updated page.
+- **`deployment_status`** — Check whether published changes are live. Pass the `commitSha` from `publish`, or omit it for the latest deploy. When `publish` returns a `deployment` object, the changes aren't live until `live` is `true`. Until then, tell the user the site is still publishing and check again in about 30 seconds. Stop on `failed`, `not_live`, or `skipped` and give the user `message`.
 - **`discard`** — On the deploy branch, reverts only your pending changes. On another branch, deletes the branch and closes its pull request, but only if you created it; otherwise changes nothing.
 
 Keep each branch focused on one change. Smaller branches produce easier-to-review PRs. Open the `editorUrl` to watch changes render live. Prefer the page-level `editorUrl` from `create_node` or `publish` over the one from `create_branch`.
@@ -260,7 +261,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint test` (generate tests for code blocks), `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`. Read `reference/cli.md` for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`. Read `reference/cli.md` for full flags and subcommands.
 
 ## Writing standards
 
