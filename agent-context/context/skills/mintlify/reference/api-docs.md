@@ -241,6 +241,7 @@ Control the API playground behavior in `docs.json`:
 - `playground.credentials`: Include cookies and auth headers for cross-origin requests when proxy is `false`. Default: `false`.
 - `params.expanded`: Expand all parameters by default. `"all"` or `"closed"` (default).
 - `params.post`: OpenAPI schema field keys to surface as pills next to parameter names (array of strings).
+- `optional`: How optional request fields display in the playground. `"collapsed"` (default), `"expanded"`, or `"static"` (always shown, no toggle).
 - `url`: Set to `"full"` to always show the full base URL.
 - `examples.languages`: Supported values — `bash` (cURL), `python`, `javascript`, `node`, `php`, `go`, `java`, `ruby`, `powershell`, `swift`, `csharp`, `dotnet`, `typescript`, `c`, `c++`, `kotlin`, `rust`, `dart`.
 - `examples.defaults`: `"required"` or `"all"` (include optional params).
