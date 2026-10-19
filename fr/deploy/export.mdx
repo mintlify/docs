@@ -12,7 +12,7 @@ Utilisez `mint export` pour empaqueter l'intégralité de votre site de document
 
 Cela est utile lorsque vous devez distribuer la documentation à des utilisateurs qui ne peuvent pas accéder à votre site en production, par exemple pour des clients on-premise ou des audits de conformité internes.
 
-Les exportations ne sont pas entièrement autonomes. Certaines ressources sont chargées depuis des hôtes externes à l'exécution, et les exportations doivent être servies depuis la racine d'un domaine. Les environnements isolés (air-gapped), ainsi que l'hébergement d'une exportation dans une autre application ou sous un sous-chemin, ne sont pas entièrement pris en charge. Consultez les [limitations](#limitations) avant de déployer une exportation dans un environnement sans accès à internet.
+La CLI empaquette dans l'archive les icônes, les polices et les styles LaTeX utilisés par votre site, afin que la documentation exportée fonctionne dans des environnements isolés (air-gapped) sans accès à internet. Les exportations doivent être servies depuis la racine d'un domaine. Consultez les [limitations](#limitations) avant de déployer une exportation.
 
 <div id="prerequisites">
   ## Prérequis
@@ -28,18 +28,22 @@ Les exportations ne sont pas entièrement autonomes. Certaines ressources sont c
 - Les exportations hors ligne ne prennent pas en charge la recherche. Pour ajouter la recherche hors ligne, indexez le code HTML exporté avec un outil de recherche statique.
 - Les exportations hors ligne ne prennent pas en charge l'assistant Mintlify.
 - Les exportations hors ligne doivent être servies depuis la racine d'un domaine, par exemple `http://localhost:3000/`. Servir une exportation sous un sous-chemin, comme `/docs`, n'est pas pris en charge.
-- Certaines ressources sont chargées depuis des hôtes externes à l'exécution. Sans accès à internet, ou derrière une Content Security Policy qui bloque ces hôtes, elles ne se chargent pas.
+- Les exportations hors ligne n'incluent pas les outils d'analytics ni les autres [intégrations](/fr/organize/settings-integrations) configurés dans votre `docs.json`.
+- Les images et autres fichiers que vos pages référencent par une URL externe ne sont pas empaquetés. Stockez-les dans votre projet pour les inclure dans l'archive.
 
-<div id="assets-that-load-from-external-hosts">
-  ### Ressources chargées depuis des hôtes externes
+<div id="bundled-assets">
+  ### Ressources empaquetées
 </div>
 
-| Ressource | Comment éviter la requête externe |
-|---|---|
-| Icônes référencées par nom, comme les icônes Font Awesome et Lucide | Utilisez des [icônes image personnalisées](/fr/components/icons#custom-image-icons) stockées dans votre projet. |
-| Icônes de langage des blocs de code et drapeaux du sélecteur de langue | Aucune. Elles sont toujours chargées depuis le CDN de Mintlify. |
-| Feuilles de style LaTeX | Si votre contenu n'utilise pas d'expressions mathématiques, définissez [`styling.latex`](/fr/organize/settings-appearance#styling) sur `false`. |
-| Google Fonts et polices hébergées en externe | Utilisez des [polices locales](/fr/customize/fonts#local-fonts) stockées dans votre projet. |
+Lorsque vous exécutez `mint export`, la CLI télécharge les ressources que votre site charge depuis des hôtes externes et les enregistre dans l'archive. Cela comprend :
+
+- Les icônes référencées par nom, comme les icônes Font Awesome et Lucide.
+- Les icônes de langage des blocs de code et les drapeaux du sélecteur de langue.
+- Google Fonts et les polices hébergées en externe.
+- Les feuilles de style et polices LaTeX.
+- Les fichiers référencés depuis les feuilles de style empaquetées.
+
+L'ordinateur qui exécute `mint export` a besoin d'un accès à internet pour télécharger ces ressources. La CLI ne télécharge que des ressources provenant d'hôtes publics. Si le téléchargement d'une ressource échoue, la CLI affiche un avertissement `could not bundle <url>` et la documentation exportée charge cette ressource depuis son hôte d'origine.
 
 <div id="export-your-site">
   ## Exporter votre site
@@ -92,7 +96,11 @@ L'archive exportée contient vos pages pré-rendues, leurs ressources groupées 
 | Fichier | Fonction |
 |---|---|
 | Pages HTML | Version pré-rendue de chaque page de votre navigation |
+| Fichiers `index.txt` | Données de page pour la navigation côté client, enregistrées à côté du HTML de chaque page |
 | `_next/static/` | CSS, JavaScript et autres ressources statiques empaquetés |
+| `_mintlify/export-assets/` | Icônes, polices et autres ressources téléchargées depuis des hôtes externes |
+| `llms.txt` | Index des pages exportées pour les outils d'IA |
+| `README.md` | Instructions pour consulter l'exportation et l'héberger sur votre propre serveur |
 | `serve.js` | Serveur HTTP Node.js sans dépendance qui sert le site |
 | `Start Docs.command` | Lanceur macOS. Double-cliquez pour ouvrir la documentation. |
 | `Start Docs.bat` | Lanceur Windows. Double-cliquez pour ouvrir la documentation. |
@@ -129,3 +137,15 @@ Partagez le fichier zip avec toute personne disposant de Node.js. Pour consulter
     </Note>
   </Tab>
 </Tabs>
+
+<div id="host-the-export-on-your-own-server">
+  ## Héberger l'exportation sur votre propre serveur
+</div>
+
+Pour héberger une exportation sur votre propre serveur web au lieu de `serve.js`, servez le dossier décompressé sous forme de fichiers statiques depuis la racine d'un domaine en respectant ces règles :
+
+1. **Pages :** Servez `<path>/index.html` pour une requête vers `/<path>`.
+2. **Navigation côté client :** Pour une requête avec un en-tête `RSC: 1` ou un paramètre de requête `_rsc`, servez `<path>/index.txt` avec `Content-Type: text/x-component` et `Vary: RSC`. Sans cette règle, chaque clic sur un lien charge une page complète.
+3. **Mise en cache :** Servez `_next/static/*` et `_mintlify/export-assets/*` avec `Cache-Control: public, max-age=31536000, immutable`. Servez les pages et les fichiers `index.txt` avec `Cache-Control: no-cache`.
+
+`serve.js` implémente ces trois règles, vous pouvez donc l'utiliser comme référence.

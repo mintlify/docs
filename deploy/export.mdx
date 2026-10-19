@@ -12,7 +12,7 @@ Use `mint export` to package your entire documentation site into a zip archive o
 
 This is useful when you need to distribute documentation to users who can't access your live site, such as for on-premise customers or internal compliance reviews.
 
-Exports are not fully self-contained. Some assets load from external hosts at runtime, and exports must be served from the root of a domain. Air-gapped environments, and hosting an export inside another application or under a subpath, are not fully supported. Review the [limitations](#limitations) before you deploy an export to an environment without internet access.
+The CLI bundles the icons, fonts, and LaTeX styles your site uses into the archive, so exported docs work in air-gapped environments without internet access. Exports must be served from the root of a domain. Review the [limitations](#limitations) before you deploy an export.
 
 ## Prerequisites
 
@@ -24,16 +24,20 @@ Exports are not fully self-contained. Some assets load from external hosts at ru
 - Offline exports do not support search. To add offline search, index the exported HTML with a static search tool.
 - Offline exports do not support the Mintlify assistant.
 - Offline exports must be served from the root of a domain, such as `http://localhost:3000/`. Serving an export under a subpath, such as `/docs`, is not supported.
-- Some assets load from external hosts at runtime. Without internet access, or behind a Content Security Policy that blocks these hosts, they fail to load.
+- Offline exports do not include analytics or other [integrations](/organize/settings-integrations) configured in your `docs.json`.
+- Images and other files that your pages reference by external URL are not bundled. Store them in your project to include them in the archive.
 
-### Assets that load from external hosts
+### Bundled assets
 
-| Asset | How to avoid the external request |
-|---|---|
-| Icons referenced by name, such as Font Awesome and Lucide icons | Use [custom image icons](/components/icons#custom-image-icons) stored in your project. |
-| Code block language icons and language selector flags | None. These always load from Mintlify's CDN. |
-| LaTeX stylesheets | If your content doesn't use math expressions, set [`styling.latex`](/organize/settings-appearance#styling) to `false`. |
-| Google Fonts and externally hosted fonts | Use [local fonts](/customize/fonts#local-fonts) stored in your project. |
+When you run `mint export`, the CLI downloads assets that your site loads from external hosts and saves them in the archive. This includes:
+
+- Icons referenced by name, such as Font Awesome and Lucide icons.
+- Code block language icons and language selector flags.
+- Google Fonts and externally hosted fonts.
+- LaTeX stylesheets and fonts.
+- Files referenced from bundled stylesheets.
+
+The computer running `mint export` needs internet access to download these assets. The CLI only downloads assets from public hosts. If an asset fails to download, the CLI prints a `could not bundle <url>` warning, and the exported docs load that asset from its original host.
 
 ## Export your site
 
@@ -78,7 +82,11 @@ The exported archive contains your pre-rendered pages, their bundled assets, and
 | File | Purpose |
 |---|---|
 | HTML pages | Pre-rendered version of every page in your navigation |
+| `index.txt` files | Page data for client-side navigation, saved next to each page's HTML |
 | `_next/static/` | Bundled CSS, JavaScript, and other static assets |
+| `_mintlify/export-assets/` | Icons, fonts, and other assets downloaded from external hosts |
+| `llms.txt` | Index of the exported pages for AI tools |
+| `README.md` | Instructions for viewing the export and hosting it on your own server |
 | `serve.js` | Zero-dependency Node.js HTTP server that serves the site |
 | `Start Docs.command` | macOS launcher. Double-click to open the docs. |
 | `Start Docs.bat` | Windows launcher. Double-click to open the docs. |
@@ -113,3 +121,13 @@ Share the zip file with anyone who has Node.js installed. To view the docs:
     </Note>
   </Tab>
 </Tabs>
+
+## Host the export on your own server
+
+To host an export on your own web server instead of `serve.js`, serve the unzipped folder as static files from the root of a domain with these rules:
+
+1. **Pages:** Serve `<path>/index.html` for a request to `/<path>`.
+2. **Client-side navigation:** For a request with an `RSC: 1` header or an `_rsc` query parameter, serve `<path>/index.txt` with `Content-Type: text/x-component` and `Vary: RSC`. Without this rule, every link click loads a full page.
+3. **Caching:** Serve `_next/static/*` and `_mintlify/export-assets/*` with `Cache-Control: public, max-age=31536000, immutable`. Serve pages and `index.txt` files with `Cache-Control: no-cache`.
+
+`serve.js` implements all three rules, so you can use it as a reference.
