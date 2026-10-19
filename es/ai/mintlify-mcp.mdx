@@ -1,6 +1,6 @@
 ---
 title: "Servidor Admin Model Context Protocol (MCP)"
-shortTitle: "Admin MCP"
+sidebarTitle: "Admin MCP"
 description: "Da a Claude, ChatGPT, Cursor y otras herramientas de IA acceso de escritura a tu contenido y panel de Mintlify para editar páginas, ajustes y abrir PRs."
 keywords: ["MCP", "write access", "AI", "editing", "Claude", "ChatGPT", "Cursor", "branch", "pull request"]
 ---
@@ -76,7 +76,7 @@ Conecta tus herramientas al Admin MCP desde [tu panel](https://app.mintlify.com/
   ## Cómo funciona la edición
 </div>
 
-Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`.
+Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`. Las páginas privadas solo están disponibles en proyectos internos. En otros proyectos, las solicitudes sobre páginas privadas devuelven `private_pages_unavailable`.
 
 El flujo es:
 
@@ -98,6 +98,9 @@ El flujo es:
     `publish` no fusiona la pull request a menos que pases `merge: true`. Con `merge: true`, `publish` también fusiona la pull request en tu rama de despliegue y devuelve `merged: true`. Mintlify solo permite la fusión cuando aceptaría ediciones directas en tu rama de despliegue. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly). De lo contrario, `publish` devuelve `merge_not_allowed` con el motivo y deja la pull request abierta para revisión. Pide a la herramienta de IA que fusione solo cuando quieras que los cambios omitan la revisión.
 
     La respuesta incluye un `editorUrl` que abre la primera página creada o actualizada. Si los cambios solo afectan a la configuración, el enlace abre la rama. Los clientes antiguos aún pueden pasar `mode`, pero `publish` lo ignora.
+  </Step>
+  <Step title="Comprobar el despliegue">
+    Cuando `publish` hace commit en tu rama de despliegue, directamente o al fusionar la pull request, la respuesta incluye un `commitSha` y un objeto `deployment`. Tus cambios no están en vivo en tu sitio hasta que termina el despliegue. Llama a `deployment_status` con el `commitSha` para comprobar el progreso. La herramienta de IA vuelve a comprobarlo aproximadamente cada 30 segundos hasta que `live` sea `true`, o se detiene e informa el `message` si el estado es `failed`, `not_live` o `skipped`.
   </Step>
   <Step title="Descartar si es necesario">
     Llama a `discard` con la `branch` para abandonar tus ediciones. Lo que elimina depende de la rama. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly) y [Trabajar en una rama](#work-on-a-branch).
@@ -178,14 +181,9 @@ Las credenciales permiten que las aplicaciones y gateways de IA se conecten al A
 2. Haz clic en **Create credential**.
 3. Copia el secreto. El panel muestra el secreto solo una vez.
 
-Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
+Las credenciales pueden leer contenido, pero no pueden modificarlo. Las herramientas que editan, comentan, crean ramas, publican o descartan contenido requieren un inicio de sesión de OAuth y devuelven `user_principal_required` para una credencial.
 
-{/* TODO: Confirm with Sam or James how admin MCP credentials work, then fill in:
-  - What fields the Create credential dialog asks for (label, projects, scopes, role?).
-  - What the dashboard returns (client ID and secret, or a single token).
-  - How a client authenticates with it: token endpoint and grant type, or a bearer header sent directly to https://mcp.mintlify.com. Add a code example.
-  - Which permissions the credential has, since it isn't tied to a user. The "Edit the deploy branch directly" section already notes that client tokens have no "own" changes.
-  - Whether credentials support group scoping like search MCP client credentials. */}
+Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
 
 <div id="what-the-admin-mcp-can-do">
   ## Qué puede hacer el Admin MCP
@@ -266,6 +264,8 @@ Herramientas de lectura:
 
 - **`get_deployment_settings`**: Lee la configuración del dashboard de un proyecto, sus fuentes de Git, el estado de sus hostnames personalizados y sus comprobaciones de fuentes en una sola llamada. La configuración de Slack y los snippets son opcionales.
 - **`get_analytics_report`**: Lee un informe de analíticas predefinido, como vistas de página, páginas populares, referencias, feedback, chats del asistente o calidad de búsqueda. Selecciona el informe con `request.report`. Los resultados grandes se paginan con `maxRows` y `rowOffset`. Para consultas personalizadas, usa `query_analytics`.
+- **`get_analytics_schema`**: Lee las tablas, los eventos y las reglas de SQL que acepta `query_analytics`. La herramienta de IA lo llama una vez antes de escribir una consulta.
+- **`query_analytics`**: Ejecuta una consulta `SELECT` de solo lectura sobre las analíticas de tu sitio, como vistas de página, búsqueda, asistente, feedback y tráfico de agentes y humanos. Los resultados ya están limitados al proyecto. Si las consultas de analíticas no están habilitadas para el proyecto, ambas herramientas de consulta de analíticas devuelven un error `not_enabled`.
 - **`get_workflows`**: Lista los workflows, obtiene uno o recorre sus ejecuciones.
 - **`list_repos_and_prs`**: Lista los repositorios conectados, las pull requests de un repositorio o las integraciones disponibles para usar en un workflow.
 
@@ -276,7 +276,8 @@ Herramientas de escritura:
 - **`manage_git_source`**: Agrega, actualiza, elimina o reordena los repositorios de Git desde los que se compila un proyecto, o establece la fuente base.
 - **`manage_access_auth`**: Configura o elimina la [autenticación](/es/deploy/authentication-setup) del sitio, agrega o elimina contraseñas, configura la autenticación de usuarios finales o cambia cuál está activa.
 - **`manage_workflow`**: Crea, actualiza, habilita o deshabilita, elimina o ejecuta un workflow.
-- **`manage_members_sharing`**: Lista o elimina miembros de la organización, actualiza sus roles o gestiona los permisos y traslados de páginas privadas.
+- **`manage_workflow_prs`**: Fusiona o cierra una pull request abierta por una ejecución de [automatización](/es/automations). Para fusionar una pull request de una rama que editó la herramienta de IA, usa `publish` con `merge: true` en su lugar.
+- **`manage_members_sharing`**: Lista o elimina miembros de la organización, actualiza sus roles o gestiona los permisos y traslados de páginas privadas en proyectos internos.
 
 Las herramientas de escritura devuelven el estado actualizado del proyecto en `state`, para que la herramienta de IA pueda confirmar el cambio sin una segunda llamada. Cada acción comprueba los ámbitos otorgados a la conexión y tu rol en el dashboard. Una acción para la que no tienes autorización devuelve un error como `insufficient_scope`.
 
@@ -294,6 +295,7 @@ Las herramientas de escritura devuelven el estado actualizado del proyecto en `s
 - **`status`**: Lista los archivos editados, las claves de `docs.json` modificadas y el diff de navegación pendiente en `branch`, o en tu rama de despliegue cuando lo omites. En la rama de despliegue, lista solo tus cambios.
 - **`diff`**: Lista todos los cambios entre `branch` y tu rama de despliegue. Cada archivo modificado y la entrada de `docs.json` incluyen `authors` y `byYou`. `authors` enumera los miembros cuyas ediciones no publicadas contiene la entrada. `byYou` es `true` cuando la entrada incluye tus propias ediciones. Usa `byYou` para distinguir tus cambios de los de un colega en una rama compartida.
 - **`publish`**: En la rama de despliegue, hace commit directamente solo de tus cambios pendientes. En una rama, hace commit de los cambios pendientes y devuelve la pull request de la rama, y abre una si es necesario. Pasa `merge: true` para fusionar también la pull request cuando se permiten ediciones en la rama de despliegue.
+- **`deployment_status`**: Comprueba si los cambios publicados están en vivo en tu sitio. Pasa el `commitSha` de `publish`, u omítelo para comprobar el despliegue más reciente. Devuelve el `state`, como `building`, `live` o `failed`, un booleano `live` y un `message`.
 - **`discard`**: Abandona las ediciones en `branch`. En la rama de despliegue, revierte solo tus cambios pendientes. En otra rama que creaste, elimina la rama y cierra su pull request.
 
 <div id="example-prompts">
@@ -335,10 +337,8 @@ Después de conectarte al Admin MCP, puedes manejarlo con prompts en lenguaje na
 
 Desconecta el Admin MCP cuando ya no quieras que una herramienta de IA edite tu proyecto, o cuando quieras forzar un nuevo inicio de sesión de OAuth.
 
-{/* TODO: The dashboard Settings sidebar no longer shows a Security & access section. Confirm where Connected apps lives now and update the path in the first bullet below. */}
-
-- **Revocar la autorización de OAuth**: En tu panel de Mintlify, ve a **Settings → Security & access → Connected apps** y revoca la entrada de la herramienta de IA que conectaste. Revocar invalida el token de acceso de la herramienta en un plazo de 30 segundos. Después, las llamadas a herramientas fallan y la herramienta debe completar un nuevo inicio de sesión de OAuth en la próxima llamada.
-- **Eliminar una credencial**: Para revocar el acceso de una aplicación o gateway de IA que usa una [credencial](#credentials), ve a **MCP → Credentials** en la barra lateral de tu panel y elimínala.
+- **Revocar la autorización de OAuth**: En tu panel de Mintlify, ve a la [configuración de MCP](https://app.mintlify.com/products/mcp) y revoca la entrada de la herramienta de IA que conectaste. Revocar invalida el token de acceso de la herramienta en un plazo de 30 segundos. Después, las llamadas a herramientas fallan y la herramienta debe completar un nuevo inicio de sesión de OAuth en la próxima llamada.
+- **Eliminar una credencial**: Para revocar el acceso de una aplicación o gateway de IA que usa una [credencial](#credentials), ve a la página [Credentials](https://app.mintlify.com/products/mcp/admin-credentials) de tu configuración de MCP y elimínala.
 - **Eliminar el conector en el cliente**:
   - Claude: **Settings → Connectors**, luego elimina la entrada del Admin MCP.
   - Claude Code: `claude mcp remove mintlify`.
