@@ -6,7 +6,7 @@ How changes reach the live site, how to answer "is this live", and how to review
 
 - Edits made through the Admin MCP server or the Mintlify editor are unpublished until they are published. On the deploy branch they are pending changes; on any other branch they reach the site when that branch's pull request is merged.
 - Saving and publishing are different steps. The editor saves edits on its own; publishing commits them to git.
-- To answer "is this live" or "why can't I see my change", check what is unpublished (`status` or `diff` on the branch) and whether a publish succeeded. Say what you know and how the user can make it live. Do not guess, and do not claim a change is live when it only reached another branch.
+- To answer "is this live" or "why can't I see my change", check what is unpublished (`status` or `diff` on the branch), whether a publish succeeded, and whether its deploy finished (`deployment_status` with the `commitSha` from `publish`; the change is live only when `live` is `true`). Say what you know and how the user can make it live. Do not guess, and do not claim a change is live when it only reached another branch.
 
 ## Publishing
 

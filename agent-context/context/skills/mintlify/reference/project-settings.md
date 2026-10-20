@@ -1,6 +1,6 @@
 # Project settings and analytics
 
-Dashboard-managed settings belong to the deployment, not to the docs files, and are not in `docs.json` (for those, see `reference/configuration.md`). Through the Mintlify Admin MCP server, read them with `get_deployment_settings`, `get_workflows`, `list_repos_and_prs` and `get_analytics_report`, and change them with `update_deployment_settings`, `manage_custom_domain`, `manage_git_source`, `manage_access_auth`, `manage_workflow`, `manage_members_sharing` and `manage_workflow_prs`. Writes apply immediately to the live project: there is no draft, branch or undo.
+Dashboard-managed settings belong to the deployment, not to the docs files, and are not in `docs.json` (for those, see `reference/configuration.md`). Through the Mintlify Admin MCP server, read them with `get_deployment_settings`, `get_workflows`, `list_repos_and_prs`, `get_analytics_report`, `get_analytics_schema` and `query_analytics`, and change them with `update_deployment_settings`, `manage_custom_domain`, `manage_git_source`, `manage_access_auth`, `manage_workflow`, `manage_members_sharing` and `manage_workflow_prs`. Writes apply immediately to the live project: there is no draft, branch or undo.
 
 ## Answering "what is this set to" or "how do I"
 
