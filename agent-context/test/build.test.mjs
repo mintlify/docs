@@ -265,6 +265,8 @@ test('renders the site skill.md with links instead of local reference paths', as
 
   assert.match(skill, /^---\nname: mintlify\n/);
   assert.match(skill, /Edit the canonical source, not this copy/);
+  // The docs build parses skill.md as MDX, which rejects HTML comments.
+  assert.doesNotMatch(skill, /<!--/);
   assert.doesNotMatch(skill, /`reference\//);
   for (const [file, [title, url]] of Object.entries(siteReferenceLinks)) {
     await access(path.join(repositoryRoot, 'context', 'skills', 'mintlify', file));

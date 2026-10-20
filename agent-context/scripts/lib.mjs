@@ -250,7 +250,13 @@ const siteRewrites = [
 
 export async function renderSiteSkill() {
   const template = await readFile(path.join(contextDirectory, 'SKILL.md'), 'utf8');
-  let skill = markGenerated(template);
+  // The docs build parses skill.md as MDX, which rejects HTML comments, so the generated notice
+  // goes in the frontmatter metadata instead of markGenerated's comment.
+  const frontmatterEnd = template.indexOf('\n---\n', 4);
+  if (frontmatterEnd === -1) {
+    throw new Error('SKILL.md frontmatter is not closed');
+  }
+  let skill = `${template.slice(0, frontmatterEnd)}\nmetadata:\n  generated-from: "mintlify/docs/agent-context. Edit the canonical source, not this copy."${template.slice(frontmatterEnd)}`;
   for (const [from, to] of siteRewrites) {
     if (!skill.includes(from)) {
       throw new Error(`site: SKILL.md no longer contains "${from}"; update siteRewrites in lib.mjs`);

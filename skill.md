@@ -1,9 +1,9 @@
 ---
 name: mintlify
 description: Set up, write, and publish documentation sites with Mintlify, and work on existing Mintlify projects. Use when the user wants to create a docs site for a repo or product, turn a docs/ folder or README into a hosted docs site, document an API from an OpenAPI spec, migrate docs from Docusaurus, GitBook, ReadMe, Fern, or another platform, preview docs locally, or publish docs to a shareable URL. Also use when editing a project with docs.json, including pages, navigation, components, API references, and customizing appearance or browser behavior with CSS, JavaScript, React, and snippets.
+metadata:
+  generated-from: "mintlify/docs/agent-context. Edit the canonical source, not this copy."
 ---
-
-<!-- Generated from mintlify/docs/agent-context. Edit the canonical source, not this copy. -->
 
 # Mintlify reference
 
@@ -207,7 +207,7 @@ Below are the most commonly used components. For full props and all 26 component
 
 ### Tabs and code groups
 
-```mdx
+````mdx
 <Tabs>
   <Tab title="npm">
     ```bash
@@ -220,7 +220,7 @@ Below are the most commonly used components. For full props and all 26 component
     ```
   </Tab>
 </Tabs>
-```
+````
 
 ````mdx
 <CodeGroup>
