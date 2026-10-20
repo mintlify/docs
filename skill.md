@@ -54,7 +54,7 @@ When you have no local checkout and no CLI (for example, editing through the Min
 
 ### Migrating from another platform
 
-For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in [Site building](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/site-building.md).
+For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. For any other platform, follow `https://mintlify.com/docs/migration/manual`. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in [Site building](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/site-building.md).
 
 ## MCP servers
 
@@ -98,6 +98,8 @@ Private pages: `list_nodes` accepts `visibility: "private"` to list the private 
 Keep each branch focused on one change. Smaller branches produce easier-to-review PRs. Open the `editorUrl` to watch changes render live. Prefer the page-level `editorUrl` from `create_node` or `publish` over the one from `create_branch`.
 
 ## Before you start
+
+Mintlify changes often, so don't rely on what you remember about it. When a detail isn't in this skill, check the current documentation with the Mintlify Search MCP server or at `https://mintlify.com/docs`.
 
 Before substantial content work, read [Product context](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/product-context.md) and check for `.mintlify/product-brief.md`.
 
