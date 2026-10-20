@@ -205,7 +205,7 @@ Below are the most commonly used components. For full props and all 26 component
 
 ### Tabs and code groups
 
-```mdx
+````mdx
 <Tabs>
   <Tab title="npm">
     ```bash
@@ -218,7 +218,7 @@ Below are the most commonly used components. For full props and all 26 component
     ```
   </Tab>
 </Tabs>
-```
+````
 
 ````mdx
 <CodeGroup>

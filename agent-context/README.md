@@ -1,6 +1,6 @@
 # Mintlify agent context
 
-Single source of truth, maintained in the Mintlify documentation repository, for the Mintlify skill distributed through the Codex, Cursor, and Claude plugins and the Kiro power.
+Single source of truth, maintained in the Mintlify documentation repository, for the Mintlify skill distributed through the Codex, Cursor, and Claude plugins, the Kiro power, and the documentation site's `skill.md`.
 
 ## Repository structure
 
@@ -21,6 +21,16 @@ Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target
 ```bash
 npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/context/skills/mintlify --skill mintlify
 ```
+
+## Docs site skill
+
+The documentation site serves the root `skill.md` of this repository at `mintlify.com/docs/skill.md`. It is generated from `context/skills/mintlify/SKILL.md`. Because the site serves a single file, references become links: to the matching documentation page, or to the canonical reference file on GitHub when no page covers it. Edit the canonical skill, then regenerate:
+
+```bash
+npm run build:site-skill
+```
+
+`npm run check` fails when `skill.md` is out of date. Map new reference files in `siteReferenceLinks` in `scripts/lib.mjs`.
 
 ## Local development
 
