@@ -12,7 +12,7 @@ keywords: ["导出", "离线", "zip", "静态站点", "分发", "mint export"]
 
 当你需要向无法访问线上站点的用户分发文档时（例如本地部署客户或内部合规审查），这非常有用。
 
-CLI 会将你的站点使用的图标、字体和 LaTeX 样式打包到归档文件中，因此导出的文档可以在无法访问互联网的隔离网络（air-gapped）环境中使用。导出内容必须从域名根路径提供服务。在部署导出内容之前，请查看[限制](#limitations)。
+CLI 会将你的站点使用的图标、字体和 LaTeX 样式打包到归档文件中，因此导出的文档可以在无法访问互联网的隔离网络（air-gapped）环境中使用。除非你设置了 [base path](#serve-under-a-subpath)，否则导出内容会从域名根路径提供服务。在部署导出内容之前，请查看[限制](#limitations)。
 
 <div id="prerequisites">
   ## 前提条件
@@ -27,7 +27,6 @@ CLI 会将你的站点使用的图标、字体和 LaTeX 样式打包到归档文
 
 - 离线导出不支持搜索。如需添加离线搜索，请使用静态搜索工具为导出的 HTML 建立索引。
 - 离线导出不支持 Mintlify 助手。
-- 离线导出必须从域名根路径提供服务，例如 `http://localhost:3000/`。不支持在子路径（例如 `/docs`）下提供导出内容。
 - 离线导出不包含在 `docs.json` 中配置的分析工具或其他[集成](/zh/organize/settings-integrations)。
 - 页面通过外部 URL 引用的图片和其他文件不会被打包。请将它们存储在项目中，以便包含在归档文件中。
 
@@ -66,6 +65,7 @@ CLI 会构建你的站点，抓取导航中定义的所有页面，并将输出�
 | `--output <path>` | 设置输出 zip 文件的路径。 | `export.zip` |
 | `--groups <group>` | 为导出模拟[用户组](/zh/deploy/authentication-setup#control-access-with-groups)。当你的文档使用基于组的访问控制，并且你希望归档文件包含受限页面时，此选项非常有用。 | — |
 | `--disable-openapi` | 在导出过程中跳过 OpenAPI 文件生成。如果你有大量 OpenAPI 规范并且希望加快构建速度，请使用此选项。 | — |
+| `--base-path <path>` | 在子路径（例如 `/docs`）下提供导出内容。请参阅[在子路径下提供服务](#serve-under-a-subpath)。 | |
 
 例如，要将站点导出为自定义文件名并指定用户组：
 
@@ -76,6 +76,20 @@ mint export --output customer-docs.zip --groups enterprise
 <Note>
   导出仅包含导航中列出的页面。[隐藏页面](/zh/organize/hidden-pages) 不会包含在归档中。
 </Note>
+
+<div id="serve-under-a-subpath">
+  ### 在子路径下提供服务
+</div>
+
+默认情况下，导出内容从域名根路径提供服务，例如 `http://localhost:3000/`。如需改为在子路径下提供服务，请通过 `--base-path` 传入该路径：
+
+```bash
+mint export --base-path /docs
+```
+
+CLI 会为链接、图片、favicon 和打包的资源添加 base path 前缀，`serve.js` 会在 `http://localhost:3000/docs/` 提供文档。对根路径的请求会重定向到 base path。
+
+base path 可以包含字母、数字、连字符和下划线，各段之间用 `/` 分隔，例如 `/docs` 或 `/product/docs`。如果任何页面路径以 base path 开头，导出将失败。例如，如果你的导航中包含位于 `docs/intro` 的页面，`--base-path /docs` 就会失败。请选择一个没有页面使用的 base path。
 
 <div id="security-considerations">
   ### 安全注意事项
@@ -142,7 +156,7 @@ mint export --output customer-docs.zip --groups enterprise
   ## 在你自己的服务器上托管导出内容
 </div>
 
-如需在你自己的 Web 服务器上托管导出内容而不使用 `serve.js`，请从域名根路径将解压后的文件夹作为静态文件提供服务，并遵循以下规则：
+如需在你自己的 Web 服务器上托管导出内容而不使用 `serve.js`，请从域名根路径将解压后的文件夹作为静态文件提供服务。如果你使用 `--base-path` 导出，请改为在该路径下提供该文件夹，并将以下规则应用于请求路径中 base path 之后的部分：
 
 1. **页面：** 对 `/<path>` 的请求，返回 `<path>/index.html`。
 2. **客户端导航：** 对带有 `RSC: 1` 请求头或 `_rsc` 查询参数的请求，返回 `<path>/index.txt`，并设置 `Content-Type: text/x-component` 和 `Vary: RSC`。如果没有这条规则，每次点击链接都会加载完整页面。

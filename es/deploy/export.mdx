@@ -12,7 +12,7 @@ Usa `mint export` para empaquetar todo tu sitio de documentación en un archivo 
 
 Esto es útil cuando necesitas distribuir documentación a usuarios que no pueden acceder a tu sitio en producción, como clientes on-premise o revisiones internas de cumplimiento.
 
-La CLI empaqueta en el archivo los iconos, las fuentes y los estilos de LaTeX que usa tu sitio, por lo que la documentación exportada funciona en entornos aislados (air-gapped) sin acceso a internet. Las exportaciones deben servirse desde la raíz de un dominio. Revisa las [limitaciones](#limitations) antes de desplegar una exportación.
+La CLI empaqueta en el archivo los iconos, las fuentes y los estilos de LaTeX que usa tu sitio, por lo que la documentación exportada funciona en entornos aislados (air-gapped) sin acceso a internet. Las exportaciones se sirven desde la raíz de un dominio, a menos que configures una [ruta base](#serve-under-a-subpath). Revisa las [limitaciones](#limitations) antes de desplegar una exportación.
 
 <div id="prerequisites">
   ## Requisitos previos
@@ -27,7 +27,6 @@ La CLI empaqueta en el archivo los iconos, las fuentes y los estilos de LaTeX qu
 
 - Las exportaciones offline no admiten búsqueda. Para añadir búsqueda offline, indexa el HTML exportado con una herramienta de búsqueda estática.
 - Las exportaciones offline no admiten el asistente de Mintlify.
-- Las exportaciones offline deben servirse desde la raíz de un dominio, como `http://localhost:3000/`. No se admite servir una exportación bajo una subruta, como `/docs`.
 - Las exportaciones offline no incluyen analytics ni otras [integraciones](/es/organize/settings-integrations) configuradas en tu `docs.json`.
 - Las imágenes y otros archivos que tus páginas referencian mediante una URL externa no se empaquetan. Guárdalos en tu proyecto para incluirlos en el archivo.
 
@@ -66,6 +65,7 @@ La CLI compila tu sitio, rastrea todas las páginas definidas en tu navegación 
 | `--output <path>` | Establece la ruta del archivo zip de salida. | `export.zip` |
 | `--groups <group>` | Simula [grupos de usuarios](/es/deploy/authentication-setup#control-access-with-groups) para la exportación. Útil cuando tu documentación usa control de acceso basado en grupos y quieres que el archivo incluya páginas restringidas. | — |
 | `--disable-openapi` | Omite la generación de archivos OpenAPI durante la exportación. Úsalo si tienes muchas especificaciones OpenAPI y quieres compilaciones más rápidas. | — |
+| `--base-path <path>` | Sirve la exportación bajo una subruta, como `/docs`. Consulta [Servir bajo una subruta](#serve-under-a-subpath). | |
 
 Por ejemplo, para exportar tu sitio con un nombre de archivo personalizado y un grupo de usuarios específico:
 
@@ -76,6 +76,20 @@ mint export --output customer-docs.zip --groups enterprise
 <Note>
   La exportación solo incluye las páginas listadas en tu navegación. Las [páginas ocultas](/es/organize/hidden-pages) no se incluyen en el archivo.
 </Note>
+
+<div id="serve-under-a-subpath">
+  ### Servir bajo una subruta
+</div>
+
+De forma predeterminada, una exportación se sirve desde la raíz de un dominio, como `http://localhost:3000/`. Para servirla bajo una subruta, pasa la ruta con `--base-path`:
+
+```bash
+mint export --base-path /docs
+```
+
+La CLI añade la ruta base como prefijo a los enlaces, las imágenes, los favicons y los recursos empaquetados, y `serve.js` sirve la documentación en `http://localhost:3000/docs/`. Una solicitud a la raíz redirige a la ruta base.
+
+La ruta base puede contener letras, números, guiones y guiones bajos, con segmentos separados por `/`, como `/docs` o `/product/docs`. La exportación falla si alguna ruta de página empieza por la ruta base. Por ejemplo, `--base-path /docs` falla si tu navegación incluye una página en `docs/intro`. Elige una ruta base que no use ninguna página.
 
 <div id="security-considerations">
   ### Consideraciones de seguridad
@@ -142,7 +156,7 @@ Comparte el archivo zip con cualquier persona que tenga Node.js instalado. Para 
   ## Alojar la exportación en tu propio servidor
 </div>
 
-Para alojar una exportación en tu propio servidor web en lugar de usar `serve.js`, sirve la carpeta descomprimida como archivos estáticos desde la raíz de un dominio con estas reglas:
+Para alojar una exportación en tu propio servidor web en lugar de usar `serve.js`, sirve la carpeta descomprimida como archivos estáticos desde la raíz de un dominio. Si exportaste con `--base-path`, sirve la carpeta bajo esa ruta y aplica estas reglas a la parte de la ruta de la solicitud posterior a la ruta base:
 
 1. **Páginas:** Sirve `<path>/index.html` para una solicitud a `/<path>`.
 2. **Navegación del lado del cliente:** Para una solicitud con un encabezado `RSC: 1` o un parámetro de consulta `_rsc`, sirve `<path>/index.txt` con `Content-Type: text/x-component` y `Vary: RSC`. Sin esta regla, cada clic en un enlace carga una página completa.
