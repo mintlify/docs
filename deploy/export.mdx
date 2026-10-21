@@ -12,7 +12,7 @@ Use `mint export` to package your entire documentation site into a zip archive o
 
 This is useful when you need to distribute documentation to users who can't access your live site, such as for on-premise customers or internal compliance reviews.
 
-The CLI bundles the icons, fonts, and LaTeX styles your site uses into the archive, so exported docs work in air-gapped environments without internet access. Exports must be served from the root of a domain. Review the [limitations](#limitations) before you deploy an export.
+The CLI bundles the icons, fonts, and LaTeX styles your site uses into the archive, so exported docs work in air-gapped environments without internet access. Exports are served from the root of a domain unless you set a [base path](#serve-under-a-subpath). Review the [limitations](#limitations) before you deploy an export.
 
 ## Prerequisites
 
@@ -23,7 +23,6 @@ The CLI bundles the icons, fonts, and LaTeX styles your site uses into the archi
 
 - Offline exports do not support search. To add offline search, index the exported HTML with a static search tool.
 - Offline exports do not support the Mintlify assistant.
-- Offline exports must be served from the root of a domain, such as `http://localhost:3000/`. Serving an export under a subpath, such as `/docs`, is not supported.
 - Offline exports do not include analytics or other [integrations](/organize/settings-integrations) configured in your `docs.json`.
 - Images and other files that your pages reference by external URL are not bundled. Store them in your project to include them in the archive.
 
@@ -56,6 +55,7 @@ The CLI builds your site, crawls every page defined in your navigation, and pack
 | `--output <path>` | Set the output zip file path. | `export.zip` |
 | `--groups <group>` | Mock [user groups](/deploy/authentication-setup#control-access-with-groups) for the export. Useful when your docs use group-based access control and you want the archive to include restricted pages. | — |
 | `--disable-openapi` | Skip OpenAPI file generation during the export. Use this if you have many OpenAPI specs and want faster builds. | — |
+| `--base-path <path>` | Serve the export under a subpath, such as `/docs`. See [Serve under a subpath](#serve-under-a-subpath). | |
 
 For example, to export your site to a custom filename with a specific user group:
 
@@ -66,6 +66,18 @@ mint export --output customer-docs.zip --groups enterprise
 <Note>
   The export only includes pages listed in your navigation. [Hidden pages](/organize/hidden-pages) are not included in the archive.
 </Note>
+
+### Serve under a subpath
+
+By default, an export is served from the root of a domain, such as `http://localhost:3000/`. To serve it under a subpath instead, pass the path with `--base-path`:
+
+```bash
+mint export --base-path /docs
+```
+
+The CLI prefixes links, images, favicons, and bundled assets with the base path, and `serve.js` serves the docs at `http://localhost:3000/docs/`. A request to the root redirects to the base path.
+
+The base path can contain letters, numbers, hyphens, and underscores, with segments separated by `/`, such as `/docs` or `/product/docs`. The export fails if any page path starts with the base path. For example, `--base-path /docs` fails if your navigation includes a page at `docs/intro`. Choose a base path that no page uses.
 
 ### Security considerations
 
@@ -124,7 +136,7 @@ Share the zip file with anyone who has Node.js installed. To view the docs:
 
 ## Host the export on your own server
 
-To host an export on your own web server instead of `serve.js`, serve the unzipped folder as static files from the root of a domain with these rules:
+To host an export on your own web server instead of `serve.js`, serve the unzipped folder as static files from the root of a domain. If you exported with `--base-path`, serve the folder under that path instead, and apply these rules to the part of the request path after the base path:
 
 1. **Pages:** Serve `<path>/index.html` for a request to `/<path>`.
 2. **Client-side navigation:** For a request with an `RSC: 1` header or an `_rsc` query parameter, serve `<path>/index.txt` with `Content-Type: text/x-component` and `Vary: RSC`. Without this rule, every link click loads a full page.
