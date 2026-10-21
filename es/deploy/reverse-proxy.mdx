@@ -49,6 +49,8 @@ Redirige mediante proxy estas rutas a tu subdominio de Mintlify:
 | `/docs`                           | `<your-subdomain>.mintlify.site/docs` | Sin caché |
 | `/docs/*`                         | `<your-subdomain>.mintlify.site/docs/*` | Sin caché |
 | `/docs/_llms/*`                   | `<your-subdomain>.mintlify.site/docs/_llms/*` | Sin caché |
+| `/_mintlify/*`                    | `<your-subdomain>.mintlify.site/_mintlify/*` | Usar encabezados del origen |
+| `/mintlify-assets/*`              | `<your-subdomain>.mintlify.site/mintlify-assets/*` | Usar encabezados del origen |
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site/.well-known/vercel/*` | Sin caché |
 | `/.well-known/skills/*` (opcional)        | `<your-subdomain>.mintlify.site/docs/.well-known/skills/*` | Sin caché |
 | `/.well-known/agent-skills/*` (opcional)  | `<your-subdomain>.mintlify.site/docs/.well-known/agent-skills/*` | Sin caché |
@@ -56,7 +58,13 @@ Redirige mediante proxy estas rutas a tu subdominio de Mintlify:
 | `/llms.txt` (opcional)            | `<your-subdomain>.mintlify.site/docs/llms.txt` | Sin caché |
 | `/llms-full.txt` (opcional)       | `<your-subdomain>.mintlify.site/docs/llms-full.txt` | Sin caché |
 
-Tu proxy debe reenviar todos los métodos HTTP en las rutas de documentación. Mintlify envía eventos de analítica como solicitudes `POST` a `/docs/_mintlify/api/v1/e`, por lo que un proxy que solo permita solicitudes `GET` y `HEAD` interrumpirá silenciosamente las analíticas en tu panel.
+<Warning>
+  Redirige mediante proxy `/_mintlify/*` y `/mintlify-assets/*` desde la raíz de tu dominio, no desde tu ruta base. Mintlify puede servir el CSS, JavaScript, fuentes, favicons y solicitudes de API de tu sitio desde rutas raíz como `/_mintlify/assets/*`. Si tu proxy solo reenvía tu ruta base, las páginas se cargan sin estilos ni interactividad.
+</Warning>
+
+Mintlify establece encabezados de caché en las respuestas de `/_mintlify/*` y `/mintlify-assets/*`. Los archivos versionados bajo `/_mintlify/assets/*` se pueden almacenar en caché a largo plazo de forma segura, y las respuestas de la API se marcan como no almacenables en caché. Deja pasar estos encabezados en lugar de definir tus propias reglas de caché para estas rutas. Algunos sitios no solicitan `/mintlify-assets/*`, pero reenviarla no causa ningún problema.
+
+Tu proxy debe reenviar todos los métodos HTTP en las rutas de documentación y de `/_mintlify/*`. Mintlify envía eventos de analítica y solicitudes del área de pruebas de la API como solicitudes `POST` a rutas `/_mintlify/api/*`, por lo que un proxy que solo permita solicitudes `GET` y `HEAD` interrumpirá silenciosamente las analíticas en tu panel.
 
 Mintlify sirve estos archivos bajo tu ruta base, como `<your-subdomain>.mintlify.site/docs/llms.txt`, de modo que están disponibles en tu dominio bajo tu subruta, como `your-domain.com/docs/llms.txt`, a través de tu ruta de subruta principal.
 
@@ -162,6 +170,26 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
+    # Mintlify assets and API routes, served from the root of your domain.
+    # Keep the cache headers Mintlify sends so browsers cache hashed assets.
+    location ^~ /_mintlify/ {
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+    }
+
+    location ^~ /mintlify-assets/ {
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+    }
+
     # Documentation root
     location = /docs {
         proxy_pass https://<your-subdomain>.mintlify.site;
@@ -200,6 +228,8 @@ Mintlify reconstruye tu documentación para servirla en tu ruta base, de modo qu
 
 Configura tu proxy inverso usando la misma [configuración de enrutamiento](#routing-configuration), los mismos [requisitos de encabezados](#required-header-configuration) y los mismos patrones de nginx que la subruta `/docs`, reemplazando `/docs` por tu ruta base.
 
+No añadas tu ruta base a las rutas `/_mintlify/*` y `/mintlify-assets/*`. Con una ruta base personalizada, Mintlify sirve estos archivos solo desde la raíz, por lo que `<your-subdomain>.mintlify.site/<your-base-path>/_mintlify/*` devuelve un 404.
+
 <div id="troubleshooting">
   ## Resolución de problemas
 </div>
@@ -213,6 +243,16 @@ Configura tu proxy inverso usando la misma [configuración de enrutamiento](#rou
 **Causa**: Tu proxy inverso apunta a un nombre de host obsoleto.
 
 **Solución**: Actualiza la configuración de tu proxy inverso para que apunte a `<your-subdomain>.mintlify.site`.
+
+<div id="pages-load-without-styles">
+  ### Las páginas se cargan sin estilos
+</div>
+
+**Síntomas**: Las páginas se muestran como HTML sin estilos. La consola del navegador muestra errores 404 para archivos `/_mintlify/assets/*` o `/mintlify-assets/*`.
+
+**Causa**: Tu proxy reenvía tu ruta base, pero no las rutas raíz `/_mintlify/*` y `/mintlify-assets/*`.
+
+**Solución**: Añade rutas para `/_mintlify/*` y `/mintlify-assets/*` en la raíz de tu dominio que apunten a `<your-subdomain>.mintlify.site`. Consulta [Configuración de enrutamiento](#routing-configuration).
 
 <div id="404-error">
   ### Error 404
@@ -249,4 +289,4 @@ Configura tu proxy inverso usando la misma [configuración de enrutamiento](#rou
 
 **Causa**: Configuración de caché incorrecta.
 
-**Solución**: Deshabilita la caché para las rutas de documentación. Si proxyeas rutas `/mintlify-assets/_next/static/*`, habilita la caché solo para esos recursos estáticos.
+**Solución**: Deshabilita la caché para las rutas de documentación. Para `/_mintlify/*` y `/mintlify-assets/*`, deja pasar los encabezados de caché que envía Mintlify en lugar de sobrescribirlos.
