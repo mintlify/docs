@@ -366,6 +366,8 @@ The current API version is {{apiVersion}}.
 ]
 ```
 
+When a request matches more than one redirect, Mintlify uses exact `source` matches first, then partial wildcard matches (such as `/old/article-*`), then other wildcard matches. Within each step, the first matching entry in the array wins, so list specific sources before broader ones. Each source can contain only one wildcard; sources with more than one are skipped. A partial wildcard matches within a single path segment. Sources don't support regular expressions: `*` is the only wildcard character.
+
 ## Metadata
 
 ```json
@@ -593,6 +595,21 @@ import { Counter } from "/snippets/counter.jsx";
 ```
 
 JSX components can live in any directory, not just `/snippets/`. Nested imports between snippet files are not supported.
+
+### npm packages
+
+To import React components from npm packages, add a `packages` key to `docs.json` (an empty object turns it on), a `package.json` listing every imported package under `dependencies` (including `react` and `react-dom`), and a committed `package-lock.json` or `pnpm-lock.yaml` next to `docs.json`. Deployments with `packages` fail on sites that use authentication or personalization.
+
+```json
+"packages": {
+  "css": ["@acme/ui/dist/styles.css"],
+  "provider": "/snippets/provider.jsx",
+  "registries": { "@acme": "https://npm.acme.com/" },
+  "ssr": true
+}
+```
+
+All fields are optional. `css` lists compiled stylesheets inside installed packages. `provider` points to a snippet that exports a `Provider` component, which wraps each package component separately. `registries` maps npm scopes to registry URLs. `ssr` (default `true`) renders package components to HTML at deploy time. Place package components on their own lines, and pass functions, arrays, objects, or JSX props through a wrapper component in a snippet.
 
 ### Data snippets
 
