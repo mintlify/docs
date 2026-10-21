@@ -530,7 +530,7 @@ Props:
 
 ## Visibility
 
-Show different content to humans (web UI), AI agents (Markdown output), or readers based on sign-in state and groups. Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt` and to `<Visibility>` inside snippets and custom components. Markdown output converts built-in components (callouts become alerts, cards and accordions become blockquotes, steps become numbered titles), so wrap a visual custom component in `for="humans"` and give agents a simpler form, such as a `Card`, in `for="agents"`.
+Show different content to humans (web UI), AI agents (Markdown output), or readers based on sign-in state and groups. Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt` and to `<Visibility>` inside snippets and custom components. Markdown output converts built-in components (callouts become alerts, cards and accordions become blockquotes, steps become numbered titles), and never includes custom component source or imported data, so `Visibility` isn't needed to keep code out of Markdown. Interactive custom components (calculators, filterable galleries, charts) keep only their children and `title`, `description`, `alt`, and `href` props, so wrap them in `for="humans"` and give agents a static form, such as a table or `Card`, in `for="agents"`.
 
 ```mdx
 <Visibility for="humans">
