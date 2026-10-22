@@ -63,6 +63,16 @@ Use as `[data-component-part="<name>"]` or `[data-component-name="<name>"]`. The
 
 `.card-group` is a deprecated alias; author `<Columns>` for new content.
 
+## Search
+
+Style the search bar and dialog with `[data-search-item="<block>"]` or `[data-search-item="<block>-<part>"]`. These are documented, stable hooks that persist if internal class names change. Blocks: `trigger` (navbar search bar), `backdrop`, `dialog`, `header` (input area; has `data-disabled` when search is unavailable), `filter-list`, `list` (has `data-loading`), `group` (`data-variant` is `recent`, `results`, or `ask-ai`), `item`, and `footer`. Parts include `trigger-icon`, `trigger-label`, `trigger-hint`, `input`, `header-button`, `filter-trigger`, `filter-content`, `filter-item`, `group-title`, `item-icon`, `item-title`, `item-badge`, `item-breadcrumbs`, and `item-description`. State attributes sit on the named element, for example `[data-search-item="item"][data-highlighted]`: `item[data-highlighted]`, `item-icon[data-variant]` (`page`, `section`, `api-playground`), `item-badge[data-method]` (lowercase HTTP method), `filter-trigger[data-variant]` (`product`, `version`), `filter-trigger[data-open]`, `filter-trigger[data-active]`, and `filter-item[data-selected]`.
+
+```css
+[data-search-item="item"][data-highlighted] [data-search-item="item-title"] {
+  color: #0D9373;
+}
+```
+
 ## Unconfirmed hooks
 
 These names appear in public guidance but were not found on current sites. Inspect the DOM before using them: `#header`, `#mobile-nav-content`, `#feedback-thumbs-up`, `#feedback-thumbs-down`, `#localization-select-item`, `.columns`, `.nav-anchor`, `.pagination-title`, `.api-section`, `.api-section-heading`, `.api-section-heading-title`, `.api-section-heading-subtitle`, `.tryit-button`, `.method-pill`.

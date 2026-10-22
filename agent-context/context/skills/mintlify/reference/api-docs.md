@@ -274,6 +274,10 @@ The playground renders responses automatically based on the `Content-Type` heade
 
 When an operation's responses in the OpenAPI spec declare a streaming media type (`text/event-stream`, `application/jsonl`, `application/x-ndjson`, `application/json-seq`, or `multipart/mixed`), the playground streams the response as plain text as it arrives, and readers can click **Stop** to end it. Requests with a `multipart/form-data` body don't stream.
 
+## JSON request bodies
+
+When an endpoint takes a JSON request body (`application/json` or a `+json` media type), the playground body section has a **Form** and **JSON** toggle. Both views edit the same body, and the request and generated code examples always match it. The JSON view keeps and sends properties that aren't in the OpenAPI schema, and blocks sending until the JSON is valid. The playground remembers the chosen view across endpoints. Other body types, such as `multipart/form-data` or `application/x-www-form-urlencoded`, have no toggle.
+
 ## Parameter anchor links
 
 Every parameter in the playground has a clickable anchor link. Hover over a parameter name to reveal the link icon, then click to copy a direct URL to that parameter. The URL format is `your-docs-url/endpoint-path#parameter-name`. For nested parameters, the anchor includes the parent path.
