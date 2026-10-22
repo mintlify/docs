@@ -598,7 +598,7 @@ JSX components can live in any directory, not just `/snippets/`. Nested imports 
 
 ### npm packages
 
-To import React components from npm packages, add a `packages` key to `docs.json` (an empty object turns it on), a `package.json` listing every imported package under `dependencies` (including `react` and `react-dom`), and a committed `package-lock.json` or `pnpm-lock.yaml` next to `docs.json`. Deployments with `packages` fail on sites that use authentication or personalization.
+To import React components from npm packages, add a `packages` key to `docs.json` (an empty object turns it on), a `package.json` listing every imported package under `dependencies` (including `react` and `react-dom`), and a committed `package-lock.json` or `pnpm-lock.yaml` next to `docs.json`. Deployments with `packages` fail on sites that use authentication or personalization, or that restrict preview deployments with organization authentication or a password. While `packages` is in use, you can't turn on authentication, personalization, or preview access restrictions.
 
 ```json
 "packages": {
