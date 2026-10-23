@@ -15,6 +15,7 @@ Most requests need only this list. Open a reference only when an item points to 
 - **Active sidebar link or group:** `#sidebar-content li[data-active] > a`; `.sidebar-group:has(> li[data-active])`
 - **Hide or show by screen size:** the element's ID (`#table-of-contents`, `#pagination`, `#footer`) inside `@media (max-width: 767px) { ... }`
 - **Dark mode variant:** `html.dark ...`
+- **Custom animation on one page:** `` <style>{`...`}</style> `` in the page defining `@keyframes page-<name>`; all other CSS in the block is dropped. See [configuration](../configuration.md#css).
 - **Track clicks or other events:** one delegated listener on `document`, installed once behind a `window` flag.
 - **Add UI to page content on every page:** run once, then again on `mintlify:navigate`. See the [recipe](recipes.md#enhance-content-on-every-page).
 - **Load a third-party script:** a documented `docs.json` integration first; otherwise inject it once behind a flag. See [browser APIs](browser-apis.md).
