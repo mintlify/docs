@@ -63,6 +63,10 @@ Use as `[data-component-part="<name>"]` or `[data-component-name="<name>"]`. The
 
 `.card-group` is a deprecated alias; author `<Columns>` for new content.
 
+## Auth controls
+
+On sites with authentication, the Log In control carries the class `login-link` and the Log Out control carries `logout-link`, in both the navbar and the sidebar. In the navbar the class is on the link itself. In the sidebar it is on the `<li>`, so match clicks with `event.target.closest(".login-link")`. Some sidebar variants use `href="#"`.
+
 ## Search
 
 Style the search bar and dialog with `[data-search-item="<block>"]` or `[data-search-item="<block>-<part>"]`. These are documented, stable hooks that persist if internal class names change. Blocks: `trigger` (navbar search bar), `backdrop`, `dialog`, `header` (input area; has `data-disabled` when search is unavailable), `filter-list`, `list` (has `data-loading`), `group` (`data-variant` is `recent`, `results`, or `ask-ai`), `item`, and `footer`. Parts include `trigger-icon`, `trigger-label`, `trigger-hint`, `input`, `header-button`, `filter-trigger`, `filter-content`, `filter-item`, `group-title`, `item-icon`, `item-title`, `item-badge`, `item-breadcrumbs`, and `item-description`. State attributes sit on the named element, for example `[data-search-item="item"][data-highlighted]`: `item[data-highlighted]`, `item-icon[data-variant]` (`page`, `section`, `api-playground`), `item-badge[data-method]` (lowercase HTTP method), `filter-trigger[data-variant]` (`product`, `version`), `filter-trigger[data-open]`, `filter-trigger[data-active]`, and `filter-item[data-selected]`.

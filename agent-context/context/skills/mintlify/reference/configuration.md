@@ -674,6 +674,19 @@ Add `.css` files to your repository. Class names become available in all MDX fil
 
 Built-in Tailwind CSS v3 classes are available, including arbitrary values (e.g., `w-[350px]`) and variants (`sm:`, `hover:`, `dark:`). All built-in components except Banner, MDX, and Visibility accept a `className` prop. Write class names out in full: Mintlify generates CSS only for class names found in the page source, so runtime-assembled names produce no CSS. Avoid the inline `style` prop; it can cause layout shift on page load.
 
+A page can define its own animation keyframes in a `<style>` block whose child is a static template literal. Name each keyframe `page-` followed by letters, digits, `_`, or `-`, and reference it from `animation` or a Tailwind arbitrary class such as `animate-[page-pulse_2s_infinite]`. Mintlify keeps only `@keyframes page-*` rules with `from`, `to`, or `N%` steps and plain declarations. It drops everything else: other rules and at-rules, `url()` and other fetching functions, `!important`, attributes on `<style>`, and interpolated content. A block left with nothing valid is removed.
+
+````mdx
+<style>{`
+  @keyframes page-pulse {
+    from { opacity: 1; }
+    to { opacity: 0.3; }
+  }
+`}</style>
+
+<div className="animate-[page-pulse_1s_ease-in-out_infinite_alternate]">Live</div>
+````
+
 ### JavaScript
 
 Any `.js` file in the content directory is included globally on all pages.
