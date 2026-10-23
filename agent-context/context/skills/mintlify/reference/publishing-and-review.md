@@ -30,7 +30,7 @@ Pick per change, based on how much the user should weigh in:
 - An explicit request for a review overrides the editing default. For that scope, only suggest and comment; do not edit pages, navigation or configuration as a substitute, even for mechanical fixes or after an annotation fails, unless the user separately authorizes direct changes.
 - `suggest_edit` when the feedback is a concrete replacement for existing text that someone can accept or reject: typos, corrections, terminology, rewrites, deletions, tone.
 - `add_comment` when the feedback is conversational or has no single replacement: questions, concerns, missing context, rationale.
-- Put the explanation for a suggestion in the suggestion itself; add a separate comment only for a distinct discussion.
+- Put the explanation for a suggestion in the `suggest_edit` `comment` parameter; add a separate comment only for a distinct discussion.
 - Review rendered page-body prose only, including prose nested inside components such as `<Tip>` or `<Accordion>`. Skip frontmatter, configuration and raw MDX tags or attributes silently.
 - Anchor to the exact visible words in a single inline block, not Markdown or MDX syntax: anchor to `custom domain`, not `[custom domain](/customize/custom-domain)`. Prefer the smallest unique span. On `not_unique`, retry once with a longer span; on `no_match`, retry once with a smaller span from one block; then move on.
 - In the final reply, summarize only the suggestions and comments actually left.
