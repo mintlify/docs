@@ -56,6 +56,8 @@ Query documentation analytics from the terminal. Requires `mint login` and a Pro
 
 ## Project setup
 
+- `mint deploy` — Provision an anonymous docs site without login and print a hosted Git repository URL plus a short-lived write token. The CLI does not upload files: clone the hosted repository into a separate directory, copy `docs.json`, pages, and assets to its root, commit, and push to `main` with the token as an HTTP `Authorization: Bearer` header for that Git operation only. Never put the token in a remote URL, Git config, or public logs. `--subdomain` (required for the first deployment or `--new`), `--org-name`, `--directory` (default: `.`), `--new` creates another site, `--email` also returns a claim link. Rerun from the same directory to reuse the site and get a fresh token.
+- `mint claim` — Claim a site created with `mint deploy`. Run `mint claim --email <email>` to get a claim link, show it to the user, and ask them to sign in and return the displayed code. Then run `mint claim --code <code>`. `--email` and `--code` can't be combined. Run both from the original `mint deploy` directory, or pass `--directory`. The CLI uses its saved credentials; never read or print keychain secrets. Never invent an email address. If Mintlify signup fails, retry the same `--code` command.
 - `mint new [directory]` — Scaffold a new Mintlify docs site. `--name` and `--theme` set initial config. `--template` selects a pre-defined template. `--force` overwrites an existing directory.
 
 ## Maintenance
