@@ -674,15 +674,22 @@ Add `.css` files to your repository. Class names become available in all MDX fil
 
 Built-in Tailwind CSS v3 classes are available, including arbitrary values (e.g., `w-[350px]`) and variants (`sm:`, `hover:`, `dark:`). All built-in components except Banner, MDX, and Visibility accept a `className` prop. Write class names out in full: Mintlify generates CSS only for class names found in the page source, so runtime-assembled names produce no CSS. Avoid the inline `style` prop; it can cause layout shift on page load.
 
-A page can define its own animation keyframes in a `<style>` block whose child is a static template literal. Name each keyframe `page-` followed by letters, digits, `_`, or `-`, and reference it from `animation` or a Tailwind arbitrary class such as `animate-[page-pulse_2s_infinite]`. Mintlify keeps only `@keyframes page-*` rules with `from`, `to`, or `N%` steps and plain declarations. It drops everything else: other rules and at-rules, `url()` and other fetching functions, `!important`, attributes on `<style>`, and interpolated content. A block left with nothing valid is removed.
+To style one page without a global `.css` file, add a `<style>` block whose child is a static template literal. Mintlify scopes every selector in the block to the page's content area, so rules do not affect navigation, the sidebar, or other pages. Allowed at-rules are `@media`, `@supports`, `@container`, and `@keyframes` named `page-` followed by letters, digits, `_`, or `-`; reference a keyframe from `animation` or a Tailwind arbitrary class such as `animate-[page-pulse_2s_infinite]`. Mintlify drops other at-rules (such as `@import` and `@font-face`), selectors that start with a combinator (`>`, `+`, `~`) or use `&`, `url()`, `image-set()` and other resource-loading declarations, `position: fixed`, `!important` inside keyframes, and attributes on `<style>`. It removes the whole block if the CSS is not a plain template literal (for example, it uses `${}` or a variable).
 
 ````mdx
 <style>{`
+  .pricing-callout {
+    border-left: 4px solid #0D9373;
+    padding-left: 1rem;
+  }
+
   @keyframes page-pulse {
     from { opacity: 1; }
     to { opacity: 0.3; }
   }
 `}</style>
+
+<div className="pricing-callout">Prices shown in USD.</div>
 
 <div className="animate-[page-pulse_1s_ease-in-out_infinite_alternate]">Live</div>
 ````
