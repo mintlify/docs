@@ -1,0 +1,86 @@
+---
+title: "Database component"
+sidebarTitle: "<Database />"
+description: "Render a Mintlify database as a table on any page, filter and sort it, and generate a page for every row."
+keywords: ["databases", "Database component", "table", "row pages", "MDX"]
+---
+
+<Info>
+  The rendering components ship after the API and dashboard. Their shape is documented here so you can plan pages; check back for availability.
+</Info>
+
+Use `<Database />` to render a database on a page. The component reads the schema for headers and types, and the rows for content, so a page stays current without a redeploy.
+
+```mdx
+<Database name="apps" />
+```
+
+## Props
+
+<ParamField path="name" type="string" required>
+  The database slug.
+</ParamField>
+<ParamField path="columns" type="string[]">
+  Column names to show, in order. Defaults to every column in schema order.
+</ParamField>
+<ParamField path="where" type="object">
+  Equality filters keyed by column name, for example `{{ status: "published" }}`.
+</ParamField>
+<ParamField path="sort" type="string">
+  `name` or `name:desc`. Defaults to newest first.
+</ParamField>
+<ParamField path="limit" type="number" default="50">
+  Rows per page, up to 200. Pagination controls appear when there are more.
+</ParamField>
+<ParamField path="search" type="boolean" default="false">
+  Show a search box that filters the visible rows.
+</ParamField>
+
+```mdx catalog/apps.mdx
+<Database
+  name="apps"
+  columns={["app", "version", "status", "downloads"]}
+  where={{ status: "published" }}
+  sort="downloads:desc"
+  search
+/>
+```
+
+Columns render by type: dates in the reader's locale, URLs as links, booleans as checks, `select` values as badges.
+
+## A page for every row
+
+Put a template in the database's folder using the row page convention and every row gets its own URL.
+
+```mdx catalog/apps/[app].mdx
+---
+title: "{{ row.app }} {{ row.version }}"
+---
+
+<Badge>{{ row.status }}</Badge>
+
+Downloads: {{ row.downloads }}
+```
+
+Values are available as `row.<columnName>`. The bracketed segment in the file name chooses the column that becomes the URL slug, so this template produces `/catalog/apps/alpha`, `/catalog/apps/beta`, and so on.
+
+## Reading rows in snippets
+
+For layouts the component does not cover, read rows directly in a [snippet](/create/reusable-snippets) with the `mint.db` helper.
+
+```mdx snippets/top-apps.mdx
+export const TopApps = async () => {
+  const { rows } = await mint.db("apps").find({
+    where: { status: "published" },
+    sort: "downloads:desc",
+    limit: 5,
+  });
+  return (
+    <ul>
+      {rows.map((row) => <li key={row.id}>{row.app}</li>)}
+    </ul>
+  );
+};
+```
+
+`find`, `get`, and `count` are read-only. Writes go through the [REST API](/databases/api) or the dashboard.

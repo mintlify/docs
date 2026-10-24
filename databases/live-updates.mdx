@@ -1,0 +1,64 @@
+---
+title: "Live updates"
+description: "Subscribe to a database's change stream over server-sent events and resume where you left off after a disconnect."
+keywords: ["databases", "SSE", "server-sent events", "change stream", "live updates", "realtime"]
+---
+
+Every write to a database appends an event to its change log. Subscribe to the log to keep a portal, a dashboard, or a cache current without polling.
+
+## Subscribe
+
+```bash
+GET /v1/databases/{projectId}/{databaseId}/events
+Accept: text/event-stream
+```
+
+```bash curl
+curl -N "https://api.mintlify.com/v1/databases/$PROJECT_ID/$DATABASE_ID/events" \
+  -H "Authorization: Bearer $MINT_API_KEY"
+```
+
+The stream opens with a `ready` event, replays anything after your position, then pushes each change as it happens.
+
+```text
+event: ready
+data: {"epoch":"6e306bde-6324-4853-9188-ad08415d8a2f","latestSeq":12}
+
+id: 6e306bde-6324-4853-9188-ad08415d8a2f:13
+event: change
+data: {"seq":13,"kind":"row.updated","rowId":"502e5c75-…","columnId":null,"rev":3,"actor":"key:key_2f8a","at":"2026-09-16T07:01:12.108Z"}
+
+: heartbeat
+```
+
+## Events
+
+| `event` | When |
+| --- | --- |
+| `ready` | The stream is open. `data` has the current `epoch` and `latestSeq`. |
+| `change` | A mutation happened. `id` is `epoch:seq`. |
+| `reset` | Your position is no longer valid, usually because the database was deleted and recreated. Discard local state and refetch; the stream then replays from the start. |
+| `reconnect` | The stream is closing on purpose. Reconnect with the `since` value in `data`. |
+| `error` | The database is gone or you lost access. |
+
+`change.kind` is one of `database.updated`, `column.added`, `column.updated`, `column.deleted`, `row.created`, `row.updated`, `row.deleted`.
+
+## Resuming
+
+Streams close after five minutes. Reconnect with the id of the last event you processed, either as the `Last-Event-ID` header, which browsers' `EventSource` sends automatically, or as `?since=`.
+
+```bash
+GET /v1/databases/{projectId}/{databaseId}/events?since=6e306bde-6324-4853-9188-ad08415d8a2f:13
+```
+
+Ids carry an epoch so a stale position from before a wipe-and-recreate cannot be mistaken for a valid one. If your position does not belong to the current epoch, or is ahead of the current log, you receive `reset` followed by a full replay. Always resume with the full `epoch:seq` id: a bare sequence number has no epoch to check, so the stream treats it as unknown and replays from the start.
+
+The log retains the most recent 10,000 changes. A position older than that also triggers `reset`.
+
+## Read the log without streaming
+
+```bash
+GET /v1/databases/{projectId}/{databaseId}/changes?since=12
+```
+
+Returns `{ "epoch", "changes": [...], "latestSeq", "oldestSeq" }` with up to 500 changes after `since`. Useful for batch jobs that reconcile on a schedule.

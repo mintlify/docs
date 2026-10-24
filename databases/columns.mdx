@@ -1,0 +1,50 @@
+---
+title: "Column types"
+description: "The column types a Mintlify database supports, how each validates values, and what indexed and required mean."
+keywords: ["databases", "columns", "column types", "schema", "indexed", "required"]
+---
+
+Every column has a stable id, a display name, a type, and two flags. Values are validated against the type on every write.
+
+## Types
+
+| Type | Accepts | Stored as | Filter and sort |
+| --- | --- | --- | --- |
+| `text` | Any string. | String. | Yes |
+| `number` | A finite number, or a numeric string such as `"42"`. | Number. | Yes |
+| `boolean` | `true`, `false`, or the strings `"true"` and `"false"`. | Boolean. | Yes |
+| `date` | An ISO 8601 date or date-time that exists on the calendar. | ISO 8601 UTC string. | Yes |
+| `select` | One of the column's `options`. | String. | Yes |
+| `multi_select` | An array of the column's `options`. | Array of strings. | Filter by membership; no sort. |
+| `url` | An absolute `http` or `https` URL. Other schemes are rejected. | String. | Yes |
+| `email` | An email address. | String. | Yes |
+| `json` | Any JSON value. | As given. | No |
+
+Dates are normalized to UTC. `2026-09-15` is stored as `2026-09-15T00:00:00.000Z`. A date that does not exist, such as `2026-02-30`, is rejected rather than rolled over.
+
+`select` and `multi_select` columns must declare `options` when created. Values outside the options are rejected with the list of allowed values.
+
+## Flags
+
+### Required
+
+A required column must have a non-null value on every row. Two rules keep existing rows valid:
+
+- You cannot add a new column as required to a database that already has rows. Add it optional, backfill, then set `required`.
+- You cannot set `required` on an existing column while any row lacks a value. The error tells you how many rows are missing one.
+
+### Indexed
+
+An indexed column is faster to filter and sort on. Mark the columns you use in `where` and `sort` as indexed. A database can have up to 60 indexed columns. `multi_select` and `json` columns cannot be indexed.
+
+## Renaming and reordering
+
+Rows are keyed by column id, so renaming a column changes only the schema. Reordering with `position` renumbers the other columns so positions stay unique and contiguous.
+
+## Deleting a column
+
+Deleting a column removes its values from every row. There is no undo.
+
+<Warning>
+  Deleting a column is destructive. Export the rows first if you might need the values later.
+</Warning>
