@@ -29,7 +29,7 @@ Themes: **mint, maple, palm, willow, linden, almond, aspen, luma, sequoia**. Hoo
 Use `docs.json.navigation` (groups, tabs, anchors, dropdowns, products, versions, languages) before imitating structure with CSS or JS.
 
 - A group with a root page navigates on title click and expands on chevron click. Do not block both with one click handler.
-- Author internal links with site paths and keep required version, product, or language prefixes. Do not replace link handling with `location.href` unless you want a full reload.
+- Author internal links with site paths and keep required version, product, or language prefixes. To navigate from a script without a full reload, call `window.mintlify.navigate(href)` instead of setting `location.href`. See [browser APIs](browser-apis.md).
 - Hiding a navigation entry does not restrict access to its page.
 - Active-state selectors are in [selectors](selectors.md).
 
