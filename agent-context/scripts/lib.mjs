@@ -340,8 +340,9 @@ async function releaseSnapshot(root, target) {
   });
 }
 
-// Kiro and Claude Code use the manifest version to detect updates. Bump the patch version whenever the
-// released content changes; a higher version set in the target configuration wins.
+// Kiro uses the manifest version to detect updates. Bump the patch version whenever the released
+// content changes; a higher version set in the target configuration wins. The Claude target has no
+// pluginManifest on purpose: a version in .claude-plugin/plugin.json pins installs until it changes.
 export async function resolveManifestVersion(target, sourceRoot, destination) {
   const configuredVersion = target.pluginManifest.version;
   const existingManifest = await readOptional(path.join(destination, manifestFile(target)));
