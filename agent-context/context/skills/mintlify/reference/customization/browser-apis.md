@@ -9,6 +9,7 @@ All properties are browser-only and can be undefined during initialization. Neve
 | `window.mintlify.user`                                    | `Record<string, unknown> \| undefined`. Identified user content; undefined before resolution and when signed out. Read-only.                              |
 | `window.mintlify.api.playground.setServerVariables(vars)` | Replaces the whole server-variable overlay; omitted keys are removed. Non-string values are dropped. Lasts for the page session; a full reload resets it. |
 | `window.mintlify.api.playground.clearServerVariables()`   | Removes the overlay so saved and default values apply again.                                                                                              |
+| `window.mintlify.navigate(href, { replace })`             | Client-side navigation; fires `mintlify:navigate`. `replace` defaults to `false`. Root-relative hrefs get the hosting base path only when missing (`/guide` and `/docs/guide` both go to `/docs/guide`). Other origins, paths outside the base path, and calls before the page finishes loading do a full page load. |
 | `window.mintlify.geo`                                     | Observed. `{ country?, region?, continent? } \| undefined` from edge metadata. Missing locally. Not an access-control boundary.                           |
 
 Optional chaining avoids a crash but skips the call; it does not queue it. If timing matters, retry with a bounded readiness check. Server variables are URL inputs, not a channel for tokens.
