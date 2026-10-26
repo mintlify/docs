@@ -84,6 +84,8 @@ Group properties:
 }
 ```
 
+A tab, anchor, dropdown, or menu `item` with no `pages`, `groups`, or nested divisions links to its `href`. Use an absolute URL to open an external site in a new browser tab, or a root-relative path (for example, `"/platform/analytics"`) to open a page from another section in the same browser tab. If the entry has child navigation, it links to its first page instead.
+
 ### Menus (within tabs)
 
 ```json
