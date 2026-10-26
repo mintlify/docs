@@ -63,6 +63,15 @@ Use as `[data-component-part="<name>"]` or `[data-component-name="<name>"]`. The
 
 `.card-group` is a deprecated alias; author `<Columns>` for new content.
 
+## Table of contents
+
+The TOC root `#table-of-contents` also carries `[data-layout-item="toc-content"]`. Parts, as `[data-layout-item="<name>"]`: `toc-title` (the "On this page" heading; its button scrolls to top), `toc-list` (every `ul`, nested ones included), `toc-item` (`li`, also `.toc-item`), `toc-item-link`, `toc-indicator` (themes with a dot marker), `toc-separator`, `toc-actions` (contextual menu with `contextual.display: "toc"`), `toc-button`, `toc-button-icon`, and `toc-button-label`. `toc-button[data-variant]` holds the contextual option ID.
+
+- `toc-item[data-depth]` is 0-based: `"0"` for top-level headings.
+- The active item and its ancestors, and their links, get `data-active`. The exact active link gets `aria-current="location"`.
+- The root's `data-shell` (`panel`, `fluid`, `stack`), `data-marker` (`none`, `rail`, `arrow`, `dot`), and `data-look` (`default`, `mono`, `quiet`) vary by theme.
+- Built-in TOC styles sit in a cascade layer with `:where()`, so unlayered custom CSS overrides them.
+
 ## Auth controls
 
 On sites with authentication, the Log In control carries the class `login-link` and the Log Out control carries `logout-link`, in both the navbar and the sidebar. In the navbar the class is on the link itself. In the sidebar it is on the `<li>`, so match clicks with `event.target.closest(".login-link")`. Some sidebar variants use `href="#"`.
