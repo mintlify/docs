@@ -1,6 +1,6 @@
 # Themes, layout, and navigation
 
-Themes: **mint, maple, palm, willow, linden, almond, aspen, luma, sequoia**. Hooks that share a name across themes can belong to different elements.
+Themes: **mint, maple, palm, willow, linden, almond, aspen, luma, sequoia**. Hooks that share a name across themes can belong to different elements. Prefer `[data-layout-item="<region>"]` hooks, which select the same region in every theme. See [selectors](selectors.md#layout-regions).
 
 ## Theme differences that affect customization
 
