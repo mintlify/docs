@@ -176,18 +176,22 @@ To revoke a credential, click the delete icon next to it.
 - **`edit_page`**: Apply a targeted edit to a page. Pass `path` in the same forms as `read`. Pass `oldString` and `newString` for one replacement, or pass an `edits` list of up to 100 replacements to change several parts of a page in one call. Mintlify applies the edits in order, each to the result of the previous one. If any edit fails, none of them apply. Like `write_page`, `edit_page` returns `notRendered` for markup the edit adds that the editor drops. It doesn't report markup that was already on the page. To edit a [private page](/editor/pages#private-pages), pass its `private-page-<uuid>` node ID as `path`. Private edits require an OAuth session with an editor role or higher on the page and don't need a `branch`.
 - **`write_page`**: Overwrite a page's full MDX content. Pass `path` in the same forms as `read`. Also accepts a `private-page-<uuid>` node ID to overwrite a private page under the same OAuth and role requirements as `edit_page`. Use `create_node` to create a new private page. If the content includes markup the Mintlify editor drops, such as `<script>` tags, `<style>` blocks, event handlers like `onClick`, or JavaScript expressions, the response includes a `notRendered` field. Each entry lists the dropped `element`, its `line`, `why` the editor drops it, and what to use `instead`, such as Tailwind classes, inline `style={{}}` objects with literal values, or Mintlify components like accordions and tabs.
 
-### Images
+### Uploads
 
-- **`upload_image`**: Start uploading a local image file to `branch`. Pass the destination `path` (for example, `images/dashboard.png`), the file's `contentType`, and its exact `size` in bytes. Returns an `uploadId`, a presigned `uploadUrl`, and the `headers` to send with the upload.
-- **`finalize_image_upload`**: Save the uploaded image to `branch`. Pass the `uploadId` and the same `path`. Returns the `src` to reference in MDX with `edit_page` or `write_page`, or in the `logo` or `favicon` fields of `docs.json` with `update_config`.
+- **`upload_file`**: Start uploading a local file. Pass the destination `path`, the file's `contentType`, and its exact `size` in bytes. Returns an `uploadId`, a presigned `uploadUrl`, and the `headers` to send with the upload.
+- **`finalize_file_upload`**: Save an uploaded image to `branch`. Pass the `uploadId` and the same `path`. Returns the `src` to reference in MDX with `edit_page` or `write_page`, or in the `logo` or `favicon` fields of `docs.json` with `update_config`.
 
-After `upload_image`, the AI tool uploads the file bytes to `uploadUrl` with a `PUT` request and the returned headers. For example:
+After `upload_file`, the AI tool uploads the file bytes to `uploadUrl` with a `PUT` request and the returned headers. For example:
 
 ```bash
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Mintlify only accepts SVG files for logos and favicons, so pass `purpose: "logo"` to both tools when you upload one. Saved images appear in `status` and publish with your other edits when you call `publish`.
+To add an image, pass an image `path`, such as `images/dashboard.png`, and the `branch` to `upload_file`. After the upload, call `finalize_file_upload`. Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Mintlify only accepts SVG files for logos and favicons, so pass `purpose: "logo"` to both tools when you upload one. Saved images appear in `status` and publish with your other edits when you call `publish`.
+
+To write a page from a local Markdown file, pass a `.md` or `.mdx` `path` with `contentType` set to `text/markdown` or `text/plain`. Page uploads don't need a `branch` or `finalize_file_upload`. After the upload, pass the `uploadId` in place of `content` to `write_page`, or as `data.uploadId` to `create_node`. This avoids resending a large page's full content in the tool call.
+
+Use the `uploadId` within 10 minutes. Each `uploadId` works once, on the same project and for the same user or client that created it. Mintlify deletes the uploaded file after the write. A reused or expired `uploadId` returns `upload_not_found`.
 
 ### Comments
 
