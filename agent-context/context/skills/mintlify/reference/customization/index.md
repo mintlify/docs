@@ -16,6 +16,7 @@ Most requests need only this list. Open a reference only when an item points to 
 - **Hide or show by screen size:** the element's ID (`#table-of-contents`, `#pagination`, `#footer`) inside `@media (max-width: 767px) { ... }`
 - **Dark mode variant:** `html.dark ...`
 - **Styles or a custom animation on one page:** `` <style>{`...`}</style> `` in the page; rules are scoped to the page's content area, and keyframes must be named `page-<name>`. See [configuration](../configuration.md#css).
+- **Animate an inline SVG:** SMIL elements (`<animate>`, `<animateTransform>`, `<animateMotion>`, `<set>`, `<mpath>`) inside the `<svg>`; elements that target `href`, `src`, `style`, or `on*` are removed. See [configuration](../configuration.md#css).
 - **Track clicks or other events:** one delegated listener on `document`, installed once behind a `window` flag.
 - **Add UI to page content on every page:** run once, then again on `mintlify:navigate`. See the [recipe](recipes.md#enhance-content-on-every-page).
 - **Load a third-party script:** a documented `docs.json` integration first; otherwise inject it once behind a flag. See [browser APIs](browser-apis.md).

@@ -694,6 +694,16 @@ To style one page without a global `.css` file, add a `<style>` block whose chil
 <div className="animate-[page-pulse_1s_ease-in-out_infinite_alternate]">Live</div>
 ````
 
+Inline SVGs in a page can use SMIL animation elements: `<animate>`, `<animateTransform>`, `<animateMotion>`, `<set>`, and `<mpath>`. Mintlify removes a SMIL element entirely if its `attributeName` targets `href`, `xlink:href`, `src`, `style`, or an `on*` attribute; if `values`, `from`, `to`, or `by` contains `javascript:`, `vbscript:`, or `data:`; if its `href` or `xlink:href` is anything other than a same-document `#fragment`; or if it has an `on*` attribute, an expression attribute, or a spread attribute. Animate presentation attributes such as `fill`, `opacity`, `transform`, `x`, or `d` with static string values.
+
+````mdx
+<svg width="40" height="40" viewBox="0 0 40 40">
+  <circle cx="20" cy="20" r="8" fill="currentColor">
+    <animate attributeName="r" values="8;16;8" dur="2s" repeatCount="indefinite" />
+  </circle>
+</svg>
+````
+
 ### JavaScript
 
 Any `.js` file in the content directory is included globally on all pages.
