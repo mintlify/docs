@@ -30,14 +30,14 @@ Read these files **only when your task requires them**. They are in the `referen
 If the user wants a new docs site, wants to publish docs, or has no `docs.json` yet, run this workflow yourself. Ask the user only for information or approvals you cannot supply. Do not send them to a browser-first quickstart when you can run terminal commands.
 
 1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`. If it's installed, run `mint update`.
-2. Run `mint status`. If it shows an organization, use the existing account. Otherwise, ask whether the user has a Mintlify account. If they do, run `mint login`. If not, ask for first name, last name, company, and email and run `mint signup --firstName <first> --lastName <last> --company <company> --email <email>` as a background process. It waits for email verification. Tell the user to click the verification link and finish onboarding in the browser. Never invent signup details.
-3. After verification and onboarding, run `mint status` again to confirm an organization and subdomain. If no subdomain appears, ask the user to finish selecting or connecting a GitHub repository in the onboarding browser tab, then retry.
+2. Run `mint status`. If it shows an organization, use the existing account. Otherwise, ask whether the user has a Mintlify account. If they do, run `mint login`. If not, run `mint signup` and follow the instructions it prints. In agent environments, `mint signup` prints Mintlify's agent signup guide instead of starting email signup, even when signup flags are passed. The guide has you create the site with `mint deploy --subdomain <subdomain>` and push to the hosted repository it prints, then hand the site to the user with `mint claim` (see `reference/cli.md`). Never invent an email address. If you went this route, skip to step 5.
+3. After `mint login`, run `mint status` again to confirm an organization and subdomain. If no subdomain appears, ask the user to finish selecting or connecting a GitHub repository in the onboarding browser tab, then retry.
 4. Unless you're already working in it, ask the user for the URL of the connected repository (`mint status` doesn't show it) and clone it. If the user connected their own docs repository, preserve its content, and add a `docs.json` if it has none. If Mintlify created the repository, it contains starter content; replace that with the user's existing Markdown docs instead of writing placeholder pages. Use `mint new <directory> --name <name> --theme <theme>` only if the user wants a different theme than the starter, and scaffold into a new, empty directory. Never use `--force` on a directory with user files.
 5. Run `mint dev --no-open` as a background process from the directory containing `docs.json`. Report the local URL so the user can preview. Run `mint validate` and `mint broken-links` and fix issues you caused.
 6. Commit and push to the connected repository to deploy.
 7. Verify that `https://<subdomain>.mintlify.site` loads before you report the URL.
 
-The user only needs the browser for email verification, OAuth approval, and connecting GitHub.
+The user only needs the browser for OAuth approval, claiming a site, and connecting GitHub.
 
 ### No local repository
 

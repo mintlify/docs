@@ -33,7 +33,7 @@ Available on all commands.
 - `mint login` — Authenticate your Mintlify account.
 - `mint logout` — Log out of your account.
 - `mint status` — Show current authentication status (CLI version, email, org, subdomain).
-- `mint signup [flags]` — Create a new Mintlify account from the terminal. Flags: `--firstName`, `--lastName`, `--company`, `--email`; omit any to enter it interactively. Waits until you click the emailed verification link before it logs you in — run as a background process in scripts.
+- `mint signup [flags]` — Create a new Mintlify account from the terminal. Flags: `--firstName`, `--lastName`, `--company`, `--email`; omit any to enter it interactively. Waits until you click the emailed verification link before it logs you in. In agent environments, `mint signup` ignores these flags and instead prints the agent signup guide from `https://mintlify.com/auth.md`, then exits; follow what it prints (it uses `mint deploy` and `mint claim`). If the guide can't be fetched, it prints fallback instructions pointing to the same commands.
 - `mint add-domain <domain> [--basePath <path>]` — Add a custom domain to the current project. Requires `mint login`. Pass `--basePath` to serve the documentation from a subpath such as `/docs`.
 
 ## Analytics
