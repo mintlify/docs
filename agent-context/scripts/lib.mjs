@@ -9,7 +9,7 @@ export const repositoryRoot = path.resolve(scriptsDirectory, '..');
 
 const contextDirectory = path.join(repositoryRoot, 'context', 'skills', 'mintlify');
 const mcpServersPath = path.join(repositoryRoot, 'context', 'mcp-servers.json');
-// The docs site serves this file at /skill.md.
+// The docs site serves this file at /skill.md. It points agents to `mint instructions`.
 export const siteSkillPath = path.resolve(repositoryRoot, '..', 'skill.md');
 const targetsDirectory = path.join(repositoryRoot, 'targets');
 const agentPluginsSchemaDirectory = path.join(
@@ -202,8 +202,8 @@ export async function buildTarget(target, outputRoot) {
   return { targetRoot, provenance };
 }
 
-// The docs site serves skill.md as a single file, so reference files become links: the docs page
-// that covers the topic, or the canonical file on GitHub for agent workflow guidance with no page.
+// `mint instructions` prints the skill as a single file, so reference files become links: the docs
+// page that covers the topic, or the canonical file on GitHub for agent workflow guidance with no page.
 const canonicalSourceUrl =
   'https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify';
 export const siteReferenceLinks = {
@@ -248,18 +248,28 @@ const siteRewrites = [
   ],
 ];
 
-export async function renderSiteSkill() {
+// The docs build parses skill.md as MDX, which rejects HTML comments, so the generated notice
+// goes in the frontmatter metadata instead of markGenerated's comment.
+async function readSkillWithGeneratedMetadata() {
   const template = await readFile(path.join(contextDirectory, 'SKILL.md'), 'utf8');
-  // The docs build parses skill.md as MDX, which rejects HTML comments, so the generated notice
-  // goes in the frontmatter metadata instead of markGenerated's comment.
   const frontmatterEnd = template.indexOf('\n---\n', 4);
   if (frontmatterEnd === -1) {
     throw new Error('SKILL.md frontmatter is not closed');
   }
-  let skill = `${template.slice(0, frontmatterEnd)}\nmetadata:\n  generated-from: "mintlify/docs/agent-context. Edit the canonical source, not this copy."${template.slice(frontmatterEnd)}`;
+  return {
+    frontmatter: `${template.slice(0, frontmatterEnd)}\nmetadata:\n  generated-from: "mintlify/docs/agent-context. Edit the canonical source, not this copy."\n---\n`,
+    body: template.slice(frontmatterEnd + '\n---\n'.length),
+  };
+}
+
+// Copy the output of `npm run build:cli-skill` into mintlifySkill() in the mint CLI
+// (packages/cli/src/instructions.ts in mintlify/mint).
+export async function renderCliSkill() {
+  const { frontmatter, body } = await readSkillWithGeneratedMetadata();
+  let skill = `${frontmatter}${body}`;
   for (const [from, to] of siteRewrites) {
     if (!skill.includes(from)) {
-      throw new Error(`site: SKILL.md no longer contains "${from}"; update siteRewrites in lib.mjs`);
+      throw new Error(`cli: SKILL.md no longer contains "${from}"; update siteRewrites in lib.mjs`);
     }
     skill = skill.replace(from, to);
   }
@@ -268,8 +278,27 @@ export async function renderSiteSkill() {
   }
   const unlinked = skill.match(/`reference\/[^`]*`/g);
   if (unlinked !== null) {
-    throw new Error(`site: add siteReferenceLinks entries for ${unlinked.join(', ')}`);
+    throw new Error(`cli: add siteReferenceLinks entries for ${unlinked.join(', ')}`);
   }
+  validateSkill(skill, { id: 'cli' });
+  return skill;
+}
+
+export async function renderSiteSkill() {
+  const { frontmatter } = await readSkillWithGeneratedMetadata();
+  const skill = `${frontmatter}
+# Mintlify
+
+Run this command and follow its output. It prints the full Mintlify skill:
+
+\`\`\`bash
+npx mint@latest instructions
+\`\`\`
+
+If the \`mint\` CLI is installed globally, run \`mint instructions\` instead.
+
+If you cannot run Node.js, read the canonical skill at ${canonicalSourceUrl}/SKILL.md.
+`;
   validateSkill(skill, { id: 'site' });
   return skill;
 }

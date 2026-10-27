@@ -24,13 +24,16 @@ npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/c
 
 ## Docs site skill
 
-The documentation site serves the root `skill.md` of this repository at `mintlify.com/docs/skill.md`. It is generated from `context/skills/mintlify/SKILL.md`. Because the site serves a single file, references become links: to the matching documentation page, or to the canonical reference file on GitHub when no page covers it. Edit the canonical skill, then regenerate:
+The documentation site serves the root `skill.md` of this repository at `mintlify.com/docs/skill.md`. It keeps the canonical frontmatter and tells agents to run `mint instructions`, which prints the full skill from the `mintlifySkill()` function in the mint CLI (`packages/cli/src/instructions.ts` in `mintlify/mint`).
+
+The CLI copy is generated from `context/skills/mintlify/SKILL.md`. Because it is a single file, references become links: to the matching documentation page, or to the canonical reference file on GitHub when no page covers it. Edit the canonical skill, then regenerate both copies:
 
 ```bash
 npm run build:site-skill
+npm run build:cli-skill > /path/to/skill.md
 ```
 
-`npm run check` fails when `skill.md` is out of date. Map new reference files in `siteReferenceLinks` in `scripts/lib.mjs`.
+Copy the `build:cli-skill` output into `mintlifySkill()` in the CLI. `npm run check` fails when `skill.md` is out of date. Map new reference files in `siteReferenceLinks` in `scripts/lib.mjs`.
 
 ## Local development
 

@@ -8,6 +8,7 @@ import {
   buildTarget,
   copyTargetToRepository,
   loadTargets,
+  renderCliSkill,
   renderSiteSkill,
   repositoryRoot,
   resolveManifestVersion,
@@ -260,8 +261,8 @@ test('manifest version bump reads a manifest outside the plugin root', async () 
   }
 });
 
-test('renders the site skill.md with links instead of local reference paths', async () => {
-  const skill = await renderSiteSkill();
+test('renders the CLI skill with links instead of local reference paths', async () => {
+  const skill = await renderCliSkill();
 
   assert.match(skill, /^---\nname: mintlify\n/);
   assert.match(skill, /Edit the canonical source, not this copy/);
@@ -272,4 +273,12 @@ test('renders the site skill.md with links instead of local reference paths', as
     await access(path.join(repositoryRoot, 'context', 'skills', 'mintlify', file));
     assert.ok(skill.includes(`[${title}](${url})`), `${file} is not linked`);
   }
+});
+
+test('renders the site skill.md with the canonical frontmatter', async () => {
+  const [site, cli] = await Promise.all([renderSiteSkill(), renderCliSkill()]);
+  const frontmatter = (skill) => skill.slice(0, skill.indexOf('\n---\n', 4));
+
+  assert.equal(frontmatter(site), frontmatter(cli));
+  assert.doesNotMatch(site, /<!--/);
 });
