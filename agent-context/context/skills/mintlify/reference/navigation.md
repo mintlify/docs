@@ -361,7 +361,7 @@ Generate SDK reference pages from documentation-tool build artifacts by adding a
 }
 ```
 
-A tab with `sdk` can include `groups` but not `pages`, `versions`, `languages`, `openapi`, `asyncapi`, or `graphql`. A group with `sdk` can include `pages` and nested groups but not `graphql`. Author-written `pages` render first, followed by the generated reference groups. For TypeDoc, `@category` and `@group` tags define the generated groups, and nested categories and namespaces become nested groups. Without those tags, Mintlify groups pages by symbol type. Use multiple tabs or groups with unique `directory` values to document multiple libraries (for example, stable and beta versions in the same tab).
+A tab with `sdk` can include `groups` but not `pages`, `versions`, `languages`, `openapi`, `asyncapi`, or `graphql`. A group with `sdk` can include `pages` and nested groups but not `graphql`. Author-written `pages` render first, followed by the generated reference groups. For TypeDoc, `@category` and `@group` tags define the generated groups, and nested categories and namespaces become nested groups. Without those tags, Mintlify groups pages by symbol type. When a TypeDoc artifact includes a README, Mintlify adds a `package-overview` page under the `directory`, in an `Overview` group before the other generated groups, showing the README followed by an index of the symbols. A module with its own README gets a `<module>/package-overview` page in a `<module> Overview` group. Artifacts without a README, or with an empty one, get no overview page. Use multiple tabs or groups with unique `directory` values to document multiple libraries (for example, stable and beta versions in the same tab).
 
 ```json
 {
