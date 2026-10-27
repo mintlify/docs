@@ -1,0 +1,96 @@
+---
+title: "代理注册"
+description: "让 AI 代理在没有账户的情况下创建 Mintlify 站点，然后通过你自己的账户认领该站点。"
+keywords: ["mint deploy", "mint claim", "auth.md", "认领", "GitHub Actions"]
+---
+
+AI 代理无需先注册账户，即可创建并部署 Mintlify 站点。之后，你可以通过自己的 Mintlify 账户认领代理为你创建的站点。
+
+如果你希望代理自主处理站点，或者希望在创建账户之前演示一个线上站点，请使用此站点创建和注册流程。如果你已有账户，或者准备通过电子邮件注册，请改用[代理设置工作流](/zh/quickstart)。
+
+<div id="deploy-a-site">
+  ## 部署站点
+</div>
+
+在文档目录中运行 `mint deploy`。该目录必须包含 `docs.json` 文件。
+
+```bash
+npm i -g mint
+mint deploy --subdomain <subdomain>
+```
+
+该命令会在 `https://<subdomain>.mintlify.site` 预配一个站点，并输出托管 Git 仓库的 URL 和一个短期有效的写入令牌。它不会上传文件。随后，代理会：
+
+1. 将托管仓库克隆到一个单独的目录中，并仅为该 Git 进程以 `Authorization: Bearer` 请求头的形式传入写入令牌。
+2. 将 `docs.json`、页面和资源复制到仓库根目录。
+3. 提交并推送到 `main`。推送会触发一次构建。
+
+输出中包含可直接运行的 Git 命令。在同一目录中再次运行 `mint deploy` 可获取新的写入令牌，或传入 `--new --subdomain <name>` 来创建另一个站点。
+
+<Warning>
+  写入令牌授予对该站点的推送权限。请勿将其粘贴到公开日志中、提交到仓库，或保存在 Git 远程 URL 中。
+</Warning>
+
+<div id="deploy-on-every-push-from-github">
+  ## 在每次推送到 GitHub 时部署
+</div>
+
+如果你的文档位于 GitHub 仓库中，`mint deploy --github` 会设置一个工作流，在每次推送到仓库默认分支时部署站点。该工作流使用 GitHub 的 OIDC 身份令牌进行身份验证，因此仓库无需存储任何密钥。
+
+`--github` 要求存在 GitHub `origin` 远程仓库，并且已登录有权访问该仓库的 [GitHub CLI](https://cli.github.com)。
+
+```bash
+mint deploy --github --subdomain <subdomain>
+```
+
+该命令会：
+
+1. 预配站点，或复用之前在同一目录中通过 `mint deploy` 创建的站点。
+2. 信任该仓库及其默认分支来部署站点。
+3. 在仓库根目录写入 `.github/workflows/mintlify.yml`。
+
+将该工作流文件提交并推送到默认分支。之后每次推送到该分支，都会在 GitHub Actions 中运行 `mint deploy`，将检出的提交推送到站点。
+
+如果你的文档位于子目录中，请在仓库根目录运行该命令，并通过 `--directory` 传入子目录。该子目录会成为站点根目录，并且工作流仅在该子目录中的文件或工作流本身发生更改时运行。
+
+```bash
+mint deploy --github --subdomain <subdomain> --directory docs
+```
+
+如果 `.github/workflows/mintlify.yml` 已存在且内容不同，该命令会停止。传入 `--force` 可覆盖该文件。
+
+<Note>
+  `--github` 仅适用于未被认领的站点。若要从 GitHub 部署已认领的站点，请在[控制台](https://app.mintlify.com)中连接仓库。
+</Note>
+
+<div id="claim-the-site">
+  ## 认领站点
+</div>
+
+通过 `mint deploy` 创建的站点如果无人认领，将会过期。认领站点后，你将成为该站点所属组织的管理员，从而可以在[控制台](https://app.mintlify.com)中管理它。
+
+1. 代理会询问应由哪个电子邮件地址拥有该站点，然后运行：
+
+   ```bash
+   mint claim --email <email>
+   ```
+
+   若要在同一步骤中获取链接，请改为运行 `mint deploy --email <email>`。
+2. 打开认领链接。
+3. 登录 Mintlify 或创建账户。
+4. 复制显示的代码并粘贴回给代理。
+5. 代理使用该代码完成认领：
+
+   ```bash
+   mint claim --code <code>
+   ```
+
+请在与 `mint deploy` 相同的目录中运行这两个 `mint claim` 命令，或传入 `--directory`。CLI 会存储代理的凭据并在认领过程中读取它们，因此代理不应读取或打印这些凭据。
+
+认领站点后，认领页面会提供指向控制台和线上站点的链接。
+
+<div id="use-authmd-without-the-cli">
+  ## 不使用 CLI 时使用 auth.md
+</div>
+
+无法安装 CLI 的代理可以按照 [`https://mintlify.com/auth.md`](https://mintlify.com/auth.md) 操作。它以原始 HTTP 请求的形式描述了相同的流程：注册匿名代理身份、预配站点，并通过认领页面将账户移交给某个人。
