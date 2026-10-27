@@ -405,6 +405,7 @@ The strict build runs only when no rule reports an error and at least one select
 | `--disable` | Turn off rules or groups. Pass a comma-separated list, or `all` to turn off every rule. Parse errors are still reported. Use `--disable openapi` to skip OpenAPI checks. |
 | `--enable` | Turn on rules or groups. Pass a comma-separated list. Use it with `--disable all` to run only specific rules. |
 | `--fix` | Write the available automatic fixes to your files, then check again. Only rules that offer a fix, such as `void-tags`, change files. |
+| `--format` | Output format: `text` (default) or `json`. With `json`, the command prints one JSON report on stdout and nothing else. |
 | `--no-build` | Skip the strict build, so the command doesn't download the Mintlify client. Remote OpenAPI specifications are still fetched unless you disable the `openapi` rules. |
 | `--groups` | Space-separated list of user groups to mock for validation. For example, `--groups admin user`. |
 | `--local-schema` | Allow validation of locally hosted OpenAPI files served over HTTP. Only supports HTTPS in production. |
@@ -416,6 +417,16 @@ With `--fix`, `mint validate` runs up to five fix passes, because one fix can un
 <Tip>
   Commit or stash your changes before you run `--fix`, so you can review its edits.
 </Tip>
+
+With `--format json`, progress output is hidden and other console output goes to stderr, so you can parse stdout directly. The report has these fields:
+
+- `passed`: `true` when no rule reported an error.
+- `summary`: `errors` and `warnings` counts, plus `byRule` with a count for each rule ID.
+- `diagnostics`: each finding, with `rule`, `group`, `severity` (`error` or `warning`), `file`, optional `line` and `column`, `message`, and an optional `fix`.
+- `build`: `{ "ran": true, "passed": <boolean> }` if the strict build ran, otherwise `{ "ran": false, "reason": <reason> }` with a reason of `disabled`, `errors found`, or `no build rules`.
+- `fixed`: only with `--fix`. Each applied change, with `rule`, `file`, optional `line` and `column`, `before`, and `after`.
+
+If `mint validate` can't run, it prints nothing on stdout and writes `Error: <message>` to stderr.
 
 The command exits with one of these codes:
 
@@ -435,6 +446,9 @@ mint validate --disable openapi
 
 # Run the rule checks without the strict build
 mint validate --no-build
+
+# Fast offline check for scripts and agents, listing each finding's file and message
+mint validate --no-build --format json | jq '.diagnostics[] | {file, message}'
 
 # Run only the content rules (missing-file and import-error still run the build)
 mint validate --disable all --enable content
