@@ -50,6 +50,8 @@ Group properties:
 - `tag`: Label displayed next to group name.
 - `root`: Page that opens when clicking the group title.
 - `expanded`: Default open state for nested groups (`true`/`false`). Top-level groups are always expanded.
+- `hidden`: `true` removes the group from the sidebar and excludes its pages from site search, sitemaps, search engine indexing, and AI context. Tabs, anchors, dropdowns, products, versions, and languages accept the same flag.
+- `searchable`: With `hidden: true` on a group or tab only, keeps descendant pages in search, sitemaps, indexing, and AI context.
 - `directory`: When the group has a `root` page, render a listing of child pages below the root page content. Values: `"none"` (default), `"accordion"` (collapsible list), `"card"` (horizontal cards). Inherits recursively; descendants can override.
 - `boost`: Numeric multiplier for in-product search ranking of every page in the group. Use values `> 1` to prioritize, `0–1` to de-prioritize.
 
@@ -181,8 +183,8 @@ Appear on all pages regardless of active section:
         { "version": "v1", "href": "https://v1.example.com/docs" }
       ],
       "products": [
-        { "product": "Core API", "icon": "server" },
-        { "product": "Mobile SDK", "icon": "smartphone" }
+        { "product": "Core API", "icon": "server", "href": "/core" },
+        { "product": "Mobile SDK", "icon": "smartphone", "href": "https://mobile.example.com" }
       ]
     }
   }
@@ -190,12 +192,14 @@ Appear on all pages regardless of active section:
 ```
 
 Global element properties:
-- `global.tabs`: Each entry requires `tab` (string) and `href`. Optional: `icon`, `iconType`, `hidden`.
-- `global.anchors`: Each entry requires `anchor` (string) and `href`. Optional: `icon`, `iconType`, `color.light`, `color.dark`, `hidden`.
-- `global.dropdowns`: Each entry requires `dropdown` (string) and `href`. Optional: `icon`, `iconType`, `hidden`.
+- `global.tabs`: Each entry requires `tab` (string) and `href`. Optional: `icon`, `hidden`.
+- `global.anchors`: Each entry requires `anchor` (string) and `href`. Optional: `icon`, `color.light`, `color.dark`, `hidden`.
+- `global.dropdowns`: Each entry requires `dropdown` (string) and `href`. Optional: `icon`, `description`, `color`, `hidden`.
 - `global.languages`: Each entry requires `language` (code string) and `href`. Optional: `default`, `hidden`.
-- `global.versions`: Each entry requires `version` (string) and `href`. Optional: `default`, `hidden`.
-- `global.products`: Each entry requires `product` (string). Optional: `description`, `icon`, `iconType`.
+- `global.versions`: Each entry requires `version` (string) and `href`. Optional: `default`, `tag`, `hidden`.
+- `global.products`: Each entry requires `product` (string) and `href`. Optional: `description`, `icon`, `color`, `hidden`.
+
+`icon` is an icon name or an object such as `{ "name": "server", "style": "solid" }`. Navigation elements have no `iconType` field.
 
 ## Dropdowns
 
@@ -404,7 +408,7 @@ sdk:
 ---
 ````
 
-Object-form fields: `kind` (required: `class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, `property`), `name` (required), `parent` (required for `method` and `property`), `format` (overrides inherited; required outside a tab or group with `sdk`; object form only), `source` (overrides inherited; required outside a tab or group with `sdk`). If `title` or `description` is omitted, Mintlify uses the generated symbol values.
+Object-form fields: `kind` (required: `package`, `class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, `property`), `name` (required), `parent` (required for `method` and `property`), `namespace` (optional), `format` (overrides inherited; required outside a tab or group with `sdk`; object form only), `source` (overrides inherited; required outside a tab or group with `sdk`). If `title` or `description` is omitted, Mintlify uses the generated symbol values.
 
 ## Choosing a navigation pattern
 
@@ -450,7 +454,7 @@ A bloated sidebar is the most common quality issue in generated docs. Size the s
 **Grouping principles:**
 - Prefer FEWER, BROADER groups over MANY, NARROW ones
 - BAD: "Authentication", "API Keys", "OAuth", "SSO" as 4 separate groups → GOOD: single "Authentication" group with pages for each method
-- BAD: one group per API resource → GOOD: single "API Reference" group containing resource pages
+- BAD: one group per API resource → GOOD: single "API reference" group containing resource pages
 - If two groups would each have only 2-3 pages, merge them into one group
 
 **Anti-patterns:**
@@ -461,13 +465,13 @@ A bloated sidebar is the most common quality issue in generated docs. Size the s
 
 Design a navigation structure for **customer-facing documentation**. This is NOT a developer wiki or open-source repo reference. Structure content around what end-users and integrators need:
 
-- **Getting Started**: Account setup, authentication, first integration
-- **Core Concepts**: Product terminology, key workflows, data model
+- **Getting started**: Account setup, authentication, first integration
+- **Core concepts**: Product terminology, key workflows, data model
 - **Guides**: Step-by-step walkthroughs of common use cases
-- **API Reference**: Public API endpoints customers interact with
-- **SDKs & Libraries**: Client libraries, code examples
+- **API reference**: Public API endpoints customers interact with
+- **SDKs and libraries**: Client libraries, code examples
 - **Configuration**: Settings, customization, environment setup
-- **FAQ / Troubleshooting**: Common issues and solutions
+- **FAQ and troubleshooting**: Common issues and solutions
 
 Use polished, customer-facing names throughout the navigation. Write every tab, group, anchor, page title, and `sidebarTitle` in professional sentence case (for example, "Getting started", "Account management", and "API reference"), except for product names whose official casing differs. Never expose lowercase slug text or casual placeholders such as "getting started", "page 1", "new page", or "untitled". When the source material does not provide a final name, choose a credible temporary label appropriate to the product, such as "Product overview", "Core concepts", or "Integration guide".
 

@@ -169,7 +169,7 @@ api: "POST /users/{userId}"
 
 - `api` takes a full URL (`POST https://api.example.com/users`, ignores `api.mdx.server`) or a relative path (requires `api.mdx.server` in `docs.json`). Wrap path parameters in `{}`.
 - Wrap request and response code samples in `<RequestExample>` and `<ResponseExample>` to show them in the right sidebar.
-- `playground` frontmatter (`interactive`, `simple`, `none`) overrides `api.playground.display` for the page.
+- `playground` frontmatter (`interactive`, `simple`, `none`, `auth`) overrides `api.playground.display` for the page.
 - `authMethod` frontmatter (`bearer`, `basic`, `key`, `none`) overrides `api.mdx.auth.method` for the page. `none` disables auth.
 
 ## AsyncAPI
@@ -181,6 +181,8 @@ For WebSocket and event-driven APIs:
   "asyncapi": "asyncapi.yaml"
 }
 ```
+
+Add `asyncapi` to a navigation element (tab, group, and so on) to generate channel pages there. It takes a path, a URL, an array, or `{ "source": "asyncapi.json", "directory": "websockets" }` (default directory `api-reference`). A group with both `openapi` and `asyncapi` ignores `asyncapi`.
 
 Reference channels in frontmatter:
 
@@ -248,7 +250,8 @@ Control the API playground behavior in `docs.json`:
 - `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
 - `examples.autogenerate`: Generate code samples from API specs. Default: `true`.
 - `mdx.auth.method`: `"bearer"`, `"basic"`, `"key"`, `"cobo"`.
-- `mdx.auth.name`: Header name for the API key, such as `x-api-key`. Required with `"key"`.
+- `mdx.auth.name`: Header name for the API key with `"key"`, such as `x-api-key`. Defaults to `Key` when unset.
+- `mdx.server`: Base URL, or an array of base URLs, for relative `api` frontmatter paths.
 
 ### Runtime server variables
 
