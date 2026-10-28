@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { bundleTopics, checkTopics, commandsReferencePath, loadTopics } from '../scripts/lib.mjs';
+import { bundleTopics, checkSkillCommands, checkTopics, commandsReferencePath, loadSkillFiles, loadTopics } from '../scripts/lib.mjs';
 
 const reference = await readFile(commandsReferencePath, 'utf8');
 
@@ -58,6 +58,17 @@ test('checks commands and flags on lines that say never or do not', () => {
   assert.equal(check('Do not invent `mint publish`; a Git push deploys.'), '');
   assert.equal(check('`mint openapi-check` is deprecated; use `mint validate`.'), '');
   assert.match(check('Run `mint publish` to ship.'), /mint publish is not in cli\/commands\.mdx/);
+});
+
+test('the Mintlify skill names only real mint commands and flags', async () => {
+  const files = await loadSkillFiles();
+  assert.ok(Object.keys(files).includes('SKILL.md'));
+  assert.deepEqual(checkSkillCommands(files, reference), []);
+});
+
+test('skill check flags a bad command flag but not the skill writing style', () => {
+  const problems = checkSkillCommands({ 'SKILL.md': 'Run `mint claim --emial a@b.co` \u2014 then share the link.' }, reference);
+  assert.deepEqual(problems, ['skill SKILL.md: --emial is not a mint claim flag in cli/commands.mdx']);
 });
 
 test('rejects topics over the size limit', () => {

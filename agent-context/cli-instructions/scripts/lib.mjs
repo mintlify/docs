@@ -86,8 +86,46 @@ function docsPageExists(url) {
   );
 }
 
+// Every line is checked, including lines that say "never" or "do not": those only allow naming a known non-command.
+function commandProblems(file, lines, { global, byCommand }) {
+  const problems = [];
+  for (const line of lines) {
+    const negated = negation.test(line);
+    const mentions = [...line.matchAll(/`mint ([a-z][a-z0-9-]*)([^`]*)`/g), ...line.matchAll(/^\s*mint ([a-z][a-z0-9-]*)(.*)$/g)];
+    for (const [, command, rest] of mentions) {
+      const flags = byCommand.get(command);
+      if (!flags) {
+        if (!(negated && namedNonCommands.has(command))) problems.push(`${file}: mint ${command} is not in cli/commands.mdx`);
+        continue;
+      }
+      for (const [flag] of rest.matchAll(/--[a-zA-Z-]+/g)) {
+        if (!flags.has(flag) && !global.has(flag)) problems.push(`${file}: ${flag} is not a mint ${command} flag in cli/commands.mdx`);
+      }
+    }
+  }
+  return problems;
+}
+
+// The Mintlify skill has its own writing style, so only its `mint` commands and flags are checked.
+export const skillDirectory = path.join(repositoryRoot, 'agent-context', 'context', 'skills', 'mintlify');
+
+export async function loadSkillFiles(directory = skillDirectory) {
+  const files = {};
+  for (const entry of await readdir(directory, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    const absolute = path.join(entry.parentPath ?? entry.path, entry.name);
+    files[path.relative(directory, absolute)] = await readFile(absolute, 'utf8');
+  }
+  return files;
+}
+
+export function checkSkillCommands(files, reference) {
+  const flags = documentedFlags(reference);
+  return Object.entries(files).flatMap(([file, markdown]) => commandProblems(`skill ${file}`, markdown.split('\n'), flags));
+}
+
 export function checkTopics(topics, reference) {
-  const { global, byCommand } = documentedFlags(reference);
+  const flags = documentedFlags(reference);
   const problems = [];
 
   for (const [key, markdown] of Object.entries(topics)) {
@@ -100,21 +138,7 @@ export function checkTopics(topics, reference) {
       }
     }
 
-    // Every line is checked, including lines that say "never" or "do not": those only allow naming a known non-command.
-    for (const line of lines) {
-      const negated = negation.test(line);
-      const mentions = [...line.matchAll(/`mint ([a-z][a-z0-9-]*)([^`]*)`/g), ...line.matchAll(/^\s*mint ([a-z][a-z0-9-]*)(.*)$/g)];
-      for (const [, command, rest] of mentions) {
-        const flags = byCommand.get(command);
-        if (!flags) {
-          if (!(negated && namedNonCommands.has(command))) problems.push(`${file}: mint ${command} is not in cli/commands.mdx`);
-          continue;
-        }
-        for (const [flag] of rest.matchAll(/--[a-zA-Z-]+/g)) {
-          if (!flags.has(flag) && !global.has(flag)) problems.push(`${file}: ${flag} is not a mint ${command} flag in cli/commands.mdx`);
-        }
-      }
-    }
+    problems.push(...commandProblems(file, lines, flags));
 
     for (const [, block] of markdown.matchAll(/```json\n([\s\S]*?)```/g)) {
       try {
