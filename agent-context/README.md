@@ -11,6 +11,7 @@ Single source of truth, maintained in the Mintlify documentation repository, for
 - `scripts/build.mjs` renders self-contained plugin artifacts into `dist/`.
 - `scripts/sync-target.mjs` replaces only `skills/mintlify/` in a target repository.
 - `../.github/workflows/sync-agent-context.yml` opens generated sync pull requests in all four target repositories.
+- `cli-instructions/` contains the topics for the planned `mint instructions` CLI command, with their own build and checks. See `cli-instructions/README.md`.
 
 Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target repositories, except for Kiro's required `plugin.json`, which is generated from its target configuration. This project generates the shared skill and each client's MCP configuration file.
 
