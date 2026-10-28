@@ -6,7 +6,7 @@ when: "New docs site, first publish, no account, claim a site, login, no docs.js
 
 # New site and first publish
 
-Use this when the user wants a docs site for a product or repo, or wants their docs live on a URL. Run the whole workflow yourself. Ask the user only for things you cannot supply.
+Use this when the user wants a docs site or wants docs live on a URL. Run the whole workflow yourself; ask only for what you cannot supply.
 
 ## Checklist
 
@@ -51,13 +51,12 @@ Copy this into your plan and check items off:
 
 ## Rules
 
-- The user only needs a browser to open a claim link, approve the CLI login, or connect GitHub. Everything else happens in the terminal.
+- The user needs a browser only to open a claim link, approve the CLI login, or connect GitHub.
 - "Get it live, I don't have an account": use `mint deploy`, then offer the claim link. Do not stop at "sign up in the browser".
 - Never invent an email, use a placeholder like `YOUR_EMAIL`, or take one from Git config or the environment. Ask, then run `mint claim` yourself with exactly what the user gave you.
 - Never tell the user a verification email was sent: no agent step sends one.
 - Never show the write token to the user, put it in a Git remote URL, or save it in Git config.
 - The live URL is `https://<subdomain>.mintlify.site`, not `.mintlify.app`. Use `mint status` for the exact subdomain after `mint login`, or the URL `mint deploy` printed.
-- Never claim the site is live before the URL loads.
 - Do not use `--force` on a directory with user files.
 - Plans: Starter is $0 (custom domain, web editor, authentication, MCP server, API playground). SSO, SCIM, and RBAC are Enterprise. Pro and Enterprise prices and trials: https://www.mintlify.com/pricing.md (do not quote prices from memory).
 

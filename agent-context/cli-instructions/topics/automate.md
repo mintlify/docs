@@ -6,7 +6,7 @@ when: "Keep docs in sync with code: Mintlify agent, Autopilot, automations, Slac
 
 # Automate docs maintenance
 
-Use this when the user wants docs to stay current without manual edits, or wants docs checked on every pull request. Most setup happens in the dashboard (https://app.mintlify.com/products/automations), which you cannot click. Your job: pick the right tool, prepare repo files and CI, and give the user exact dashboard steps.
+Use this to keep docs current or check them on every pull request. Most setup is in the dashboard (https://app.mintlify.com/products/automations), which you cannot click: pick the tool, prepare repo files and CI, and give the user exact dashboard steps.
 
 ## Pick the right tool
 
@@ -18,8 +18,8 @@ Use this when the user wants docs to stay current without manual edits, or wants
 
 ## Workflow
 
-1. Run `mint status` to confirm the account and subdomain. Ask which plan they are on if a step needs Pro or Enterprise.
-2. CI in their repo: add the job in Examples. You can do this fully yourself.
+1. Run `mint status` to confirm account and subdomain. Ask the plan if a step needs Pro or Enterprise.
+2. CI in their repo: add the Examples job yourself.
 3. Mintlify CI checks: tell the user to enable them on the dashboard **General** settings page (https://app.mintlify.com/settings/project/general), choosing `Warning` (never fails) or `Blocking` (fails on errors or suggestions). Needs the Mintlify GitHub App. Optional: commit a `.vale.ini` in the content root (use relative `StylesPath = styles`, no absolute paths or `..`) and `styles/config/vocabularies/Mintlify/accept.txt` / `reject.txt`.
 4. Agent guidance: write `.mintlify/AGENTS.md`. A root `AGENTS.md` also works but is served publicly at `/agents.md` unless you add it to `.mintignore`. The Mintlify agent reads only `AGENTS.md`, not `CLAUDE.md`, `.cursorrules` or similar, so copy shared rules in. The editor agent ignores `AGENTS.md`; it uses **AI instructions** in editor settings.
 5. Automations: you can manage them from the terminal when the user is logged in (`mint login`): `mint automations list`, `mint automations delete <id>`, and `mint automations create` with `--name`, `--prompt`, `--type` (predefined: `changelog`, `source-code-agent`, `translations`, `writing-style`, `typo-check`, `broken-link-detection`, `seo-metadata-audit`, `assistant-docs-updates`, `contextual-feedback-docs-updates`), a trigger (`--cron "<5-field cron>"` or `--push-repo owner/repo`), optional `--context-repo`, `--automerge`, or `--file <json|yaml>`. Confirm name, trigger, and prompt with the user before creating. Otherwise the user uses **Automations** in the dashboard. Prompts: one task, numbered steps, exact paths, done state.
@@ -79,7 +79,7 @@ mint broken-links --check-anchors --check-redirects --check-snippets
 mint dev --no-open
 ```
 
-Then have a test PR confirm the CI job runs; check the **Runs** tab.
+Then open a test PR to confirm the CI job runs.
 
 ## More
 

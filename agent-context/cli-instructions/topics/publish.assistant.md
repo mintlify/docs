@@ -6,7 +6,7 @@ when: "The AI assistant, widget, Assistant.md, skills, narration, bring your own
 
 # Assistant, widget, and narration
 
-Use this when the user wants readers to chat with their docs, embed that chat elsewhere, shape its answers, or add audio narration. Most switches live in the dashboard, which you cannot click: prepare repo files yourself and give the user exact dashboard steps.
+Use this for reader chat on the docs or elsewhere, shaping its answers, or audio narration. Most switches are in the dashboard, which you cannot click: prepare repo files and give the user exact dashboard steps.
 
 Do not confuse three things:
 - **Assistant**: chat for readers on the docs site (and the widget). This topic.
@@ -16,7 +16,7 @@ Do not confuse three things:
 ## Plans and cost
 
 - Assistant, widget, narration, analytics: Pro or Enterprise. Starter has no AI features and cannot buy credits.
-- Credits pool per organization: each Pro plan adds 10,000/month. Answer = 25 credits; "can't answer" = 0. Same price from the docs site, widget, or assistant API. Narration = 50 credits per generated page version; replays free.
+- Credits pool per organization: each Pro plan adds 10,000/month. Answer = 25 credits; "can't answer" = 0. Same price on site, widget, or API. Narration = 50 credits per generated page version; replays free.
 - Overages ($0.01/credit) are off by default and set per project. With overages off and the balance spent, the assistant is unavailable until reset. Add-ons and alerts: **Usage** page (https://app.mintlify.com/settings/organization/usage).
 - Enterprise only: assistant customization (pricing page) and bring your own model (per project).
 
@@ -45,7 +45,7 @@ Do not confuse three things:
 - Skills: truncated at about 6,000 tokens, max three per response, self-contained, prose and code (no screenshots). Delete `.mintlify/assistant/skills/` and redeploy to remove all.
 - Use `Assistant.md` for tone, persona, terminology, and rules for every response; use skills for topic-specific guidance.
 - The assistant indexes published content and API specs only, not draft branches or preview deployments. It skips hidden pages unless `docs.json` has `seo.indexing: "all"`.
-- It answers only from the docs (plus configured search domains). Fix missing answers by improving content, not by prompting.
+- It answers only from the docs (plus configured search domains): fix missing answers in content, not prompts.
 - Narration is not available for projects that require authentication. It skips code blocks, tables, media, and API fields.
 - Widget: keep the hosted loader before the init block (module scripts run in order). Await `init()` before other methods. Changing widget ID or `endpoint` needs `destroy()` then `init()`. Changing `identity` starts a new conversation.
 
@@ -105,7 +105,7 @@ mint dev --no-open
 ```
 - With `mint login`, the local preview runs the assistant against the deployed index, so it tests `Assistant.md` and responses. New skills need a redeploy first.
 - Open a page with `?assistant` or `?assistant=How%20do%20I%20start%3F`, or press Cmd+I / Ctrl+I.
-- Widget: reload the host page, confirm the trigger appears, send a test question.
+- Widget: reload the host page and send a test question.
 - Narration: a **Listen to this page** player appears on pages with enough prose.
 - Usage and credits: **Usage** page activity log. Conversations: **Assistant** view at https://app.mintlify.com/analytics.
 

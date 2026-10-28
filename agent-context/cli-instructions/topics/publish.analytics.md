@@ -6,12 +6,12 @@ when: "mint analytics, feedback, search data, analytics and consent integrations
 
 # Docs analytics, feedback, and tracking integrations
 
-Use this when the user asks about docs performance or wants to improve docs from data, or wants to add analytics, chat, or consent tooling to the site. Analytics and feedback require a Pro or Enterprise plan.
+Use this for docs performance questions, data-driven fixes, or adding analytics, chat, or consent tooling to the site. Analytics and feedback require a Pro or Enterprise plan.
 
 ## Workflow: read the data
 
 1. Run `mint status` to confirm you are logged in (`mint login` if not).
-2. Pick the subdomain and range. Shared flags on every subcommand: `--subdomain`, `--from YYYY-MM-DD`, `--to YYYY-MM-DD` (defaults: last 7 days to today), `--format table|plain|json|graph`. Output defaults to `json` when the CLI detects an AI or CI environment, so you can parse it directly. Persist defaults with `mint config set subdomain <sub>` (also `dateFrom`, `dateTo`).
+2. Pick the subdomain and range. Shared flags on every subcommand: `--subdomain`, `--from YYYY-MM-DD`, `--to YYYY-MM-DD` (defaults: last 7 days to today), `--format table|plain|json|graph`. Output defaults to `json` in AI or CI environments. Persist defaults with `mint config set subdomain <sub>` (also `dateFrom`, `dateTo`).
 3. Run the subcommand that answers the question:
    - `mint analytics stats [--page <path>]`: views, visitors, searches, feedback, assistant usage. Human and agent traffic are reported separately.
    - `mint analytics search [--query <substring>] [--page <path>]`: queries with hit counts, click-through rate, top clicked page, last searched date.
@@ -27,7 +27,7 @@ Use this when the user asks about docs performance or wants to improve docs from
 1. Search gaps: `mint analytics search --format json`. Flag frequent queries with low CTR or no useful top clicked page. Add the missing content, or add the query terms (keywords, headings) to the page that should match.
 2. Negative feedback: `mint analytics feedback --type page --format json`, then `mint analytics feedback --page <path>` for the comments on the worst pages. Fix what the comments describe.
 3. Assistant gaps: `mint analytics conversation buckets list`, then `buckets view <id>` on the largest buckets. Write or expand pages for questions the docs do not answer.
-4. Edit the pages, then run the Verify commands below.
+4. Edit the pages, then run Verify.
 5. To do this on a schedule, the predefined automations "Fill gaps from assistant conversations" and "Improve docs from user feedback" open PRs automatically. See `mint instructions automate`.
 
 ## Dashboard views (tell the user, you cannot click them)
@@ -105,7 +105,7 @@ mint dev --no-open
 mint analytics stats --format json
 ```
 
-After deploying, load the live site (`https://<subdomain>.mintlify.site` or the custom domain) and check the provider's real-time or debug view, or that the consent banner appears in a private window.
+After deploying, check the provider's real-time or debug view on the live site, or that the consent banner appears in a private window.
 
 ## More
 

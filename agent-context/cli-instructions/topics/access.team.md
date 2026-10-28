@@ -12,7 +12,7 @@ Use this to add teammates, set roles, SSO, SCIM, session or IP policies, audit l
 
 ## Workflow
 
-1. Check the plan. Starter: 5 editor seats. Pro and Enterprise: unlimited editor seats. Enterprise only: roles (RBAC), SSO, SCIM, session lifetimes, IP allowlist, audit logs, security contact. Audit log streaming: Enterprise add-on.
+1. Check the plan. Seat limits per plan: https://www.mintlify.com/pricing.md (do not quote seat counts from memory). Enterprise only: roles (RBAC), SSO, SCIM, session lifetimes, IP allowlist, audit logs, security contact. Audit log streaming: Enterprise add-on.
 2. Add members: **Members** page (https://app.mintlify.com/settings/organization/members). In **New member**, enter emails (comma, semicolon, space or newline separated, up to 250 at once), choose a role, click **Invite**. Invalid or duplicate addresses open a review drawer: fix rows, **Send invites**. Pro and Enterprise: **Bulk invite** takes a CSV.
 3. Roles (Enterprise RBAC). Without RBAC every member has full dashboard access and new members join as editors. With RBAC:
    - Viewer: view editor content, dashboard and analytics, ask the Slack agent questions, comment. Always in suggesting mode in the editor; cannot accept suggestions.

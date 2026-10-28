@@ -6,27 +6,27 @@ when: "Custom domain (mint add-domain), /docs subpath, reverse proxy, CSP"
 
 # Custom domain and subpath hosting
 
-Use this to put docs on the user's domain or under a path of an existing site, or to fix a broken domain, proxy, iframe or CSP setup.
+Use this to host docs on the user's domain or a subpath of their site, or to fix a domain, proxy, iframe or CSP setup.
 
 ## Workflow
 
 1. Decide the shape with the user:
    - Domain or subdomain: Mintlify serves all traffic for that host. Apex (`example.com`) needs a DNS provider with CNAME flattening or `ALIAS`/`ANAME` (Cloudflare, Route 53 alias, DNSimple, Porkbun); otherwise use a subdomain.
-   - Subpath: if the domain hosts nothing else, point DNS at Mintlify. If another site runs on it, keep its DNS and proxy only the subpath to Mintlify.
+   - Subpath: if the domain hosts nothing else, point DNS at Mintlify; if another site runs on it, keep its DNS and proxy only the subpath.
    - Subpath hosting is not supported with authentication enabled.
 2. Confirm the domain with the user, then register it (needs `mint login`; uses the subdomain from `mint config set subdomain <subdomain>`, else the account's first subdomain):
    - `mint add-domain docs.example.com` (bare hostname)
    - `mint add-domain example.com --basePath /docs`
    Or dashboard: Custom domain setup (https://app.mintlify.com/settings/project/custom-domain), **Host at** toggle for a base path, **Add domain**.
 3. DNS route (no proxy). Give the user the printed records:
-   - `TXT _acme-challenge` and `TXT _cf-custom-hostname` first. Add the `CNAME` to `cname.mintlify.builders` only after both TXT records show a green check in the dashboard. Switching early breaks HTTPS until provisioning ends. Records still generating when the CLI exits: read them in the dashboard.
-   - Cloudflare-proxied (orange cloud): TXT cannot verify first. Add TXT, switch the CNAME immediately, expect a brief invalid certificate. For zero downtime set the record to DNS only (gray cloud) instead.
+   - `TXT _acme-challenge` and `TXT _cf-custom-hostname` first. Add the `CNAME` to `cname.mintlify.builders` only after both TXT records show a green check in the dashboard. Switching early breaks HTTPS until provisioning ends. Records not printed yet: read them in the dashboard.
+   - Cloudflare-proxied (orange cloud): TXT cannot verify first. Add TXT, switch the CNAME immediately, expect a brief invalid certificate, or set DNS only (gray cloud) for zero downtime.
    - Cloudflare DNS: SSL/TLS "Full (strict)" and "Always Use HTTPS" off.
    - CAA records must include `0 issue "letsencrypt.org"`. Never redirect or rewrite `/.well-known/acme-challenge`.
    - DNS: 1 to 24 hours (up to 48). TLS follows within hours (up to 24). Stuck TXT: fix records, then **Retry validation** in the dashboard.
-4. Proxy route (subpath on an existing site). Proxy target is always `<subdomain>.mintlify.site`; with a base path the content lives at `<subdomain>.mintlify.site/<base-path>`. Pick the provider below. The repo folder name does not set the base path: only the dashboard or `--basePath` does.
+4. Proxy route (subpath on an existing site). Proxy target is always `<subdomain>.mintlify.site`; with a base path the content lives at `<subdomain>.mintlify.site/<base-path>`. Pick the provider below. Only the dashboard or `--basePath` sets the base path, not the repo folder name.
 5. Set `seo.metatags.canonical` in `docs.json` to the custom domain.
-6. A base path change takes effect on the next deploy; the site serves the old path until then.
+6. Base path changes apply on the next deploy.
 
 ## Base path rules
 
@@ -37,12 +37,12 @@ Use this to put docs on the user's domain or under a path of an existing site, o
 
 - Vercel (`vercel.json` rewrites): `/_mintlify/:path*` to `https://<sub>.mintlify.site/_mintlify/:path*`, `/api/request` to `.../_mintlify/api/request`, `/docs` and `/docs/:match*` to `.../docs` and `.../docs/:match*`, `/mintlify-assets/:path+` to `.../mintlify-assets/:path+`. `/_mintlify` and `/mintlify-assets` are required. An external proxy in front of Vercel must pass `/.well-known/acme-challenge/*`, `/.well-known/vercel/*`, `/mintlify-assets/_next/static/*` untouched and forward `Host`.
 - Cloudflare Workers: use the Worker script shown in the dashboard after adding the domain. It passes `/.well-known/*` through, proxies `/docs*`, `/mintlify-assets/*`, `/_mintlify/*` to `<sub>.mintlify.site`, sets `Host` to that target, `X-Forwarded-Host` to the custom domain, `X-Forwarded-Proto: https`. With route patterns, add `yoursite.com/mintlify-assets/*` and `yoursite.com/_mintlify/*` routes at the domain root. A Worker on a custom domain must route other traffic to the main site (Webflow pattern). WAF or Bot Fight Mode 403s on `/mintlify-assets/`: add a WAF Skip rule (hostname equals docs host, URI Path starts with `/mintlify-assets/`).
-- AWS Route 53 + CloudFront: two origins (`<sub>.mintlify.site`, the main site's staging URL). Six behaviors: `/docs`, `/docs/*`, `/_mintlify/*`, `/.well-known/*` with CachingDisabled; `/mintlify-assets/*` with CachingOptimized; `Default (*)` to the main site. All use origin request policy `AllViewerExceptHostHeader`. Subpath and `/_mintlify/*` behaviors allow GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE (default GET/HEAD silently kills analytics). Add the domain as Alternate domain name with an ACM cert from `us-east-1`, then a Route 53 Alias record to the distribution.
+- AWS Route 53 + CloudFront: two origins (`<sub>.mintlify.site`, the main site's staging URL). Six behaviors: `/docs`, `/docs/*`, `/_mintlify/*`, `/.well-known/*` with CachingDisabled; `/mintlify-assets/*` with CachingOptimized; `Default (*)` to the main site. All use origin request policy `AllViewerExceptHostHeader`. Subpath and `/_mintlify/*` behaviors allow GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE (GET/HEAD only breaks analytics). Add the domain as Alternate domain name with an ACM cert from `us-east-1`, then a Route 53 Alias record to the distribution.
 - Other reverse proxy (nginx etc.): proxy `/docs` and `/docs/*` (includes `/docs/_llms/*`) and `/.well-known/vercel/*` with no cache; optional root `/llms.txt`, `/llms-full.txt`, `/skill.md`, `/.well-known/skills/*`, `/.well-known/agent-skills/*` mapped to the files under `/docs` on the target. Forward all HTTP methods (analytics POSTs to `/docs/_mintlify/api/v1/e`). Set `Origin: <sub>.mintlify.site`, forward `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Real-IP`, `User-Agent`. Do not forward `Host`. Cache only `/mintlify-assets/_next/static/*`.
 
 ## Rules
 
-- Domain changes (CLI or dashboard) hit the live project. Confirm first.
+- Domain changes hit the live project; confirm first.
 - Only add the Mintlify CNAME with `--basePath` if the domain hosts nothing else.
 - Do not rewrite only `/docs/llms.txt` to root; forward the full base path route.
 - CSP: the default CSP allows any HTTPS origin; it blocks plain HTTP resources, `blob:`/`data:` scripts, `<object>`/`<embed>`, cross-origin workers. A proxy that overwrites CSP must allow the required domains (`*.mintlify.site`, `*.mintlify.com`, `mintcdn.com`, `*.mintcdn.com`, hCaptcha, two CloudFront hosts and more): copy the policy from the CSP page.
