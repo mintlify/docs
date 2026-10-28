@@ -267,6 +267,8 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`. Read `reference/cli.md` for full flags and subcommands.
 
+After you edit pages, run `mint validate --no-build --format json` for a fast check and `mint validate --fix` to apply automatic fixes. Run a full `mint validate` before you push.
+
 ## Writing standards
 
 - Second-person voice ("you").

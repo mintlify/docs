@@ -18,8 +18,56 @@ Available on all commands.
 
 - `mint dev`: Start local preview at localhost:3000. In a directory without `docs.json`, it generates one from the directory structure: root Markdown and MDX files go in an **Introduction** group, each top-level folder becomes a group (nested folders become subgroups, and leading number prefixes such as `01-` are dropped from group names), `index` and `readme` pages sort first, and paths starting with `.` or `_`, `node_modules`, `snippets`, and `.mintignore` entries are skipped. The site name comes from `name` in a `package.json` in the directory or its parent, otherwise the directory name. `--port` sets the port. `--host` exposes the preview on your network so other devices can open it; without it, the preview only accepts connections at `localhost`. `--no-open` skips browser launch. `--groups` mocks user groups (space-separated, e.g. `--groups admin user`). `--signed-in` previews as a signed-in reader with no groups; without `--signed-in` or `--groups`, the preview shows the signed-out view. `--disable-openapi` skips OpenAPI processing. `--disable-prefetch` disables navigation prefetching. `--local-schema` allows locally-hosted OpenAPI files over HTTP. The preview generates each page's OG image from local files at `/_mintlify/og/<page-path>.png` (`index.png` for the home page) and regenerates it on every request. Each page's `og:image` meta tag points to that image unless the page sets a custom `og:image`.
 - `mint og [page]` — Render a page's social preview (OG) image to a PNG using the `docs.json` `thumbnails` settings and page or section `thumbnail` overrides. `page` defaults to `index`. `--preset` (`classic`, `headline`, `minimal`), `--surface` (`brand`, `neutral`), and `--appearance` (`light`, `dark`) try settings without editing `docs.json`. `--output <file>` sets the PNG path (default: a temporary file). `--no-open` skips opening the image; it is also skipped when `CI` is set. Warnings (title too long, missing logo, font load failure, low contrast) don't change the exit code. Exits `1` if `docs.json` is invalid or the page doesn't exist.
-- `mint validate` — Strict build validation; exits non-zero on warnings or errors. `--groups` mocks user groups (space-separated). `--disable-openapi` skips OpenAPI processing. `--local-schema` allows local OpenAPI files. `--fix` writes the available automatic fixes to disk, then checks again (up to five fix passes, since one fix can unlock another). Mintlify skips overlapping fixes and any fix that would make a page parse worse than before. Without `--fix`, output reports how many issues `--fix` would fix. Commit or stash changes first so you can review the edits.
 - `mint export`: Export a static site zip for air-gapped deployment. `--output <file>` sets the output path (default: `export.zip`). `--groups` includes restricted pages (space-separated). `--disable-openapi` skips OpenAPI processing. `--base-path <path>` serves the export under a subpath such as `/docs` (letters, numbers, hyphens, and underscores, with `/` between segments); without it, the export must be served from the domain root. The export fails if any page path starts with the base path. `--client-version <version>` builds with a specific Mintlify client release (default: the latest release compatible with the CLI). The export includes a local search index, so search works offline and skips pages hidden from search.
+
+## Validate
+
+`mint validate` runs rules over pages, snippets, navigation, and OpenAPI specs, then a strict build, and prints findings grouped by file. The build runs only when no rule reported an error and a selected rule needs it.
+
+For a quick loop while editing, run `mint validate --no-build --format json`, apply `--fix` for the issues it can fix, and fix the rest by hand. Run a full `mint validate` before you push.
+
+Exit codes:
+
+- `0`: no errors. Warnings don't fail the run.
+- `1`: one or more errors.
+- `2`: validate couldn't run, for example an unknown rule or group, `--files` matching nothing, or a crash.
+
+Rules:
+
+| Rule | Group | Severity | Needs build | `--fix` | Checks |
+|------|-------|----------|-------------|---------|--------|
+| `parse-error` | `content` | error | no | no | Files MDX can't parse. Always runs; other rules skip these files. |
+| `void-tags` | `content` | error | no | yes | Lowercase HTML void elements (`<br>`, `<img>`, `<source>`, `<input>`, …) that aren't self-closed. Components such as `<Source />` aren't flagged. |
+| `duplicate-h1` | `content` | warning | no | yes | A page's first heading is an H1 that repeats the frontmatter `title`. Skipped when `mode` is `custom` or `frame`. Not auto-fixed when the heading has a custom `{#id}` or links point to its anchor. |
+| `unknown-component` | `content` | warning | no | yes | JSX components on a page that aren't built in, imported, or exported. The fix adds an import when `snippets/<Name>.jsx` or `.tsx` exists. |
+| `katex` | `content` | warning | no | no | Math KaTeX can't render. Currency amounts such as `$5` are ignored. |
+| `foreign-syntax` | `content` | warning | no | no | Syntax from other docs frameworks that Mintlify doesn't render: GitBook/Liquid tags, Hugo shortcodes, `:::` admonitions, MkDocs `!!!` admonitions, Kramdown `{: }` attributes, `[[wiki links]]`, ReadMe `doc:` links, and `@site/` paths. Each finding names the Mintlify replacement. Runs on files MDX can't parse. |
+| `missing-file` | `content` | error | yes | no | Imported files that don't exist. |
+| `import-error` | `content` | error | yes | no | Imports in pages and snippets that don't resolve. |
+| `missing-nav-page` | `nav` | error | yes | no | Pages in the navigation that have no file. |
+| `package-import` | `config` | error | yes | no | npm package imports that are undeclared or conflict. |
+| `build-failed` | `config` | error | yes | no | The strict build failed for a reason no other rule reports. |
+| `openapi-spec` | `openapi` | error | no | no | Specs in `docs.json` or `mint.json` that don't parse or validate, with overlays applied. Remote specs are fetched even with `--no-build`. |
+| `openapi-build` | `openapi` | error | yes | no | OpenAPI pages the build couldn't generate. |
+
+Flags:
+
+- `--files <paths...>`: Limit page checks to specific `.md` or `.mdx` files or globs. Site-wide checks and the build still cover the whole site.
+- `--disable <list>` and `--enable <list>`: Turn rules or groups off or on. Comma-separated rule ids, groups (`content`, `nav`, `config`, `openapi`), or `all`. For example, `--disable all --enable content` runs only content rules (`missing-file` and `import-error` still run the build). `parse-error` can't be turned off.
+- `--disable openapi`: Skip OpenAPI checks. `mint validate` no longer accepts `--disable-openapi`; `mint dev` and `mint export` still do.
+- `--no-build`: Skip the strict build, so no client download is needed.
+- `--fix`: Write the available automatic fixes to disk, then check again. Runs up to five fix passes, since one fix can unlock another, then runs every rule once more for the final report. Skips overlapping fixes and any fix that would make a file parse worse than before. Without `--fix`, output reports how many issues `--fix` would fix. Commit or stash changes first so you can review the edits.
+- `--format json`: Print one JSON report on stdout and nothing else. Other output goes to stderr, and the publish prompt is skipped. If validate can't run, stdout is empty and stderr gets `Error: <message>`.
+- `--groups <groups...>`: Mock user groups (space-separated).
+- `--local-schema`: Allow locally hosted OpenAPI files served over HTTP. Hidden from `--help` but still supported.
+
+JSON report fields:
+
+- `passed`: `true` when there are no errors.
+- `summary`: `errors`, `warnings`, and `byRule` (count per rule id).
+- `diagnostics`: one entry per finding, with `rule`, `group`, `severity`, `file`, optional `line` and `column`, `message`, and optional `fix`.
+- `build`: `{ "ran": true, "passed": <boolean> }`, or `{ "ran": false, "reason": <reason> }` where the reason is `disabled`, `errors found`, or `no build rules`.
+- `fixed` (with `--fix` only): applied fixes, each with `rule`, `file`, optional `line` and `column`, `before`, and `after`.
 
 ## Content quality
 
