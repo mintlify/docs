@@ -1,0 +1,96 @@
+---
+title: "Registro de agentes"
+description: "Permite que un agente de IA cree un sitio de Mintlify sin una cuenta y luego reclama el sitio desde tu propia cuenta."
+keywords: ["mint deploy", "mint claim", "auth.md", "reclamar", "GitHub Actions"]
+---
+
+Un agente de IA puede crear y desplegar un sitio de Mintlify sin registrarse antes en una cuenta. Después, puedes reclamar desde tu propia cuenta de Mintlify el sitio que un agente crea para ti.
+
+Usa este flujo de creación de sitios y registro cuando quieras que un agente trabaje en un sitio de forma autónoma o cuando quieras mostrar una demo de un sitio en vivo antes de crear una cuenta. Si ya tienes una cuenta o estás listo para registrarte por correo electrónico, usa en su lugar el [flujo de configuración con agentes](/es/quickstart).
+
+<div id="deploy-a-site">
+  ## Desplegar un sitio
+</div>
+
+Ejecuta `mint deploy` desde el directorio de documentación. El directorio debe contener un archivo `docs.json`.
+
+```bash
+npm i -g mint
+mint deploy --subdomain <subdomain>
+```
+
+El comando aprovisiona un sitio en `https://<subdomain>.mintlify.site` e imprime la URL de un repositorio Git alojado y un token de escritura de corta duración. No sube archivos. A continuación, el agente:
+
+1. Clona el repositorio alojado en un directorio independiente, pasando el token de escritura como encabezado `Authorization: Bearer` solo para ese proceso de Git.
+2. Copia `docs.json`, las páginas y los recursos en la raíz del repositorio.
+3. Hace commit y push a `main`. El push inicia una compilación.
+
+La salida incluye comandos de Git listos para ejecutar. Vuelve a ejecutar `mint deploy` desde el mismo directorio para obtener un nuevo token de escritura, o pasa `--new --subdomain <name>` para crear otro sitio.
+
+<Warning>
+  El token de escritura otorga acceso de push al sitio. No lo pegues en registros públicos, no lo incluyas en un commit ni lo guardes en la URL de un remoto de Git.
+</Warning>
+
+<div id="deploy-on-every-push-from-github">
+  ## Desplegar en cada push desde GitHub
+</div>
+
+Si tu documentación está en un repositorio de GitHub, `mint deploy --github` configura un flujo de trabajo que despliega el sitio en cada push a la rama predeterminada del repositorio. El flujo de trabajo se autentica con el token de identidad OIDC de GitHub, por lo que el repositorio no almacena ningún secreto.
+
+`--github` requiere un remoto `origin` de GitHub y la [CLI de GitHub](https://cli.github.com) con una sesión iniciada que tenga acceso al repositorio.
+
+```bash
+mint deploy --github --subdomain <subdomain>
+```
+
+El comando:
+
+1. Aprovisiona el sitio o reutiliza el sitio de un `mint deploy` anterior en el mismo directorio.
+2. Confía en el repositorio y en su rama predeterminada para desplegar el sitio.
+3. Escribe `.github/workflows/mintlify.yml` en la raíz del repositorio.
+
+Haz commit y push del archivo de flujo de trabajo a la rama predeterminada. Cada push posterior a esa rama ejecuta `mint deploy` en GitHub Actions, que hace push del commit extraído al sitio.
+
+Si tu documentación está en un subdirectorio, ejecuta el comando desde la raíz del repositorio y pasa el subdirectorio con `--directory`. El subdirectorio se convierte en la raíz del sitio, y el flujo de trabajo solo se ejecuta cuando cambian archivos de ese subdirectorio o el propio flujo de trabajo.
+
+```bash
+mint deploy --github --subdomain <subdomain> --directory docs
+```
+
+Si `.github/workflows/mintlify.yml` ya existe con un contenido diferente, el comando se detiene. Pasa `--force` para sobrescribirlo.
+
+<Note>
+  `--github` solo funciona con sitios no reclamados. Para desplegar un sitio reclamado desde GitHub, conecta el repositorio desde el [panel de control](https://app.mintlify.com).
+</Note>
+
+<div id="claim-the-site">
+  ## Reclamar el sitio
+</div>
+
+Un sitio creado con `mint deploy` caduca a menos que una persona lo reclame. Cuando reclamas un sitio, te conviertes en administrador de la organización del sitio, por lo que puedes gestionarlo desde el [panel de control](https://app.mintlify.com).
+
+1. El agente pregunta qué dirección de correo electrónico debe ser propietaria del sitio y luego ejecuta:
+
+   ```bash
+   mint claim --email <email>
+   ```
+
+   Para obtener el enlace en el mismo paso, ejecuta `mint deploy --email <email>` en su lugar.
+2. Abre el enlace de reclamación.
+3. Inicia sesión en Mintlify o crea una cuenta.
+4. Copia el código que se muestra y pégaselo al agente.
+5. El agente completa la reclamación con ese código:
+
+   ```bash
+   mint claim --code <code>
+   ```
+
+Ejecuta ambos comandos `mint claim` desde el mismo directorio que `mint deploy`, o pasa `--directory`. La CLI almacena las credenciales del agente y las lee durante la reclamación, por lo que los agentes no deben leerlas ni imprimirlas.
+
+Después de reclamar un sitio, la página de reclamación enlaza al panel de control y al sitio en vivo.
+
+<div id="use-authmd-without-the-cli">
+  ## Usar auth.md sin la CLI
+</div>
+
+Los agentes que no pueden instalar la CLI pueden seguir [`https://mintlify.com/auth.md`](https://mintlify.com/auth.md). Describe el mismo flujo como solicitudes HTTP sin procesar: registrar una identidad de agente anónima, aprovisionar un sitio y entregar la cuenta a una persona mediante la página de reclamación.

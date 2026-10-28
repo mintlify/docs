@@ -76,7 +76,7 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
   ## 编辑的工作方式
 </div>
 
-每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`publish` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。私有页面仅在内部项目中可用。在其他项目中，私有页面请求会返回 `private_pages_unavailable`。
+每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`publish` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`read_page_history`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。私有页面仅在内部项目中可用。在其他项目中，私有页面请求会返回 `private_pages_unavailable`。
 
 流程如下：
 
@@ -137,6 +137,16 @@ Mintlify 按页面跟踪更改。如果你和其他人编辑了同一页面，`p
 
 Mintlify 会在每次编辑时检查这些条件，并将你的 branch 保护规则缓存最多 30 秒。当对部署 branch 的编辑被拒绝时，评论工具仍可在其上使用。如果你编辑部署 branch 之后它开始要求拉取请求，`publish` 会返回 `branch_protected`，你的更改保持待处理状态。请打开控制台编辑器，将这些更改移到新的 branch。
 
+<div id="projects-with-auto-publish">
+  ### 启用自动发布的项目
+</div>
+
+如果你的项目启用了[自动发布](/zh/editor/settings#auto-publish)，管理员 MCP 不会为该项目使用 branch。请将你的部署 branch 作为 `branch` 传入。Mintlify 会自动将你的编辑提交到部署 branch。
+
+在这些项目中，Mintlify 会拒绝 `create_branch` 以及针对任何其他 branch 的调用，且不会做任何更改。如果你的连接仅涵盖该项目，管理员 MCP 不会列出 `create_branch` 或 `list_branches`。
+
+在启用自动发布的项目中，**直接推送到你的部署 branch** 和 branch 保护规则不会阻止对部署 branch 的编辑。当部署 branch 的编辑在控制台编辑器中被锁定，或者你使用客户端令牌或机器到机器令牌连接时，Mintlify 仍会拒绝编辑。
+
 <div id="work-on-a-branch">
   ## 在 branch 上工作
 </div>
@@ -183,7 +193,7 @@ Claude、ChatGPT 和 Cursor 等常用 MCP 客户端始终可以完成 OAuth 登�
 2. 点击 **Create credential**。
 3. 复制密钥。控制台只会显示一次该密钥。
 
-凭据可以读取内容，但不能更改内容。编辑、评论、创建 branch、发布或丢弃内容的工具需要 OAuth 登录，使用凭据调用时会返回 `user_principal_required`。
+凭据可以读取内容，但不能更改内容。编辑、评论、创建 branch、发布或丢弃内容的工具以及 `read_inbox` 需要 OAuth 登录，使用凭据调用时会返回 `user_principal_required`。
 
 要撤销凭据，请点击其旁边的删除图标。
 
@@ -199,21 +209,26 @@ Claude、ChatGPT 和 Cursor 等常用 MCP 客户端始终可以完成 OAuth 登�
 - **`search`**: 在所有页面中查找匹配子字符串或正则表达式的行。搜索 `branch`；省略时搜索部署 branch。
 - **`edit_page`**: 对页面进行有针对性的编辑。`path` 的传入形式与 `read` 相同。传入 `oldString` 和 `newString` 进行单次替换，或传入最多包含 100 个替换的 `edits` 列表，在一次调用中修改页面的多个部分。Mintlify 按顺序应用这些编辑，每个编辑都基于上一个编辑的结果。如果任一编辑失败，则所有编辑都不会应用。与 `write_page` 一样，`edit_page` 会针对编辑新增且被编辑器丢弃的标记返回 `notRendered`。它不会报告页面上原本已有的标记。要编辑[私有页面](/zh/editor/pages#private-pages)，请将其 `private-page-<uuid>` 节点 ID 作为 `path` 传入。私有编辑需要在该页面拥有 editor 或更高角色的 OAuth 会话，且无需 `branch`。
 - **`write_page`**: 覆盖页面的完整 MDX 内容。`path` 的传入形式与 `read` 相同。也可接受 `private-page-<uuid>` 节点 ID 以覆盖私有页面，其 OAuth 与角色要求与 `edit_page` 相同。要创建新的私有页面，请使用 `create_node`。如果内容包含会被 Mintlify 编辑器丢弃的标记，例如 `<script>` 标签、`<style>` 块、`onClick` 等事件处理器或 JavaScript 表达式，响应中会包含 `notRendered` 字段。每个条目会列出被丢弃的 `element`、其所在的 `line`、编辑器丢弃它的原因 `why`，以及应改用的 `instead` 方案，例如 Tailwind 类、使用字面量值的内联 `style={{}}` 对象，或手风琴和标签页等 Mintlify 组件。
+- **`read_page_history`**: 列出页面在 `branch` 上保存的[版本历史](/zh/editor/pages#version-history)；省略时使用你的部署 branch。`path` 的传入形式与 `read` 相同，包括 `private-page-<uuid>` 节点 ID。返回按从新到旧排序的 `versions` 以及 `nextCursor`。每个版本包含 `versionId`、`createdAt` 和 `authors`，每位作者都有 `name` 以及取值为 `user`、`git` 或 `system` 的 `type`。传入 `limit` 可每次调用返回 1 到 50 个版本（默认 20 个），将 `nextCursor` 作为 `cursor` 传回即可列出更早的版本。传入 `versionId` 可获取该版本的完整 MDX，结果位于 `content` 中。该工具为只读。要恢复早期版本，请将其 `content` 传给 `write_page`。错误包括 `page_not_found`、`version_not_found` 和 `invalid_cursor`。
 
-<div id="images">
-  ### 图片
+<div id="uploads">
+  ### 上传
 </div>
 
-- **`upload_image`**: 开始将本地图片文件上传到 `branch`。传入目标 `path` (例如 `images/dashboard.png`)、文件的 `contentType` 以及以字节为单位的确切 `size`。返回 `uploadId`、预签名的 `uploadUrl`，以及上传时需要发送的 `headers`。
-- **`finalize_image_upload`**: 将已上传的图片保存到 `branch`。传入 `uploadId` 和相同的 `path`。返回 `src`，你可以通过 `edit_page` 或 `write_page` 在 MDX 中引用它，或通过 `update_config` 在 `docs.json` 的 `logo` 或 `favicon` 字段中引用它。
+- **`upload_file`**: 开始上传本地文件。传入目标 `path`、文件的 `contentType` 以及以字节为单位的确切 `size`。返回 `uploadId`、预签名的 `uploadUrl`，以及上传时需要发送的 `headers`。
+- **`finalize_file_upload`**: 将已上传的图片保存到 `branch`。传入 `uploadId` 和相同的 `path`。返回 `src`，你可以通过 `edit_page` 或 `write_page` 在 MDX 中引用它，或通过 `update_config` 在 `docs.json` 的 `logo` 或 `favicon` 字段中引用它。
 
-调用 `upload_image` 后，AI 工具会使用 `PUT` 请求和返回的请求头将文件字节上传到 `uploadUrl`。例如：
+调用 `upload_file` 后，AI 工具会使用 `PUT` 请求和返回的请求头将文件字节上传到 `uploadUrl`。例如：
 
 ```bash
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配。上传到已存在的 `path` 会替换该图片。Mintlify 仅接受用于 logo 和 favicon 的 SVG 文件，因此上传 SVG 时，请向两个工具都传入 `purpose: "logo"`。已保存的图片会显示在 `status` 中，并在你调用 `publish` 时随你的其他编辑一起发布。
+要添加图片，请将图片 `path`（例如 `images/dashboard.png`）和 `branch` 传给 `upload_file`。上传完成后，调用 `finalize_file_upload`。Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配。上传到已存在的 `path` 会替换该图片。Mintlify 仅接受用于 logo 和 favicon 的 SVG 文件，因此上传 SVG 时，请向两个工具都传入 `purpose: "logo"`。已保存的图片会显示在 `status` 中，并在你调用 `publish` 时随你的其他编辑一起发布。
+
+要基于本地 Markdown 文件写入页面，请传入 `.md` 或 `.mdx` 的 `path`，并将 `contentType` 设置为 `text/markdown` 或 `text/plain`。页面上传不需要 `branch`，也不需要 `finalize_file_upload`。上传完成后，将 `uploadId` 代替 `content` 传给 `write_page`，或作为 `data.uploadId` 传给 `create_node`。这样可以避免在工具调用中重新发送大型页面的完整内容。
+
+请在 10 分钟内使用 `uploadId`。每个 `uploadId` 只能使用一次，且只能在同一项目中、由创建它的同一用户或客户端使用。Mintlify 会在写入后删除已上传的文件。重复使用或已过期的 `uploadId` 会返回 `upload_not_found`。
 
 <div id="comments">
   ### 评论
@@ -226,8 +241,9 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
 - **`suggest_edit`**: 在页面上提出带修订标记的建议，而不是直接编辑。原文会以删除线形式保留在页面上，替换内容显示在其旁边。在有人于控制台编辑器中接受或拒绝该建议之前，页面内容不会改变。`path` 接受与 `read` 相同的格式，并传入 `oldString` 和 `newString`。`oldString` 为要替换的最短且唯一的可见文本片段，且须位于同一段落或标题内。请使用渲染后的文字，而不是 Markdown 或 MDX 语法。传入空的 `newString` 可建议删除。可传入可选的 `comment` 来说明该修改的价值。Mintlify 会将其作为代理在建议线程中的回复发布。旧的 `note` 参数仍可使用，作为 `comment` 的已弃用别名。返回新的 `threadId`，以及裁剪到实际变更片段的 `originalText` 和 `suggestedText`。如果相同的建议已处于打开状态，响应会包含 `alreadyExists: true` 和现有的 `threadId`。`no_match` 和 `not_unique` 错误与 `add_comment` 相同。两个字符串相同时返回 `no_change` 错误，文本与另一条打开的建议重叠时返回 `conflicting_annotation` 错误。
 - **`reply_to_comment`**: 通过 `threadId` 和 `content` 回复线程。传入 `resolve: true` 可同时解决该线程。Mintlify 会以 agent 身份代表授权用户发布回复，回复会实时显示在控制台编辑器中。
 - **`resolve_comment`**: 解决线程而不回复。
+- **`read_inbox`**: 列出你在某个项目上的控制台收件箱，按最新活动排序。收件箱包括评论和提及、建议的编辑以及组织邀请。默认情况下，`read_inbox` 返回未处理的项目。将 `state` 设为 `open`、`done` 或 `all`，将 `section` 设为 `comment`、`suggestion`、`invitation` 或 `all`（默认）。传入 `filter` 可将评论限定为 `mentions` 或 `on-my-page`（你拥有的页面），或将建议限定为来自 `people` 或 `agent` 的建议。除非 `section` 为 `all`，否则筛选条件必须与 `section` 匹配。传入 ISO 8601 日期时间格式的 `dateFrom` 和 `dateTo`，可按最新活动时间限定项目。传入 `limit` 可指定每次调用返回 1 到 50 个项目（默认 20），并将 `nextCursor` 作为 `cursor` 传回以列出更早的项目。每个项目都包含其 `category`、`state`、`latestActivity` 和 `target`。当 `target.thread` 存在、未解决且不在私有页面上时，在其 `branch` 上使用其 `filePath` 调用 `read_comments`，并使用 `reply_to_comment` 回复。`restricted` 项目不包含线程详情。`read_inbox` 为只读操作，绝不会将项目标记为已读或已完成。错误包括 `invalid_filter`、`invalid_date_range` 和 `invalid_cursor`。
 
-`add_comment`、`suggest_edit`、`reply_to_comment` 和 `resolve_comment` 需要 OAuth 会话和 `branch`。它们处理该 branch 上的线程，即使对部署 branch 的编辑要求拉取请求，它们也可以在部署 branch 上使用。你可以回复建议线程，但必须在编辑器中接受或拒绝建议。管理员 MCP 不支持私有页面上的评论。
+`add_comment`、`suggest_edit`、`reply_to_comment` 和 `resolve_comment` 需要 OAuth 会话和 `branch`。它们处理该 branch 上的线程，即使对部署 branch 的编辑要求拉取请求，它们也可以在部署 branch 上使用。你可以回复建议线程，但必须在编辑器中接受或拒绝建议。管理员 MCP 不支持私有页面上的评论。`read_inbox` 同样需要 OAuth 会话，并且只返回该项目所属组织中活跃成员的收件箱。
 
 <div id="navigation">
   ### 导航
@@ -349,3 +365,15 @@ Mintlify 会在保存前检查上传文件的内容是否与其扩展名匹配�
   - Codex：从 `~/.codex/config.toml` 中删除 `[mcp_servers.mintlify]` 代码块。
 
 撤销 OAuth 授权不会影响 MCP 已经打开的拉取请求。若要撤销待处理的更改，请在你的 Git 提供方中关闭或还原这些 PR。
+
+<div id="troubleshooting">
+  ## 故障排除
+</div>
+
+<Accordion title="连接失败并提示注册已过期错误">
+  你的 AI 工具正在使用 Mintlify 更新登录系统之前保存的连接。请重新安装 Mintlify 连接器：先从你的 AI 工具中将其移除，然后重新添加。各工具的具体步骤请参阅[断开或撤销访问权限](#disconnect-or-revoke-access)。
+</Accordion>
+
+<Accordion title="重新安装连接器后连接仍然失败">
+  退出[控制台](https://app.mintlify.com)，重新登录，然后再次连接你的 AI 工具。这会替换在登录系统更新之前开始的控制台会话。
+</Accordion>
