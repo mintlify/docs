@@ -76,7 +76,7 @@ Conecta tus herramientas al Admin MCP desde [tu panel](https://app.mintlify.com/
   ## Cómo funciona la edición
 </div>
 
-Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`. Las páginas privadas solo están disponibles en proyectos internos. En otros proyectos, las solicitudes sobre páginas privadas devuelven `private_pages_unavailable`.
+Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `read_page_history`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`. Las páginas privadas solo están disponibles en proyectos internos. En otros proyectos, las solicitudes sobre páginas privadas devuelven `private_pages_unavailable`.
 
 El flujo es:
 
@@ -137,6 +137,16 @@ Mintlify rechaza las ediciones en la rama de despliegue, y no cambia nada, cuand
 
 Mintlify comprueba estas condiciones en cada edición y guarda en caché tus reglas de protección de ramas durante un máximo de 30 segundos. Las herramientas de comentarios siguen funcionando en la rama de despliegue cuando se rechazan las ediciones. Si tu rama de despliegue empieza a requerir una pull request después de que la edites, `publish` devuelve `branch_protected` y tus cambios siguen pendientes. Abre el editor del panel para moverlos a una nueva rama.
 
+<div id="projects-with-auto-publish">
+  ### Proyectos con publicación automática
+</div>
+
+Si tu proyecto tiene la [publicación automática](/es/editor/settings#auto-publish) activada, el Admin MCP no usa ramas para él. Pasa tu rama de despliegue como `branch`. Mintlify hace commit de tus ediciones en la rama de despliegue automáticamente.
+
+Mintlify rechaza `create_branch` y las llamadas sobre cualquier otra rama en estos proyectos, y no cambia nada. Si tu conexión solo abarca ese proyecto, el Admin MCP no muestra `create_branch` ni `list_branches`.
+
+**Enviar directamente a tu rama de despliegue** y la protección de ramas no bloquean las ediciones en la rama de despliegue en un proyecto con publicación automática. Mintlify sigue rechazando las ediciones cuando la edición de la rama de despliegue está bloqueada en el editor del panel, o cuando te conectaste con un token de cliente o de máquina a máquina.
+
 <div id="work-on-a-branch">
   ## Trabajar en una rama
 </div>
@@ -183,7 +193,7 @@ Las credenciales permiten que las aplicaciones y gateways de IA se conecten al A
 2. Haz clic en **Create credential**.
 3. Copia el secreto. El panel muestra el secreto solo una vez.
 
-Las credenciales pueden leer contenido, pero no pueden modificarlo. Las herramientas que editan, comentan, crean ramas, publican o descartan contenido requieren un inicio de sesión de OAuth y devuelven `user_principal_required` para una credencial.
+Las credenciales pueden leer contenido, pero no pueden modificarlo. Las herramientas que editan, comentan, crean ramas, publican o descartan contenido, así como `read_inbox`, requieren un inicio de sesión de OAuth y devuelven `user_principal_required` para una credencial.
 
 Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
 
@@ -199,21 +209,26 @@ Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
 - **`search`**: Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas. Busca en `branch`, o en tu rama de despliegue cuando lo omites.
 - **`edit_page`**: Aplica una edición dirigida a una página. Pasa `path` en los mismos formatos que en `read`. Pasa `oldString` y `newString` para un solo reemplazo, o pasa una lista `edits` de hasta 100 reemplazos para cambiar varias partes de una página en una sola llamada. Mintlify aplica las ediciones en orden, cada una sobre el resultado de la anterior. Si alguna edición falla, no se aplica ninguna. Al igual que `write_page`, `edit_page` devuelve `notRendered` para el marcado que añade la edición y que el editor descarta. No informa del marcado que ya estaba en la página. Para editar una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` como `path`. Las ediciones privadas requieren una sesión OAuth con rol de editor o superior en la página y no necesitan `branch`.
 - **`write_page`**: Sobrescribe el contenido MDX completo de una página. Pasa `path` en los mismos formatos que en `read`. También acepta un ID de nodo `private-page-<uuid>` para sobrescribir una página privada bajo los mismos requisitos de OAuth y rol que `edit_page`. Usa `create_node` para crear una nueva página privada. Si el contenido incluye marcado que el editor de Mintlify descarta, como etiquetas `<script>`, bloques `<style>`, controladores de eventos como `onClick` o expresiones de JavaScript, la respuesta incluye un campo `notRendered`. Cada entrada indica el `element` descartado, su `line`, `why` el editor lo descarta y qué usar `instead`, como clases de Tailwind, objetos `style={{}}` en línea con valores literales o componentes de Mintlify como acordeones y pestañas.
+- **`read_page_history`**: Enumera el [historial de versiones](/es/editor/pages#version-history) guardado de una página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa `path` en los mismos formatos que en `read`, incluido un ID de nodo `private-page-<uuid>`. Devuelve `versions`, de la más reciente a la más antigua, y un `nextCursor`. Cada versión tiene un `versionId`, `createdAt` y `authors`, cada uno con un `name` y un `type` de `user`, `git` o `system`. Pasa `limit` para devolver de 1 a 50 versiones por llamada (20 por defecto), y vuelve a pasar `nextCursor` como `cursor` para enumerar versiones más antiguas. Pasa un `versionId` para obtener el MDX completo de esa versión como `content`. La herramienta es de solo lectura. Para restaurar una versión anterior, pasa su `content` a `write_page`. Los errores incluyen `page_not_found`, `version_not_found` e `invalid_cursor`.
 
-<div id="images">
-  ### Imágenes
+<div id="uploads">
+  ### Cargas
 </div>
 
-- **`upload_image`**: Inicia la carga de un archivo de imagen local a `branch`. Pasa la `path` de destino (por ejemplo, `images/dashboard.png`), el `contentType` del archivo y su `size` exacto en bytes. Devuelve un `uploadId`, una `uploadUrl` prefirmada y los `headers` que debes enviar con la carga.
-- **`finalize_image_upload`**: Guarda la imagen cargada en `branch`. Pasa el `uploadId` y la misma `path`. Devuelve el `src` que debes referenciar en MDX con `edit_page` o `write_page`, o en los campos `logo` o `favicon` de `docs.json` con `update_config`.
+- **`upload_file`**: Inicia la carga de un archivo local. Pasa la `path` de destino, el `contentType` del archivo y su `size` exacto en bytes. Devuelve un `uploadId`, una `uploadUrl` prefirmada y los `headers` que debes enviar con la carga.
+- **`finalize_file_upload`**: Guarda una imagen cargada en `branch`. Pasa el `uploadId` y la misma `path`. Devuelve el `src` que debes referenciar en MDX con `edit_page` o `write_page`, o en los campos `logo` o `favicon` de `docs.json` con `update_config`.
 
-Después de `upload_image`, la herramienta de IA sube los bytes del archivo a `uploadUrl` con una solicitud `PUT` y los encabezados devueltos. Por ejemplo:
+Después de `upload_file`, la herramienta de IA sube los bytes del archivo a `uploadUrl` con una solicitud `PUT` y los encabezados devueltos. Por ejemplo:
 
 ```bash
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Mintlify solo acepta archivos SVG para logotipos y favicons, así que pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes guardadas aparecen en `status` y se publican con el resto de tus ediciones cuando llamas a `publish`.
+Para añadir una imagen, pasa una `path` de imagen, como `images/dashboard.png`, y la `branch` a `upload_file`. Después de la carga, llama a `finalize_file_upload`. Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Mintlify solo acepta archivos SVG para logotipos y favicons, así que pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes guardadas aparecen en `status` y se publican con el resto de tus ediciones cuando llamas a `publish`.
+
+Para escribir una página a partir de un archivo Markdown local, pasa una `path` `.md` o `.mdx` con `contentType` establecido en `text/markdown` o `text/plain`. Las cargas de páginas no necesitan `branch` ni `finalize_file_upload`. Después de la carga, pasa el `uploadId` en lugar de `content` a `write_page`, o como `data.uploadId` a `create_node`. Así evitas reenviar el contenido completo de una página grande en la llamada a la herramienta.
+
+Usa el `uploadId` en un plazo de 10 minutos. Cada `uploadId` funciona una sola vez, en el mismo proyecto y para el mismo usuario o cliente que lo creó. Mintlify elimina el archivo cargado después de la escritura. Un `uploadId` reutilizado o caducado devuelve `upload_not_found`.
 
 <div id="comments">
   ### Comentarios
@@ -226,8 +241,9 @@ Trabaja con los [comentarios y sugerencias](/es/editor/collaborate#comments) que
 - **`suggest_edit`**: Propone una sugerencia con control de cambios en una página en lugar de editarla. El texto original permanece en la página tachado y el reemplazo aparece a su lado. Nada cambia hasta que alguien acepta o rechaza la sugerencia en el editor del panel. Pasa `path` en los mismos formatos que `read`, `oldString` y `newString`. `oldString` es el fragmento de texto visible único más corto que se va a reemplazar, dentro de un párrafo o encabezado. Usa las palabras renderizadas, no la sintaxis de Markdown o MDX. Pasa un `newString` vacío para sugerir una eliminación. Pasa un `comment` opcional para explicar por qué el cambio es útil. Mintlify lo publica como la respuesta del agente en el hilo de la sugerencia. El parámetro anterior `note` sigue funcionando como alias obsoleto de `comment`. Devuelve el nuevo `threadId` con `originalText` y `suggestedText`, recortados al fragmento que cambia. Si la misma sugerencia ya está abierta, la respuesta incluye `alreadyExists: true` y el `threadId` existente. Los errores `no_match` y `not_unique` funcionan igual que en `add_comment`. El error es `no_change` cuando ambas cadenas son iguales y `conflicting_annotation` cuando el texto se superpone con otra sugerencia abierta.
 - **`reply_to_comment`**: Responde a un hilo por `threadId` con `content`. Pasa `resolve: true` para resolver también el hilo. Mintlify publica la respuesta como el agente en nombre del usuario que autorizó la conexión, y aparece en tiempo real en el editor del panel.
 - **`resolve_comment`**: Resuelve un hilo sin responder.
+- **`read_inbox`**: Lista tu bandeja de entrada del dashboard en un proyecto, con la actividad más reciente primero. La bandeja de entrada incluye comentarios y menciones, ediciones sugeridas e invitaciones a la organización. De forma predeterminada, `read_inbox` devuelve los elementos abiertos. Pasa `state` como `open`, `done` o `all`, y `section` como `comment`, `suggestion`, `invitation` o `all` (predeterminado). Pasa `filter` para limitar los comentarios a `mentions` u `on-my-page` (páginas de las que eres propietario), o las sugerencias a las de `people` o del `agent`. El filtro debe coincidir con `section`, a menos que `section` sea `all`. Pasa `dateFrom` y `dateTo` como fechas y horas ISO 8601 para limitar los elementos según su actividad más reciente. Pasa `limit` para obtener de 1 a 50 elementos por llamada (20 de forma predeterminada), y pasa `nextCursor` como `cursor` para listar elementos más antiguos. Cada elemento incluye su `category`, `state`, `latestActivity` y `target`. Cuando `target.thread` está presente, no está resuelto y no está en una página privada, llama a `read_comments` con su `filePath` y responde con `reply_to_comment`, ambos en su `branch`. Los elementos `restricted` no incluyen detalles del hilo. `read_inbox` es de solo lectura y nunca marca elementos como leídos o completados. Los errores incluyen `invalid_filter`, `invalid_date_range` e `invalid_cursor`.
 
-`add_comment`, `suggest_edit`, `reply_to_comment` y `resolve_comment` requieren una sesión OAuth y una `branch`. Actúan sobre los hilos de esa rama y funcionan en tu rama de despliegue incluso cuando sus ediciones requieren una pull request. Puedes responder a hilos de sugerencias, pero debes aceptar o rechazar las sugerencias en el editor. Los comentarios en páginas privadas no están disponibles a través del Admin MCP.
+`add_comment`, `suggest_edit`, `reply_to_comment` y `resolve_comment` requieren una sesión OAuth y una `branch`. Actúan sobre los hilos de esa rama y funcionan en tu rama de despliegue incluso cuando sus ediciones requieren una pull request. Puedes responder a hilos de sugerencias, pero debes aceptar o rechazar las sugerencias en el editor. Los comentarios en páginas privadas no están disponibles a través del Admin MCP. `read_inbox` también requiere una sesión OAuth y solo devuelve la bandeja de entrada de un miembro activo de la organización del proyecto.
 
 <div id="navigation">
   ### Navegación
@@ -349,3 +365,15 @@ Desconecta el Admin MCP cuando ya no quieras que una herramienta de IA edite tu 
   - Codex: elimina el bloque `[mcp_servers.mintlify]` de `~/.codex/config.toml`.
 
 Revocar la autorización de OAuth no afecta a las pull requests que el MCP ya haya abierto. Cierra o revierte esas PRs en tu proveedor de Git si quieres deshacer los cambios pendientes.
+
+<div id="troubleshooting">
+  ## Solución de problemas
+</div>
+
+<Accordion title="La conexión falla con un error de registro obsoleto">
+  Tu herramienta de IA está usando una conexión guardada antes de que Mintlify actualizara su sistema de inicio de sesión. Reinstala el conector de Mintlify: elimínalo de tu herramienta de IA y vuelve a agregarlo. Consulta [Desconectar o revocar el acceso](#disconnect-or-revoke-access) para ver los pasos de cada herramienta.
+</Accordion>
+
+<Accordion title="La conexión sigue fallando después de reinstalar el conector">
+  Cierra sesión en el [panel](https://app.mintlify.com), vuelve a iniciar sesión y luego conecta de nuevo tu herramienta de IA. Esto reemplaza una sesión del panel que comenzó antes de la actualización del inicio de sesión.
+</Accordion>
