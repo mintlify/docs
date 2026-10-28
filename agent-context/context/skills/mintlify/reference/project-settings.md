@@ -33,5 +33,5 @@ These change only in the dashboard. Answer with where to change them; do not ask
 Answer questions about traffic, page views, popular pages, search, assistant usage and feedback from query results, never from memory, and never by editing pages.
 
 - `get_analytics_report` covers most questions; pick the report with `request.report`. With a local CLI, `mint analytics` reads the same data.
-- Default to the last 30 days when the user gives no range.
+- Default to the last 30 days when the user gives no range. With `mint analytics`, pass `--from` explicitly, because the CLI defaults to 7 days.
 - Every number you state must come from a result. Lead with the answer and the key number in one or two sentences; mention a caveat only if it changes the conclusion.

@@ -46,7 +46,7 @@ In a local repository, that is a new `.mdx` file plus its path in `docs.json` na
 ## Style
 
 - Use SEO-friendly titles (see the title rules below), and use short `sidebarTitle` labels (1-3 words) for long titles when needed
-- Navigation group names should also be concise: 1–3 words (e.g., "Guides", "API Reference", "Get Started")
+- Navigation group names should also be concise: 1–3 words (e.g., "Guides", "API reference", "Get started")
 - Write in second person ("you") addressing the customer
 - Use active voice and imperative mood for instructions
 - Lead with the user's goal, not the implementation
@@ -103,7 +103,7 @@ Set `sidebarTitle` on pages with long titles. This is the label shown in the nav
 - Use sentence case
 - Never repeat the product name: it is already shown in the logo
 - Never restate the section/group name
-- Should read like a TOC entry: "Introduction", "Quickstart", "Brokers", "Retry Strategy", "Fairness Queues", "Publishing", "Consuming"
+- Should read like a TOC entry: "Introduction", "Quickstart", "Brokers", "Retry strategy", "Fairness queues", "Publishing", "Consuming"
 - For API/CLI reference pages, use the bare symbol or command name: `BroccoliQueue`, `RetryStrategy`, `GET /users`
 
 Bad sidebarTitle (do NOT do these):
