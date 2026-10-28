@@ -342,7 +342,13 @@ When you add `openapi` to a navigation element without specifying pages, Mintlif
 
 ## SDK references
 
-Generate SDK reference pages from documentation-tool build artifacts by adding an `sdk` property to a tab or group. Set `format` to `typedoc`, `docfx`, `javadoc`, `sphinx`, `phpdoc`, or `go` (generate Go artifacts with `go run github.com/mintlify/mintlify-go-extractor@latest -o go.json` from inside the module); set `source` to an artifact path or HTTPS URL; and optionally set `directory` to control the generated pages' URL prefix (defaults to `sdk-reference`). Groups and pages inherit the nearest ancestor's `sdk` settings; a nested group with its own `sdk` overrides that inheritance. Javadoc pages are grouped by package; a package with several kinds nests them under Interfaces, Classes, Enums, Records, Exceptions, Errors, and Annotations. Sphinx guide pages go under a Getting Started group and module pages under an API Reference group; packages nest their modules in groups that follow the Sphinx toctree, and a page with several `module-*` sections is split into one child page per module.
+Generate SDK reference pages from documentation-tool build artifacts by adding an `sdk` property to a tab or group. Set `format` to `typedoc`, `docfx`, `javadoc`, `sphinx`, `phpdoc`, or `go`; set `source` to an artifact path or HTTPS URL; and optionally set `directory` to control the generated pages' URL prefix (defaults to `sdk-reference`). Groups and pages inherit the nearest ancestor's `sdk` settings; a nested group with its own `sdk` overrides that inheritance.
+
+Format-specific behavior:
+
+- **Javadoc:** Pages are grouped by package. A package with several kinds nests them under Interfaces, Classes, Enums, Records, Exceptions, Errors, and Annotations.
+- **Sphinx:** Guide pages go under a Getting Started group and module pages under an API Reference group. Packages nest their modules in groups that follow the Sphinx toctree, and a page with several `module-*` sections is split into one child page per module.
+- **Go:** Generate the artifact with `go run github.com/mintlify/mintlify-go-extractor@latest -o go.json` from inside the module. `-exclude` skips packages by pattern. `-exclude-symbols` takes comma-separated patterns such as `NewLegacyClient`, `Client.Debug`, `option.WithDebugLog`, or `Legacy*` to leave symbols out; references to excluded symbols show as plain text. Pages are grouped by package, with the package overview first. A package with several kinds nests the rest under Interfaces, Structs, Types (defined types and aliases), and Functions (constructors included).
 
 ```json
 {
