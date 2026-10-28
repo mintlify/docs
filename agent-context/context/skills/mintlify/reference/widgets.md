@@ -49,7 +49,7 @@ Failed requests are retried with exponential backoff...
 - Controls and the views they drive go in one component. Each usage has its own state, so two widgets on a page can't share state. Don't use a module-level variable to share it either: on the site it is shared across usages, in the editor it isn't. A widget can render another widget exported from the same page.
 - Inside a widget, use HTML and SVG elements. Mintlify components such as `<Note>`, `<Tabs>`, `<Steps>`, `<Accordion>`, `<Columns>`, `<Badge>`, `<Tooltip>` and `<Icon>` also work, but `<Card>` inside a widget fails in the editor; put cards in the page around the widget.
 - Use the default page layout, or `mode: "wide"` for wide widgets. Don't use `mode: "custom"` or `mode: "frame"`, because the editor shows those pages as a read-only preview.
-- In a local repository, you can move a widget to `/snippets/<name>.jsx` and import it (see `reference/customization/react-and-snippets.md`). Through the Admin MCP server and in Workspace, keep it in the page.
+- In a local repository, you can move a widget to `/snippets/<name>.jsx`, import it and place it directly in the page (see `reference/customization/react-and-snippets.md`); a widget that uses an imported snippet inside its own code fails in the editor. Through the Admin MCP server and in Workspace, keep widgets in the page.
 
 ## What you can use
 
@@ -101,7 +101,7 @@ Don't replace a working widget with static HTML because of these warnings. A wri
 ## Check the widget
 
 - Before writing, check the code against the hard limits.
-- After writing, open the `editorUrl` the tool returns if you can use a browser, and use every control. A widget that throws shows "could not be rendered" in the editor; on the published site it disappears without a message, so check it in the editor before publishing.
+- After writing, open the `editorUrl` the tool returns if you can use a browser, and use every control. A widget that throws while rendering shows "could not be rendered" in the editor; one that throws after it appears leaves a blank gap; on the published site it disappears without a message. Check every control in the editor before publishing.
 - If you can't open a browser, give the user the `editorUrl` and say which interactions to try.
 
 ## Patterns
