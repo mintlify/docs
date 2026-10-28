@@ -232,6 +232,7 @@ export const siteReferenceLinks = {
     'Site building',
     `${canonicalSourceUrl}/reference/site-building.md`,
   ],
+  'reference/widgets.md': ['Widgets', `${canonicalSourceUrl}/reference/widgets.md`],
   'reference/writing.md': ['Writing pages', `${canonicalSourceUrl}/reference/writing.md`],
 };
 // Text that only makes sense next to local reference files, or that a per-file link would send to

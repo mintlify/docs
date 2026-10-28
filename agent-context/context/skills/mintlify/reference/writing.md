@@ -41,6 +41,7 @@ In a local repository, that is a new `.mdx` file plus its path in `docs.json` na
 - A quickstart gets the reader to a working state quickly: a working code example for libraries and APIs, or account setup through the first meaningful action for a SaaS product.
 - API reference pages document actual parameters and return types grounded in real sources.
 - Include real-world usage examples, not toy examples.
+- When a concept depends on inputs, unfolds in steps, has a shape, or is a UI, show it with a live widget instead of a screenshot, recording or Mermaid diagram. Read `reference/widgets.md` first.
 - Code blocks have correct language tags.
 
 ## Style

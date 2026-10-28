@@ -23,6 +23,7 @@ Read these files **only when your task requires them**. They are in the `referen
 | `reference/writing.md` | Before creating a page or writing more than a sentence or two: the no-invention rule, page creation and editing steps, quality bar, audience, titles and descriptions, links. |
 | `reference/publishing-and-review.md` | Publishing, branches and pull requests, "is this live" questions, undoing changes, and reviewing a page with suggestions and comments. |
 | `reference/project-settings.md` | Reading or changing dashboard settings (domains, git sources, auth, members, workflows, search, add-ons), settings no tool covers, and analytics questions. |
+| `reference/widgets.md` | Before you write or rewrite a page that explains a value that depends on inputs, a process, a structure, a comparison, or a UI: build live React widgets instead of screenshots, recordings or Mermaid. Covers when to build one and the exact limits. |
 | `reference/site-building.md` | Building or migrating a whole site, a section, or more than a handful of pages: research sizing, generation order, landing page, structure for common kinds of site, porting rules. |
 
 ## Starting a new docs site
