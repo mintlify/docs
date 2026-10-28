@@ -213,9 +213,9 @@ Generate pages from an SDL schema by adding `graphql` to a tab or group in `navi
 - To curate pages, list selectors in `pages` of the tab or group that declares `graphql` (or its nested groups): `QUERY <field>`, `MUTATION <field>`, `TYPE <name>`. Kinds must be uppercase. Dotted paths (`MUTATION cart.createCart`) select namespaced operations; `TYPE` does not accept dotted paths. The sidebar labels a nested operation with its last segment (`createCart`); the page URL keeps the full path (`.../cart/createCart`).
 - If any page is a selector, the full generated sections are skipped. Regular page paths still work alongside selectors. An unmatched selector fails the build.
 
-## Playground configuration
+## API settings
 
-Control the API playground behavior in `docs.json`:
+The `api` key in `docs.json` controls API sources, the playground, code examples, and MDX API pages. This is the full list of `api` fields:
 
 ```json
 "api": {
@@ -238,13 +238,15 @@ Control the API playground behavior in `docs.json`:
 }
 ```
 
+- `openapi`: Same values as `openapi` on a navigation element, including `overlays` (see "OpenAPI setup" and "Overlays").
+- `asyncapi`: Same values as `asyncapi` on a navigation element (see "AsyncAPI").
 - `playground.display`: `"interactive"`, `"simple"`, `"none"`, or `"auth"`.
 - `playground.proxy`: Route requests through Mintlify's proxy. Default: `true`.
 - `playground.credentials`: Include cookies and auth headers for cross-origin requests when proxy is `false`. Default: `false`.
 - `params.expanded`: Expand all parameters by default. `"all"` or `"closed"` (default).
 - `params.post`: OpenAPI schema field keys to surface as pills next to parameter names (array of strings).
 - `optional`: How optional request fields display in the playground. `"collapsed"` (default), `"expanded"`, or `"static"` (always shown, no toggle).
-- `url`: Set to `"full"` to always show the full base URL.
+- `url`: Set to `"full"` to show the base URL when there's only one. By default, a single base URL is hidden, and several base URLs show as a selector.
 - `examples.languages`: Supported values — `bash` (cURL), `python`, `javascript`, `node`, `php`, `go`, `java`, `ruby`, `powershell`, `swift`, `csharp`, `dotnet`, `typescript`, `c`, `c++`, `kotlin`, `rust`, `dart`.
 - `examples.defaults`: `"required"` or `"all"` (include optional params).
 - `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.

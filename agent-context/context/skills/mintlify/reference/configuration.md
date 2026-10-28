@@ -513,42 +513,7 @@ Preview a page's thumbnail locally with `mint og` (see the CLI reference).
 
 ## API configuration
 
-```json
-"api": {
-  "openapi": "openapi.json",
-  "playground": {
-    "display": "interactive",
-    "proxy": true
-  },
-  "examples": {
-    "languages": ["bash", "javascript", "python"],
-    "defaults": "all",
-    "prefill": false,
-    "autogenerate": true
-  },
-  "mdx": {
-    "server": "https://api.example.com",
-    "auth": {
-      "method": "bearer"
-    }
-  }
-}
-```
-
-- `openapi`: Single path or URL, array of paths/URLs/objects, or object with `source`, `directory`, and `overlays` (array of OpenAPI Overlay paths or URLs applied in order; `[]` disables all overlays, including auto-discovered ones).
-- `asyncapi`: Single file, array, or object with `source` and `directory` for AsyncAPI specs.
-- `playground.display`: `"interactive"`, `"simple"`, `"none"`, or `"auth"`.
-- `playground.proxy`: Route requests through Mintlify's proxy. Default: `true`.
-- `playground.credentials`: Include cookies and auth headers for cross-origin requests when proxy is `false`. Default: `false`.
-- `params.expanded`: Expand all parameters by default. `"all"` or `"closed"` (default).
-- `params.post`: OpenAPI schema field keys to surface as pills next to parameter names.
-- `optional`: How optional request fields display in the playground. `"collapsed"` (default), `"expanded"`, or `"static"` (always shown, no toggle).
-- `url`: Set to `"full"` to always show the full base URL (default: only shown when multiple base URLs exist).
-- `examples.languages`: `bash`, `python`, `javascript`, `node`, `php`, `go`, `java`, `ruby`, `powershell`, `swift`, `csharp`, `dotnet`, `typescript`, `c`, `c++`, `kotlin`, `rust`, `dart`.
-- `examples.defaults`: `"required"` or `"all"` (include optional params).
-- `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
-- `examples.autogenerate`: Generate code samples from API specs. Default: `true`.
-- `mdx.auth.method`: `"bearer"`, `"basic"`, `"key"`, `"cobo"`.
+The `api` key configures OpenAPI and AsyncAPI sources, the API playground, code examples, and MDX API pages. For every field, see "API settings" in `reference/api-docs.md`.
 
 ## Integrations
 
