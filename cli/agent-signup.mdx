@@ -1,0 +1,88 @@
+---
+title: "Agent signup"
+description: "Let an AI agent create a Mintlify site without an account, then claim the site from your own account."
+keywords: ["mint deploy", "mint claim", "auth.md", "claim", "GitHub Actions"]
+---
+
+An AI agent can create and deploy a Mintlify site without first signing up for an account. You can then claim the site an agent creates for you from your own Mintlify account.
+
+Use this site creation and signup flow when you want an agent to work on a site autonomously or when you want to demo a live site before creating an account. If you already have an account or are ready to sign up by email, use the [agent setup workflow](/quickstart) instead.
+
+## Deploy a site
+
+Run `mint deploy` from the documentation directory. The directory must contain a `docs.json` file.
+
+```bash
+npm i -g mint
+mint deploy --subdomain <subdomain>
+```
+
+The command provisions a site at `https://<subdomain>.mintlify.site` and prints a hosted Git repository URL and a short-lived write token. It does not upload files. The agent then:
+
+1. Clones the hosted repository into a separate directory, passing the write token as an `Authorization: Bearer` header for that Git process only.
+2. Copies `docs.json`, pages, and assets into the repository root.
+3. Commits and pushes to `main`. The push starts a build.
+
+The output includes ready-to-run Git commands. Run `mint deploy` again from the same directory to get a fresh write token, or pass `--new --subdomain <name>` to create another site.
+
+<Warning>
+  The write token grants push access to the site. Don't paste it into public logs, commit it, or save it in a Git remote URL.
+</Warning>
+
+## Deploy on every push from GitHub
+
+If your documentation lives in a GitHub repository, `mint deploy --github` sets up a workflow that deploys the site on every push to the repository's default branch. The workflow authenticates with GitHub's OIDC identity token, so the repository doesn't store any secrets.
+
+`--github` requires a GitHub `origin` remote and the [GitHub CLI](https://cli.github.com) signed in with access to the repository.
+
+```bash
+mint deploy --github --subdomain <subdomain>
+```
+
+The command:
+
+1. Provisions the site, or reuses the site from an earlier `mint deploy` in the same directory.
+2. Trusts the repository and its default branch to deploy the site.
+3. Writes `.github/workflows/mintlify.yml` at the repository root.
+
+Commit and push the workflow file to the default branch. Each later push to that branch runs `mint deploy` in GitHub Actions, which pushes the checked-out commit to the site.
+
+If your docs live in a subdirectory, run the command from the repository root and pass the subdirectory with `--directory`. The subdirectory becomes the site root, and the workflow only runs when files in that subdirectory or the workflow itself change.
+
+```bash
+mint deploy --github --subdomain <subdomain> --directory docs
+```
+
+If `.github/workflows/mintlify.yml` already exists with different contents, the command stops. Pass `--force` to overwrite it.
+
+<Note>
+  `--github` only works for unclaimed sites. To deploy a claimed site from GitHub, connect the repository from the [dashboard](https://app.mintlify.com).
+</Note>
+
+## Claim the site
+
+A site created with `mint deploy` expires unless a person claims it. When you claim a site, you become an admin of the site's organization, so you can manage it from the [dashboard](https://app.mintlify.com).
+
+1. The agent asks which email address should own the site, then runs:
+
+   ```bash
+   mint claim --email <email>
+   ```
+
+   To get the link in the same step, run `mint deploy --email <email>` instead.
+2. Open the claim link.
+3. Sign in to Mintlify or create an account.
+4. Copy and paste the displayed code back to the agent.
+5. The agent finishes the claim with that code:
+
+   ```bash
+   mint claim --code <code>
+   ```
+
+Run both `mint claim` commands from the same directory as `mint deploy`, or pass `--directory`. The CLI stores the agent's credentials and reads them during the claim, so agents shouldn't read or print them.
+
+After you claim a site, the claim page links to the dashboard and the live site.
+
+## Use auth.md without the CLI
+
+Agents that can't install the CLI can follow [`https://mintlify.com/auth.md`](https://mintlify.com/auth.md). It describes the same flow as raw HTTP requests: register an anonymous agent identity, provision a site, and hand the account to a person through the claim page.

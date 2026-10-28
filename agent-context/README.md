@@ -64,6 +64,8 @@ Kiro uses the manifest version to detect updates. The sync command bumps the pat
 
 A target that sets `pluginManifestFile` writes its manifest to that path instead of `plugin.json`, and the version bump reads the target repository's current version from the same path. Claude Code, for example, reads only `.claude-plugin/plugin.json`.
 
+Don't set `pluginManifest` for the Claude target. Its repository keeps a hand-written `.claude-plugin/plugin.json` that sets only `name`. Anthropic's official marketplace bumps the plugin by commit SHA. A `version` in the manifest pins installs to that version, so those bumps wouldn't reach existing users.
+
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 
 ## Publishing setup
