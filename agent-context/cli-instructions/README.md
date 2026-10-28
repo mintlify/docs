@@ -16,7 +16,7 @@ The folder is under `agent-context/`, which `.mintignore` excludes, so topics ar
 
 `npm test` (run in `agent-context/`) fails when a topic:
 
-- names a `mint` command that has no section in `cli/commands.mdx`, other than `mint instructions` and `mint automations`
+- names a `mint` command that has no section in `cli/commands.mdx`, other than `mint instructions` and `mint automations`. A line that says a command is wrong ("There is no `mint publish`") may name one of the commands in `namedNonCommands` in `scripts/lib.mjs`; flags are still checked on every line
 - uses a flag that is not in that command's section of `cli/commands.mdx` or its global flags, other than a short per-command allowlist in `scripts/lib.mjs`
 - links to a `https://www.mintlify.com/docs/...` page that has no file in this repository
 - contains `.mintlify.app`, `mint init`, `mint publish`, `mint index`, an em dash, or `theme={null}`, unless the line says it is wrong or does not exist

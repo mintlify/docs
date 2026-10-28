@@ -50,6 +50,16 @@ test('allows wrong commands on lines that say they are wrong', () => {
   assert.deepEqual(checkTopics({ example: topic }, reference), []);
 });
 
+test('checks commands and flags on lines that say never or do not', () => {
+  const topic = (line) => `---\nname: mintlify-example\ndescription: Example.\n---\n\n${line}\n`;
+  const check = (line) => checkTopics({ example: topic(line) }, reference).join('\n');
+  assert.match(check('Never run `mint deploy --subdomian docs` twice.'), /--subdomian is not a mint deploy flag/);
+  assert.match(check('Never run `mint deplyo` twice.'), /mint deplyo is not in cli\/commands\.mdx/);
+  assert.equal(check('Do not invent `mint publish`; a Git push deploys.'), '');
+  assert.equal(check('`mint openapi-check` is deprecated; use `mint validate`.'), '');
+  assert.match(check('Run `mint publish` to ship.'), /mint publish is not in cli\/commands\.mdx/);
+});
+
 test('rejects topics over the size limit', () => {
   const big = `---\nname: mintlify-big\ndescription: Big.\n---\n${'x'.repeat(9000)}`;
   assert.match(bundleTopics({ root: big }).errors.join('\n'), /limit 7000/);

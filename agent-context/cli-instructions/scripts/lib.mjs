@@ -25,6 +25,10 @@ export const extraFlags = new Map([
   ],
 ]);
 
+// Commands the topics name on purpose to say they are wrong: they do not exist, are deprecated, or do not work yet.
+// They pass only on a line that says so; anywhere else they fail like any unknown command.
+export const namedNonCommands = new Set(['publish', 'init', 'index', 'mcp', 'openapi-check']);
+
 // Strings that must not appear, except on lines that say they are wrong or do not exist.
 export const bannedStrings = new Map([
   ['.mintlify.app', 'old default domain; sites live at <subdomain>.mintlify.site'],
@@ -96,19 +100,19 @@ export function checkTopics(topics, reference) {
       }
     }
 
-    const checked = lines.filter((line) => !negation.test(line)).join('\n');
-    const commandMentions = [
-      ...[...checked.matchAll(/`mint ([a-z][a-z0-9-]*)([^`]*)`/g)].map((match) => [match[1], match[2]]),
-      ...[...checked.matchAll(/^\s*mint ([a-z][a-z0-9-]*)(.*)$/gm)].map((match) => [match[1], match[2]]),
-    ];
-    for (const [command, rest] of commandMentions) {
-      const flags = byCommand.get(command);
-      if (!flags) {
-        problems.push(`${file}: mint ${command} is not in cli/commands.mdx`);
-        continue;
-      }
-      for (const [flag] of rest.matchAll(/--[a-zA-Z-]+/g)) {
-        if (!flags.has(flag) && !global.has(flag)) problems.push(`${file}: ${flag} is not a mint ${command} flag in cli/commands.mdx`);
+    // Every line is checked, including lines that say "never" or "do not": those only allow naming a known non-command.
+    for (const line of lines) {
+      const negated = negation.test(line);
+      const mentions = [...line.matchAll(/`mint ([a-z][a-z0-9-]*)([^`]*)`/g), ...line.matchAll(/^\s*mint ([a-z][a-z0-9-]*)(.*)$/g)];
+      for (const [, command, rest] of mentions) {
+        const flags = byCommand.get(command);
+        if (!flags) {
+          if (!(negated && namedNonCommands.has(command))) problems.push(`${file}: mint ${command} is not in cli/commands.mdx`);
+          continue;
+        }
+        for (const [flag] of rest.matchAll(/--[a-zA-Z-]+/g)) {
+          if (!flags.has(flag) && !global.has(flag)) problems.push(`${file}: ${flag} is not a mint ${command} flag in cli/commands.mdx`);
+        }
       }
     }
 
