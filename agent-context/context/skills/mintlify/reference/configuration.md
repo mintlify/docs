@@ -6,6 +6,29 @@ Full docs.json settings, snippets, hidden pages, and custom CSS/JS.
 
 The `docs.json` file controls the entire site. Required fields: `theme`, `name`, `colors.primary`, and `navigation`.
 
+Minimal valid `docs.json`:
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Your Docs",
+  "colors": {
+    "primary": "#3B82F6"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting started",
+        "pages": ["index", "quickstart"]
+      }
+    ]
+  }
+}
+```
+
+Top-level `description` (string) sets the site overview used for SEO.
+
 ### Splitting configuration with `$ref`
 
 Use `$ref` at any level of `docs.json` to load configuration from another JSON file. Useful for splitting large configs or sharing navigation across projects.
@@ -29,28 +52,9 @@ Rules:
 - Referenced files can contain their own `$ref` entries, resolved relative to that file.
 - Paths must stay within the project root. Circular references cause a build error.
 
-```json
-{
-  "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Your Docs",
-  "colors": {
-    "primary": "#3B82F6"
-  },
-  "navigation": {
-    "groups": [
-      {
-        "group": "Getting started",
-        "pages": ["index", "quickstart"]
-      }
-    ]
-  }
-}
-```
-
 ## Complete frontmatter fields
 
-The SKILL.md file lists common frontmatter fields. Here is the complete set. All fields are optional; if `title` is omitted, Mintlify generates one from the file path (dashes and underscores become spaces, first letter capitalized).
+The SKILL.md file lists common frontmatter fields. Here are the supported fields. All fields are optional; if `title` is omitted, Mintlify generates one from the file path (dashes and underscores become spaces, first letter capitalized).
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -77,6 +81,12 @@ The SKILL.md file lists common frontmatter fields. Here is the complete set. All
 | `url` | string | External URL. Makes the nav entry link externally. |
 | `timestamp` | boolean | Override global timestamp setting for this page. |
 | `lastUpdatedDate` | string | Explicit "last modified" date (e.g., `"2026-08-13"`). Takes precedence over the Git commit date. |
+| `playground` | string | Per-page API playground display: `interactive`, `simple`, `none`, `auth`. Overrides `api.playground.display`. |
+| `public` | boolean | Make this page public on a site with authentication. |
+| `asyncapi` | string | AsyncAPI channel reference for a WebSocket page. |
+| `rss` | boolean | Generate an RSS feed for a changelog page. |
+| `thumbnail` | object | Per-page social thumbnail override (see Thumbnails). |
+| `canonical`, `robots`, `og:*`, `twitter:*` | string | Page-level SEO meta tags; override `seo.metatags`. |
 
 Any other key is accepted as custom frontmatter (e.g. `product: "API"`).
 
@@ -205,15 +215,16 @@ Google Fonts load automatically by family name. For custom fonts:
   "family": "CustomFont",
   "source": "/fonts/CustomFont.woff2",
   "format": "woff2",
-  "weight": 400,
-  "heading": {
-    "family": "HeadingFont",
-    "weight": 700
-  },
-  "body": {
-    "family": "BodyFont",
-    "weight": 400
-  }
+  "weight": 400
+}
+```
+
+Or set separate heading and body fonts. Don't mix this form with top-level `family`; the top-level form wins and `heading` and `body` are dropped.
+
+```json
+"fonts": {
+  "heading": { "family": "HeadingFont", "weight": 700 },
+  "body": { "family": "BodyFont", "weight": 400 }
 }
 ```
 
@@ -264,7 +275,7 @@ Google Fonts load automatically by family name. For custom fonts:
 
 - `eyebrows`: `"section"` (default) or `"breadcrumbs"`.
 - `latex`: Override automatic LaTeX detection.
-- `codeblocks`: `"system"` (default), `"dark"`, a Shiki theme name, or an object with `light`/`dark` themes.
+- `codeblocks`: `"system"` (default), `"dark"`, or an object: `theme` (one Shiki theme name, or `{ "light": ..., "dark": ... }`) and optional `languages.custom` (paths to Shiki language JSON files).
 
 ## Navbar
 
@@ -314,6 +325,8 @@ Link and button `href` values accept an absolute URL or a relative path starting
 }
 ```
 
+`footer.links`: 1–4 columns; each needs at least one item (`label`, `href`); `header` is optional.
+
 Valid social keys: `x`, `website`, `facebook`, `youtube`, `discord`, `slack`, `github`, `linkedin`, `instagram`, `hacker-news`, `medium`, `telegram`, `bluesky`, `threads`, `reddit`, `podcast`.
 
 ## Banner
@@ -333,7 +346,7 @@ Valid social keys: `x`, `website`, `facebook`, `youtube`, `discord`, `slack`, `g
 - `content` (required): Supports basic Markdown (links, bold, italic). Custom components are not supported.
 - `dismissible`: Show a close button. Stays hidden for a user until content changes. Default: `false`.
 - `type`: Background style. `"info"` (primary color, default), `"warning"` (amber), `"critical"` (red).
-- `color`: Custom background hex. Overrides `type`. Object with `light` and `dark` keys, or a single hex string. Banner text is white — choose a dark enough background.
+- `color`: Custom background hex. Overrides `type`. Object with optional `light` and `dark` hex keys; a bare hex string is invalid. Banner text is white — choose a dark enough background.
 
 Language-specific banners can be set inside the `navigation.languages` entries.
 
@@ -348,7 +361,7 @@ Global content variables substituted at build time using `{{variableName}}` synt
 }
 ```
 
-Keys must be alphanumeric with hyphens only. Values are plain strings. Use in any `.mdx` file:
+Keys can contain letters, digits, `_`, `-`, and `.`. Values are plain strings; HTML tags in values are stripped. Use in any `.mdx` file:
 
 ```mdx
 The current API version is {{apiVersion}}.
@@ -411,6 +424,20 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 - `indexing`: `"navigable"` (only nav pages) or `"all"` (every page including hidden).
 - `paths`: Folder-scoped meta tags. Each entry has `path` (folder relative to docs root, no leading or trailing slash, unique) and `metatags` (non-empty string values). Precedence: `seo.metatags` < matching `seo.paths` (longer path wins) < page frontmatter. Paths match page URLs, so language folders need their own entries (`guides/v1` doesn't apply to `es/guides/v1`). Mintlify ignores a `canonical` key in `paths` entries.
 
+Under `seo`, `trailingSlash: true` emits trailing-slash URLs in canonicals, the sitemap, and links, and `organization` sets the JSON-LD organization entity.
+
+## Markdown for AI agents
+
+```json
+"markdown": {
+  "instructions": ["Use the acme CLI for setup."],
+  "schema": true
+}
+```
+
+- `instructions`: String or array, appended to every page served as Markdown to AI agents.
+- `schema`: Include the full OpenAPI or AsyncAPI spec in API pages served as Markdown. Default: `true`.
+
 ## Search
 
 ```json
@@ -428,7 +455,7 @@ Controls whether clicking a navigation group navigates to its first page (`true`
 }
 ```
 
-- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"download-pdf"`, `"download-spec"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"devin-desktop"`, `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
+- `options` (required): First item is the default action. Built-in values: `"assistant"`, `"copy"`, `"view"`, `"download-pdf"`, `"download-spec"`, `"chatgpt"`, `"claude"`, `"perplexity"`, `"grok"`, `"aistudio"`, `"devin"`, `"windsurf"` (labeled "Open in Devin Desktop"), `"mcp"`, `"add-mcp"`, `"cursor"`, `"vscode"`, `"devin-mcp"`. Custom objects accepted with `title`, `description`, `icon`, and `href` fields.
 - `display`: Where to show the menu. `"header"` (default) or `"toc"`.
 
 ## Thumbnails
@@ -551,7 +578,7 @@ Preview a page's thumbnail locally with `mint og` (see the CLI reference).
 
 ## Reusable snippets
 
-Store reusable content in the `/snippets/` directory. Snippet files must be `.mdx`, `.md`, `.js`, or `.jsx`. You cannot import `.json` or `.yaml` files directly. Keep data in a `.js` snippet with a named export, or generate one from a JSON or YAML source.
+Store reusable content in the `/snippets/` directory. Snippet files must be `.mdx`, `.md`, `.js`, `.jsx`, or `.tsx`. You cannot import `.json` or `.yaml` files directly. Keep data in a `.js` snippet with a named export, or generate one from a JSON or YAML source.
 
 ### MDX snippets
 
@@ -594,7 +621,7 @@ import { Counter } from "/snippets/counter.jsx";
 <Counter />
 ```
 
-JSX components can live in any directory, not just `/snippets/`. Nested imports between snippet files are not supported.
+JSX components can live in any directory, not just `/snippets/`. Snippets can import other snippets; declare each import in the file that uses it, because page-level imports don't apply inside imported snippets.
 
 ### npm packages
 
