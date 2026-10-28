@@ -4,7 +4,7 @@ Docs are better when they're grounded in context that can't be inferred from cod
 
 ## When to run this
 
-Check whether `.mintlify/product-brief.md` exists in the project.
+Check whether `.mintlify/product-brief.md` exists in the project. With no local repository (Admin MCP or the Mintlify editor), don't create the file. Keep the brief in the conversation instead.
 
 - **File exists** — read it, do not re-run the interview. Treat it as a living document: if something you learn during the current task contradicts it, propose an update rather than silently overriding it.
 - **File does not exist** — run the interview below before starting substantial content work: a new site, replacing substantial placeholder content, a broad restructure, or first-time setup of a major section (e.g. API docs). Skip it for targeted edits to an established site (fixing a page, adding one section, small corrections) — write the page and mention in passing that a product brief would help future work, without blocking on it.
