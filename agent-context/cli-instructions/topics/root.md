@@ -55,7 +55,7 @@ Go straight to a subtopic when it matches:
 2. **Read the topic** for the task.
 3. **Edit** MDX pages and `docs.json`. Preserve the user's existing content and style. Never invent product facts, endpoints, or features.
 4. **Preview** with `mint dev --no-open` as a background process. Report the local URL (default `http://localhost:3000`). Stop it when you are done.
-5. **Check** with `mint validate` (fails on any warning or error) and `mint broken-links`. Fix issues your changes caused.
+5. **Check** with `mint validate` (fails on errors, prints warnings) and `mint broken-links`. Fix issues your changes caused.
 6. **Ship** by committing and pushing to the connected repository, or with `mint deploy` when there is no account. Confirm the live site loads before you say it is live.
 
 ## Rules
@@ -74,6 +74,6 @@ Go straight to a subtopic when it matches:
 
 - `mint <command> --help` shows flags. These instructions cover workflows, not every flag.
 - `mint dev` keeps running. Start it in the background.
-- `mint validate` exits non-zero on warnings and errors, so you can rely on its exit code.
+- `mint validate` exits non-zero only on errors. Warnings print without failing, so read the output too.
 - Never guess a command or flag: run `mint <command> --help`.
-- For detail these topics do not cover, read the docs page as Markdown with `curl -sL https://www.mintlify.com/docs/<path>.md` (for example https://www.mintlify.com/docs/autopilot.md). curl returns the full page; web fetch tools may summarize it. Index: https://www.mintlify.com/docs/llms.txt.
+- For detail these topics do not cover, read the docs page as Markdown with `curl -sL https://www.mintlify.com/docs/<path>.md` (for example https://www.mintlify.com/docs/autopilot.md). curl returns the full page; fetch tools may summarize. Index: https://www.mintlify.com/docs/llms.txt.

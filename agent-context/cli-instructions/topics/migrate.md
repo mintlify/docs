@@ -113,7 +113,7 @@ mint broken-links
 mint dev --no-open
 ```
 
-- `mint validate` fails on any warning or error, including OpenAPI specs in `docs.json`.
+- `mint validate` fails on errors, including OpenAPI specs in `docs.json`. Its `foreign-syntax` warnings (old framework syntax) do not fail it; fix them too.
 - `mint broken-links` checks internal links (`--check-anchors` for headings).
 - In `mint dev --no-open`, open several old paths to confirm redirects, and spot-check pages from every group, version, and language against the inventory.
 

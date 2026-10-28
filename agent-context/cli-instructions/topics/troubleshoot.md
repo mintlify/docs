@@ -12,18 +12,17 @@ Use this when a `mint` command errors, a deploy fails, or the local preview, edi
 
 1. Run `mint version`. If the client version is `none` or the CLI is old, run `mint update` (if missing: `npm i -g mint@latest`). Outdated CLIs cause many errors.
 2. `cd` to the directory that contains `docs.json`. `mint dev` and `mint validate` need it.
-3. Run `mint validate` and read every message. It is strict: any warning or error exits non-zero, and it validates OpenAPI specs referenced in `docs.json`.
+3. Run `mint validate` and read every message. It validates OpenAPI specs in `docs.json` and exits non-zero on errors; warnings do not fail it but often explain the problem.
 4. Run `mint broken-links` for link problems.
-5. For deploy problems, check the dashboard **Publishes** page (https://app.mintlify.com/publishes) for the commit and its build status, then the build log.
+5. Deploy problems: the dashboard **Publishes** page (https://app.mintlify.com/publishes) shows each commit's build status and log.
 
 ## Install and CLI
 
 - `Could not load the "sharp" module using the darwin-arm64 runtime` -> outdated Node.js. Fix: `npm uninstall -g mint`, upgrade to Node.js v20.17.0+, `npm install -g mint`.
-- `permission denied` on global install -> no permission to install global packages. Fix: suggest `sudo npm i -g mint` and explain the tradeoff.
+- `permission denied` on global install -> Fix: suggest `sudo npm i -g mint` and explain the tradeoff.
 - Unknown error -> stale local state. Fix: delete `~/.mintlify`, run `mint dev` again.
-- Odd behavior with both `mint` and `mintlify` installed (check `npm ls -g` or `which mint`) -> legacy package. Fix: `npm uninstall -g mintlify`, `npm cache clean --force`, `npm i -g mint`. Never install `mintlify` in scripts or CI.
+- Odd behavior with both `mint` and `mintlify` installed (`npm ls -g`) -> legacy package. Fix: `npm uninstall -g mintlify`, `npm cache clean --force`, `npm i -g mint`. Never install `mintlify` in scripts or CI.
 - `mint version` shows client version `none` -> firewall or VPN blocks the client download. Fix: ask IT to allowlist `releases.mintlify.com`.
-- `npx mint dev` hits `localhost` URLs or connection errors -> bug before `4.0.1125`. Fix: `npm i -g mint@latest`.
 - `mint new` hangs or prompts in an agent or CI -> non-interactive mode needs flags. Fix: pass `--name` and `--theme`, or `--template`.
 
 ## Local preview (mint dev)
@@ -40,7 +39,7 @@ Use this when a `mint` command errors, a deploy fails, or the local preview, edi
 - One OpenAPI page blank -> `openapi` frontmatter method or path does not match the spec (for example `/user/{id}` vs `/users/{id}`), or wrong spec filename prefix (`"v1 GET /users/{id}"`).
 - OpenAPI navigation generates no pages -> no `openapi` field on the navigation element, or child groups do not inherit the spec. Fix: add `"openapi": "<path>"` to the group, run `mint validate`.
 - Some operations missing -> `x-hidden: true`, invalid operations, or you referenced some endpoints explicitly (then only those appear).
-- Mixed OpenAPI and MDX broken -> an MDX file and a nav entry for the same operation (remove one, or use `x-mint` to move the href), nav entries not matching an operation are treated as file paths, methods must be uppercase.
+- Mixed OpenAPI and MDX broken -> an MDX file and a nav entry for one operation (remove one, or move the href with `x-mint`), or a nav entry matching no operation (treated as a file path). Methods must be uppercase.
 - `mint broken-links` flags a link to an existing file -> the target matches `.mintignore`. Run `mint broken-links --help` for deeper checks.
 
 ## Deploy
@@ -64,9 +63,9 @@ Use this when a `mint` command errors, a deploy fails, or the local preview, edi
 
 ## Web editor
 
-- **Publish** disabled, tooltip `Fix invalid MDX before publishing` -> a page on the branch fails to parse (unclosed tag like `<Note>`, unclosed brace, invalid YAML frontmatter). Fix: open changed files from the Publish menu, switch to source mode (Cmd/Ctrl + Shift + S) to see the error.
+- **Publish** disabled, tooltip `Fix invalid MDX before publishing` -> a page on the branch fails to parse (unclosed tag like `<Note>`, unclosed brace, invalid YAML frontmatter). Fix: open changed files from the Publish menu, switch to source mode (Cmd/Ctrl + Shift + S).
 - **Repository unavailable** -> repo deleted, renamed, moved, removed from the GitHub App, or deployment branch renamed. Fix: **Open Git settings**, correct org, repo and branch, confirm app access, **Reload editor**.
-- Tailwind classes unstyled in live preview -> live preview skips the build that generates the CSS. Check with `mint dev` or a preview deployment. Custom mode pages have no default typography, style elements explicitly.
+- Tailwind classes unstyled in live preview -> live preview skips the CSS build. Check with `mint dev` or a preview deployment.
 - Branch missing from dropdown -> only editor branches and open-PR branches are listed. Search by name.
 
 ## Verify
@@ -78,7 +77,7 @@ mint broken-links
 mint dev --no-open
 ```
 
-Then check the change on `https://<subdomain>.mintlify.site` (or the custom domain) after the Publishes page shows a successful build.
+Then check the change on the live site after **Publishes** shows a successful build.
 
 ## More
 

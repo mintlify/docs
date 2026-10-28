@@ -6,7 +6,7 @@ when: "SDK reference pages, x-codeSamples, oneOf/anyOf, multiple responses, hidi
 
 # Advanced API and SDK reference
 
-Use this topic after the basic OpenAPI setup works (`mint instructions api-docs`) and the user wants SDK reference pages, SDK code samples, richer schemas, or hand-written endpoint pages.
+Use this after basic OpenAPI setup works (`mint instructions api-docs`) for SDK reference pages, SDK code samples, richer schemas, or hand-written endpoint pages.
 
 ## Workflow
 
@@ -31,9 +31,9 @@ SDK reference (`sdk`):
 - A tab with `sdk` may contain only `groups`: no `pages`, `versions`, `languages`, `openapi`, `asyncapi`, or `graphql`. A group with `sdk` may contain `pages` and nested groups, but not `graphql`.
 - Children inherit the parent `sdk`; a nested group with its own `sdk` overrides it.
 - Mintlify creates a page per class, interface, module, and function. Generated groups come after the tab's `groups` or the group's own `pages`. Ungrouped pages land in a `Reference` group.
-- TypeDoc layout follows `@category` and `@group` tags; without them pages are grouped by symbol type (classes, interfaces, functions).
-- Multiple libraries: one tab or group each, each with a unique `directory` to avoid route collisions.
-- Remote `source`: `typedoc`/`phpdoc` take a direct file URL; `docfx`/`javadoc`/`sphinx` take a zip (Maven Central javadoc jars work as is). Limits: 50 MB download, 200 MB extracted. Remote changes need a new deployment (call the Trigger deployment API from the SDK release pipeline).
+- TypeDoc pages group by `@category` and `@group` tags, else by symbol type.
+- Multiple libraries: one tab or group each, with unique `directory` values.
+- Remote `source`: `typedoc`/`phpdoc` take a file URL; `docfx`/`javadoc`/`sphinx` take a zip (Maven Central javadoc jars work). Limits: 50 MB download, 200 MB extracted. Remote changes need a new deployment (Trigger deployment API).
 - Per-symbol page: frontmatter `sdk: "class Client"` (pattern `[source] kind name`; methods/properties use `method Client.getUser`). Body renders first, generated reference is appended. The page must be in navigation.
 - Once any page in an `sdk` tab or group has `sdk` frontmatter, auto-population stops for that tab or group and only your pages show.
 - The string form inherits `format`, so it only works under an `sdk` tab or group. Elsewhere use the object form: `kind` (`class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, `property`), `name`, `parent` (required for `method`/`property`), `format`, `source`.
@@ -41,7 +41,7 @@ SDK reference (`sdk`):
 OpenAPI extensions and schemas:
 - `x-codeSamples` items: `lang` (required), `source` (required), `label` (optional, use it to tell several samples apart).
 - Speakeasy users: point `openapi` at the registry's `*-with-code-samples` combined spec URL, not the source spec.
-- Mintlify renders `oneOf` and `anyOf` identically, as tabs named by each subschema's `title`. `not` is unsupported.
+- `oneOf` and `anyOf` render the same: tabs named by each subschema's `title`. `not` is unsupported.
 - `allOf` of object schemas is merged into one object with all properties.
 - Fields typed `any` or `undefined` render like `oneOf`, with a picker.
 - `audio/*` response content with a URL example renders an audio player.
@@ -103,7 +103,6 @@ delivery_address:
       properties:
         box_number: { type: string }
 
-# In an operation:
 responses:
   "200":
     description: Successful response
@@ -162,12 +161,10 @@ curl --request GET \
 ## Verify
 
 ```bash
-mint validate        # strict build, catches bad docs.json and spec errors
+mint validate        # strict build, docs.json and spec errors
 mint broken-links
 mint dev --no-open   # check an SDK page, x-codeSamples, a hidden URL
 ```
-
-Run `mint validate --help` for all flags.
 
 ## More
 

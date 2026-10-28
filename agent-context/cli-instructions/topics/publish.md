@@ -12,7 +12,7 @@ Use this when the project already exists and you need to deploy changes, confirm
 
 1. Run `mint status`. It shows account email, organization, and configured subdomain. The live site is `https://<subdomain>.mintlify.site`. If no subdomain appears, the user must finish connecting a repository in the dashboard.
 2. Before pushing, from the directory containing `docs.json`:
-   - `mint validate` (strict build check, exits non-zero on any warning or error, validates OpenAPI specs).
+   - `mint validate` (strict build check, validates OpenAPI specs, exits non-zero on errors; warnings print without failing).
    - `mint broken-links` (internal links; add `--check-anchors`, `--check-redirects`, `--check-snippets` as needed).
    - Optional: `mint a11y` (contrast, missing alt text).
    Fix every issue your changes caused.

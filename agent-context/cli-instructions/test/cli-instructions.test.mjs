@@ -28,6 +28,7 @@ test('flags unknown commands, unknown flags, banned strings and broken JSON', ()
     'Run `mint publish` to ship.',
     'Run `mint frobnicate` first.',
     'Run `mint dev --turbo`.',
+    'Run `mint claim --basePath /docs`.',
     'Open https://example.mintlify.app.',
     'Open https://www.mintlify.com/docs/no-such-page.',
     '```json',
@@ -38,6 +39,7 @@ test('flags unknown commands, unknown flags, banned strings and broken JSON', ()
   assert.match(problems, /no such command/);
   assert.match(problems, /mint frobnicate is not in cli\/commands\.mdx/);
   assert.match(problems, /--turbo/);
+  assert.match(problems, /--basePath is not a mint claim flag/);
   assert.match(problems, /old default domain/);
   assert.match(problems, /no docs page/);
   assert.match(problems, /JSON example does not parse/);

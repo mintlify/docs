@@ -127,7 +127,7 @@ mint validate
 mint broken-links --files guides/setup.mdx
 mint dev --no-open
 ```
-Editors: the Mintlify MDX extension (`code --install-extension mintlify.mintlify-snippets`, VS Code 1.85+ and Cursor) flags unknown components and invalid props as you write. `mint validate` fails on any warning or error. `mint broken-links --check-anchors` also checks `#section` links. `mint format` rewrites every MDX file to canonical style in place and exits 1 if a file fails to parse; commit first so the diff is reviewable. Open the page in the `mint dev` preview and confirm it appears in the sidebar.
+Editors: the Mintlify MDX extension (`code --install-extension mintlify.mintlify-snippets`, VS Code 1.85+ and Cursor) flags unknown components and invalid props as you write. `mint validate` fails on errors; `unknown-component` and `duplicate-h1` are warnings that print without failing. `mint broken-links --check-anchors` also checks `#section` links. `mint format` rewrites every MDX file to canonical style in place and exits 1 if a file fails to parse; commit first so the diff is reviewable. Open the page in the `mint dev` preview and confirm it appears in the sidebar.
 
 ## More
 - `mint instructions write components`: every component with syntax and key props.

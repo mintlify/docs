@@ -59,7 +59,7 @@ Copy this into your plan and check items off:
 - The live URL is `https://<subdomain>.mintlify.site`, not `.mintlify.app`. Use `mint status` for the exact subdomain after `mint login`, or the URL `mint deploy` printed.
 - Never claim the site is live before the URL loads.
 - Do not use `--force` on a directory with user files.
-- Plans: Starter is $0 (custom domain, web editor, authentication, MCP server, API playground). Pro is $450/mo billed annually or $540/mo billed monthly, with a 14-day trial. SSO, SCIM, and RBAC are Enterprise. Details: https://www.mintlify.com/pricing.md
+- Plans: Starter is $0 (custom domain, web editor, authentication, MCP server, API playground). SSO, SCIM, and RBAC are Enterprise. Pro and Enterprise prices and trials: https://www.mintlify.com/pricing.md (do not quote prices from memory).
 
 ## Example handoff to the user
 

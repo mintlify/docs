@@ -14,7 +14,7 @@ when: "Changing docs.json: theme, colors, logo, favicon, required fields"
 2. If the project still has `mint.json` (deprecated), run `mint dev` once: it creates `docs.json` from it. Review the result, then delete `mint.json`.
 3. Read the current file before editing. Make the smallest change that does the job; do not reformat or reorder unrelated keys.
 4. Keep `"$schema": "https://mintlify.com/docs.json"` as the first key so editors autocomplete and validate.
-5. Run `mint validate`. It builds in strict mode and exits non-zero on any warning or error (including OpenAPI specs referenced in `docs.json`). Fix everything it reports.
+5. Run `mint validate`. It builds in strict mode, checks OpenAPI specs referenced in `docs.json`, and exits non-zero on errors. Warnings do not fail it. Fix both.
 6. Run `mint broken-links` if you moved, renamed or removed pages.
 7. Run `mint dev --no-open` and check the change at `http://localhost:3000`.
 

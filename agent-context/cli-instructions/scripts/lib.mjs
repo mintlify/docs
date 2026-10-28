@@ -16,19 +16,13 @@ export const sizeLimits = { root: 7000, topic: 8000 };
 // `instructions` ships with this bundle; `automations` is documented on its own page.
 export const extraCommands = new Set(['instructions', 'automations']);
 
-// Flags the topics may use that `cli/commands.mdx` does not list.
-export const extraFlags = new Set([
-  '--help',
-  '--version',
-  '--list',
-  '--install',
-  '--prompt',
-  '--type',
-  '--cron',
-  '--push-repo',
-  '--context-repo',
-  '--automerge',
-  '--file',
+// Flags the topics may use that `cli/commands.mdx` does not list, by command.
+export const extraFlags = new Map([
+  ['instructions', new Set(['--list'])],
+  [
+    'automations',
+    new Set(['--name', '--prompt', '--type', '--cron', '--push-repo', '--context-repo', '--automerge', '--file']),
+  ],
 ]);
 
 // Strings that must not appear, except on lines that say they are wrong or do not exist.
@@ -66,13 +60,18 @@ export function bundleTopics(topics) {
   return { bundle: { version: 1, topics }, errors };
 }
 
-function documentedCommands(reference) {
-  const names = [...reference.matchAll(/^## `mint ([a-z0-9-]+)`/gm)].map((match) => match[1]);
-  return new Set([...names, ...extraCommands]);
-}
-
+// Splits `cli/commands.mdx` into the flags of each `## \`mint <command>\`` section plus the global flags.
 function documentedFlags(reference) {
-  return new Set([...reference.matchAll(/`(--[a-zA-Z-]+)/g)].map((match) => match[1]));
+  const global = new Set();
+  const byCommand = new Map([...extraCommands].map((command) => [command, new Set()]));
+  for (const section of reference.split(/^(?=## )/m)) {
+    const flags = [...section.matchAll(/`(--[a-zA-Z-]+)/g)].map((match) => match[1]);
+    const command = section.match(/^## `mint ([a-z0-9-]+)`/)?.[1];
+    if (command) byCommand.set(command, new Set(flags));
+    else if (section.startsWith('## Global flags')) flags.forEach((flag) => global.add(flag));
+  }
+  for (const [command, flags] of extraFlags) flags.forEach((flag) => byCommand.get(command)?.add(flag));
+  return { global, byCommand };
 }
 
 function docsPageExists(url) {
@@ -84,8 +83,7 @@ function docsPageExists(url) {
 }
 
 export function checkTopics(topics, reference) {
-  const commands = documentedCommands(reference);
-  const flags = documentedFlags(reference);
+  const { global, byCommand } = documentedFlags(reference);
   const problems = [];
 
   for (const [key, markdown] of Object.entries(topics)) {
@@ -104,12 +102,13 @@ export function checkTopics(topics, reference) {
       ...[...checked.matchAll(/^\s*mint ([a-z][a-z0-9-]*)(.*)$/gm)].map((match) => [match[1], match[2]]),
     ];
     for (const [command, rest] of commandMentions) {
-      if (!commands.has(command)) {
+      const flags = byCommand.get(command);
+      if (!flags) {
         problems.push(`${file}: mint ${command} is not in cli/commands.mdx`);
         continue;
       }
       for (const [flag] of rest.matchAll(/--[a-zA-Z-]+/g)) {
-        if (!flags.has(flag) && !extraFlags.has(flag)) problems.push(`${file}: ${flag} (mint ${command}) is not in cli/commands.mdx`);
+        if (!flags.has(flag) && !global.has(flag)) problems.push(`${file}: ${flag} is not a mint ${command} flag in cli/commands.mdx`);
       }
     }
 
