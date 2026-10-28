@@ -76,7 +76,7 @@ Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.m
   ## Fonctionnement de l'édition
 </div>
 
-Chaque outil de contenu accepte un argument `branch`. Les outils qui modifient le contenu, comme `edit_page`, `create_node`, `update_config`, `publish` et `discard`, l'exigent. Les outils de lecture, comme `read`, `search`, `list_nodes`, `status` et `diff`, utilisent votre branche de déploiement par défaut lorsque vous l'omettez. L'Admin MCP ne mémorise pas de branche d'un appel à l'autre, donc l'outil d'IA passe `branch` à chaque fois. Les requêtes portant sur des [pages privées](/fr/editor/pages#private-pages) n'ont pas besoin de `branch`. Les pages privées ne sont disponibles que dans les projets internes. Dans les autres projets, les requêtes sur des pages privées renvoient `private_pages_unavailable`.
+Chaque outil de contenu accepte un argument `branch`. Les outils qui modifient le contenu, comme `edit_page`, `create_node`, `update_config`, `publish` et `discard`, l'exigent. Les outils de lecture, comme `read`, `search`, `read_page_history`, `list_nodes`, `status` et `diff`, utilisent votre branche de déploiement par défaut lorsque vous l'omettez. L'Admin MCP ne mémorise pas de branche d'un appel à l'autre, donc l'outil d'IA passe `branch` à chaque fois. Les requêtes portant sur des [pages privées](/fr/editor/pages#private-pages) n'ont pas besoin de `branch`. Les pages privées ne sont disponibles que dans les projets internes. Dans les autres projets, les requêtes sur des pages privées renvoient `private_pages_unavailable`.
 
 Le déroulement est le suivant :
 
@@ -199,21 +199,26 @@ Pour révoquer un identifiant, cliquez sur l'icône de suppression à côté de 
 - **`search`**: Trouve les lignes correspondant à une sous-chaîne ou à une expression régulière dans toutes les pages. Recherche dans `branch`, ou dans votre branche de déploiement lorsque vous l'omettez.
 - **`edit_page`**: Applique une modification ciblée à une page. Transmettez `path` sous les mêmes formes que pour `read`. Transmettez `oldString` et `newString` pour un seul remplacement, ou transmettez une liste `edits` de jusqu'à 100 remplacements pour modifier plusieurs parties d'une page en un seul appel. Mintlify applique les modifications dans l'ordre, chacune sur le résultat de la précédente. Si une modification échoue, aucune n'est appliquée. Comme `write_page`, `edit_page` renvoie `notRendered` pour le balisage ajouté par la modification que l'éditeur supprime. Il ne signale pas le balisage déjà présent sur la page. Pour modifier une [page privée](/fr/editor/pages#private-pages), transmettez son ID de nœud `private-page-<uuid>` comme `path`. Les modifications privées nécessitent une session OAuth avec un rôle d'editor ou supérieur sur la page et n'ont pas besoin de `branch`.
 - **`write_page`**: Réécrit le contenu MDX complet d'une page. Transmettez `path` sous les mêmes formes que pour `read`. Accepte également un ID de nœud `private-page-<uuid>` pour réécrire une page privée avec les mêmes exigences OAuth et de rôle que `edit_page`. Utilisez `create_node` pour créer une nouvelle page privée. Si le contenu inclut du balisage que l'éditeur Mintlify supprime, comme des balises `<script>`, des blocs `<style>`, des gestionnaires d'événements comme `onClick` ou des expressions JavaScript, la réponse inclut un champ `notRendered`. Chaque entrée indique l'`element` supprimé, sa `line`, `why` l'éditeur le supprime et quoi utiliser `instead`, comme des classes Tailwind, des objets `style={{}}` en ligne avec des valeurs littérales ou des composants Mintlify comme les accordéons et les onglets.
+- **`read_page_history`**: Liste l'[historique des versions](/fr/editor/pages#version-history) enregistré d'une page sur `branch`, ou sur votre branche de déploiement lorsque vous l'omettez. Transmettez `path` sous les mêmes formes que pour `read`, y compris un ID de nœud `private-page-<uuid>`. Renvoie `versions`, de la plus récente à la plus ancienne, et un `nextCursor`. Chaque version possède un `versionId`, un `createdAt` et des `authors`, chacun avec un `name` et un `type` parmi `user`, `git` ou `system`. Transmettez `limit` pour renvoyer de 1 à 50 versions par appel (20 par défaut), et retransmettez `nextCursor` comme `cursor` pour lister les versions plus anciennes. Transmettez un `versionId` pour obtenir le MDX complet de cette version dans `content`. L'outil est en lecture seule. Pour restaurer une version antérieure, transmettez son `content` à `write_page`. Les erreurs incluent `page_not_found`, `version_not_found` et `invalid_cursor`.
 
-<div id="images">
-  ### Images
+<div id="uploads">
+  ### Téléversements
 </div>
 
-- **`upload_image`** : Démarre le téléversement d'un fichier image local vers `branch`. Transmettez le `path` de destination (par exemple, `images/dashboard.png`), le `contentType` du fichier et sa `size` exacte en octets. Renvoie un `uploadId`, une `uploadUrl` présignée et les `headers` à envoyer avec le téléversement.
-- **`finalize_image_upload`** : Enregistre l'image téléversée sur `branch`. Transmettez l'`uploadId` et le même `path`. Renvoie le `src` à référencer dans le MDX avec `edit_page` ou `write_page`, ou dans les champs `logo` ou `favicon` de `docs.json` avec `update_config`.
+- **`upload_file`** : Démarre le téléversement d'un fichier local. Transmettez le `path` de destination, le `contentType` du fichier et sa `size` exacte en octets. Renvoie un `uploadId`, une `uploadUrl` présignée et les `headers` à envoyer avec le téléversement.
+- **`finalize_file_upload`** : Enregistre une image téléversée sur `branch`. Transmettez l'`uploadId` et le même `path`. Renvoie le `src` à référencer dans le MDX avec `edit_page` ou `write_page`, ou dans les champs `logo` ou `favicon` de `docs.json` avec `update_config`.
 
-Après `upload_image`, l'outil d'IA téléverse les octets du fichier vers `uploadUrl` avec une requête `PUT` et les en-têtes renvoyés. Par exemple :
+Après `upload_file`, l'outil d'IA téléverse les octets du fichier vers `uploadUrl` avec une requête `PUT` et les en-têtes renvoyés. Par exemple :
 
 ```bash
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify vérifie que le contenu du fichier téléversé correspond à son extension avant de l'enregistrer. Un téléversement vers un `path` existant remplace cette image. Mintlify n'accepte les fichiers SVG que pour les logos et les favicons : transmettez `purpose: "logo"` aux deux outils lorsque vous en téléversez un. Les images enregistrées apparaissent dans `status` et sont publiées avec le reste de vos modifications lorsque vous appelez `publish`.
+Pour ajouter une image, transmettez un `path` d'image, comme `images/dashboard.png`, et la `branch` à `upload_file`. Après le téléversement, appelez `finalize_file_upload`. Mintlify vérifie que le contenu du fichier téléversé correspond à son extension avant de l'enregistrer. Un téléversement vers un `path` existant remplace cette image. Mintlify n'accepte les fichiers SVG que pour les logos et les favicons : transmettez `purpose: "logo"` aux deux outils lorsque vous en téléversez un. Les images enregistrées apparaissent dans `status` et sont publiées avec le reste de vos modifications lorsque vous appelez `publish`.
+
+Pour écrire une page à partir d'un fichier Markdown local, transmettez un `path` `.md` ou `.mdx` avec `contentType` défini sur `text/markdown` ou `text/plain`. Les téléversements de pages n'ont besoin ni de `branch` ni de `finalize_file_upload`. Après le téléversement, transmettez l'`uploadId` à la place de `content` à `write_page`, ou comme `data.uploadId` à `create_node`. Cela évite de renvoyer l'intégralité du contenu d'une page volumineuse dans l'appel d'outil.
+
+Utilisez l'`uploadId` dans un délai de 10 minutes. Chaque `uploadId` ne fonctionne qu'une fois, sur le même projet et pour le même utilisateur ou client que celui qui l'a créé. Mintlify supprime le fichier téléversé après l'écriture. Un `uploadId` réutilisé ou expiré renvoie `upload_not_found`.
 
 <div id="comments">
   ### Commentaires
