@@ -491,17 +491,88 @@ mint a11y [flags]
   ## `mint validate`
 </div>
 
-以严格模式验证文档构建。如果存在警告或错误则以错误退出。包括对 `docs.json` 中引用的 OpenAPI 规范的自动验证。
+检查文档中的错误，然后以严格模式验证构建。包括对 `docs.json` 中引用的 OpenAPI 规范的自动验证。
 
 ```bash
 mint validate [flags]
 ```
 
+`mint validate` 会针对你的页面、代码片段、导航和 OpenAPI 规范运行一组规则，然后执行严格构建。检查结果按文件分组输出，并在可用时显示每条结果的行号、列号和规则名称。
+
+`duplicate-h1`、`unknown-component`、`katex` 和 `foreign-syntax` 规则报告的是警告，因此它们的结果不会导致运行失败。其他规则报告的是错误。
+
+只有在没有任何规则报告错误，且至少有一条所选规则需要构建时，才会执行严格构建。如果某条规则报告了错误，该命令会跳过构建，并提示你先修复错误。构建无法归因于某条规则的警告会以 `build-failed` 错误的形式导致运行失败。
+
+| 规则 | 分组 | 描述 |
+| --- | --- | --- |
+| `parse-error` | `content` | 报告 MDX 无法解析的文件。其他规则会跳过这些文件。此检查始终运行，且无法禁用。 |
+| `void-tags` | `content` | 报告未自闭合的 HTML 空元素，例如 `<br>`、`<img>`、`<source>` 和 `<input>`。除非将它们写成自闭合形式（例如 `<br />` 或 `<source />`），否则 MDX 无法解析它们。`--fix` 可以自动为你将其自闭合。 |
+| `duplicate-h1` | `content` | 报告第一个标题是与 frontmatter 中 `title` 重复的 H1 的页面。跳过 `mode` 设置为 `custom` 或 `frame` 的页面。`--fix` 会删除该标题，除非它带有自定义 `{#id}`，或站点中有链接指向其锚点。在这种情况下，请手动删除并更新相关链接。 |
+| `unknown-component` | `content` | 报告页面中既非内置、也未在该页面导入或导出的 JSX 组件。当存在匹配的文件（例如 `snippets/<Name>.jsx` 或 `snippets/<Name>.tsx`）时，`--fix` 会添加导入语句。 |
+| `katex` | `content` | 报告 KaTeX 无法渲染的行内或块级数学公式。忽略 `$5` 之类的货币金额。 |
+| `foreign-syntax` | `content` | 报告 Mintlify 不渲染的其他文档框架语法，例如 `:::` 提示块、Liquid 标签、Hugo shortcodes 和 `[[wiki links]]`。每条结果都会注明对应的 Mintlify 替代写法。会在 MDX 无法解析的文件上运行，并跳过代码。 |
+| `missing-file` | `content` | 报告不存在的导入文件。需要构建。 |
+| `import-error` | `content` | 报告页面和代码片段中无法解析的导入。需要构建。 |
+| `missing-nav-page` | `nav` | 报告导航中没有对应文件的页面。需要构建。 |
+| `package-import` | `config` | 报告未声明或存在冲突的 npm 包导入。需要构建。 |
+| `build-failed` | `config` | 报告其他规则均无法解释的严格构建失败。需要构建。 |
+| `openapi-spec` | `openapi` | 报告 `docs.json` 或 `mint.json` 中在应用 overlays 后无法解析或验证的 OpenAPI 规范。 |
+| `openapi-build` | `openapi` | 报告构建无法生成的 OpenAPI 页面。需要构建。 |
+
 | 选项 | 描述 |
 | --- | --- |
+| `--files` | 一个或多个文件路径或 glob，用于限定页面检查的范围。全站检查和构建仍覆盖整个站点。 |
+| `--disable` | 关闭规则或分组。传入逗号分隔的列表，或传入 `all` 以关闭所有规则。解析错误仍会被报告。使用 `--disable openapi` 跳过 OpenAPI 检查。 |
+| `--enable` | 开启规则或分组。传入逗号分隔的列表。与 `--disable all` 一起使用，可仅运行特定规则。 |
+| `--fix` | 将可用的自动修复写入文件，然后重新检查。只有提供修复的规则（`void-tags`、`duplicate-h1` 和 `unknown-component`）会修改文件。 |
+| `--format` | 输出格式：`text`（默认）或 `json`。使用 `json` 时，该命令仅在 stdout 上输出一份 JSON 报告，不输出其他内容。 |
+| `--no-build` | 跳过严格构建，使该命令不下载 Mintlify 客户端。除非禁用 `openapi` 规则，否则仍会获取远程 OpenAPI 规范。 |
 | `--groups` | 以空格分隔的用户组列表，用于模拟验证。例如 `--groups admin user`。 |
-| `--disable-openapi` | 跳过 OpenAPI 文件处理和验证。 |
 | `--local-schema` | 允许验证通过 HTTP 提供的本地托管 OpenAPI 文件。生产环境仅支持 HTTPS。 |
+
+使用 `--fix` 时，`mint validate` 最多执行五轮修复，因为一个修复可能会使另一个修复成为可能。例如，将 `<br>` 自闭合后，页面可能就能被解析。最后一轮结束后，所有规则会再运行一次，报告会显示剩余的问题。输出会以 `fixed <file>:<line> <rule>: "before" → "after"` 的格式列出每个已应用的修复。
+
+`--fix` 会跳过与同一文件中另一个修复重叠的修复。如果修复后的内容解析情况比之前更差，它也会保持该 Markdown 或 MDX 文件不变。不使用 `--fix` 时，输出末尾会显示 `--fix` 可修复的问题数量。
+
+<Tip>
+  在运行 `--fix` 之前，请先提交或暂存（stash）你的更改，以便审查它所做的修改。
+</Tip>
+
+使用 `--format json` 时，进度输出会被隐藏，其他控制台输出会写入 stderr，因此你可以直接解析 stdout。报告包含以下字段：
+
+- `passed`：没有任何规则报告错误时为 `true`。
+- `summary`：`errors` 和 `warnings` 的数量，以及包含每个规则 ID 计数的 `byRule`。
+- `diagnostics`：每条检查结果，包含 `rule`、`group`、`severity`（`error` 或 `warning`）、`file`、可选的 `line` 和 `column`、`message`，以及可选的 `fix`。
+- `build`：如果执行了严格构建，则为 `{ "ran": true, "passed": <boolean> }`；否则为 `{ "ran": false, "reason": <reason> }`，其中原因为 `disabled`、`errors found` 或 `no build rules`。
+- `fixed`：仅在使用 `--fix` 时出现。每个已应用的更改，包含 `rule`、`file`、可选的 `line` 和 `column`、`before` 和 `after`。
+
+如果 `mint validate` 无法运行，它不会在 stdout 上输出任何内容，并会将 `Error: <message>` 写入 stderr。
+
+该命令以下列退出码之一退出：
+
+- `0`：没有任何规则报告错误。警告不会导致运行失败。
+- `1`：至少有一条规则报告了错误。
+- `2`：`mint validate` 无法运行，例如规则名称未知、`--files` 的值未匹配任何页面或代码片段，或程序崩溃。
+
+```bash
+# Check pages matching a glob, then build the whole site
+mint validate --files "guides/**/*.mdx"
+
+# Check pages matching a glob and apply automatic fixes
+mint validate --files "guides/**/*.mdx" --fix
+
+# Skip OpenAPI checks
+mint validate --disable openapi
+
+# Run the rule checks without the strict build
+mint validate --no-build
+
+# Fast offline check for scripts and agents, listing each finding's file and message
+mint validate --no-build --format json | jq '.diagnostics[] | {file, message}'
+
+# Run only the content rules (missing-file and import-error still run the build)
+mint validate --disable all --enable content
+```
 
 <Note>
   请改用 `mint validate`，而不是已弃用的独立 `mint openapi-check` 命令。
