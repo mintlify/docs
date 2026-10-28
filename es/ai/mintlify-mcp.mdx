@@ -76,7 +76,7 @@ Conecta tus herramientas al Admin MCP desde [tu panel](https://app.mintlify.com/
   ## Cómo funciona la edición
 </div>
 
-Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`. Las páginas privadas solo están disponibles en proyectos internos. En otros proyectos, las solicitudes sobre páginas privadas devuelven `private_pages_unavailable`.
+Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `read_page_history`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`. Las páginas privadas solo están disponibles en proyectos internos. En otros proyectos, las solicitudes sobre páginas privadas devuelven `private_pages_unavailable`.
 
 El flujo es:
 
@@ -199,21 +199,26 @@ Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
 - **`search`**: Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas. Busca en `branch`, o en tu rama de despliegue cuando lo omites.
 - **`edit_page`**: Aplica una edición dirigida a una página. Pasa `path` en los mismos formatos que en `read`. Pasa `oldString` y `newString` para un solo reemplazo, o pasa una lista `edits` de hasta 100 reemplazos para cambiar varias partes de una página en una sola llamada. Mintlify aplica las ediciones en orden, cada una sobre el resultado de la anterior. Si alguna edición falla, no se aplica ninguna. Al igual que `write_page`, `edit_page` devuelve `notRendered` para el marcado que añade la edición y que el editor descarta. No informa del marcado que ya estaba en la página. Para editar una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` como `path`. Las ediciones privadas requieren una sesión OAuth con rol de editor o superior en la página y no necesitan `branch`.
 - **`write_page`**: Sobrescribe el contenido MDX completo de una página. Pasa `path` en los mismos formatos que en `read`. También acepta un ID de nodo `private-page-<uuid>` para sobrescribir una página privada bajo los mismos requisitos de OAuth y rol que `edit_page`. Usa `create_node` para crear una nueva página privada. Si el contenido incluye marcado que el editor de Mintlify descarta, como etiquetas `<script>`, bloques `<style>`, controladores de eventos como `onClick` o expresiones de JavaScript, la respuesta incluye un campo `notRendered`. Cada entrada indica el `element` descartado, su `line`, `why` el editor lo descarta y qué usar `instead`, como clases de Tailwind, objetos `style={{}}` en línea con valores literales o componentes de Mintlify como acordeones y pestañas.
+- **`read_page_history`**: Enumera el [historial de versiones](/es/editor/pages#version-history) guardado de una página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa `path` en los mismos formatos que en `read`, incluido un ID de nodo `private-page-<uuid>`. Devuelve `versions`, de la más reciente a la más antigua, y un `nextCursor`. Cada versión tiene un `versionId`, `createdAt` y `authors`, cada uno con un `name` y un `type` de `user`, `git` o `system`. Pasa `limit` para devolver de 1 a 50 versiones por llamada (20 por defecto), y vuelve a pasar `nextCursor` como `cursor` para enumerar versiones más antiguas. Pasa un `versionId` para obtener el MDX completo de esa versión como `content`. La herramienta es de solo lectura. Para restaurar una versión anterior, pasa su `content` a `write_page`. Los errores incluyen `page_not_found`, `version_not_found` e `invalid_cursor`.
 
-<div id="images">
-  ### Imágenes
+<div id="uploads">
+  ### Cargas
 </div>
 
-- **`upload_image`**: Inicia la carga de un archivo de imagen local a `branch`. Pasa la `path` de destino (por ejemplo, `images/dashboard.png`), el `contentType` del archivo y su `size` exacto en bytes. Devuelve un `uploadId`, una `uploadUrl` prefirmada y los `headers` que debes enviar con la carga.
-- **`finalize_image_upload`**: Guarda la imagen cargada en `branch`. Pasa el `uploadId` y la misma `path`. Devuelve el `src` que debes referenciar en MDX con `edit_page` o `write_page`, o en los campos `logo` o `favicon` de `docs.json` con `update_config`.
+- **`upload_file`**: Inicia la carga de un archivo local. Pasa la `path` de destino, el `contentType` del archivo y su `size` exacto en bytes. Devuelve un `uploadId`, una `uploadUrl` prefirmada y los `headers` que debes enviar con la carga.
+- **`finalize_file_upload`**: Guarda una imagen cargada en `branch`. Pasa el `uploadId` y la misma `path`. Devuelve el `src` que debes referenciar en MDX con `edit_page` o `write_page`, o en los campos `logo` o `favicon` de `docs.json` con `update_config`.
 
-Después de `upload_image`, la herramienta de IA sube los bytes del archivo a `uploadUrl` con una solicitud `PUT` y los encabezados devueltos. Por ejemplo:
+Después de `upload_file`, la herramienta de IA sube los bytes del archivo a `uploadUrl` con una solicitud `PUT` y los encabezados devueltos. Por ejemplo:
 
 ```bash
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Mintlify solo acepta archivos SVG para logotipos y favicons, así que pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes guardadas aparecen en `status` y se publican con el resto de tus ediciones cuando llamas a `publish`.
+Para añadir una imagen, pasa una `path` de imagen, como `images/dashboard.png`, y la `branch` a `upload_file`. Después de la carga, llama a `finalize_file_upload`. Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Mintlify solo acepta archivos SVG para logotipos y favicons, así que pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes guardadas aparecen en `status` y se publican con el resto de tus ediciones cuando llamas a `publish`.
+
+Para escribir una página a partir de un archivo Markdown local, pasa una `path` `.md` o `.mdx` con `contentType` establecido en `text/markdown` o `text/plain`. Las cargas de páginas no necesitan `branch` ni `finalize_file_upload`. Después de la carga, pasa el `uploadId` en lugar de `content` a `write_page`, o como `data.uploadId` a `create_node`. Así evitas reenviar el contenido completo de una página grande en la llamada a la herramienta.
+
+Usa el `uploadId` en un plazo de 10 minutos. Cada `uploadId` funciona una sola vez, en el mismo proyecto y para el mismo usuario o cliente que lo creó. Mintlify elimina el archivo cargado después de la escritura. Un `uploadId` reutilizado o caducado devuelve `upload_not_found`.
 
 <div id="comments">
   ### Comentarios
