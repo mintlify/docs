@@ -60,6 +60,7 @@ export function bundleTopics(topics) {
     if (bytes > limit) errors.push(`${key}.md: ${bytes} bytes, limit ${limit}`);
     if (!/^---\nname: mintlify[\w-]*\n/.test(markdown)) errors.push(`${key}.md: frontmatter must start with name: mintlify...`);
     if (!/\ndescription: .+\n/.test(markdown)) errors.push(`${key}.md: frontmatter needs a description`);
+    if (key !== 'root' && !/\nwhen: .+\n/.test(markdown)) errors.push(`${key}.md: frontmatter needs a when line (shown by --list)`);
   }
   return { bundle: { version: 1, topics }, errors };
 }
@@ -86,13 +87,39 @@ function docsPageExists(url) {
   );
 }
 
+// A command written in code: optional `npx`/`npx -y`, then `mint <command>` and its arguments.
+const commandInCode = /^(?:npx (?:-y )?)?mint ([a-z][a-z0-9-]*)(.*)$/;
+
+// Splits code into commands at `&&` and `;`. A `|` is not split on: topics use it for alternatives like `[--type page|code]`.
+function commandsIn(code) {
+  return code
+    .replace(/\s#.*$/, '')
+    .split(/\s*(?:&&|;)\s*/)
+    .map((part) => part.trim().match(commandInCode))
+    .filter(Boolean)
+    .map(([, command, rest]) => [command, rest]);
+}
+
+// Commands on one line: inline code spans that start with `mint` or `npx mint`, and, on code-block lines,
+// shell commands, including ones after a `$ ` prompt or a YAML `- run: ` key.
+function commandsOnLine(line, inCodeBlock) {
+  const spans = [...line.matchAll(/`((?:npx (?:-y )?)?mint [^`]*)`/g)].flatMap(([, code]) => commandsIn(code));
+  const code = line.trim().replace(/^(?:- )?run: /, '').replace(/^\$ /, '');
+  const isShell = (inCodeBlock || /^\s*mint /.test(line)) && commandInCode.test(code.split(/\s*(?:&&|;)\s*/)[0]);
+  return isShell ? [...spans, ...commandsIn(code)] : spans;
+}
+
 // Every line is checked, including lines that say "never" or "do not": those only allow naming a known non-command.
 function commandProblems(file, lines, { global, byCommand }) {
   const problems = [];
+  let inCodeBlock = false;
   for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
     const negated = negation.test(line);
-    const mentions = [...line.matchAll(/`mint ([a-z][a-z0-9-]*)([^`]*)`/g), ...line.matchAll(/^\s*mint ([a-z][a-z0-9-]*)(.*)$/g)];
-    for (const [, command, rest] of mentions) {
+    for (const [command, rest] of commandsOnLine(line, inCodeBlock)) {
       const flags = byCommand.get(command);
       if (!flags) {
         if (!(negated && namedNonCommands.has(command))) problems.push(`${file}: mint ${command} is not in cli/commands.mdx`);

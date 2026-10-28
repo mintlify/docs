@@ -17,13 +17,15 @@ The folder is under `agent-context/`, which `.mintignore` excludes, so topics ar
 `npm test` (run in `agent-context/`) fails when a topic:
 
 - names a `mint` command that has no section in `cli/commands.mdx`, other than `mint instructions` and `mint automations`. A line that says a command is wrong ("There is no `mint publish`") may name one of the commands in `namedNonCommands` in `scripts/lib.mjs`; flags are still checked on every line
-- writes a flag in the same code span as its command (`` `mint deploy --subdomain docs` ``) that is not in that command's section of `cli/commands.mdx` or its global flags, other than a short per-command allowlist in `scripts/lib.mjs`. Flags written on their own (`` `--port` ``) are not checked, because they cannot be tied to a command reliably
+- writes a flag with its command (`` `mint deploy --subdomain docs` ``, or a code block line such as `npx mint dev --no-open`, `$ mint validate`, or `- run: mint validate`) that is not in that command's section of `cli/commands.mdx` or its global flags, other than a short per-command allowlist in `scripts/lib.mjs`. Chained commands are split at `&&` and `;`, and each is checked against its own flags. Flags written on their own (`` `--port` ``) are not checked, because they cannot be tied to a command reliably
 - links to a `https://www.mintlify.com/docs/...` page that has no file in this repository
 - contains `.mintlify.app`, `mint init`, `mint publish`, `mint index`, an em dash, or `theme={null}`, unless the line says it is wrong or does not exist
 - has a JSON example that does not parse
-- is larger than 8000 bytes (7000 for `root.md`) or lacks `name` and `description` frontmatter
+- is larger than 8000 bytes (7000 for `root.md`) or lacks `name` and `description` frontmatter, or (except `root.md`) the `when` line that `mint instructions --list` shows
 
 `npm test` also checks the `mint` commands and flags in the Mintlify skill (`context/skills/mintlify/`) against `cli/commands.mdx`, so a command or flag that no longer exists fails CI in either place. Only commands and flags written in a command's code span are checked there; the skill keeps its own writing style.
+
+CI runs these checks when `agent-context/` or `cli/commands.mdx` changes, and nightly, so a renamed or deleted docs page shows up within a day without blocking unrelated docs pull requests.
 
 These checks catch commands, flags, and pages that no longer exist. They do not catch a command that changed behavior or a flag combination the CLI rejects. When a CLI change alters how a documented command behaves, update the topics in the same pull request as the docs change.
 
