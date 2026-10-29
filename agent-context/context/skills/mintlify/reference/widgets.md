@@ -33,17 +33,21 @@ title: "Retry backoff"
 description: "..."
 ---
 
+Failed requests are retried with exponential backoff...
+
+<BackoffCalculator />
+
+## Next steps
+
+...
+
 export const BackoffCalculator = () => {
   const [attempts, setAttempts] = useState(5);
   return <div className="not-prose">...</div>;
 };
-
-Failed requests are retried with exponential backoff...
-
-<BackoffCalculator />
 ```
 
-- Define each widget in the page body, after the frontmatter and above its first use, as `export const PascalCaseName = () => { ... }`, with a blank line before and after it.
+- Define each widget at the end of the file, after all page content, as `export const PascalCaseName = () => { ... }`, with a blank line before and after it. MDX hoists exports, so the tag renders the widget even above its definition. Exports are invisible blocks in the visual editor: above the first heading, Backspace at the start of that heading can delete them, and in source mode they push the page content down.
 - Write plain JavaScript JSX. A TypeScript annotation breaks the whole page on the published site, not only the widget.
 - Render it as a self-closing tag, `<PascalCaseName />`. Prefer no props and keep configuration as constants inside the component; if you pass props, use literal values only (`label="p95"`, `count={24}`), never spreads.
 - Controls and the views they drive go in one component. Each usage has its own state, so two widgets on a page can't share state. Don't use a module-level variable to share it either: on the site it is shared across usages, in the editor it isn't. A widget can render another widget exported from the same page.
