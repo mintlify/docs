@@ -1,0 +1,114 @@
+---
+title: "Docs analytics, feedback, and tracking integrations"
+name: mintlify-publish-analytics
+description: "Reads docs analytics (traffic, search, feedback, assistant conversations) with mint analytics, exports data, and configures analytics, support, and consent integrations. Use for \"how are our docs doing\" and data-driven fixes."
+when: "mint analytics, feedback, search data, analytics and consent integrations"
+---
+Use this for docs performance questions, data-driven fixes, or adding analytics, chat, or consent tooling to the site. Analytics and feedback require a Pro or Enterprise plan.
+
+## Workflow: read the data
+
+1. Run `mint status` to confirm you are logged in (`mint login` if not).
+2. Pick the subdomain and range. Shared flags on every subcommand: `--subdomain`, `--from YYYY-MM-DD`, `--to YYYY-MM-DD` (defaults: last 7 days to today), `--format table|plain|json|graph`. Output defaults to `json` in AI or CI environments. Persist defaults with `mint config set subdomain <sub>` (also `dateFrom`, `dateTo`).
+3. Run the subcommand that answers the question:
+   - `mint analytics stats [--page <path>]`: views, visitors, searches, feedback, assistant usage. Human and agent traffic are reported separately.
+   - `mint analytics search [--query <substring>] [--page <path>]`: queries with hit counts, click-through rate, top clicked page, last searched date.
+   - `mint analytics feedback [--type page|code] [--page <path>]`: individual entries by default, `--type page` aggregates by page, `--type code` keeps only code snippet feedback.
+   - `mint analytics conversation list [--page <path>]`: recent assistant conversations (timestamp, first query, category). `--page` filters to conversations whose sources reference that page.
+   - `mint analytics conversation view <id>`: full thread for one conversation.
+   - `mint analytics conversation buckets list`: conversation clusters by topic, with count and latest question date.
+   - `mint analytics conversation buckets view <id> [--limit 1-100] [--cursor <c>]`: threads in one bucket, paginated.
+4. For other flags, run `mint analytics <subcommand> --help`.
+
+## Workflow: turn data into doc fixes
+
+1. Search gaps: `mint analytics search --format json`. Flag frequent queries with low CTR or no useful top clicked page. Add the missing content, or add the query terms (keywords, headings) to the page that should match.
+2. Negative feedback: `mint analytics feedback --type page --format json`, then `mint analytics feedback --page <path>` for the comments on the worst pages. Fix what the comments describe.
+3. Assistant gaps: `mint analytics conversation buckets list`, then `buckets view <id>` on the largest buckets. Write or expand pages for questions the docs do not answer.
+4. Edit the pages, then run Verify.
+5. To do this on a schedule, the predefined automations "Fill gaps from assistant conversations" and "Improve docs from user feedback" open PRs automatically. See `mint instructions automate`.
+
+## Dashboard views (tell the user, you cannot click them)
+
+At https://app.mintlify.com/analytics: Traffic (visitors, views, referrals, popular pages, human vs agent traffic, agent breakdown by provider), Assistant (categories, topics, satisfaction, transcripts), Search (volume, frequent queries, CTR), User engagements (CTA clicks, actions, user flow, search and assistant funnels), Feedback, and Savings (Enterprise only). Filter by time range or by page/path (Assistant and Search are always site-wide).
+- CSV export: select **Export to CSV**, pick traffic, referrals, assistant conversations, searches, or feedback; Mintlify emails a link. Uses the selected time range. Assistant exports include `resolutionStatus` (`answered`/`unanswered`) and `feedback`.
+- S3 streaming (Enterprise only): org admins configure destinations, categories, and projects at https://app.mintlify.com/settings/organization/streaming. Nothing streams until at least one category and one project are selected.
+
+## Feedback
+
+- Enable feedback types in the dashboard: **Site** settings (https://app.mintlify.com/settings/project/site), **Feedback** section: thumbs rating, edit suggestions and raise issues (public repos only), contextual feedback (optional email), code snippet feedback.
+- Agent feedback (beta): agents connected to the site's search MCP server call the `submit_feedback` tool with a page path and a problem description. Each accepted submission records as unhelpful feedback on that page and shows in **Detailed feedback** (filter Type: Agent feedback). Web search and web fetch tools do not reach this tool. The path must match a page or a redirect source, or the call errors.
+- The analytics feedback API endpoint returns agent feedback with `source=agent` (https://www.mintlify.com/docs/api/analytics/feedback).
+- Assistant thumbs ratings are separate (Assistant satisfaction), not page feedback.
+
+## Rules
+
+- Never set `integrations.telemetry.enabled` to `false` unless asked: it disables all feedback features, even if enabled in the dashboard.
+- Put only public keys/IDs in `docs.json`. Never commit private or server keys.
+- Preview links have analytics turned off. Verify integrations on the live site.
+- GTM: the user owns any cookie banner setup inside Google Tag Manager.
+- Visitor counts dropped in September 2026 because crawler filtering now applies to visitors too (all date ranges). Agent views rose around June 8, 2026 from better measurement. Mention both before reading trends across those dates.
+
+## Examples
+
+Supported analytics keys under `integrations`: `adobe`, `amplitude`, `clarity`, `clearbit`, `fathom`, `ga4`, `gtm`, `heap`, `hightouch`, `hotjar`, `logrocket`, `mixpanel`, `pirsch`, `plausible`, `posthog`, `segment`. Events use the `docs.` prefix and flow with no extra setup.
+
+```json
+"integrations": {
+  "ga4": { "measurementId": "G-XXXXXXX" },
+  "gtm": { "tagId": "GTM-MGBL4PW" },
+  "posthog": { "apiKey": "phc_your-key", "sessionRecording": false },
+  "segment": { "key": "YOUR_WRITE_KEY", "cdnUrl": "https://cdn.example.com" }
+}
+```
+
+- PostHog `apiKey` must start with `phc_`. Add `apiHost` only when self-hosting (default proxy `https://ph.mintlify.com`). Session recording is on by default; the docs URL must be in PostHog's authorized domains for recordings.
+- Segment `cdnUrl` is optional, HTTPS, no query or fragment.
+- GA4 data takes two to three days to appear.
+
+Support widgets:
+
+```json
+"integrations": {
+  "intercom": { "appId": "abc123def4" },
+  "frontchat": { "snippetId": "1365d046d7c023e9b030ce90d02d093a" }
+}
+```
+
+Consent and privacy:
+
+```json
+"integrations": {
+  "cookies": { "key": "LOCAL_STORAGE_KEY", "value": "LOCAL_STORAGE_VALUE" },
+  "transcend": { "bundleId": "YOUR_BUNDLE_ID", "analyticsPurpose": "Analytics" }
+}
+```
+
+- `cookies`: telemetry is disabled for visitors whose local storage lacks that key/value.
+- Transcend: analytics and feedback load only after consent for the purpose (default `Analytics`). Mintlify's own banner is hidden.
+- Osano has no docs.json key. Create `osano.js` in the content directory (auto-included on every page):
+
+```js
+var script = document.createElement("script");
+script.src = "https://cmp.osano.com/your-tenant-id/your-site-id/osano.js";
+document.head.appendChild(script);
+```
+
+## Verify
+
+```bash
+mint validate
+mint broken-links
+mint dev --no-open
+mint analytics stats --format json
+```
+
+After deploying, check the provider's real-time or debug view on the live site, or that the consent banner appears in a private window.
+
+## More
+
+- `mint instructions automate`
+- https://www.mintlify.com/docs/analytics
+- https://www.mintlify.com/docs/optimize/feedback
+- https://www.mintlify.com/docs/integrations/analytics/overview
+- https://www.mintlify.com/docs/cli/commands

@@ -54,6 +54,10 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
 
 你可以在[控制台](https://app.mintlify.com/products/mcp)中将工具连接到管理员 MCP，或按照以下步骤为你偏好的工具完成连接。
 
+<Tip>
+  要从终端配置 Claude Code、Codex 或 Cursor，请运行 [`mint agent setup`](/zh/cli/commands#mint-agent-setup)。该命令会将管理员 MCP 添加到每个代理的配置中，并安装 Mintlify 技能。你仍需在每个代理中完成 OAuth 登录。
+</Tip>
+
 <Tabs>
   <Tab title="Claude">
     <AdminMcpClaude />
@@ -76,7 +80,7 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
   ## 编辑的工作方式
 </div>
 
-每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`publish` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`read_page_history`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。私有页面仅在内部项目中可用。在其他项目中，私有页面请求会返回 `private_pages_unavailable`。
+每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`publish` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`read_page_history`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。管理员 MCP 只能访问 [Base](/zh/base/index) 中的私有页面。在文档项目中，私有页面请求会返回 `private_pages_unavailable`。
 
 流程如下：
 
@@ -124,7 +128,7 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
 - **`discard` 只撤销你的更改。** 它返回 `discardedChanges`，表示撤销的更改数量。其他人的更改和 branch 本身不受影响。
 - **`status` 只列出你的更改。**
 
-内部项目没有文档站点，因此没有发布步骤。当 `list_deployments` 返回 `projectType: "workspace"` 时，Mintlify 会自动将编辑提交到部署 branch，包括上传的图片。
+[Base](/zh/base/index) 没有文档站点，因此没有发布步骤。当 `list_deployments` 返回 `projectType: "workspace"` 时，该项目即为 Base，Mintlify 会自动将编辑提交到部署 branch，包括上传的图片。
 
 Mintlify 按页面跟踪更改。如果你和其他人编辑了同一页面，`publish` 会发布整个页面，`discard` 会撤销整个页面，包括其他人的编辑。
 
@@ -241,7 +245,7 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 - **`suggest_edit`**: 在页面上提出带修订标记的建议，而不是直接编辑。原文会以删除线形式保留在页面上，替换内容显示在其旁边。在有人于控制台编辑器中接受或拒绝该建议之前，页面内容不会改变。`path` 接受与 `read` 相同的格式，并传入 `oldString` 和 `newString`。`oldString` 为要替换的最短且唯一的可见文本片段，且须位于同一段落或标题内。请使用渲染后的文字，而不是 Markdown 或 MDX 语法。传入空的 `newString` 可建议删除。可传入可选的 `comment` 来说明该修改的价值。Mintlify 会将其作为代理在建议线程中的回复发布。旧的 `note` 参数仍可使用，作为 `comment` 的已弃用别名。返回新的 `threadId`，以及裁剪到实际变更片段的 `originalText` 和 `suggestedText`。如果相同的建议已处于打开状态，响应会包含 `alreadyExists: true` 和现有的 `threadId`。`no_match` 和 `not_unique` 错误与 `add_comment` 相同。两个字符串相同时返回 `no_change` 错误，文本与另一条打开的建议重叠时返回 `conflicting_annotation` 错误。
 - **`reply_to_comment`**: 通过 `threadId` 和 `content` 回复线程。传入 `resolve: true` 可同时解决该线程。Mintlify 会以 agent 身份代表授权用户发布回复，回复会实时显示在控制台编辑器中。
 - **`resolve_comment`**: 解决线程而不回复。
-- **`read_inbox`**: 列出你在某个项目上的控制台收件箱，按最新活动排序。收件箱包括评论和提及、建议的编辑以及组织邀请。默认情况下，`read_inbox` 返回未处理的项目。将 `state` 设为 `open`、`done` 或 `all`，将 `section` 设为 `comment`、`suggestion`、`invitation` 或 `all`（默认）。传入 `filter` 可将评论限定为 `mentions` 或 `on-my-page`（你拥有的页面），或将建议限定为来自 `people` 或 `agent` 的建议。除非 `section` 为 `all`，否则筛选条件必须与 `section` 匹配。传入 ISO 8601 日期时间格式的 `dateFrom` 和 `dateTo`，可按最新活动时间限定项目。传入 `limit` 可指定每次调用返回 1 到 50 个项目（默认 20），并将 `nextCursor` 作为 `cursor` 传回以列出更早的项目。每个项目都包含其 `category`、`state`、`latestActivity` 和 `target`。当 `target.thread` 存在、未解决且不在私有页面上时，在其 `branch` 上使用其 `filePath` 调用 `read_comments`，并使用 `reply_to_comment` 回复。`restricted` 项目不包含线程详情。`read_inbox` 为只读操作，绝不会将项目标记为已读或已完成。错误包括 `invalid_filter`、`invalid_date_range` 和 `invalid_cursor`。
+- **`read_inbox`**: 列出你在某个项目上的控制台收件箱，按最新活动排序。收件箱包括评论和提及、建议的编辑以及与你共享的私有页面和文件夹。默认情况下，`read_inbox` 返回未处理的项目。将 `state` 设为 `open`、`done` 或 `all`，将 `section` 设为 `comment`、`suggestion`、`invitation` 或 `all`（默认）。传入 `filter` 可将评论限定为 `mentions` 或 `on-my-page`（你拥有的页面），或将建议限定为来自 `people` 或 `agent` 的建议。除非 `section` 为 `all`，否则筛选条件必须与 `section` 匹配。传入 ISO 8601 日期时间格式的 `dateFrom` 和 `dateTo`，可按最新活动时间限定项目。传入 `limit` 可指定每次调用返回 1 到 50 个项目（默认 20），并将 `nextCursor` 作为 `cursor` 传回以列出更早的项目。每个项目都包含其 `category`、`state`、`latestActivity` 和 `target`。当 `target.thread` 存在、未解决且不在私有页面上时，在其 `branch` 上使用其 `filePath` 调用 `read_comments`，并使用 `reply_to_comment` 回复。`restricted` 项目不包含线程详情。`read_inbox` 为只读操作，绝不会将项目标记为已读或已完成。错误包括 `invalid_filter`、`invalid_date_range` 和 `invalid_cursor`。
 
 `add_comment`、`suggest_edit`、`reply_to_comment` 和 `resolve_comment` 需要 OAuth 会话和 `branch`。它们处理该 branch 上的线程，即使对部署 branch 的编辑要求拉取请求，它们也可以在部署 branch 上使用。你可以回复建议线程，但必须在编辑器中接受或拒绝建议。管理员 MCP 不支持私有页面上的评论。`read_inbox` 同样需要 OAuth 会话，并且只返回该项目所属组织中活跃成员的收件箱。
 
@@ -262,6 +266,14 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 </div>
 
 - **`update_config`**: 更改 `docs.json` 的顶层设置，例如主题、颜色、logo、导航栏、页脚、重定向、集成和 SEO。它无法更改 `navigation`，请改用导航工具。Mintlify 会整体拒绝无效的配置。
+
+<div id="mintlify-skill">
+  ### Mintlify skill
+</div>
+
+- **`read_skill`**: 读取 Mintlify 的文档编写指南，内容涵盖页面、组件、widget、导航和 `docs.json`。它与 [agent](/zh/agent) 使用的 Mintlify skill 相同。不传 `path` 调用时，会返回 skill 的索引 `SKILL.md` 以及其参考文件的 `files` 列表。从该列表中选取一个文件作为 `path` 传入（例如 `reference/widgets.md`）即可读取该文件。该工具为只读，不需要 `subdomain` 或 `branch`。如果文件不存在，则返回 `skill_file_not_found` 以及 `files` 列表。
+
+管理员 MCP 会指示 AI 工具在编写、重构页面或设置页面样式之前先调用 `read_skill`。
 
 <div id="project-management">
   ### 项目管理
@@ -295,7 +307,7 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 - **`manage_access_auth`**: 配置或移除站点[认证](/zh/deploy/authentication-setup)、添加或删除密码、配置终端用户认证，或切换当前启用的认证方式。
 - **`manage_workflow`**: 创建、更新、启用或禁用、删除或触发自动化。
 - **`manage_workflow_prs`**: 合并或关闭由[自动化](/zh/automations)运行创建的拉取请求。要合并 AI 工具编辑过的 branch 的拉取请求，请改用带 `merge: true` 的 `publish`。
-- **`manage_members_sharing`**: 列出或移除组织成员、更新其角色，或在内部项目中管理私有页面的授权和移动。
+- **`manage_members_sharing`**: 列出或移除组织成员、更新其角色，或在 Base 中管理私有页面的授权和移动。
 
 写入工具会在 `state` 下返回项目更新后的状态，因此 AI 工具无需再次调用即可确认更改。每个操作都会检查连接被授予的作用域以及你在仪表板中的角色。未获授权的操作会返回 `insufficient_scope` 等错误。
 
@@ -307,7 +319,7 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
   ### branch 与发布
 </div>
 
-- **`list_deployments`**: 列出你的连接可以访问的项目，返回每个 `{subdomain, name, projectType}`。`projectType` 为 `site` 表示文档站点，为 `workspace` 表示内部项目。调用此项以了解要传递的 `subdomain`。
+- **`list_deployments`**: 列出你的连接可以访问的项目，返回每个 `{subdomain, name, projectType}`。`projectType` 为 `site` 表示文档站点，为 `workspace` 表示 Base。调用此项以了解要传递的 `subdomain`。
 - **`create_branch`**: 从部署 branch 创建一个新的 branch，并传入同时用作其拉取请求标题的 `title`。返回要作为 `branch` 传入的 `branchName`。参见[在 branch 上工作](#work-on-a-branch)。[直接编辑部署 branch](#edit-the-deploy-branch-directly) 时不需要它。
 - **`list_branches`**: 列出某个项目仓库可用的 Git branch，可选用 `query` 进行筛选。返回 branch 名称、总数以及部署 branch。其中任意一个都可以作为 `branch` 传入。
 - **`status`**: 列出 `branch`（省略时为部署 branch）上已编辑的文件、已更改的 `docs.json` 键和待处理的导航差异。在部署 branch 上，只列出你的更改。

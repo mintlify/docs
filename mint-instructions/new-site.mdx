@@ -1,0 +1,79 @@
+---
+title: "New site and first publish"
+name: mintlify-new-site
+description: "Sets up a new Mintlify docs site and gets it live at a shareable URL, with no account (mint deploy, then mint claim) or with an existing account (mint login). Use when the user wants a new docs site, has no docs.json yet, or wants to publish for the first time."
+when: "New docs site, first publish, no account, claim a site, login, no docs.json yet"
+---
+Use this when the user wants a docs site or wants docs live on a URL. Run the whole workflow yourself; ask only for what you cannot supply.
+
+## Checklist
+
+Copy this into your plan and check items off:
+
+```
+- [ ] mint status (keep an existing session)
+- [ ] scaffold or add docs.json, write real pages
+- [ ] mint dev --no-open, report the local URL
+- [ ] mint validate and mint broken-links pass
+- [ ] go live: mint deploy (no account) or mint login (existing account)
+- [ ] docs pushed to the hosted or connected repository
+- [ ] https://<subdomain>.mintlify.site loads with the new docs
+- [ ] no account yet: ask for the user's email, run mint claim --email, share the link
+```
+
+## Workflow
+
+1. **Check tools.** `node --version` must be v20.17.0 or newer. Run `mint --version`; if missing, `npm i -g mint`. If present, `mint update`.
+2. **Build locally first if the user wants a preview.**
+   - Existing repo with docs (a `docs/` folder or Markdown files): keep that content. Create the Mintlify project in a new, empty directory (for example `docs/` if it does not exist) and port the existing Markdown into it.
+   - Scaffold with `mint new <directory> --name <name> --theme <theme>` or `mint new <directory> --template <template>`. Agents must pass `--name` and `--theme`, or `--template`. If the user did not choose a theme, ask, or say which one you picked and why. Theme names are listed in https://www.mintlify.com/docs/customize/themes.
+   - Write real pages from the repo (README, code, existing docs). No placeholder pages. See `mint instructions write`.
+   - Run `mint dev --no-open` in the background from the directory with `docs.json`, confirm the local URL loads, and report it.
+   - Run `mint validate` and `mint broken-links`. Fix what you caused.
+3. **Go live.** Run `mint status`.
+   - **Logged in with an organization:** keep that session and use its repository (step 4).
+   - **No account, or the user wants it live now: `mint deploy`.** From the directory with `docs.json`, run `mint deploy --subdomain <name>`. It provisions `https://<subdomain>.mintlify.site` and a hosted Git repository with a short-lived write token, and prints the Git commands. Clone that repository into a separate directory, copy the docs in (never `.env`, `.git` or `node_modules`), commit, and push to `main` with the token as a Bearer header for that Git command only. The push starts the build.
+     - To keep the token out of your transcript, save the output to a file outside the repository and read the repository URL and token into shell variables from it. If you lose the token or it expires (see `Write token expires` in the output), run `mint deploy` again from the same directory: it reuses the site and prints a fresh token.
+     - The site expires unless a person claims it. Ask the user which email address should own it (never invent one), then run `mint claim --email <email>` from the same directory (or pass `--directory`) and give them the claim link. They open it, sign in or create an account, and read you a code. Run `mint claim --code <code>` to finish. Do not sign in for them, and do not read or print the credentials the CLI stores; it reads them itself.
+     - To create a second site instead of reusing this one, run `mint deploy --new --subdomain <name>`.
+     - If `mint deploy` fails with `HTTP 429` (`rate_limit_exceeded`), nothing was created. Tell the user, and retry once a few minutes later. Do not loop: repeated attempts keep the limit in place.
+   - **The user has a Mintlify account:** run `mint login` and use their repository (step 4).
+   - **The docs live in the user's GitHub repository and they want every push to deploy:** from the repository root, with a GitHub `origin` remote and the GitHub CLI signed in, run `mint deploy --github --subdomain <name>` (add `--directory docs` if the docs are in a subfolder). It writes `.github/workflows/mintlify.yml`; commit and push it. This works only for unclaimed sites; after the user claims the site, they connect the repository from the dashboard instead. Pass `--force` only if the user agrees to overwrite an existing workflow file.
+   - **The user wants their own account now:** you cannot create it for them. Publish with `mint deploy` and let them claim the site (claiming creates the account), or send them to web onboarding at https://mintlify.com/start.
+4. **Own repository (login path).** Mintlify deploys from the Git repository connected during onboarding.
+   - After onboarding, run `mint status` again. It should show email, organization, and subdomain. If there is an organization but no subdomain, ask the user to finish selecting or connecting a GitHub repository in the onboarding tab, then retry.
+   - If the docs live in a subfolder of the user's code repo (for example `docs/`), the user must turn on **docs.json is in a subdirectory** in Git Settings (https://app.mintlify.com/settings/project/git-settings) and enter the path, like `/docs` (no trailing slash). See `mint instructions publish repo`.
+   - Ask for the connected repository URL (`mint status` does not show it). If it is the user's repo, add your docs project to it. If Mintlify created a starter repo, clone it and replace the starter pages with the docs you built. Do not overwrite a user's existing repository with starter content.
+   - Commit and push to the deployment branch. A push triggers a deployment.
+5. **Confirm live.** Check that `https://<subdomain>.mintlify.site` loads before you tell the user it is live. Until then, say what is left (push, build, claim link, connect GitHub).
+
+## Rules
+
+- The user needs a browser only to open a claim link, approve the CLI login, or connect GitHub.
+- "Get it live, I don't have an account": use `mint deploy`, then offer the claim link. Do not stop at "sign up in the browser".
+- Never invent an email, use a placeholder like `YOUR_EMAIL`, or take one from Git config or the environment. Ask, then run `mint claim` yourself with exactly what the user gave you.
+- Never tell the user a verification email was sent: no agent step sends one.
+- Never show the write token to the user, put it in a Git remote URL, or save it in Git config.
+- The live URL is `https://<subdomain>.mintlify.site`, not `.mintlify.app`. Use `mint status` for the exact subdomain after `mint login`, or the URL `mint deploy` printed.
+- Do not use `--force` on a directory with user files.
+- Plans: Starter is $0 (custom domain, web editor, authentication, MCP server, API playground). SSO, SCIM, and RBAC are Enterprise. Pro and Enterprise prices and trials: https://www.mintlify.com/pricing.md (do not quote prices from memory).
+
+## Example handoff to the user
+
+> Your docs are live at `https://<subdomain>.mintlify.site` (I deployed them with `mint deploy`, no account needed). The site is temporary until you claim it: what email should I use? I'll send you a claim link so you can sign in and keep it.
+
+## Verify
+
+```bash
+mint validate
+mint broken-links
+mint status          # email, organization, subdomain
+curl -sI https://<subdomain>.mintlify.site
+```
+
+## More
+
+- Pages and components: `mint instructions write`
+- docs.json and navigation: `mint instructions configure`
+- Custom domain and later deploys: `mint instructions publish`
+- Docs: https://www.mintlify.com/docs/quickstart , https://www.mintlify.com/docs/cli/install

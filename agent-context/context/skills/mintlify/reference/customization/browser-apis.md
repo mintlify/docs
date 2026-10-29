@@ -45,4 +45,4 @@ function onEveryPage(run) {
 - Make setup idempotent. Deduplicate injected third-party script tags and wait for their `load`/`error` events.
 - Do not monkey-patch `history`; listen for `mintlify:navigate` instead.
 
-See the [public documentation](https://www.mintlify.com/docs/customize/custom-scripts).
+See the [public documentation](https://mintlify.com/docs/customize/custom-scripts.md).

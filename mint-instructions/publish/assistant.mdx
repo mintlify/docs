@@ -1,0 +1,116 @@
+---
+title: "Assistant, widget, and narration"
+name: mintlify-publish-assistant
+description: "Turns on, configures, and tunes the AI assistant, the assistant widget, Assistant.md, assistant skills, narration, and bring your own model. Use for questions about the docs chat, widget, narration, or LLM provider keys."
+when: "The AI assistant, widget, Assistant.md, skills, narration, bring your own model"
+---
+Use this for reader chat on the docs or elsewhere, shaping its answers, or audio narration. Most switches are in the dashboard, which you cannot click: prepare repo files and give the user exact dashboard steps.
+
+Do not confuse three things:
+- **Assistant**: chat for readers on the docs site (and the widget). This topic.
+- **Mintlify agent**: writes and edits docs for the team. See `mint instructions automate`.
+- **Search MCP server**: lets readers' own AI tools search the docs. See `mint instructions publish`.
+
+## Plans and cost
+
+- Assistant, widget, narration, analytics: Pro or Enterprise. Starter has no AI features and cannot buy credits.
+- Credits pool per organization: each Pro plan adds 10,000/month. Answer = 25 credits; "can't answer" = 0. Same price on site, widget, or API. Narration = 50 credits per generated page version; replays free.
+- Overages ($0.01/credit) are off by default and set per project. With overages off and the balance spent, the assistant is unavailable until reset. Add-ons and alerts: **Usage** page (https://app.mintlify.com/settings/organization/usage).
+- Enterprise only: assistant customization (pricing page) and bring your own model (per project).
+
+## Workflow
+
+1. Run `mint status` to confirm account and subdomain. Ask the plan if unknown.
+2. Enable: user opens https://app.mintlify.com/products/assistant and clicks the status toggle.
+3. Dashboard options (user does these on the Assistant page, Response Handling section):
+   - Deflection, **Email** mode: support and/or sales addresses; shows an in-chat contact form. Disable **Contact form** to show the support email as plain text instead.
+   - Deflection, **Link** mode: full `http`/`https` URL, no credentials. Mintlify appends `threadId` as a query parameter. No sales deflection in this mode.
+   - Search domains for web search: public, no JavaScript-rendered sites. Patterns: `example.com`, `docs.example.com`, `*.example.com`, `docs.example.com/api`.
+   - Up to three starter questions.
+   - Bot protection: **Assistant settings** (https://app.mintlify.com/products/assistant/settings) > **Bot Protection** > **Invisible Captcha**. Up to 10 minutes to apply. With custom CSP, allow `hcaptcha.com` and `*.hcaptcha.com`.
+4. Instructions for every answer (repo): write `.mintlify/Assistant.md` (`ASSISTANT.md` also accepted). It adds to the system prompt, never replaces defaults. Delete the file to remove.
+5. Topic skills (repo): one `skill.md` per directory under `.mintlify/assistant/skills/<slug>/`. Redeploy after adding or changing.
+6. Contextual menu entry: add `"assistant"` to `contextual.options` in `docs.json`.
+7. Widget (another site or app): see Examples.
+8. Narration: user opens **Site** settings (https://app.mintlify.com/settings/project/site), **Narration** section, enables **Page narration**.
+9. Bring your own model: user selects the project, opens **API keys** (https://app.mintlify.com/settings/organization/api-keys), **AI model** section (only appears if the contract includes it), enables **Bring your own model**, picks provider (OpenRouter, Anthropic, OpenAI, Amazon Bedrock plus **Region**), **Assistant model**, optional **Agent model**, enters the key, clicks **Save**. Bedrock needs an Amazon Bedrock API key (no AWS access keys or IAM roles). Usage on that project bills to the provider, not credits. Disable to delete the key and return to defaults.
+
+## Rules
+
+- Never put `Assistant.md` at the repo root: it would be served at `/assistant.md`. If it must live elsewhere, add it to `.mintignore`.
+- Skill frontmatter needs `name` and `description`. The description decides when the skill loads, so state when it applies. Keep descriptions distinct.
+- Skill directory slugs: lowercase letters, numbers, hyphens only. Duplicate slugs publish only one (warning in deployment log).
+- Skills: truncated at about 6,000 tokens, max three per response, self-contained, prose and code (no screenshots). Delete `.mintlify/assistant/skills/` and redeploy to remove all.
+- Use `Assistant.md` for tone, persona, terminology, and rules for every response; use skills for topic-specific guidance.
+- The assistant indexes published content and API specs only, not draft branches or preview deployments. It skips hidden pages unless `docs.json` has `seo.indexing: "all"`.
+- It answers only from the docs (plus configured search domains): fix missing answers in content, not prompts.
+- Narration is not available for projects that require authentication. It skips code blocks, tables, media, and API fields.
+- Widget: keep the hosted loader before the init block (module scripts run in order). Await `init()` before other methods. Changing widget ID or `endpoint` needs `destroy()` then `init()`. Changing `identity` starts a new conversation.
+
+## Examples
+
+`.mintlify/Assistant.md`:
+```markdown
+You are a helpful assistant for Acme's developer platform.
+
+## Tone
+- Be concise and direct.
+
+## Terminology
+- Use "access token" instead of "API key".
+```
+
+`.mintlify/assistant/skills/migrate-to-v3/skill.md`:
+```markdown
+---
+name: Migrate to SDK v3
+description: Step-by-step guide for upgrading from SDK v2 to v3, including breaking changes and rollout checklist.
+---
+
+# Migrating to SDK v3
+1. Update dependencies.
+```
+
+`docs.json`:
+```json
+{
+  "contextual": {
+    "options": ["copy", "view", "assistant"]
+  }
+}
+```
+
+Widget. The user enables it on https://app.mintlify.com/settings/project/widget, adds allowed origins, and copies the widget ID. Install code comes from the playground on that page (do not invent the loader URL). Then initialize; `id` is the only required option:
+```js
+await window.MintlifyAssistant.init({
+  id: "YOUR_WIDGET_ID",
+  supportEmail: "support@example.com",
+  starterQuestions: ["How do I get started?"],
+  filter: { language: "en", version: "v2" },
+});
+document.querySelector("#help-button").addEventListener("click", () => {
+  void window.MintlifyAssistant.open({ source: "help-button", focus: true });
+});
+```
+Other methods: `ask(question, options)`, `update(config)` (pass `null` to reset a field), `close()`, `reset()`, `destroy()`. `identity` takes a signed end-user token; omit for anonymous visitors. Widget `supportEmail` and `starterQuestions` do not inherit from the dashboard. CSP: `script-src` and `connect-src` `https://widget.mintlify.com`, `connect-src` `https://api.mintlify.com` and `https://ph.mintlify.com`, plus hCaptcha (`https://js.hcaptcha.com`, `https://*.hcaptcha.com`) when bot protection is on. Pass `nonce` for a strict `style-src`.
+
+## Verify
+
+```bash
+mint validate
+mint login
+mint dev --no-open
+```
+- With `mint login`, the local preview runs the assistant against the deployed index, so it tests `Assistant.md` and responses. New skills need a redeploy first.
+- Open a page with `?assistant` or `?assistant=How%20do%20I%20start%3F`, or press Cmd+I / Ctrl+I.
+- Widget: reload the host page and send a test question.
+- Narration: a **Listen to this page** player appears on pages with enough prose.
+- Usage and credits: **Usage** page activity log. Conversations: **Assistant** view at https://app.mintlify.com/analytics.
+
+## More
+
+- `mint instructions publish` (parent: going live, search MCP server), `mint instructions automate` (the Mintlify agent)
+- https://www.mintlify.com/docs/assistant/configure
+- https://www.mintlify.com/docs/assistant/widget
+- https://www.mintlify.com/docs/assistant/skills
+- https://www.mintlify.com/docs/credits

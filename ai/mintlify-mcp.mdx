@@ -46,6 +46,10 @@ You must have an interactive OAuth login against your Mintlify account to connec
 
 Connect your tools to the admin MCP from [your dashboard](https://app.mintlify.com/products/mcp) or complete the following steps for your preferred tool. 
 
+<Tip>
+  To configure Claude Code, Codex, or Cursor from your terminal, run [`mint agent setup`](/cli/commands#mint-agent-setup). It adds the admin MCP to each agent's configuration and installs Mintlify skills. You still complete the OAuth sign-in in each agent.
+</Tip>
+
 <Tabs>
   <Tab title="Claude">
     <AdminMcpClaude />
@@ -66,7 +70,7 @@ Connect your tools to the admin MCP from [your dashboard](https://app.mintlify.c
 
 ## How editing works
 
-Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `read_page_history`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`. Private pages are only available in internal projects. In other projects, private page requests return `private_pages_unavailable`.
+Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `read_page_history`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`. The admin MCP can only access private pages in [bases](/base/index). In docs projects, private page requests return `private_pages_unavailable`.
 
 The flow is:
 
@@ -112,7 +116,7 @@ The AI tool acts as you on the deploy branch:
 - **`discard` reverts only your changes.** It returns `discardedChanges` with the number of changes it reverted. Other people's changes and the branch itself stay untouched.
 - **`status` lists only your changes.**
 
-Internal projects have no docs site, so they have no publish step. When `list_deployments` returns `projectType: "workspace"`, Mintlify commits edits to the deploy branch automatically, including uploaded images.
+A [base](/base/index) has no docs site, so it has no publish step. When `list_deployments` returns `projectType: "workspace"`, the project is a base, and Mintlify commits edits to the deploy branch automatically, including uploaded images.
 
 Mintlify tracks changes per page. If you and someone else both edited the same page, `publish` publishes the whole page and `discard` reverts the whole page, including the other person's edits.
 
@@ -211,7 +215,7 @@ Work with the [comments and suggestions](/editor/collaborate#comments) that your
 - **`suggest_edit`**: Propose a tracked-changes suggestion on a page instead of editing it. The original text stays on the page with a strikethrough and the replacement appears alongside it. Nothing changes until someone accepts or rejects the suggestion in the dashboard editor. Pass `path` in the same forms as `read`, `oldString`, and `newString`. `oldString` is the smallest unique span of visible text to replace, within one paragraph or heading. Use rendered words, not Markdown or MDX syntax. Pass an empty `newString` to suggest a deletion. Pass an optional `comment` to explain why the change helps. Mintlify posts it as the agent's reply in the suggestion thread. The older `note` parameter still works as a deprecated alias for `comment`. Returns the new `threadId` with the `originalText` and `suggestedText`, trimmed to the span that changes. If the same suggestion is already open, the response includes `alreadyExists: true` and the existing `threadId`. The `no_match` and `not_unique` errors work as they do for `add_comment`. The error is `no_change` when both strings are the same, and `conflicting_annotation` when the text overlaps another open suggestion.
 - **`reply_to_comment`**: Reply to a thread by `threadId` with `content`. Pass `resolve: true` to also resolve the thread. Mintlify posts the reply as the agent on behalf of the authorizing user, and it appears live in the dashboard editor.
 - **`resolve_comment`**: Resolve a thread without replying.
-- **`read_inbox`**: List your dashboard inbox on a project, newest activity first. The inbox includes comments and mentions, suggested edits, and organization invitations. By default, `read_inbox` returns open items. Pass `state` as `open`, `done`, or `all`, and `section` as `comment`, `suggestion`, `invitation`, or `all` (default). Pass `filter` to narrow comments to `mentions` or `on-my-page` (pages you own), or suggestions to those from `people` or the `agent`. The filter must match `section` unless `section` is `all`. Pass `dateFrom` and `dateTo` as ISO 8601 date-times to limit items by their latest activity. Pass `limit` for 1 to 50 items per call (default 20), and pass `nextCursor` back as `cursor` to list older items. Each item includes its `category`, `state`, `latestActivity`, and `target`. When `target.thread` is present, unresolved, and not on a private page, call `read_comments` with its `filePath` and reply with `reply_to_comment`, both on its `branch`. `restricted` items don't include thread details. `read_inbox` is read-only and never marks items as read or done. Errors include `invalid_filter`, `invalid_date_range`, and `invalid_cursor`.
+- **`read_inbox`**: List your dashboard inbox on a project, newest activity first. The inbox includes comments and mentions, suggested edits, and private pages and folders shared with you. By default, `read_inbox` returns open items. Pass `state` as `open`, `done`, or `all`, and `section` as `comment`, `suggestion`, `invitation`, or `all` (default). Pass `filter` to narrow comments to `mentions` or `on-my-page` (pages you own), or suggestions to those from `people` or the `agent`. The filter must match `section` unless `section` is `all`. Pass `dateFrom` and `dateTo` as ISO 8601 date-times to limit items by their latest activity. Pass `limit` for 1 to 50 items per call (default 20), and pass `nextCursor` back as `cursor` to list older items. Each item includes its `category`, `state`, `latestActivity`, and `target`. When `target.thread` is present, unresolved, and not on a private page, call `read_comments` with its `filePath` and reply with `reply_to_comment`, both on its `branch`. `restricted` items don't include thread details. `read_inbox` is read-only and never marks items as read or done. Errors include `invalid_filter`, `invalid_date_range`, and `invalid_cursor`.
 
 `add_comment`, `suggest_edit`, `reply_to_comment`, and `resolve_comment` require an OAuth session and a `branch`. They act on the threads left on that branch, and work on your deploy branch even when edits to it require a pull request. You can reply to suggestion threads, but you must accept or reject suggestions in the editor. Comments on private pages aren't available through the admin MCP. `read_inbox` also requires an OAuth session, and only returns the inbox of an active member of the project's organization.
 
@@ -228,6 +232,12 @@ If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the
 ### Configuration
 
 - **`update_config`**: Change top-level `docs.json` settings, such as theme, colors, logo, navbar, footer, redirects, integrations, and SEO. It can't change `navigation`; use the navigation tools instead. Mintlify rejects an invalid configuration as a whole.
+
+### Mintlify skill
+
+- **`read_skill`**: Read Mintlify's guide to writing docs, which covers pages, components, widgets, navigation, and `docs.json`. It's the same Mintlify skill that the [agent](/agent) uses. Call it without `path` to get `SKILL.md`, the skill's index, and a `files` list of its reference files. Pass a file from that list as `path`, such as `reference/widgets.md`, to read it. The tool is read-only and doesn't need a `subdomain` or `branch`. If the file doesn't exist, it returns `skill_file_not_found` with the `files` list.
+
+The admin MCP tells AI tools to call `read_skill` before they write, restructure, or style pages.
 
 ### Project management
 
@@ -259,7 +269,7 @@ Write tools:
 - **`manage_access_auth`**: Configure or remove site [authentication](/deploy/authentication-setup), add or delete passwords, configure end-user authentication, or switch which one is active.
 - **`manage_workflow`**: Create, update, enable or disable, delete, or trigger an automation.
 - **`manage_workflow_prs`**: Merge or close a pull request that an [automation](/automations) run opened. To merge a pull request for a branch the AI tool edited, use `publish` with `merge: true` instead.
-- **`manage_members_sharing`**: List or remove organization members, update their roles, or manage private page grants and moves in internal projects.
+- **`manage_members_sharing`**: List or remove organization members, update their roles, or manage private page grants and moves in bases.
 
 Write tools return the project's updated state under `state`, so the AI tool can confirm the change without a second call. Each action checks the connection's granted scopes and your dashboard role. An action you aren't authorized for returns an error such as `insufficient_scope`.
 
@@ -269,7 +279,7 @@ Write tools return the project's updated state under `state`, so the AI tool can
 
 ### Branches and publishing
 
-- **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name, projectType}`. `projectType` is `site` for a docs site or `workspace` for an internal project. Call this to discover which `subdomain` to pass.
+- **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name, projectType}`. `projectType` is `site` for a docs site or `workspace` for a base. Call this to discover which `subdomain` to pass.
 - **`create_branch`**: Start a new branch off your deploy branch with a `title` that also names its pull request. Returns the `branchName` to pass as `branch`. See [Work on a branch](#work-on-a-branch). You don't need it to [edit the deploy branch directly](#edit-the-deploy-branch-directly).
 - **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Pass any of them as `branch`.
 - **`status`**: List the edited files, changed `docs.json` keys, and pending navigation diff on `branch`, or on your deploy branch when you omit it. On the deploy branch, lists only your changes.
@@ -329,5 +339,5 @@ Revoking the OAuth grant doesn't affect pull requests the MCP has already opened
 </Accordion>
 
 <Accordion title="Connection still fails after reinstalling the connector">
-  Log out of the [dashboard](https://app.mintlify.com), log back in, then connect your AI tool again. This replaces a dashboard session that started before the login update.
+  Sign out of the [dashboard](https://app.mintlify.com), sign back in, then connect your AI tool again. This replaces a dashboard session that started before the login update.
 </Accordion>

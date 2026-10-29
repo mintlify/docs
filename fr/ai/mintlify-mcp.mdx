@@ -54,6 +54,10 @@ Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify p
 
 Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.mintlify.com/products/mcp) ou suivez les étapes ci-dessous pour votre outil préféré.
 
+<Tip>
+  Pour configurer Claude Code, Codex ou Cursor depuis votre terminal, exécutez [`mint agent setup`](/fr/cli/commands#mint-agent-setup). La commande ajoute l'Admin MCP à la configuration de chaque agent et installe les compétences Mintlify. Vous devez toujours effectuer la connexion OAuth dans chaque agent.
+</Tip>
+
 <Tabs>
   <Tab title="Claude">
     <AdminMcpClaude />
@@ -76,7 +80,7 @@ Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.m
   ## Fonctionnement de l'édition
 </div>
 
-Chaque outil de contenu accepte un argument `branch`. Les outils qui modifient le contenu, comme `edit_page`, `create_node`, `update_config`, `publish` et `discard`, l'exigent. Les outils de lecture, comme `read`, `search`, `read_page_history`, `list_nodes`, `status` et `diff`, utilisent votre branche de déploiement par défaut lorsque vous l'omettez. L'Admin MCP ne mémorise pas de branche d'un appel à l'autre, donc l'outil d'IA passe `branch` à chaque fois. Les requêtes portant sur des [pages privées](/fr/editor/pages#private-pages) n'ont pas besoin de `branch`. Les pages privées ne sont disponibles que dans les projets internes. Dans les autres projets, les requêtes sur des pages privées renvoient `private_pages_unavailable`.
+Chaque outil de contenu accepte un argument `branch`. Les outils qui modifient le contenu, comme `edit_page`, `create_node`, `update_config`, `publish` et `discard`, l'exigent. Les outils de lecture, comme `read`, `search`, `read_page_history`, `list_nodes`, `status` et `diff`, utilisent votre branche de déploiement par défaut lorsque vous l'omettez. L'Admin MCP ne mémorise pas de branche d'un appel à l'autre, donc l'outil d'IA passe `branch` à chaque fois. Les requêtes portant sur des [pages privées](/fr/editor/pages#private-pages) n'ont pas besoin de `branch`. L'Admin MCP ne peut accéder aux pages privées que dans les [bases](/fr/base/index). Dans les projets de documentation, les requêtes sur des pages privées renvoient `private_pages_unavailable`.
 
 Le déroulement est le suivant :
 
@@ -124,7 +128,7 @@ L'outil d'IA agit en votre nom sur la branche de déploiement :
 - **`discard` annule uniquement vos modifications.** Il renvoie `discardedChanges` avec le nombre de modifications annulées. Les modifications des autres et la branche elle-même restent intactes.
 - **`status` liste uniquement vos modifications.**
 
-Les projets internes n'ont pas de site de documentation, ils n'ont donc pas d'étape de publication. Lorsque `list_deployments` renvoie `projectType: "workspace"`, Mintlify valide automatiquement les modifications sur la branche de déploiement, y compris les images téléversées.
+Une [base](/fr/base/index) n'a pas de site de documentation, elle n'a donc pas d'étape de publication. Lorsque `list_deployments` renvoie `projectType: "workspace"`, le projet est une base, et Mintlify valide automatiquement les modifications sur la branche de déploiement, y compris les images téléversées.
 
 Mintlify suit les modifications par page. Si vous et une autre personne avez modifié la même page, `publish` publie la page entière et `discard` annule la page entière, y compris les modifications de l'autre personne.
 
@@ -241,7 +245,7 @@ Travaillez avec les [commentaires et suggestions](/fr/editor/collaborate#comment
 - **`suggest_edit`**: Propose une suggestion avec suivi des modifications sur une page au lieu de la modifier. Le texte original reste sur la page, barré, et le remplacement apparaît à côté. Rien ne change tant que quelqu'un n'a pas accepté ou rejeté la suggestion dans l'éditeur du tableau de bord. Transmettez `path` sous les mêmes formes que pour `read`, `oldString` et `newString`. `oldString` est le plus court passage de texte visible et unique à remplacer, dans un seul paragraphe ou titre. Utilisez les mots affichés, pas la syntaxe Markdown ou MDX. Transmettez un `newString` vide pour suggérer une suppression. Transmettez un `comment` facultatif pour expliquer en quoi la modification est utile. Mintlify le publie comme réponse de l'agent dans le fil de la suggestion. L'ancien paramètre `note` fonctionne toujours comme alias obsolète de `comment`. Renvoie le nouveau `threadId` avec `originalText` et `suggestedText`, réduits au passage qui change. Si la même suggestion est déjà ouverte, la réponse inclut `alreadyExists: true` et le `threadId` existant. Les erreurs `no_match` et `not_unique` fonctionnent comme pour `add_comment`. L'erreur est `no_change` lorsque les deux chaînes sont identiques, et `conflicting_annotation` lorsque le texte chevauche une autre suggestion ouverte.
 - **`reply_to_comment`**: Répond à un fil par `threadId` avec `content`. Transmettez `resolve: true` pour également résoudre le fil. Mintlify publie la réponse en tant qu'agent au nom de l'utilisateur qui a autorisé la connexion, et elle apparaît en direct dans l'éditeur du tableau de bord.
 - **`resolve_comment`**: Résout un fil sans répondre.
-- **`read_inbox`**: Liste votre boîte de réception du dashboard sur un projet, l'activité la plus récente en premier. La boîte de réception comprend les commentaires et mentions, les modifications suggérées et les invitations à l'organisation. Par défaut, `read_inbox` renvoie les éléments ouverts. Passez `state` avec la valeur `open`, `done` ou `all`, et `section` avec la valeur `comment`, `suggestion`, `invitation` ou `all` (par défaut). Passez `filter` pour limiter les commentaires à `mentions` ou `on-my-page` (les pages dont vous êtes propriétaire), ou les suggestions à celles provenant de `people` ou de l'`agent`. Le filtre doit correspondre à `section`, sauf si `section` vaut `all`. Passez `dateFrom` et `dateTo` sous forme de dates-heures ISO 8601 pour limiter les éléments selon leur dernière activité. Passez `limit` pour obtenir de 1 à 50 éléments par appel (20 par défaut), et renvoyez `nextCursor` comme `cursor` pour lister les éléments plus anciens. Chaque élément inclut sa `category`, son `state`, sa `latestActivity` et sa `target`. Lorsque `target.thread` est présent, non résolu et ne se trouve pas sur une page privée, appelez `read_comments` avec son `filePath` et répondez avec `reply_to_comment`, tous deux sur sa `branch`. Les éléments `restricted` n'incluent pas les détails du fil. `read_inbox` est en lecture seule et ne marque jamais les éléments comme lus ou terminés. Les erreurs incluent `invalid_filter`, `invalid_date_range` et `invalid_cursor`.
+- **`read_inbox`**: Liste votre boîte de réception du dashboard sur un projet, l'activité la plus récente en premier. La boîte de réception comprend les commentaires et mentions, les modifications suggérées, ainsi que les pages et dossiers privés partagés avec vous. Par défaut, `read_inbox` renvoie les éléments ouverts. Passez `state` avec la valeur `open`, `done` ou `all`, et `section` avec la valeur `comment`, `suggestion`, `invitation` ou `all` (par défaut). Passez `filter` pour limiter les commentaires à `mentions` ou `on-my-page` (les pages dont vous êtes propriétaire), ou les suggestions à celles provenant de `people` ou de l'`agent`. Le filtre doit correspondre à `section`, sauf si `section` vaut `all`. Passez `dateFrom` et `dateTo` sous forme de dates-heures ISO 8601 pour limiter les éléments selon leur dernière activité. Passez `limit` pour obtenir de 1 à 50 éléments par appel (20 par défaut), et renvoyez `nextCursor` comme `cursor` pour lister les éléments plus anciens. Chaque élément inclut sa `category`, son `state`, sa `latestActivity` et sa `target`. Lorsque `target.thread` est présent, non résolu et ne se trouve pas sur une page privée, appelez `read_comments` avec son `filePath` et répondez avec `reply_to_comment`, tous deux sur sa `branch`. Les éléments `restricted` n'incluent pas les détails du fil. `read_inbox` est en lecture seule et ne marque jamais les éléments comme lus ou terminés. Les erreurs incluent `invalid_filter`, `invalid_date_range` et `invalid_cursor`.
 
 `add_comment`, `suggest_edit`, `reply_to_comment` et `resolve_comment` nécessitent une session OAuth et une `branch`. Ils agissent sur les fils de cette branche et fonctionnent sur votre branche de déploiement même lorsque ses modifications exigent une pull request. Vous pouvez répondre aux fils de suggestions, mais vous devez accepter ou rejeter les suggestions dans l'éditeur. Les commentaires sur les pages privées ne sont pas disponibles via l'Admin MCP. `read_inbox` nécessite également une session OAuth et ne renvoie que la boîte de réception d'un membre actif de l'organisation du projet.
 
@@ -262,6 +266,14 @@ Si un appel à `create_node`, `update_node`, `move_node` ou `delete_node` laisse
 </div>
 
 - **`update_config`**: Modifie les paramètres de premier niveau de `docs.json`, comme le thème, les couleurs, le logo, la barre de navigation, le pied de page, les redirections, les intégrations et le SEO. Il ne peut pas modifier `navigation` ; utilisez plutôt les outils de navigation. Mintlify rejette en bloc toute configuration non valide.
+
+<div id="mintlify-skill">
+  ### Skill Mintlify
+</div>
+
+- **`read_skill`** : Lit le guide de Mintlify pour la rédaction de documentation, qui couvre les pages, les composants, les widgets, la navigation et `docs.json`. Il s'agit de la même skill Mintlify que celle utilisée par l'[agent](/fr/agent). Appelez-le sans `path` pour obtenir `SKILL.md`, l'index de la skill, ainsi qu'une liste `files` de ses fichiers de référence. Transmettez un fichier de cette liste comme `path`, par exemple `reference/widgets.md`, pour le lire. L'outil est en lecture seule et n'a pas besoin de `subdomain` ni de `branch`. Si le fichier n'existe pas, il renvoie `skill_file_not_found` avec la liste `files`.
+
+L'Admin MCP indique aux outils d'IA d'appeler `read_skill` avant de rédiger, restructurer ou mettre en forme des pages.
 
 <div id="project-management">
   ### Gestion de projet
@@ -295,7 +307,7 @@ Outils d'écriture :
 - **`manage_access_auth`**: Configure ou supprime l'[authentification](/fr/deploy/authentication-setup) du site, ajoute ou supprime des mots de passe, configure l'authentification des utilisateurs finaux ou change celle qui est active.
 - **`manage_workflow`**: Crée, met à jour, active ou désactive, supprime ou déclenche une automatisation.
 - **`manage_workflow_prs`**: Fusionne ou ferme une pull request ouverte par une exécution d'[automatisation](/fr/automations). Pour fusionner une pull request d'une branche modifiée par l'outil d'IA, utilisez plutôt `publish` avec `merge: true`.
-- **`manage_members_sharing`**: Liste ou retire des membres de l'organisation, met à jour leurs rôles ou gère les autorisations et déplacements des pages privées dans les projets internes.
+- **`manage_members_sharing`**: Liste ou retire des membres de l'organisation, met à jour leurs rôles ou gère les autorisations et déplacements des pages privées dans les bases.
 
 Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afin que l'outil d'IA puisse confirmer la modification sans second appel. Chaque action vérifie les scopes accordés à la connexion et votre rôle dans le dashboard. Une action pour laquelle vous n'êtes pas autorisé renvoie une erreur comme `insufficient_scope`.
 
@@ -307,7 +319,7 @@ Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afi
   ### Branches et publication
 </div>
 
-- **`list_deployments`**: Liste les projets auxquels votre connexion peut accéder, en renvoyant chaque `{subdomain, name, projectType}`. `projectType` vaut `site` pour un site de documentation ou `workspace` pour un projet interne. Appelez ceci pour découvrir quel `subdomain` transmettre.
+- **`list_deployments`**: Liste les projets auxquels votre connexion peut accéder, en renvoyant chaque `{subdomain, name, projectType}`. `projectType` vaut `site` pour un site de documentation ou `workspace` pour une base. Appelez ceci pour découvrir quel `subdomain` transmettre.
 - **`create_branch`**: Crée une nouvelle branche à partir de votre branche de déploiement avec un `title` qui nomme aussi sa pull request. Renvoie le `branchName` à passer comme `branch`. Consultez [Travailler sur une branche](#work-on-a-branch). Vous n'en avez pas besoin pour [modifier directement la branche de déploiement](#edit-the-deploy-branch-directly).
 - **`list_branches`**: Liste les branches Git disponibles pour le dépôt d'un projet, avec un filtrage `query` optionnel. Renvoie les noms de branches, le nombre total et la branche de déploiement. Passez n'importe laquelle comme `branch`.
 - **`status`**: Liste les fichiers modifiés, les clés `docs.json` modifiées et le diff de navigation en attente sur `branch`, ou sur votre branche de déploiement lorsque vous l'omettez. Sur la branche de déploiement, liste uniquement vos modifications.

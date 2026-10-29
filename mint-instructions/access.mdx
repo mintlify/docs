@@ -1,0 +1,107 @@
+---
+title: "Access control and personalization"
+name: mintlify-access
+description: "Makes docs private, requires login, restricts pages to user groups, and personalizes content per reader. Use when the user wants to control who can read the docs site."
+when: "Private docs, reader login, user groups, personalization"
+---
+Use this when asked to make docs private, require login, show pages only to customers or admins, personalize content, or hide internal pages. Auth methods are configured in the dashboard; page and content rules live in the repo.
+
+## Workflow
+
+1. Pick the method. Configure it in the dashboard **Access** page (https://app.mintlify.com/settings/project/authentication), Visibility **Private**. You cannot set it from the repo or CLI; tell the user the exact steps.
+
+| Method | Dashboard Method | Plan | Groups | Playground prefill / personalization |
+| - | - | - | - | - |
+| Private (Mintlify org members sign in) | Authenticated | All plans | No | No |
+| Password (one shared password) | Password | Pro or Enterprise | No | No |
+| OAuth 2.0 (Authorization Code Flow) | Custom > OAuth | Enterprise | Yes | Yes |
+| JWT (your login signs an EdDSA JWT, redirects to `/login/jwt-callback#<jwt>`) | Custom > JWT | Enterprise | Yes | Yes |
+
+   - Private: add readers on the dashboard **Members** page.
+   - OAuth: add the dashboard **Redirect URL** to the provider. Groups come from an **Info API URL** (GET, `Authorization: Bearer <access_token>`) or from token claims (`source`, `groupsClaim`, `groupsDelimiter`). Auth0 mapping: see More.
+   - JWT: set JWT `exp` to 10 seconds or less; set session length with `expiresAt`. `host` must exactly match the docs domain.
+   - Auth works only on a custom domain or `<subdomain>.mintlify.site`, not on a custom subpath (`example.com/docs`).
+2. Decide full vs partial. With auth on, every page requires login. Make pages public with `public: true` in frontmatter or `"public": true` on a navigation group in `docs.json`.
+3. Restrict pages to groups (OAuth or JWT only): add `groups: [...]` to page frontmatter. The reader needs at least one listed group; others get a 404. Groups come from the user data `groups` field. For API reference use `x-mint.groups` on operations, paths, properties, `oneOf` variants, and `x-mint-enum` for enum values.
+4. Personalize without restricting access: dashboard **Site** page, **Personalization** section (shared session, JWT, or OAuth). Personalization is Enterprise on the pricing page and is mutually exclusive with full authentication (JWT and OAuth auth already include it). It works on custom subpaths. JWT personalization signs with ES256 (auth JWT uses EdDSA).
+   - `content` fields render via `{user.field}` in MDX. `user` is `{}` when signed out, so use optional chaining.
+   - `apiPlaygroundInputs` (`header`, `query`, `cookie`, `server`, `path`) prefills the playground. Keys must match the OpenAPI spec names and the endpoint's security scheme.
+   - With personalization, `groups` only filters navigation. Direct URLs still open.
+5. Show parts of a page by audience with `<Visibility>` (see Examples). `<View>` is a language or framework switcher, not an audience control.
+6. Hide pages from navigation with `hidden: true` (page, group, tab, version, etc.) or by leaving the page out of `docs.json`. Hidden is not private.
+7. Preview locally, validate, then push (see Verify).
+
+## Rules
+
+- `hidden: true` is not access control. Anyone with the URL can open the page. Use auth plus `groups` for anything sensitive.
+- `<Visibility for="signed-in">` and group rules only hide content in the browser; the content is still sent. Put sensitive content on its own page with `groups` frontmatter.
+- Personalization `groups` are not access control either. Only Access-page auth (OAuth/JWT) enforces `groups`.
+- `groups` frontmatter requires OAuth or JWT. Password and Private auth have no groups.
+- Use a static `for` value on `<Visibility>`. Computed values are dropped from Markdown output.
+- Markdown views (`.md` URLs) and `llms-full.txt` always get the signed-out view: `signed-out` and `agents` content is included, `signed-in` and `groups` content is removed.
+- Do not set `hidden: false` on pages inside a hidden group or tab; it puts them back into search, sitemaps, and AI context. Remove the field instead.
+- Hiding the only version (or the version holding all pages) empties site search.
+- Do not use `/mcp` or `/authed/mcp` as navigation paths; they are reserved.
+- Never put privileged tokens in `apiPlaygroundInputs`; they reach the browser. Use short-lived, scoped credentials.
+- Turning on auth: the dashboard offers **Delete public** for existing previews (default) because older previews stay public.
+
+## How gated content behaves
+
+- Search and assistant: respect user groups.
+- llms.txt / llms-full.txt: fully authenticated sites put them behind login; partial auth serves them publicly with public pages only.
+- MCP: `/mcp` serves public content. With auth, the authenticated server is `/authed/mcp` (scoped to each user's groups); fully authenticated sites must enable it before users can connect. Programmatic access uses client credentials from the **Docs MCP** section of project settings (optional groups, not editable later). Admin API keys do not work for MCP.
+- skill.md: skills with `groups` frontmatter appear only to signed-in users in those groups (others get 404). On authenticated sites, signed-out visitors see only skills with `public: true`.
+- Sitemap: unavailable on fully authenticated sites; public pages only with partial auth.
+- Previews (Pro or Enterprise): public by default. Restricting them needs Enterprise. If the site requires auth, preview auth is forced on.
+- `hidden: true`: excluded from search, sitemap, indexing, assistant, llms.txt. Override with `searchable: true` on a hidden tab or group, or `seo.indexing: "all"`.
+
+## Examples
+
+```mdx
+---
+title: "Admin settings"
+groups: ["admin", "enterprise"]
+---
+```
+
+```json
+{
+  "navigation": {
+    "groups": [
+      { "group": "Getting started", "public": true, "pages": ["quickstart"] },
+      { "group": "Internal", "hidden": true, "pages": ["runbook"] }
+    ]
+  }
+}
+```
+
+```mdx
+<Visibility for="signed-out">[Sign in](/login) to see your API keys.</Visibility>
+<Visibility for={{ groups: ["admin"] }}>Configure SSO from the **Security** tab.</Visibility>
+<Visibility for={{ groups: { includes: ["staff"], excludes: ["contractor"] } }}>Runbook link.</Visibility>
+<Visibility for="agents">Call `POST /v1/accounts` to create an account.</Visibility>
+
+Welcome back, {user.firstName}!
+```
+
+Other `for` values: `humans`, `signed-in`, `{ groups: ["*"] }` (any signed-in reader). `*` is not allowed in `excludes`.
+
+## Verify
+
+```bash
+mint dev --no-open                  # signed-out view (default)
+mint dev --signed-in --no-open      # signed in, no groups
+mint dev --groups admin --no-open   # signed in as group(s), space-separated
+mint validate --groups admin        # validate with mocked groups
+mint broken-links
+```
+
+After deploy, open a restricted page in a private window and confirm it redirects to login or returns 404 without the group. Run `mint dev --help` for flags.
+
+## More
+
+- `mint instructions access team`: dashboard members, roles, SSO, SCIM, audit logs (who can edit, not who can read)
+- https://www.mintlify.com/docs/deploy/authentication-setup
+- https://www.mintlify.com/docs/create/personalization
+- https://www.mintlify.com/docs/organize/hidden-pages
+- Auth0 OAuth values: https://www.mintlify.com/docs/help-center/configure-oauth-with-auth0

@@ -207,15 +207,15 @@ export async function buildTarget(target, outputRoot) {
 const canonicalSourceUrl =
   'https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify';
 export const siteReferenceLinks = {
-  'reference/api-docs.md': ['API playground', 'https://mintlify.com/docs/api-playground/overview'],
-  'reference/cli.md': ['CLI commands', 'https://mintlify.com/docs/cli/commands'],
-  'reference/components.md': ['Components', 'https://mintlify.com/docs/components'],
-  'reference/configuration.md': ['Global settings', 'https://mintlify.com/docs/organize/settings'],
+  'reference/api-docs.md': ['API playground', 'https://mintlify.com/docs/api-playground/overview.md'],
+  'reference/cli.md': ['CLI commands', 'https://mintlify.com/docs/cli/commands.md'],
+  'reference/components.md': ['Components', 'https://mintlify.com/docs/components.md'],
+  'reference/configuration.md': ['Global settings', 'https://mintlify.com/docs/organize/settings.md'],
   'reference/customization/index.md': [
     'Custom scripts',
-    'https://mintlify.com/docs/customize/custom-scripts',
+    'https://mintlify.com/docs/customize/custom-scripts.md',
   ],
-  'reference/navigation.md': ['Navigation', 'https://mintlify.com/docs/organize/navigation'],
+  'reference/navigation.md': ['Navigation', 'https://mintlify.com/docs/organize/navigation.md'],
   'reference/product-context.md': [
     'Product context',
     `${canonicalSourceUrl}/reference/product-context.md`,
@@ -232,6 +232,7 @@ export const siteReferenceLinks = {
     'Site building',
     `${canonicalSourceUrl}/reference/site-building.md`,
   ],
+  'reference/widgets.md': ['Widgets', `${canonicalSourceUrl}/reference/widgets.md`],
   'reference/writing.md': ['Writing pages', `${canonicalSourceUrl}/reference/writing.md`],
 };
 // Text that only makes sense next to local reference files, or that a per-file link would send to
@@ -244,7 +245,7 @@ const siteRewrites = [
   ['| File | When to read |', '| Reference | When to read |'],
   [
     'and more, read `reference/configuration.md`.',
-    'and more, read [Pages](https://mintlify.com/docs/organize/pages).',
+    'and more, read [Pages](https://mintlify.com/docs/organize/pages.md).',
   ],
 ];
 

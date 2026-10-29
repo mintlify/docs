@@ -15,16 +15,17 @@ Read these **only when your task requires them**. Each links to a Mintlify docum
 
 | Reference | When to read |
 |------|-------------|
-| [Components](https://mintlify.com/docs/components) | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, MDX, panels, prompts, colors, tiles, updates, views). Also covers table column widths. |
-| [Global settings](https://mintlify.com/docs/organize/settings) | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
-| [Navigation](https://mintlify.com/docs/organize/navigation) | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
-| [API playground](https://mintlify.com/docs/api-playground/overview) | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
-| [CLI commands](https://mintlify.com/docs/cli/commands) | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
+| [Components](https://mintlify.com/docs/components.md) | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, MDX, panels, prompts, colors, tiles, updates, views). Also covers table column widths. |
+| [Global settings](https://mintlify.com/docs/organize/settings.md) | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
+| [Navigation](https://mintlify.com/docs/organize/navigation.md) | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
+| [API playground](https://mintlify.com/docs/api-playground/overview.md) | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
+| [CLI commands](https://mintlify.com/docs/cli/commands.md) | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | [Product context](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/product-context.md) | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
-| [Custom scripts](https://mintlify.com/docs/customize/custom-scripts) | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
+| [Custom scripts](https://mintlify.com/docs/customize/custom-scripts.md) | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
 | [Writing pages](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/writing.md) | Before creating a page or writing more than a sentence or two: the no-invention rule, page creation and editing steps, quality bar, audience, titles and descriptions, links. |
 | [Publishing and review](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/publishing-and-review.md) | Publishing, branches and pull requests, "is this live" questions, undoing changes, and reviewing a page with suggestions and comments. |
 | [Project settings](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/project-settings.md) | Reading or changing dashboard settings (domains, git sources, auth, members, workflows, search, add-ons), settings no tool covers, and analytics questions. |
+| [Widgets](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/widgets.md) | Before you write or rewrite a page that explains a value that depends on inputs, a process, a structure, a comparison, or a UI: build live React widgets instead of screenshots, recordings or Mermaid. Covers when to build one and the exact limits. |
 | [Site building](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/site-building.md) | Building or migrating a whole site, a section, or more than a handful of pages: research sizing, generation order, landing page, structure for common kinds of site, porting rules. |
 
 ## Starting a new docs site
@@ -65,7 +66,7 @@ When you have no local checkout and no CLI (for example, editing through the Min
 
 ### Migrating from another platform
 
-For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. For any other platform, follow `https://mintlify.com/docs/migration/manual`. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in [Site building](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/site-building.md).
+For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>.md` (for example `docusaurus.md`), using the Mintlify Search MCP server to read it. For any other platform, follow `https://mintlify.com/docs/migration/manual.md`. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in [Site building](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/site-building.md).
 
 ## MCP servers
 
@@ -96,7 +97,7 @@ Key tools:
 - **`edit_page`** / **`write_page`**: Apply targeted edits or overwrite a page. Change frontmatter with `update_node`, not `edit_page`. `edit_page` takes `oldString` and `newString` for one replacement, or an `edits` list of up to 100 replacements applied in order; if any edit fails, none apply. Both return `notRendered` for markup the editor drops (such as `<script>`, `<style>`, event handlers or JavaScript expressions), with what to use `instead`.
 - **`read_page_history`**: List a page's saved versions on `branch` (newest first, paginate with `cursor`), or pass `versionId` to read that version's MDX. Read-only; to restore a version, pass its `content` to `write_page`.
 - **`read_comments`** / **`add_comment`** / **`suggest_edit`** / **`reply_to_comment`** / **`resolve_comment`**: Read open editor comment threads on a page, start a thread on exact text, propose a tracked-changes suggestion (`oldString` to `newString`; an empty `newString` suggests a deletion; an optional `comment` explains why and is posted as the agent's reply in the suggestion thread) that someone accepts or rejects in the editor, reply as the agent, or resolve threads. Adding, suggesting, replying and resolving require an OAuth session and act on the threads of `branch`; they work on the deploy branch even when edits to it require a pull request.
-- **`read_inbox`**: List the connected user's dashboard inbox on a project (comments and mentions, suggested edits, organization invitations), newest activity first and open items by default. Narrow with `state`, `section`, `filter`, `dateFrom` and `dateTo`; pass `nextCursor` as `cursor` for older items. For an item whose `target.thread` is unresolved and not on a private page, call `read_comments` on `target.thread.filePath` and `reply_to_comment`, both on `target.thread.branch`. Read-only; requires an OAuth session.
+- **`read_inbox`**: List the connected user's dashboard inbox on a project (comments and mentions, suggested edits, private pages and folders shared with the user), newest activity first and open items by default. Narrow with `state`, `section`, `filter`, `dateFrom` and `dateTo`; pass `nextCursor` as `cursor` for older items. For an item whose `target.thread` is unresolved and not on a private page, call `read_comments` on `target.thread.filePath` and `reply_to_comment`, both on `target.thread.branch`. Read-only; requires an OAuth session.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`**: Manage the navigation tree. If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation invalid (for example, a page at the root next to tabs), the response includes a `navigationErrors` field. Fix these errors before `publish`, because Mintlify can drop invalid nodes from the published navigation. If a page already exists at the `path` on `branch`, `create_node` writes the new content into it, keeps its navigation position, and returns `updated: true`.
 - **`update_config`** — Change top-level `docs.json` fields (theme, colors, logo, navbar, footer, redirects, integrations, SEO). It can't set `navigation`; use the node tools. An invalid config is rejected whole.
 - **`upload_file`** / **`finalize_file_upload`**: Upload a local file. To add an image to `branch`, call `upload_file` with the destination `path` (for example, `images/dashboard.png`), `contentType`, and exact `size` in bytes. `PUT` the file bytes to the returned `uploadUrl` with the returned `headers`, then call `finalize_file_upload` with the `uploadId` and the same `path`. Use the returned `src` in MDX or in the `docs.json` `logo` or `favicon` fields. Uploading to an existing `path` replaces the image. Only logo and favicon uploads may be SVG: for a `docs.json` `logo` or `favicon`, pass `purpose: "logo"` to both tools. Page images can't be SVG. Images publish with your other edits on `publish`. To write a large page from a local file, call `upload_file` with a `.md` or `.mdx` `path` and `contentType: "text/markdown"` (no `branch` needed), `PUT` the file, then pass the `uploadId` in place of `content` to `write_page` or as `data.uploadId` to `create_node` within 10 minutes; skip `finalize_file_upload`. Each `uploadId` works once.
@@ -114,13 +115,13 @@ Keep each branch focused on one change. Smaller branches produce easier-to-revie
 
 ## Before you start
 
-Mintlify changes often, so don't rely on what you remember about it. When a detail isn't in this skill, check the current documentation with the Mintlify Search MCP server or at `https://mintlify.com/docs`.
+Mintlify changes often, so don't rely on what you remember about it. When a detail isn't in this skill, check the current documentation with the Mintlify Search MCP server or at `https://mintlify.com/docs`. Every docs page has a Markdown version at its URL plus `.md` (for example `https://mintlify.com/docs/organize/navigation.md`), and `https://mintlify.com/docs/llms.txt` lists them all; fetch those instead of the HTML pages.
 
 Before substantial content work, read [Product context](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/product-context.md) and check for `.mintlify/product-brief.md`.
 
 Read the project's `docs.json` file first. It defines the site's navigation, theme, colors, and configuration.
 
-For appearance or browser behavior changes, read [Custom scripts](https://mintlify.com/docs/customize/custom-scripts).
+For appearance or browser behavior changes, read [Custom scripts](https://mintlify.com/docs/customize/custom-scripts.md).
 
 Search for existing content before creating new pages. You may need to update an existing page, add a section, or link to existing content rather than duplicating.
 
@@ -192,11 +193,11 @@ keywords: ["relevant", "search", "terms"]
 | `api` | string | API endpoint for interactive playground (e.g., `"POST /users"`). |
 | `openapi` | string | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
 
-For the complete list including `searchable`, `boost`, `deprecated`, `related`, `groups`, and more, read [Pages](https://mintlify.com/docs/organize/pages).
+For the complete list including `searchable`, `boost`, `deprecated`, `related`, `groups`, and more, read [Pages](https://mintlify.com/docs/organize/pages.md).
 
 ## Quick component reference
 
-Below are the most commonly used components. For full props and all 26 components, read [Components](https://mintlify.com/docs/components).
+Below are the most commonly used components. For full props and all 26 components, read [Components](https://mintlify.com/docs/components.md).
 
 ### Callouts
 
@@ -279,7 +280,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`. Read [CLI commands](https://mintlify.com/docs/cli/commands) for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`. Read [CLI commands](https://mintlify.com/docs/cli/commands.md) for full flags and subcommands.
 
 After you edit pages, run `mint validate --no-build --format json` for a fast check and `mint validate --fix` to apply automatic fixes. Run a full `mint validate` before you push.
 
