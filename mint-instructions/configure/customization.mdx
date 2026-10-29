@@ -1,0 +1,132 @@
+---
+title: "Customize the site"
+name: mintlify-configure-customization
+description: "Covers themes, fonts, custom CSS and JavaScript, React components in snippets, and what local preview shows. Use when customizing appearance or browser behavior."
+when: "Customizing appearance or behavior with themes, fonts, CSS, JavaScript, or React snippets"
+---
+Use this when a request goes past colors and logo: a different theme, fonts, layout widths, CSS overrides, scripts, or interactive components. Prefer config first, then component props and Tailwind classes, then custom CSS, then custom JS.
+
+## Workflow
+
+1. Check whether a `docs.json` key does the job (`theme`, `fonts`, `appearance`, `background`, `styling`, `icons`). Use it if so.
+2. To restyle one element in a page, add Tailwind classes via `className` on the component.
+3. For site-wide style, add or edit a `.css` file in the docs directory (for example `style.css`). It loads on every page automatically; do not reference it from `docs.json` or MDX.
+4. For behavior, add a `.js` file in the docs directory. It loads on every page automatically.
+5. For interactive UI, write a React component in `snippets/` and import it into the page.
+6. Run `mint validate`, then `mint dev --no-open` and inspect the change in light and dark mode.
+
+## Rules
+
+- Themes: `mint`, `maple`, `palm`, `willow`, `linden`, `almond`, `aspen`, `sequoia`, `luma`. Preview each at `https://<theme>.mintlify.site` (for example `https://maple.mintlify.site`).
+- Fonts: a Google Fonts `family` loads with no `source`. A self-hosted or remote file needs `source` and `format` (`"woff"` or `"woff2"`). Use `heading` and `body` to split fonts.
+- Tailwind is v3. Write class names in full; classes built at runtime (`bg-${color}-500`) generate no CSS. Avoid the `style` prop (layout shift). `Banner`, `MDX` and `Visibility` do not accept `className`.
+- CSS selectors: prefer stable IDs (`#navbar`, `#sidebar`, `#content-area`, `#footer`, `#page-title`, `#banner`) and data attributes (`[data-component-part="card-icon"]`, `data-current-path`) over generated class names. Element references can change in future updates.
+- Layout widths: set CSS variables, not `#sidebar` overrides: `:root { --sidebar-width: 20rem; --content-width: 768px; }`. `--content-width` does not affect `wide`, `center`, `custom` or `frame` page modes.
+- Custom JS runs once per visit, after the page is interactive, on every page, in no guaranteed order across files. To rerun after client navigation, listen for `mintlify:navigate` on `window` and also call your function once on load.
+- Load third-party scripts by creating a `<script>` element from your `.js` file, not with raw `<script src>` tags in MDX. Never put secrets in client scripts.
+- React components: hooks (`useState`, `useEffect`, `useRef`, `useCallback`, `useMemo`, `useContext`, `useReducer`) are pre-injected; do not import them.
+- React components must not: import npm packages, use `export default`, import other snippets from a snippet, import `.json`, or use `React.lazy` / dynamic `import()`.
+- Component files live in `/snippets/`. Import them by absolute path into the page that uses them; nested imports are not supported.
+- Most custom components render client-side, so their content is not in the initial HTML (weaker SEO, possible layout shift). Use built-in components (cards, columns) for content that must be in the HTML.
+- Custom 404: set `errors.404.redirect: false` or the custom `title` and `description` never show (default `true` redirects home).
+
+## Examples
+
+Fonts (Google, then self-hosted headings):
+
+```json
+"fonts": {
+  "family": "Inter",
+  "heading": {
+    "family": "InterDisplay",
+    "source": "/fonts/InterDisplay-Bold.woff2",
+    "format": "woff2",
+    "weight": 700
+  }
+}
+```
+
+`style.css`:
+
+```css
+:root {
+  --sidebar-width: 20rem;
+}
+#navbar {
+  padding: 1rem;
+}
+img.nav-logo {
+  height: 3.75rem !important;
+  width: auto !important;
+}
+```
+
+`script.js` that reruns on navigation:
+
+```js
+function tagHeadings() {
+  document.querySelectorAll('#content h2[id]').forEach((h) => {
+    h.dataset.tagged = 'true';
+  });
+}
+tagHeadings();
+window.addEventListener('mintlify:navigate', tagHeadings);
+```
+
+`snippets/counter.jsx`:
+
+```jsx
+export const Counter = ({ start = 0 }) => {
+  const [count, setCount] = useState(start)
+  return (
+    <button className="px-3 py-1 rounded-lg border" onClick={() => setCount(count + 1)}>
+      Clicked {count} times
+    </button>
+  )
+}
+```
+
+In the page:
+
+```mdx
+import { Counter } from "/snippets/counter.jsx"
+
+<Counter start={1} />
+```
+
+Custom 404:
+
+```json
+"errors": {
+  "404": {
+    "redirect": false,
+    "title": "Page not found",
+    "description": "Try [search](/) or the [quickstart](/quickstart)."
+  }
+}
+```
+
+## What `mint dev` previews
+
+- Shows your pages and `docs.json` changes at `http://localhost:3000`, updating in real time as you edit. Redirects apply locally.
+- Local preview only: search and the assistant work in `mint dev` after `mint login`. The hosted site needs no login for search.
+- Contextual menu: not shown locally. It only renders on preview and production deployments.
+- Gated content: preview as a reader with `mint dev --groups <group>` or `mint dev --signed-in`.
+- Social images: render locally with `mint og` (uses `thumbnails` settings). Run `mint og --help`.
+
+## Verify
+
+```bash
+mint validate
+mint broken-links --check-snippets
+mint dev --no-open
+```
+
+## More
+
+- `mint instructions configure`: required fields, theme, colors, logo.
+- `mint instructions configure settings`: appearance, background, banner, 404 keys.
+- https://www.mintlify.com/docs/customize/custom-scripts
+- https://www.mintlify.com/docs/customize/react-components
+- https://www.mintlify.com/docs/customize/fonts
+- https://www.mintlify.com/docs/customize/themes

@@ -1,0 +1,124 @@
+---
+title: "Migrate docs to Mintlify"
+name: mintlify-migrate
+description: "Moves existing docs from Docusaurus, GitBook, ReadMe, Fern, Document360, Confluence, a ZIP export, or plain Markdown into Mintlify. Use when the user has docs on another platform."
+when: "Moving docs from Docusaurus, GitBook, ReadMe, Fern, Document360, Confluence, or Markdown"
+---
+Use this when asked to bring existing documentation into Mintlify. Your job is to convert format and structure, not to rewrite content.
+
+## Checklist
+
+Copy this into your plan and check items off:
+
+```
+- [ ] inventory source pages, navigation, assets, and URLs
+- [ ] convert pages to MDX without rewriting content
+- [ ] map navigation into docs.json
+- [ ] copy images and assets, fix paths
+- [ ] add redirects for every old URL that changed
+- [ ] mint validate and mint broken-links pass
+- [ ] mint dev --no-open, spot-check converted pages
+- [ ] publish: mint instructions publish
+```
+
+## Workflow
+
+1. Snapshot the source. Keep the original export or repo unchanged; convert in a copy or separate branch.
+2. Pick a method per source:
+   - Docusaurus, GitBook, ReadMe (public site): run the scraper in an EMPTY directory (it overwrites files):
+     `npx -p @mintlify/scraping@latest -p puppeteer mintlify-scrape section https://docs.example.com`
+     Add `--filter=/docs` to limit to a path. Single page: `npx @mintlify/scraping@latest page <url>`. Without puppeteer, navigation may be incomplete.
+   - Docusaurus (private, versioned, i18n, custom React): migrate from source (`docs/`, `sidebars.js|ts`, `_category_.json`, `static/`, `versioned_docs/`, `i18n/`).
+   - GitBook: Git Sync each section to an empty repo, direction GitBook to GitHub/GitLab (the reverse overwrites GitBook). Source files: `SUMMARY.md`, `.gitbook.yaml`, `.gitbook/assets/`, `.gitbook/includes/`.
+   - ReadMe: ZIP or GitHub export (`docs/`, `reference/`, `recipes/`, `custom_pages/`, `custom_blocks/`, `_order.yaml`). The ZIP has NO images; download them separately.
+   - Fern: migrate from the repo (`fern/docs.yml`, `fern/docs/pages|assets|snippets/`). Scraper does not support Fern.
+   - Document360: project ZIP export (JSON, All articles, Include media files) plus All articles CSV. Scraper does not support Document360.
+   - Anything else (Confluence, ZIP export, plain Markdown in `docs/`): manual workflow. `.md` pages work as-is; `.mdx` enables components.
+3. Build an inventory: source id, title, published URL (from the sitemap, not filenames), destination path, version, language, status.
+4. Copy pages. Give every page frontmatter with at least `title`. The title renders as H1, so do not add a duplicate `# H1`.
+5. Convert platform syntax to Mintlify components (table below). Remove platform imports.
+6. Write `docs.json` navigation (see Examples). Add every page unless intentionally hidden.
+7. Copy assets into the repo and fix paths.
+8. Add redirects for every changed URL.
+9. API docs: add the original OpenAPI/AsyncAPI spec and configure generated pages. Do not convert rendered endpoint HTML when the spec exists.
+10. Search for leftover syntax, then run Verify.
+
+## Syntax mapping
+
+| Source | Mintlify |
+| - | - |
+| Docusaurus `:::note/tip/info/warning/danger` | `<Note>`, `<Tip>`, `<Info>`, `<Warning>`, `<Danger>` |
+| GitBook `{% hint style="..." %}` (info, warning, danger, success) | `<Info>`, `<Warning>`, `<Danger>`, `<Check>` or `<Tip>` |
+| `@theme/Tabs` + `TabItem`, GitBook `{% tabs %}` | `<Tabs>` + `<Tab title="...">` |
+| `<details>`, expandable blocks | `<Accordion title="...">` / `<AccordionGroup>` |
+| Tabbed code | `<CodeGroup>` |
+| Step guides | `<Steps>` + `<Step>` |
+| Cards, columns | `<Card>`, `<CardGroup>`, `<Columns>` |
+| Includes, reusable blocks, Fern snippets | Snippet in `/snippets/`, imported |
+| Custom React / interactive UI | Built-in component, else React component |
+| Docusaurus `{/* #id */}` heading ID | `{#id}` |
+| ReadMe `excerpt` / `metadata.robots: noindex` | `description` / `noindex: true` |
+
+Leftovers to grep for: `:::`, `@theme`, `@site`, `DocCardList`, `{%`, `.gitbook/includes`, ReadMe magic blocks and variables, Fern `Versions`/`If` blocks, raw HTML.
+
+## Rules
+
+- Never rewrite, summarize, or "improve" user content. Change only syntax, frontmatter, links, and paths.
+- Never invent pages, sections, or text to fill gaps. Report missing content instead.
+- Convert the resolved navigation (published sidebar), not just source config; Docusaurus sidebars can be code.
+- Navigation mapping: category/section/SUMMARY heading = `group`; page = path in `pages` (no extension); category index, folder `index.md`, or `README.md` = group `root`; versions, languages, products, tabs map to the same-named `docs.json` elements.
+- Images: root-relative paths only (`/images/x.png`); relative paths like `./x.png` are not supported. Keep public paths where practical (Docusaurus `static/img/logo.png` serves as `/img/logo.png`).
+- Do not leave production assets on the old host (`files.readme.io`, GitBook, Document360).
+- Build old URLs from the sitemap. Include version, language, section, and default-version (no prefix) paths.
+- Redirect sources cannot contain `#anchor` or `?query`. Never create circular redirects.
+
+## Examples
+
+```json
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Guides",
+        "root": "guides/index",
+        "pages": ["guides/install", { "group": "Advanced", "pages": ["guides/advanced/auth"] }]
+      }
+    ]
+  },
+  "redirects": [
+    { "source": "/docs/getting-started", "destination": "/quickstart" },
+    { "source": "/v1/:slug*", "destination": "/guides/:slug*" }
+  ]
+}
+```
+
+Redirects are permanent (308) by default; set `"permanent": false` for 307.
+
+```mdx
+---
+title: "Get started"
+description: "Install the SDK and make your first request."
+---
+
+<Warning>Original warning text, unchanged.</Warning>
+```
+
+## Verify
+
+```bash
+mint validate
+mint broken-links
+mint dev --no-open
+```
+
+- `mint validate` fails on errors, including OpenAPI specs in `docs.json`. Its `foreign-syntax` warnings (old framework syntax) do not fail it; fix them too.
+- `mint broken-links` checks internal links (`--check-anchors` for headings).
+- In `mint dev --no-open`, open several old paths to confirm redirects, and spot-check pages from every group, version, and language against the inventory.
+
+## More
+
+- `mint instructions configure navigation`: groups, tabs, versions, languages in `docs.json`
+- `mint instructions publish`: deploy and go live
+- https://www.mintlify.com/docs/migration/index
+- https://www.mintlify.com/docs/migration/manual
+- https://www.mintlify.com/docs/create/redirects

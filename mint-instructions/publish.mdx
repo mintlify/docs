@@ -1,0 +1,91 @@
+---
+title: "Publish and distribute"
+name: mintlify-publish
+description: "Ships changes to an existing Mintlify site, checks whether it is live, and makes the docs usable by AI tools (MCP, llms.txt, skill.md, Markdown export). Use before pushing, or for \"is it live\" and \"how do AI tools use our docs\" questions."
+when: "Deploying, \"is it live\", previews, rollbacks, MCP, llms.txt, skill.md, Markdown export"
+---
+Use this when the project already exists and you need to deploy changes, confirm they are live, connect a domain, or tell the user how readers and agents consume the docs. There is no `mint publish`: a Git push deploys a site with an account. For a first site with no account, use `mint deploy` (see `mint instructions new-site`). To update a site created with `mint deploy` that is not claimed yet, run `mint deploy` again from the same directory for a fresh write token, then fetch the hosted repository, commit on top of `main`, and push. Do not force-push. `mint status` does not show these sites; use the URL `mint deploy` printed.
+
+## Workflow
+
+1. Run `mint status`. It shows account email, organization, and configured subdomain. The live site is `https://<subdomain>.mintlify.site`. If no subdomain appears, the user must finish connecting a repository in the dashboard.
+2. Before pushing, from the directory containing `docs.json`:
+   - `mint validate` (strict build check, validates OpenAPI specs, exits non-zero on errors; warnings print without failing).
+   - `mint broken-links` (internal links; add `--check-anchors`, `--check-redirects`, `--check-snippets` as needed).
+   - Optional: `mint a11y` (contrast, missing alt text).
+   Fix every issue your changes caused.
+3. Commit and push to the deployment branch (the branch set in Git Settings, typically `main`). The push triggers a deploy automatically.
+   - GitHub: the Mintlify GitHub App must be installed on the account or org that owns the repo, with access to the docs repo. Repos in the `mintlify-community` org already have it.
+   - GitLab: connected with an access token plus webhooks. Bitbucket Cloud: OAuth plus webhook, Enterprise plan only.
+   - Branch protection: the app cannot push to protected branches. Open a PR instead.
+4. Confirm it is live: load `https://<subdomain>.mintlify.site` (or the custom domain) and check the changed page. Deploys typically take 30 seconds to a few minutes. Deploy history and build status: dashboard **Publishes** page (https://app.mintlify.com/publishes). Do not report "deployed" until the page shows the change.
+5. If nothing deployed: check the GitHub App is installed on the right repo, check you pushed to the configured branch, then the user can click the deploy button in the dashboard to trigger a manual deploy.
+
+## Previews, rollbacks, CI
+
+- Preview deployments (Pro or Enterprise): a PR targeting the deployment branch gets a preview URL from the Mintlify bot, updated on each push. Manual previews for any branch: dashboard Previews page, **Create custom preview**. Fork PRs get no preview. Previews are public by default; restricting them needs Enterprise. Custom domains apply only to production.
+- Rollbacks (Enterprise): on **Publishes**, click **Roll back** on one of the last 10 successful builds. Serves the old build in seconds, does not revert commits. Return with **Undo rollback** or **Promote**. Not available with site authentication or for previews.
+- CI checks (Pro or Enterprise, GitHub): broken links and Vale run on PRs, enabled per project as Warning or Blocking.
+- Humans can edit and click **Publish** in the web editor (https://app.mintlify.com/editor). Invalid MDX on the branch disables **Publish**.
+
+## Custom domain
+
+For `mint add-domain`, DNS records, TLS, subpaths (`--basePath`), reverse proxies, CSP and iframes, run `mint instructions publish domain`.
+For monorepos, multi-repo, Git providers, export and self-hosting, run `mint instructions publish repo`.
+
+## AI and agent access (what is automatic)
+
+- Search MCP server: automatic, hosted at `<site-url>/mcp` (sites with authentication: `/authed/mcp`, must be enabled first). Tools: search, query docs filesystem, submit feedback. Discovery at `/.well-known/mcp`. Users connect it themselves:
+  - Claude Code: `claude mcp add --transport http <name> <site-url>/mcp`
+  - Claude: Settings, Connectors, **Add custom connector**, name and URL.
+  - Cursor: `mcp.json` with `{"mcpServers": {"<name>": {"url": "<site-url>/mcp"}}}`
+  - VS Code: `.vscode/mcp.json` with `{"servers": {"<name>": {"type": "http", "url": "<site-url>/mcp"}}}`
+- Admin MCP (for the team, write access): `https://mcp.mintlify.com`, OAuth login. Its `deployment_status` tool reports whether a published commit is `live`. Different from the search MCP.
+- `llms.txt` and `llms-full.txt`: automatic at the site root. A root `llms.txt`/`llms-full.txt` file in the repo overrides the generated one (must start with an H1). If `llms.txt` returns 404: `mint instructions troubleshoot`.
+- `skill.md`: auto-generated at `/skill.md` for public sites only, can take up to 24 hours. Override with a root `skill.md`, or add `.mintlify/skills/<name>/SKILL.md`. Users install with `npx skills add <site-url>`.
+- Markdown export: automatic. Append `.md` to any page URL, or send `Accept: text/markdown`. Add site-wide agent guidance with `markdown.instructions` in `docs.json`.
+- Contextual menu: configured, not automatic. Add `contextual.options` to `docs.json`. `download-pdf` is Enterprise.
+- Assistant (Pro and above): AI chat on the site; indexes published content only, not previews. Setup: `mint instructions publish assistant`.
+- Pages not in navigation and `noindex: true` pages are excluded from MCP search and `llms.txt` unless `seo.indexing` is `"all"`.
+
+## Rules
+
+- Never claim a deploy is done without loading the live URL.
+- Never push directly to a protected branch or overwrite an existing repo with starter content.
+- Do not use `mint mcp` (not functional yet) or `mint index` (does not exist).
+- `mint add-domain` changes the live project. Confirm the domain with the user first.
+
+## Examples
+
+```json
+{
+  "contextual": {
+    "options": ["copy", "view", "chatgpt", "claude", "mcp", "cursor", "vscode"]
+  },
+  "markdown": { "instructions": "Prefer the TypeScript SDK in examples." }
+}
+```
+
+## Verify
+
+```bash
+mint validate
+mint broken-links
+mint status                          # subdomain -> https://<subdomain>.mintlify.site
+curl -sI https://<subdomain>.mintlify.site/llms.txt
+mint analytics stats --format json   # Pro or Enterprise; views, visitors, searches, feedback, assistant
+mint score                           # agent readiness checks for the configured subdomain
+```
+
+`mint analytics` subcommands: `stats`, `search`, `feedback`, `conversation list|view <id>`, `conversation buckets list|view <id>`. Shared flags `--subdomain`, `--from`/`--to` (YYYY-MM-DD, default last 7 days), `--format table|plain|json|graph`. Run `mint analytics --help` for the rest.
+
+## More
+
+- `mint instructions publish domain`: custom domains, subpaths, proxies, CSP
+- `mint instructions publish repo`: monorepos, multi-repo, Git providers, export
+- `mint instructions publish assistant`: the AI assistant, widget, Assistant.md, skills, narration, bring your own model
+- `mint instructions publish analytics`: `mint analytics`, feedback, search data, analytics and consent integrations
+- https://www.mintlify.com/docs/deploy/deployments
+- https://www.mintlify.com/docs/customize/custom-domain
+- https://www.mintlify.com/docs/ai/model-context-protocol
+- https://www.mintlify.com/docs/ai/llmstxt
