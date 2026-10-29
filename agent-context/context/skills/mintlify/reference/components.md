@@ -405,7 +405,7 @@ Tree.File props:
 
 ## Mermaid diagrams
 
-Use mermaid code blocks for flowcharts, sequence diagrams, and more.
+Use mermaid code blocks for plain flowcharts, sequence diagrams, and more. When a diagram needs custom layout, emphasis, hover detail or steps, build a widget instead (see `reference/widgets.md`).
 
 ````mdx
 ```mermaid
