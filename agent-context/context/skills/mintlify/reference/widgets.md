@@ -93,7 +93,6 @@ Widgets render for readers on the published site and in the editor. On the site 
 
 `create_node`, `write_page` and `edit_page` can return `notRendered` warnings. They describe the server-rendered HTML, not what readers see after the page loads. For widget code, expect and ignore these:
 
-- "exported components show only as a placeholder in the editor": the editor runs exported components.
 - "event handlers are dropped", "JavaScript expressions are dropped", "`<style>` blocks are dropped", "scripts are dropped": these happen only in the server-rendered HTML. The widget runs in the browser.
 
 Don't replace a working widget with static HTML because of these warnings. A write that fails to parse is refused; fix the syntax and write again. To change only a widget, use `edit_page` on the text of its export.
