@@ -16,7 +16,7 @@ Most requests need only this list. Open a reference only when an item points to 
 - **Hide or show by screen size:** the element's ID (`#table-of-contents`, `#pagination`, `#footer`) inside `@media (max-width: 767px) { ... }`
 - **Dark mode variant:** `html.dark ...`
 - **Styles or a custom animation on one page:** `` <style>{`...`}</style> `` in the page; rules are scoped to the page's content area, and keyframes must be named `page-<name>`. See [configuration](../configuration.md#css).
-- **Animate an inline SVG:** SMIL elements (`<animate>`, `<animateTransform>`, `<animateMotion>`, `<set>`, `<mpath>`) inside the `<svg>`; elements that target `href`, `src`, `style`, or `on*` are removed. See [configuration](../configuration.md#css).
+- **Animate an inline SVG:** SMIL elements (`<animate>`, `<animateTransform>`, `<animateMotion>`, `<set>`, `<mpath>`) inside the `<svg>`, with static string attributes; elements that use `{...}` expression attributes or that target `href`, `src`, `style`, or `on*` are removed. See [configuration](../configuration.md#css).
 - **Track clicks or other events:** one delegated listener on `document`, installed once behind a `window` flag.
 - **Add UI to page content on every page:** run once, then again on `mintlify:navigate`. See the [recipe](recipes.md#enhance-content-on-every-page).
 - **Load a third-party script:** a documented `docs.json` integration first; otherwise inject it once behind a flag. See [browser APIs](browser-apis.md).
@@ -28,7 +28,7 @@ Most requests need only this list. Open a reference only when an item points to 
 Prefer, in order: `docs.json` options, component props, an authored `className` on one instance, a React snippet, then global CSS, then global JS.
 
 - Not every component forwards `className`; Banner, MDX, and Visibility do not.
-- Snippets use named exports and injected hooks only; no npm imports. Browser access belongs in effects with cleanup.
+- Snippets use named exports and injected hooks. npm imports need third-party libraries (Enterprise add-on), a `packages` key in `docs.json`, a `package.json`, and a lockfile; see `react-and-snippets.md`. Browser access belongs in effects with cleanup.
 - Global CSS and JS apply site-wide with no ordering guarantee across files. Global JS runs once per document load, not per navigation.
 - Prefer documented integrations for analytics, consent, and widgets over injected scripts.
 - CSS cannot add server data, replace full-page search, or provide accessible status messages through pseudo-content. Global `.js` files are not importable modules; keep JSX components in `/snippets`.
@@ -38,7 +38,7 @@ Prefer, in order: `docs.json` options, component props, an authored `className` 
 - Preserve exact selector syntax. `.card`, `card`, `#sidebar`, and `[data-component-part="card-icon"]` select different things, and `[data-active]` differs from `[data-active="true"]`.
 - To change every instance of a component, write global CSS on its stable hook. Do not add the same `className` to each instance; new instances will miss it. Use `className` only to style one instance differently.
 - Use `html.dark` for dark mode, not only `prefers-color-scheme`. Visitors can choose a theme independently of their OS.
-- Do not write a bare `:has(...)` with no element before it, and do not use `:has()` with a descendant argument on `html`, `body`, or layout regions. Both make the browser recheck large parts of the document on every DOM change, which slows rendering on large pages. Anchor `:has()` to the closest specific parent with a direct child argument, such as `.example-card:has(> img)`. That is fine even on a layout region: `#content:has(> .callout[data-callout-type="warning"])` styles pages that contain a Warning.
+- Do not write a bare `:has(...)` with no element before it, and do not use `:has()` with a descendant argument on `html`, `body`, or layout regions. Both make the browser recheck large parts of the document on every DOM change, which slows rendering on large pages. Anchor `:has()` to the closest specific parent with a direct child argument, such as `.example-card:has(> img)`. That is fine even on a layout region: `#content:has(> .callout[data-callout-type="warning"])` styles pages with a top-level Warning (not one nested in Tabs, Steps, or other components).
 - Do not couple customizations to generated IDs, `data-testid`, utility classes, or heading anchor generation.
 - Selectors in the public custom CSS docs are best-effort and can change. Other hooks in these references have no stability promise. Inspect the rendered DOM before relying on either.
 - Never assign a new `window.mintlify` object, and never put secrets in browser-readable content.

@@ -41,12 +41,13 @@ In a local repository, that is a new `.mdx` file plus its path in `docs.json` na
 - A quickstart gets the reader to a working state quickly: a working code example for libraries and APIs, or account setup through the first meaningful action for a SaaS product.
 - API reference pages document actual parameters and return types grounded in real sources.
 - Include real-world usage examples, not toy examples.
+- When a concept depends on inputs, unfolds in steps, has a shape, or is a UI, show it with a live widget instead of a screenshot, recording or Mermaid diagram. Read `reference/widgets.md` first.
 - Code blocks have correct language tags.
 
 ## Style
 
 - Use SEO-friendly titles (see the title rules below), and use short `sidebarTitle` labels (1-3 words) for long titles when needed
-- Navigation group names should also be concise: 1–3 words (e.g., "Guides", "API Reference", "Get Started")
+- Navigation group names should also be concise: 1–3 words (e.g., "Guides", "API reference", "Get started")
 - Write in second person ("you") addressing the customer
 - Use active voice and imperative mood for instructions
 - Lead with the user's goal, not the implementation
@@ -103,7 +104,7 @@ Set `sidebarTitle` on pages with long titles. This is the label shown in the nav
 - Use sentence case
 - Never repeat the product name: it is already shown in the logo
 - Never restate the section/group name
-- Should read like a TOC entry: "Introduction", "Quickstart", "Brokers", "Retry Strategy", "Fairness Queues", "Publishing", "Consuming"
+- Should read like a TOC entry: "Introduction", "Quickstart", "Brokers", "Retry strategy", "Fairness queues", "Publishing", "Consuming"
 - For API/CLI reference pages, use the bare symbol or command name: `BroccoliQueue`, `RetryStrategy`, `GET /users`
 
 Bad sidebarTitle (do NOT do these):

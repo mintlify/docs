@@ -46,6 +46,10 @@ You must have an interactive OAuth login against your Mintlify account to connec
 
 Connect your tools to the admin MCP from [your dashboard](https://app.mintlify.com/products/mcp) or complete the following steps for your preferred tool. 
 
+<Tip>
+  To configure Claude Code, Codex, or Cursor from your terminal, run [`mint agent setup`](/cli/commands#mint-agent-setup). It adds the admin MCP to each agent's configuration and installs Mintlify skills. You still complete the OAuth sign-in in each agent.
+</Tip>
+
 <Tabs>
   <Tab title="Claude">
     <AdminMcpClaude />
@@ -125,6 +129,14 @@ Mintlify refuses edits to the deploy branch, and changes nothing, when any of th
 
 Mintlify checks these conditions on every edit and caches your branch protection rules for up to 30 seconds. Comment tools still work on the deploy branch when edits to it are refused. If your deploy branch starts requiring a pull request after you edit it, `publish` returns `branch_protected` and your changes stay pending. Open the dashboard editor to move them to a new branch.
 
+### Projects with auto publish
+
+If your project has [auto publish](/editor/settings#auto-publish) turned on, the admin MCP doesn't use branches for it. Pass your deploy branch as `branch`. Mintlify commits your edits to the deploy branch automatically.
+
+Mintlify refuses `create_branch` and calls on any other branch in these projects, and changes nothing. If your connection covers only that project, the admin MCP doesn't list `create_branch` or `list_branches`.
+
+**Push directly to your deploy branch** and branch protection don't block deploy branch edits in a project with auto publish. Mintlify still refuses edits when editing the deploy branch is locked in the dashboard editor, or when you connected with a client or machine-to-machine token.
+
 ## Work on a branch
 
 Call `create_branch` with a `title` when your project requires a pull request, or when you want one anyway. Mintlify starts a new branch off your deploy branch, names it `<your-name>/<title-slug>` the same way the dashboard editor names branches, and seeds it from your published content. The pull request opens with this title. For example, `create_branch { subdomain: "acme", title: "Add tips page" }`.
@@ -188,7 +200,7 @@ After `upload_file`, the AI tool uploads the file bytes to `uploadUrl` with a `P
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-To add an image, pass an image `path`, such as `images/dashboard.png`, and the `branch` to `upload_file`. After the upload, call `finalize_file_upload`. Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Mintlify only accepts SVG files for logos and favicons, so pass `purpose: "logo"` to both tools when you upload one. Saved images appear in `status` and publish with your other edits when you call `publish`.
+To add an image, pass an image `path`, such as `images/dashboard.png`, and the `branch` to `upload_file`. After the upload, call `finalize_file_upload`. Mintlify checks that the uploaded file's contents match its extension before saving it. An upload to an existing `path` replaces that image. Only logo and favicon uploads can be SVG files: pass `purpose: "logo"` to both tools when you upload one. Page images can't be SVG. Saved images appear in `status` and publish with your other edits when you call `publish`.
 
 To write a page from a local Markdown file, pass a `.md` or `.mdx` `path` with `contentType` set to `text/markdown` or `text/plain`. Page uploads don't need a `branch` or `finalize_file_upload`. After the upload, pass the `uploadId` in place of `content` to `write_page`, or as `data.uploadId` to `create_node`. This avoids resending a large page's full content in the tool call.
 
@@ -203,7 +215,7 @@ Work with the [comments and suggestions](/editor/collaborate#comments) that your
 - **`suggest_edit`**: Propose a tracked-changes suggestion on a page instead of editing it. The original text stays on the page with a strikethrough and the replacement appears alongside it. Nothing changes until someone accepts or rejects the suggestion in the dashboard editor. Pass `path` in the same forms as `read`, `oldString`, and `newString`. `oldString` is the smallest unique span of visible text to replace, within one paragraph or heading. Use rendered words, not Markdown or MDX syntax. Pass an empty `newString` to suggest a deletion. Pass an optional `comment` to explain why the change helps. Mintlify posts it as the agent's reply in the suggestion thread. The older `note` parameter still works as a deprecated alias for `comment`. Returns the new `threadId` with the `originalText` and `suggestedText`, trimmed to the span that changes. If the same suggestion is already open, the response includes `alreadyExists: true` and the existing `threadId`. The `no_match` and `not_unique` errors work as they do for `add_comment`. The error is `no_change` when both strings are the same, and `conflicting_annotation` when the text overlaps another open suggestion.
 - **`reply_to_comment`**: Reply to a thread by `threadId` with `content`. Pass `resolve: true` to also resolve the thread. Mintlify posts the reply as the agent on behalf of the authorizing user, and it appears live in the dashboard editor.
 - **`resolve_comment`**: Resolve a thread without replying.
-- **`read_inbox`**: List your dashboard inbox on a project, newest activity first. The inbox includes comments and mentions, suggested edits, and organization invitations. By default, `read_inbox` returns open items. Pass `state` as `open`, `done`, or `all`, and `section` as `comment`, `suggestion`, `invitation`, or `all` (default). Pass `filter` to narrow comments to `mentions` or `on-my-page` (pages you own), or suggestions to those from `people` or the `agent`. The filter must match `section` unless `section` is `all`. Pass `dateFrom` and `dateTo` as ISO 8601 date-times to limit items by their latest activity. Pass `limit` for 1 to 50 items per call (default 20), and pass `nextCursor` back as `cursor` to list older items. Each item includes its `category`, `state`, `latestActivity`, and `target`. When `target.thread` is present, unresolved, and not on a private page, call `read_comments` with its `filePath` and reply with `reply_to_comment`, both on its `branch`. `restricted` items don't include thread details. `read_inbox` is read-only and never marks items as read or done. Errors include `invalid_filter`, `invalid_date_range`, and `invalid_cursor`.
+- **`read_inbox`**: List your dashboard inbox on a project, newest activity first. The inbox includes comments and mentions, suggested edits, and private pages and folders shared with you. By default, `read_inbox` returns open items. Pass `state` as `open`, `done`, or `all`, and `section` as `comment`, `suggestion`, `invitation`, or `all` (default). Pass `filter` to narrow comments to `mentions` or `on-my-page` (pages you own), or suggestions to those from `people` or the `agent`. The filter must match `section` unless `section` is `all`. Pass `dateFrom` and `dateTo` as ISO 8601 date-times to limit items by their latest activity. Pass `limit` for 1 to 50 items per call (default 20), and pass `nextCursor` back as `cursor` to list older items. Each item includes its `category`, `state`, `latestActivity`, and `target`. When `target.thread` is present, unresolved, and not on a private page, call `read_comments` with its `filePath` and reply with `reply_to_comment`, both on its `branch`. `restricted` items don't include thread details. `read_inbox` is read-only and never marks items as read or done. Errors include `invalid_filter`, `invalid_date_range`, and `invalid_cursor`.
 
 `add_comment`, `suggest_edit`, `reply_to_comment`, and `resolve_comment` require an OAuth session and a `branch`. They act on the threads left on that branch, and work on your deploy branch even when edits to it require a pull request. You can reply to suggestion threads, but you must accept or reject suggestions in the editor. Comments on private pages aren't available through the admin MCP. `read_inbox` also requires an OAuth session, and only returns the inbox of an active member of the project's organization.
 
@@ -219,7 +231,7 @@ If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the
 
 ### Configuration
 
-- **`update_config`**: Modify `docs.json` (theme, navigation roots, integrations, SEO settings).
+- **`update_config`**: Change top-level `docs.json` settings, such as theme, colors, logo, navbar, footer, redirects, integrations, and SEO. It can't change `navigation`; use the navigation tools instead. Mintlify rejects an invalid configuration as a whole.
 
 ### Project management
 
@@ -321,5 +333,5 @@ Revoking the OAuth grant doesn't affect pull requests the MCP has already opened
 </Accordion>
 
 <Accordion title="Connection still fails after reinstalling the connector">
-  Log out of the [dashboard](https://app.mintlify.com), log back in, then connect your AI tool again. This replaces a dashboard session that started before the login update.
+  Sign out of the [dashboard](https://app.mintlify.com), sign back in, then connect your AI tool again. This replaces a dashboard session that started before the login update.
 </Accordion>

@@ -1,0 +1,147 @@
+---
+title: "Configure settings"
+name: mintlify-configure-settings
+description: "Lists exact docs.json keys for appearance, navbar, footer, banner, SEO, search, integrations, contextual menu, redirects, and the 404 page. Use when changing those settings."
+when: "navbar, footer, banner, SEO, search, integrations, contextual menu, redirects, 404"
+---
+Use this for the `docs.json` keys agents change most after the required fields. All keys below are top-level unless shown nested. Change only the key you need, then validate.
+
+## Workflow
+
+1. Read `docs.json`. Find the key if it already exists; edit in place rather than adding a duplicate.
+2. Copy the exact key names and value enums from this file. Unknown keys and wrong enum values fail `mint validate`.
+3. Run `mint validate`.
+4. Run `mint dev --no-open` and check the page header, navbar, footer and banner. Some features only show on preview and production deployments (see Rules).
+
+## Rules
+
+- `appearance.default`: `"system"` (default), `"light"`, `"dark"`. `appearance.strict: true` hides the mode toggle.
+- `background.decoration`: `"gradient"`, `"grid"`, `"windows"`. `background.color.light` / `.dark` are hex. `background.image` is a path or `{ light, dark }`.
+- `styling.eyebrows`: `"section"` (default) or `"breadcrumbs"`. `styling.codeblocks`: `"system"`, `"dark"`, a Shiki theme name, or `{ "theme": ... }`.
+- `navbar.links[]`: `label` + `href` (or `type`: `"github"` / `"discord"`). `navbar.primary.type`: `"button"` (needs `label`), `"github"`, `"discord"`.
+- `footer.socials` keys include `x`, `github`, `linkedin`, `discord`, `slack`, `youtube`, `website`, `bluesky`, `reddit`. `footer.links` max 4 columns, each `{ header, items: [{ label, href }] }`.
+- `banner.content` supports links, bold, italic only (no components). `banner.type`: `"info"` (default), `"warning"`, `"critical"`. `banner.color` (`light`/`dark` hex) overrides `type`. `dismissible` defaults to `false`.
+- `seo.indexing`: `"navigable"` (default, only pages in `navigation`) or `"all"`. `seo.metatags` is a flat key/value object. Put `description` at the top level, not under `seo`.
+- `integrations.<name>` keys are exact. `ga4.measurementId` must start with `G`. `gtm.tagId` must start with `G`. `posthog.apiKey` must start with `phc_`.
+- `contextual` menu only renders on preview and production deployments, not in `mint dev`. The first option is the default action. `download-pdf` is Enterprise only.
+- `redirects[]`: `source` and `destination` paths; `permanent` defaults to `true` (308), `false` gives 307. Sources cannot contain `#` or `?`. No circular redirects.
+- `errors.404.redirect` defaults to `true` (sends visitors home). Set it to `false` to show the custom `title` and `description`.
+- `variables`: names use letters, numbers, hyphens. Every `{{name}}` used in content must be defined or the build fails.
+
+## Examples
+
+Appearance and background:
+
+```json
+"appearance": { "default": "dark", "strict": true },
+"background": {
+  "decoration": "gradient",
+  "color": { "light": "#F8FAFC", "dark": "#0F172A" }
+}
+```
+
+Navbar and footer:
+
+```json
+"navbar": {
+  "links": [
+    { "type": "github", "href": "https://github.com/your-org/your-repo" },
+    { "label": "Community", "href": "https://example.com/community" }
+  ],
+  "primary": { "type": "button", "label": "Get started", "href": "https://example.com/signup" }
+},
+"footer": {
+  "socials": { "x": "https://x.com/yourhandle", "github": "https://github.com/your-org" },
+  "links": [
+    { "header": "Company", "items": [{ "label": "Blog", "href": "https://example.com/blog" }] }
+  ]
+}
+```
+
+Banner:
+
+```json
+"banner": {
+  "content": "Scheduled maintenance Dec 15. [Details](/status)",
+  "type": "warning",
+  "dismissible": true
+}
+```
+
+SEO, search and timestamps:
+
+```json
+"description": "Documentation for Example Co.'s API.",
+"seo": {
+  "indexing": "navigable",
+  "metatags": { "og:site_name": "Example Docs", "twitter:card": "summary_large_image" }
+},
+"search": { "prompt": "Search the docs..." },
+"metadata": { "timestamp": true }
+```
+
+`seo.paths` scopes metatags to a folder: `[{ "path": "guides/v1", "metatags": { "robots": "noindex" } }]` (no leading or trailing slash).
+
+Integrations:
+
+```json
+"integrations": {
+  "ga4": { "measurementId": "G-XXXXXXXXXX" },
+  "posthog": { "apiKey": "phc_XXXXXXXXXX" },
+  "intercom": { "appId": "abc12345" }
+}
+```
+
+Other keys: `adobe.launchUrl`, `amplitude.apiKey`, `clarity.projectId`, `fathom.siteId`, `gtm.tagId`, `heap.appId`, `hotjar.hjid` + `hjsv`, `logrocket.appId`, `mixpanel.projectToken`, `plausible.domain`, `segment.key`, `frontchat.snippetId`, `telemetry.enabled`.
+
+Contextual menu (built-ins: `copy`, `view`, `assistant`, `chatgpt`, `claude`, `perplexity`, `grok`, `aistudio`, `devin`, `devin-desktop`, `mcp`, `add-mcp`, `cursor`, `vscode`, `devin-mcp`, `download-spec`, `download-pdf`):
+
+```json
+"contextual": {
+  "options": [
+    "copy", "view", "chatgpt", "claude",
+    {
+      "title": "Request a feature",
+      "description": "Open a GitHub discussion",
+      "icon": "plus",
+      "href": "https://github.com/your-org/your-repo/discussions"
+    }
+  ],
+  "display": "header"
+}
+```
+
+`display` is `"header"` (default) or `"toc"`. Custom `href` can be `{ "base": "...", "query": [{ "key": "q", "value": "$page" }] }` (`$page`, `$path`, `$mcp`). Override per page with `contextual` in frontmatter; `options: []` hides it.
+
+Redirects and 404:
+
+```json
+"redirects": [
+  { "source": "/old-page", "destination": "/new-page" },
+  { "source": "/beta/:slug*", "destination": "/v2/:slug*" },
+  { "source": "/promo", "destination": "/pricing", "permanent": false }
+],
+"errors": {
+  "404": { "redirect": false, "title": "Page not found", "description": "Try the [home page](/)." }
+}
+```
+
+## Verify
+
+```bash
+mint validate
+mint broken-links --check-redirects
+mint dev --no-open
+```
+
+`mint dev` applies redirects locally: visit the old path. In `mint dev`, search and the assistant need `mint login`; the hosted site does not.
+
+## More
+
+- `mint instructions configure`: required fields, theme, colors, logo.
+- `mint instructions configure navigation`: page structure and language-specific banner, navbar, footer.
+- `mint instructions configure customization`: fonts, CSS, JS, components.
+- https://www.mintlify.com/docs/organize/settings-structure
+- https://www.mintlify.com/docs/organize/settings-seo
+- https://www.mintlify.com/docs/organize/settings-integrations
+- https://www.mintlify.com/docs/ai/contextual-menu

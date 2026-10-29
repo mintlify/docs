@@ -1,0 +1,173 @@
+---
+title: "Advanced API and SDK reference"
+name: mintlify-api-docs-sdk
+description: "Covers SDK reference pages from doc-tool output, x-codeSamples, oneOf/anyOf/allOf, multiple responses, endpoint visibility, and manual MDX API pages."
+when: "SDK reference pages, x-codeSamples, oneOf/anyOf, multiple responses, hiding endpoints"
+---
+Use this after basic OpenAPI setup works (`mint instructions api-docs`) for SDK reference pages, SDK code samples, richer schemas, or hand-written endpoint pages.
+
+## Workflow
+
+1. SDK reference from a doc tool: generate a machine-readable artifact, then add `sdk` to a tab or group in `docs.json` (see Examples).
+   - TypeDoc: `npx typedoc --json typedoc.json src/index.ts` (JSON file, `format: "typedoc"`)
+   - DocFX: `docfx metadata docfx.json` (output directory, `format: "docfx"`)
+   - Javadoc: `javadoc -d javadoc-output -sourcepath src/main/java -subpackages com.example` (standard doclet HTML directory, `format: "javadoc"`)
+   - Sphinx: `python -m sphinx -b json docs/source artifacts/json` (JSON builder directory, `format: "sphinx"`)
+   - phpDocumentor: `phpdoc -d src -t artifacts --template=xml` (`structure.xml`, `format: "phpdoc"`)
+2. Add the artifact directory to `.mintignore` (build input, not a static asset).
+3. SDK code samples on OpenAPI pages: add `x-codeSamples` under the HTTP method of each operation.
+4. Polymorphic schemas: use `oneOf`/`anyOf` with a `title` on each subschema; use `allOf` to extend a base schema.
+5. Several responses for one status: add named `examples` under `responses.<code>.content.<type>`.
+6. Visibility: put `x-hidden: true` or `x-excluded: true` under the HTTP method (endpoints and webhooks).
+7. No spec: write manual MDX pages with `api` frontmatter and field components.
+8. Run the Verify commands.
+
+## Rules
+
+SDK reference (`sdk`):
+- Keys: `format` (required: `typedoc`, `docfx`, `javadoc`, `sphinx`, `phpdoc`), `source` (required: relative path or HTTPS URL, HTTP is rejected), `directory` (URL prefix, default `sdk-reference`).
+- A tab with `sdk` may contain only `groups`: no `pages`, `versions`, `languages`, `openapi`, `asyncapi`, or `graphql`. A group with `sdk` may contain `pages` and nested groups, but not `graphql`.
+- Children inherit the parent `sdk`; a nested group with its own `sdk` overrides it.
+- Mintlify creates a page per class, interface, module, and function. Generated groups come after the tab's `groups` or the group's own `pages`. Ungrouped pages land in a `Reference` group.
+- TypeDoc pages group by `@category` and `@group` tags, else by symbol type.
+- Multiple libraries: one tab or group each, with unique `directory` values.
+- Remote `source`: `typedoc`/`phpdoc` take a file URL; `docfx`/`javadoc`/`sphinx` take a zip (Maven Central javadoc jars work). Limits: 50 MB download, 200 MB extracted. Remote changes need a new deployment (Trigger deployment API).
+- Per-symbol page: frontmatter `sdk: "class Client"` (pattern `[source] kind name`; methods/properties use `method Client.getUser`). Body renders first, generated reference is appended. The page must be in navigation.
+- Once any page in an `sdk` tab or group has `sdk` frontmatter, auto-population stops for that tab or group and only your pages show.
+- The string form inherits `format`, so it only works under an `sdk` tab or group. Elsewhere use the object form: `kind` (`class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, `property`), `name`, `parent` (required for `method`/`property`), `format`, `source`.
+
+OpenAPI extensions and schemas:
+- `x-codeSamples` items: `lang` (required), `source` (required), `label` (optional, use it to tell several samples apart).
+- Speakeasy users: point `openapi` at the registry's `*-with-code-samples` combined spec URL, not the source spec.
+- `oneOf` and `anyOf` render the same: tabs named by each subschema's `title`. `not` is unsupported.
+- `allOf` of object schemas is merged into one object with all properties.
+- Fields typed `any` or `undefined` render like `oneOf`, with a picker.
+- `audio/*` response content with a URL example renders an audio player.
+- `x-hidden`: page exists at its URL but is not in navigation. `x-excluded`: no page at all.
+
+Manual MDX pages:
+- `api` frontmatter is `METHOD` plus a full URL (ignores `api.mdx.server`) or a relative path (needs `api.mdx.server`). Path params use `{}`.
+- Page overrides: `playground: interactive | simple | none`, `authMethod: bearer | basic | key | none`.
+- `<ParamField>`: one of `query`, `path`, `body`, `header` set to the name, plus `type` (`number`, `string`, `boolean`, `object`, arrays with `[]` like `string[]`), `required`, `deprecated`, `default`, `placeholder`, `pre`, `post`. Adding one adds a playground.
+- `<ResponseField>`: `name` and `type` (required, any string), `default`, `required`, `deprecated`, `pre`, `post`.
+- Nest child fields in `<Expandable title="..." defaultOpen>`.
+- `<RequestExample>` / `<ResponseExample>` pin code blocks to the right sidebar; each block needs a title. `dropdown` prop: language dropdown instead of tabs.
+- Each manual page must be listed in `navigation` by file path.
+
+## Examples
+
+SDK group with your own pages first:
+
+```json
+{
+  "group": "TypeScript SDK",
+  "sdk": {
+    "format": "typedoc",
+    "source": "sdk-artifacts/typedoc.json",
+    "directory": "sdk/typescript"
+  },
+  "pages": ["sdk/typescript/overview"]
+}
+```
+
+Code samples:
+
+```yaml
+paths:
+  /plants:
+    get:
+      x-codeSamples:
+        - lang: bash
+          label: List unwatered plants
+          source: |
+            planter list -u
+        - lang: javascript
+          label: List unwatered plants
+          source: |
+            planter.list({ unwatered: true });
+```
+
+Named options and multiple examples:
+
+```yaml
+delivery_address:
+  oneOf:
+    - title: StreetAddress
+      type: object
+      properties:
+        address_line_1: { type: string }
+    - title: POBox
+      type: object
+      properties:
+        box_number: { type: string }
+
+responses:
+  "200":
+    description: Successful response
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Tax"
+        examples:
+          us:
+            summary: Response for United States
+            value: { countryCode: "US", taxRate: 0.0825 }
+          gb:
+            summary: Response for United Kingdom
+            value: { countryCode: "GB", taxRate: 0.20 }
+```
+
+Visibility:
+
+```json
+"/hidden_plants": { "get": { "x-hidden": true } },
+"/secret_plants": { "get": { "x-excluded": true } }
+```
+
+Manual page (`docs.json` has `"api": { "mdx": { "server": "https://api.acme.com/", "auth": { "method": "key", "name": "x-api-key" } } }`):
+
+````mdx
+---
+title: "Get user"
+api: "GET /v1/users/{userId}"
+---
+
+<ParamField path="userId" type="string" required>
+  Unique identifier for the user
+</ParamField>
+
+<ResponseField name="user" type="User Object">
+  <Expandable title="properties">
+    <ResponseField name="email" type="string">User's email</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash Request
+curl --request GET \
+  --url https://api.acme.com/v1/users/123
+```
+</RequestExample>
+
+<ResponseExample>
+```json Response
+{ "email": "a@acme.com" }
+```
+</ResponseExample>
+````
+
+## Verify
+
+```bash
+mint validate        # strict build, docs.json and spec errors
+mint broken-links
+mint dev --no-open   # check an SDK page, x-codeSamples, a hidden URL
+```
+
+## More
+
+- `mint instructions api-docs`: OpenAPI setup, playground settings, common errors.
+- https://www.mintlify.com/docs/api-playground/sdk-reference-setup
+- https://www.mintlify.com/docs/api-playground/adding-sdk-examples
+- https://www.mintlify.com/docs/api-playground/complex-data-types
+- https://www.mintlify.com/docs/api-playground/mdx-setup

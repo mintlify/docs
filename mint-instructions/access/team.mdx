@@ -1,0 +1,63 @@
+---
+title: "Team access to the dashboard"
+name: mintlify-access-team
+description: "Covers who can use the Mintlify dashboard and editor: members, seats, roles, SSO, SCIM, session security, audit logs, notifications, and the desktop app. Use for team and security administration."
+when: "Team members, roles, SSO, SCIM, audit logs, session security"
+---
+
+If you meant who can read the published docs site (login, password, groups), run `mint instructions access` instead.
+
+Use this to add teammates, set roles, SSO, SCIM, session or IP policies, audit logs, contacts, notifications, or the desktop app. All of it is configured in the dashboard (https://app.mintlify.com). You cannot set any of it from the repo, `docs.json`, or the `mint` CLI. Give the user exact steps and links.
+
+## Workflow
+
+1. Check the plan. Seat limits per plan: https://www.mintlify.com/pricing.md (do not quote seat counts from memory). Enterprise only: roles (RBAC), SSO, SCIM, session lifetimes, IP allowlist, audit logs, security contact. Audit log streaming: Enterprise add-on.
+2. Add members: **Members** page (https://app.mintlify.com/settings/organization/members). In **New member**, enter emails (comma, semicolon, space or newline separated, up to 250 at once), choose a role, click **Invite**. Invalid or duplicate addresses open a review drawer: fix rows, **Send invites**. Pro and Enterprise: **Bulk invite** takes a CSV.
+3. Roles (Enterprise RBAC). Without RBAC every member has full dashboard access and new members join as editors. With RBAC:
+   - Viewer: view editor content, dashboard and analytics, ask the Slack agent questions, comment. Always in suggesting mode in the editor; cannot accept suggestions.
+   - Editor: everything a viewer can, plus edit in the web editor, publish, create/rename/delete pages, reorder navigation, upload media, trigger, roll back and promote deployments, create/delete API keys, configure integrations, assistant and add-ons, make changes with the Slack agent, accept or reject suggestions, invite editors and viewers.
+   - Admin: everything, plus update roles, invite admins, delete users, billing, SSO, SCIM, IP allowlist and session lifetimes, audit logs, security contact, custom domain, Git source, custom subpath, delete a project, agent publishing setting, delete organization, delete any comment.
+   - Change a role: **Members** page, **Role** dropdown (saves immediately, applies on next dashboard load). You cannot change your own role. **Managed by SSO** rows change in the IdP.
+4. Offboard: **Members** page, actions menu. **Remove member** deletes membership, access and their keys. **Revoke credentials** keeps membership and revokes any of: Sessions, CLI tokens, API keys, Discovery API keys, M2M clients, Connected apps. Not reversible; you cannot revoke your own.
+5. SSO (Enterprise, admin): **Security** page (https://app.mintlify.com/settings/organization/access), **Configure**, pick **Okta SAML** or **Microsoft Entra ID SAML**, copy **ACS URL** and **Audience URI** into the IdP, paste the IdP metadata URL back, **Save changes**. Google Workspace SAML, Okta OIDC and other providers: contact support@mintlify.com.
+   - JIT provisioning: adds users who sign in from the IdP. Works only for IdP-initiated login.
+   - Verified domains (after SSO is active, up to 25): TXT record `_mintlify-verification.<domain>` with the token, then **Verify**.
+   - Before **Require SSO**: test IdP-initiated and SP-initiated login in a private window, and add **Break-glass emails** (existing members who keep password or magic link sign-in). Require SSO blocks password, magic link and Google OAuth.
+   - SAML group roles: send a `groups` attribute (case-sensitive name, `unspecified` name format). Your account representative sets up group-to-role mappings.
+6. SCIM (Enterprise, admin, any SCIM 2.0 IdP with bearer token): **Security** page, **SCIM** section, **Configure SCIM**. Store the bearer token now (shown once). In Okta use **SCIM 2.0 Test App (Header Auth)**, token as `Bearer <token>`, leave **Sync password** off, push groups. Then **Group role mappings**, **Add mapping** (group names are case-sensitive). Highest mapped role wins; unmapped users join as viewers. **Rotate token** invalidates the old token immediately. Disabling SCIM keeps existing members.
+7. Session and network policies (Enterprise, admin): **Security** page, **Policies** section.
+   - **Idle session timeout** and **Maximum session lifetime**: each 5 minutes to 14 days, own toggle, click **Save**. Session ends at whichever limit hits first. Off: idle timeout falls back to 14 days, max lifetime has no limit. Lowering max lifetime ends older sessions on their next request.
+   - **Allowed IP addresses**: IPv4/IPv6 or CIDR (`203.0.113.7`, `10.0.0.0/8`), press Enter, **Add and enable** on the first entry. Applies to dashboard and editor, including SSO and break-glass sign-ins, not the published docs site. Empty list means open.
+8. Audit logs (Enterprise, admins only): **Audit log** page (https://app.mintlify.com/settings/organization/audit-logs). Retained up to one year; view and export the last 90 days. Filter by date and category; SSO, SCIM and automation events appear under **All categories**. **Export CSV** emails a download link. Streaming: **Stream configuration**, **Configure**, **Add destination**, Amazon S3 (bucket, region, access key ID, secret, optional prefix; needs `s3:PutObject`) or Datadog (site and API key, not an application key).
+9. Contacts: **General** page (https://app.mintlify.com/settings/organization/general). Admins set **Security contact email** (Enterprise) and **Admin contact emails** (billing alerts, deployment notifications).
+10. Personal settings (each member, own account only):
+    - Profile (https://app.mintlify.com/settings/account): name, picture, **Starting page**, theme, **Always open in desktop app**, connect GitHub (signs web editor commits as you).
+    - Notifications (https://app.mintlify.com/settings/organization/notifications): toggle Comments, Pages (mentions), Suggestions, Automation runs, General product feedback. Comment, mention and suggestion emails default on.
+11. Desktop app (beta): runs the dashboard and editor in a native window with tabs. Download at https://mintlify.com/desktop (macOS 14+ Apple silicon, Windows 10+, Linux x86_64). Sign in via **Continue in browser**, or **Log in here instead** if desktop login is unavailable. **Copy to project** adds a local Markdown file as a page. Preview the whole site with `mint dev`.
+
+## Rules
+
+- Never claim you configured members, roles, SSO, SCIM or policies. Hand the user the steps; an admin must do the admin-only ones.
+- Dashboard roles do not gate Git. Anyone with write access to the repo can push, and pushes to the deploy branch deploy regardless of role. Lock down the repo separately.
+- Before an IP allowlist, confirm the admin's current IP (shown in **Policies**) is on it, or they lock themselves out.
+- Before Require SSO, add break-glass emails. Removing SSO turns off Require SSO and clears break-glass emails.
+
+## Examples
+
+Desktop app from a terminal (macOS or Linux):
+
+```bash
+curl -fsSL https://desktop.mintlify.com/install.sh | bash
+```
+
+## Verify
+
+Nothing in the repo changes, so `mint validate` proves nothing here. Ask the user to confirm in the dashboard: the member shows on **Members** with the right role, SSO login works from a private window, or the change appears in the **Audit log**.
+
+## More
+
+- `mint instructions access` (docs-site reader access)
+- https://www.mintlify.com/docs/dashboard/roles
+- https://www.mintlify.com/docs/dashboard/sso
+- https://www.mintlify.com/docs/dashboard/scim
+- https://www.mintlify.com/docs/dashboard/network-access

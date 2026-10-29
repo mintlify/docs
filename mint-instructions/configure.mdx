@@ -1,0 +1,128 @@
+---
+title: "Configure docs.json"
+name: mintlify-configure
+description: "Covers docs.json essentials: required fields, minimal config, theme, colors, logo, favicon, $ref, and the edit, validate, preview loop. Use before changing any site-wide setting."
+when: "Changing docs.json: theme, colors, logo, favicon, required fields"
+---
+`docs.json` is the one required config file for a Mintlify site. It controls theme, branding, navigation, integrations, API settings and more. Read this before editing it; read a subtopic for navigation, other settings, or styling.
+
+## Workflow
+
+1. Find `docs.json` at the root of the docs directory (in a monorepo, the root of the docs folder, not the repo). Every page path and asset path resolves from here.
+2. If the project still has `mint.json` (deprecated), run `mint dev` once: it creates `docs.json` from it. Review the result, then delete `mint.json`.
+3. Read the current file before editing. Make the smallest change that does the job; do not reformat or reorder unrelated keys.
+4. Keep `"$schema": "https://mintlify.com/docs.json"` as the first key so editors autocomplete and validate.
+5. Run `mint validate`. It builds in strict mode, checks OpenAPI specs referenced in `docs.json`, and exits non-zero on errors. Warnings do not fail it. Fix both.
+6. Run `mint broken-links` if you moved, renamed or removed pages.
+7. Run `mint dev --no-open` and check the change at `http://localhost:3000`.
+
+## Required fields
+
+Only four fields are required. Everything else is optional.
+
+| Field | Value |
+| - | - |
+| `theme` | One of `mint`, `maple`, `palm`, `willow`, `linden`, `almond`, `aspen`, `sequoia`, `luma` |
+| `name` | Project or organization name (shown in the browser tab title) |
+| `colors.primary` | Hex code starting with `#` |
+| `navigation` | Content structure object (see `mint instructions configure navigation`) |
+
+## Rules
+
+- Must: hex colors start with `#` (`colors.primary`, `colors.light`, `colors.dark`, `background.color.*`).
+- Must: asset paths start with `/` and include the file extension (`/logo/light.svg`, `/favicon.svg`). Put the files in the repo at that path.
+- Must: if `logo` is an object, set both `light` and `dark`. Same for `favicon` as an object.
+- After changing `theme`, re-check custom CSS: default sidebar width, content width and font differ per theme.
+- Must: icon names everywhere in the site come from one library, set by `icons.library` (`fontawesome` default, `lucide`, or `tabler`).
+- Must not: add keys that are not in the schema. `mint validate` fails on them. Check https://www.mintlify.com/docs/organize/settings-reference.md when unsure.
+- Must not: use `$ref` paths that leave the project root (`../../x`) or form a cycle. Both fail the build.
+- API reference settings (OpenAPI, AsyncAPI, playground) live under the `api` key. See `mint instructions api-docs`.
+
+## Examples
+
+Minimal valid `docs.json`:
+
+```json
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Acme Docs",
+  "colors": {
+    "primary": "#0D9373"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Home",
+        "pages": ["index"]
+      }
+    ]
+  }
+}
+```
+
+This needs an `index.mdx` (or `index.md`) next to `docs.json`.
+
+Branding (theme, colors, logo, favicon):
+
+```json
+{
+  "theme": "maple",
+  "colors": {
+    "primary": "#3B82F6",
+    "light": "#93C5FD",
+    "dark": "#1D4ED8"
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://example.com"
+  },
+  "favicon": "/favicon.svg"
+}
+```
+
+- `colors.primary`: emphasis in light mode. If it is the only color, it applies to all color elements.
+- `colors.light`: emphasis in dark mode.
+- `colors.dark`: buttons and hover states in both modes.
+- `logo` can also be a single path string. `logo.href` overrides where the logo links (absolute URL or path starting with `/`).
+- `favicon` can be a string or `{ "light": "...", "dark": "..." }`. It is resized automatically.
+
+Split a large config with `$ref` (resolved at build time, relative to the file that contains it):
+
+```json
+{
+  "navigation": { "$ref": "./config/navigation.json" }
+}
+```
+
+When the `$ref` resolves to an object, sibling keys in the same block are merged on top and win. When it resolves to an array, sibling keys are ignored.
+
+Exclude drafts and internal files from the build with a `.mintignore` file (gitignore syntax) next to `docs.json`:
+
+```text
+drafts/
+*.draft.mdx
+internal/
+```
+
+Ignored files are not published, not searchable and not reachable by URL. Links pointing to them report as broken in `mint broken-links`.
+
+## Verify
+
+```bash
+mint validate
+mint broken-links
+mint dev --no-open
+```
+
+Run `mint validate --help` and `mint dev --help` for flags (for example `mint dev --port 3333`, `mint dev --disable-openapi`).
+
+## More
+
+- `mint instructions configure navigation`: tabs, groups, anchors, dropdowns, products, versions, languages, nesting, moving pages.
+- `mint instructions configure settings`: appearance, navbar, footer, banner, SEO, integrations, contextual menu, redirects, search, 404.
+- `mint instructions configure customization`: themes, fonts, custom CSS and JS, React components, what local preview shows.
+- https://www.mintlify.com/docs/organize/settings
+- https://www.mintlify.com/docs/organize/settings-appearance
+- https://www.mintlify.com/docs/organize/settings-reference

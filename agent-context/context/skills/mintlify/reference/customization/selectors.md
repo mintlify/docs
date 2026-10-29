@@ -20,7 +20,7 @@ Target the main layout regions with `[data-layout-item="<region>"]`. Each region
 
 ## Page background
 
-The page background is painted by a fixed `span#background-color`, not by `html` or `body`. Change its color with `docs.json` `background.color`; target the element only for effects that configuration cannot express.
+The page background is painted by a fixed `span#background-color` (`span#almond-background-color` in almond), not by `html` or `body`. Change its color with `docs.json` `background.color`; target the element only for effects that configuration cannot express.
 
 ## Page content
 
@@ -38,9 +38,9 @@ Page content renders inside `#content` (class `mdx-content`). Body paragraphs re
 | `.tree-folder[aria-expanded="true"]`                     | Expanded Tree folder                                                                      |
 | `.tree-file[aria-current="true"]`                        | Highlighted Tree file                                                                     |
 | `html[data-current-path="/quickstart"]`                  | Current page path, excluding query and hash. Updates on internal navigation.              |
-| `.callout[data-callout-type="note"]`                     | One callout type. Values: `note`, `info`, `tip`, `warning`, `check`, `danger`.            |
-| `#sidebar-content li[data-active]`                       | Active sidebar page link                                                                  |
-| `.sidebar-group:has(> li[data-active])`                  | Sidebar group containing the current page. Groups have no `data-active` of their own.     |
+| `.callout[data-callout-type="note"]`                     | One callout type. Values: `note`, `info`, `tip`, `warning`, `check`, `danger`, and `callout` (generic `<Callout>`). |
+| `#sidebar-content li[data-active] > a`                   | Active sidebar page link. Bare `li[data-active]` also matches nested group rows that contain the page. |
+| `.sidebar-group:has(> li[data-active])`                  | Sidebar group containing the current page. Nested group rows also get `data-active`, so this also matches ancestor groups.     |
 
 A Card's `disabled` prop removes navigation; it does not add a native `[disabled]` attribute. `[data-state="open"]` exists only on primitives that set it.
 
@@ -82,7 +82,7 @@ On sites with authentication, the Log In control carries the class `login-link` 
 
 ## Search
 
-Style the search bar and dialog with `[data-search-item="<block>"]` or `[data-search-item="<block>-<part>"]`. These are documented, stable hooks that persist if internal class names change. Blocks: `trigger` (navbar search bar), `backdrop`, `dialog`, `header` (input area; has `data-disabled` when search is unavailable), `filter-list`, `list` (has `data-loading`), `group` (`data-variant` is `recent`, `results`, or `ask-ai`), `item`, and `footer`. Parts include `trigger-icon`, `trigger-label`, `trigger-hint`, `input`, `header-button`, `filter-trigger`, `filter-content`, `filter-item`, `group-title`, `item-icon`, `item-title`, `item-badge`, `item-breadcrumbs`, and `item-description`. State attributes sit on the named element, for example `[data-search-item="item"][data-highlighted]`: `item[data-highlighted]`, `item-icon[data-variant]` (`page`, `section`, `api-playground`), `item-badge[data-method]` (lowercase HTTP method), `filter-trigger[data-variant]` (`product`, `version`), `filter-trigger[data-open]`, `filter-trigger[data-active]`, and `filter-item[data-selected]`.
+Style the search bar and dialog with `[data-search-item="<block>"]` or `[data-search-item="<block>-<part>"]`. These are documented, stable hooks that persist if internal class names change. Blocks: `trigger` (navbar search bar), `backdrop`, `dialog`, `header` (input area; has `data-disabled` when search is unavailable), `filter-list`, `list` (has `data-loading`), `group` (`data-variant` is `recent`, `full-page-search`, `results`, or `ask-ai`; the Ask AI row is an `item` with `data-variant="assistant"`), `item`, and `footer`. Parts include `trigger-icon`, `trigger-label`, `trigger-hint`, `input`, `header-button`, `filter-trigger`, `filter-content`, `filter-item`, `group-title`, `item-icon`, `item-title`, `item-badge`, `item-breadcrumbs`, and `item-description`. State attributes sit on the named element, for example `[data-search-item="item"][data-highlighted]`: `item[data-highlighted]`, `item-icon[data-variant]` (`page`, `section`, `api-playground`), `item-badge[data-method]` (lowercase HTTP method), `filter-trigger[data-variant]` (`product`, `version`), `filter-trigger[data-open]`, `filter-trigger[data-active]`, and `filter-item[data-selected]`.
 
 ```css
 [data-search-item="item"][data-highlighted] [data-search-item="item-title"] {
@@ -90,6 +90,6 @@ Style the search bar and dialog with `[data-search-item="<block>"]` or `[data-se
 }
 ```
 
-## Unconfirmed hooks
+## Conditional and unused hooks
 
-These names appear in public guidance but were not found on current sites. Inspect the DOM before using them: `#header`, `#mobile-nav-content`, `#feedback-thumbs-up`, `#feedback-thumbs-down`, `#localization-select-item`, `.columns`, `.nav-anchor`, `.pagination-title`, `.api-section`, `.api-section-heading`, `.api-section-heading-title`, `.api-section-heading-subtitle`, `.tryit-button`, `.method-pill`.
+These hooks exist only on some pages: `#header` (page header; prefer `[data-layout-item="page-header"]`), `#feedback-thumbs-up` and `#feedback-thumbs-down` (when thumbs feedback is on), `.nav-anchor` (mint-style anchors), and on API pages `.api-section`, `.api-section-heading`, `.api-section-heading-title`, `.api-section-heading-subtitle`, `.tryit-button`, and `.method-pill`. Language options use `[id^="localization-select-item-"]`, and pagination titles use `[data-component-part="pagination-title"]`. Not rendered on current sites: `#mobile-nav-content`, `.columns`, `.pagination-title`.

@@ -54,6 +54,10 @@ Vous devez disposer d'une connexion OAuth interactive à votre compte Mintlify p
 
 Connectez vos outils à l'Admin MCP depuis [votre tableau de bord](https://app.mintlify.com/products/mcp) ou suivez les étapes ci-dessous pour votre outil préféré.
 
+<Tip>
+  Pour configurer Claude Code, Codex ou Cursor depuis votre terminal, exécutez [`mint agent setup`](/fr/cli/commands#mint-agent-setup). La commande ajoute l'Admin MCP à la configuration de chaque agent et installe les compétences Mintlify. Vous devez toujours effectuer la connexion OAuth dans chaque agent.
+</Tip>
+
 <Tabs>
   <Tab title="Claude">
     <AdminMcpClaude />
@@ -137,6 +141,16 @@ Mintlify refuse les modifications sur la branche de déploiement, et ne change r
 
 Mintlify vérifie ces conditions à chaque modification et met en cache vos règles de protection de branche pendant 30 secondes au maximum. Les outils de commentaires continuent de fonctionner sur la branche de déploiement lorsque les modifications y sont refusées. Si votre branche de déploiement se met à exiger une pull request après que vous l'avez modifiée, `publish` renvoie `branch_protected` et vos modifications restent en attente. Ouvrez l'éditeur du tableau de bord pour les déplacer vers une nouvelle branche.
 
+<div id="projects-with-auto-publish">
+  ### Projets avec publication automatique
+</div>
+
+Si la [publication automatique](/fr/editor/settings#auto-publish) est activée pour votre projet, l'Admin MCP n'utilise pas de branches pour celui-ci. Passez votre branche de déploiement comme `branch`. Mintlify commite automatiquement vos modifications sur la branche de déploiement.
+
+Mintlify refuse `create_branch` et les appels sur toute autre branche dans ces projets, et ne change rien. Si votre connexion ne couvre que ce projet, l'Admin MCP ne liste ni `create_branch` ni `list_branches`.
+
+**Pousser directement sur votre branche de déploiement** et la protection de branche ne bloquent pas les modifications de la branche de déploiement dans un projet avec publication automatique. Mintlify refuse toujours les modifications lorsque la modification de la branche de déploiement est verrouillée dans l'éditeur du tableau de bord, ou lorsque vous vous êtes connecté avec un jeton client ou machine à machine.
+
 <div id="work-on-a-branch">
   ## Travailler sur une branche
 </div>
@@ -214,7 +228,7 @@ Après `upload_file`, l'outil d'IA téléverse les octets du fichier vers `uploa
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Pour ajouter une image, transmettez un `path` d'image, comme `images/dashboard.png`, et la `branch` à `upload_file`. Après le téléversement, appelez `finalize_file_upload`. Mintlify vérifie que le contenu du fichier téléversé correspond à son extension avant de l'enregistrer. Un téléversement vers un `path` existant remplace cette image. Mintlify n'accepte les fichiers SVG que pour les logos et les favicons : transmettez `purpose: "logo"` aux deux outils lorsque vous en téléversez un. Les images enregistrées apparaissent dans `status` et sont publiées avec le reste de vos modifications lorsque vous appelez `publish`.
+Pour ajouter une image, transmettez un `path` d'image, comme `images/dashboard.png`, et la `branch` à `upload_file`. Après le téléversement, appelez `finalize_file_upload`. Mintlify vérifie que le contenu du fichier téléversé correspond à son extension avant de l'enregistrer. Un téléversement vers un `path` existant remplace cette image. Seuls les logos et les favicons peuvent être téléversés au format SVG : transmettez `purpose: "logo"` aux deux outils lorsque vous en téléversez un. Les images de page ne peuvent pas être au format SVG. Les images enregistrées apparaissent dans `status` et sont publiées avec le reste de vos modifications lorsque vous appelez `publish`.
 
 Pour écrire une page à partir d'un fichier Markdown local, transmettez un `path` `.md` ou `.mdx` avec `contentType` défini sur `text/markdown` ou `text/plain`. Les téléversements de pages n'ont besoin ni de `branch` ni de `finalize_file_upload`. Après le téléversement, transmettez l'`uploadId` à la place de `content` à `write_page`, ou comme `data.uploadId` à `create_node`. Cela évite de renvoyer l'intégralité du contenu d'une page volumineuse dans l'appel d'outil.
 
@@ -231,7 +245,7 @@ Travaillez avec les [commentaires et suggestions](/fr/editor/collaborate#comment
 - **`suggest_edit`**: Propose une suggestion avec suivi des modifications sur une page au lieu de la modifier. Le texte original reste sur la page, barré, et le remplacement apparaît à côté. Rien ne change tant que quelqu'un n'a pas accepté ou rejeté la suggestion dans l'éditeur du tableau de bord. Transmettez `path` sous les mêmes formes que pour `read`, `oldString` et `newString`. `oldString` est le plus court passage de texte visible et unique à remplacer, dans un seul paragraphe ou titre. Utilisez les mots affichés, pas la syntaxe Markdown ou MDX. Transmettez un `newString` vide pour suggérer une suppression. Transmettez un `comment` facultatif pour expliquer en quoi la modification est utile. Mintlify le publie comme réponse de l'agent dans le fil de la suggestion. L'ancien paramètre `note` fonctionne toujours comme alias obsolète de `comment`. Renvoie le nouveau `threadId` avec `originalText` et `suggestedText`, réduits au passage qui change. Si la même suggestion est déjà ouverte, la réponse inclut `alreadyExists: true` et le `threadId` existant. Les erreurs `no_match` et `not_unique` fonctionnent comme pour `add_comment`. L'erreur est `no_change` lorsque les deux chaînes sont identiques, et `conflicting_annotation` lorsque le texte chevauche une autre suggestion ouverte.
 - **`reply_to_comment`**: Répond à un fil par `threadId` avec `content`. Transmettez `resolve: true` pour également résoudre le fil. Mintlify publie la réponse en tant qu'agent au nom de l'utilisateur qui a autorisé la connexion, et elle apparaît en direct dans l'éditeur du tableau de bord.
 - **`resolve_comment`**: Résout un fil sans répondre.
-- **`read_inbox`**: Liste votre boîte de réception du dashboard sur un projet, l'activité la plus récente en premier. La boîte de réception comprend les commentaires et mentions, les modifications suggérées et les invitations à l'organisation. Par défaut, `read_inbox` renvoie les éléments ouverts. Passez `state` avec la valeur `open`, `done` ou `all`, et `section` avec la valeur `comment`, `suggestion`, `invitation` ou `all` (par défaut). Passez `filter` pour limiter les commentaires à `mentions` ou `on-my-page` (les pages dont vous êtes propriétaire), ou les suggestions à celles provenant de `people` ou de l'`agent`. Le filtre doit correspondre à `section`, sauf si `section` vaut `all`. Passez `dateFrom` et `dateTo` sous forme de dates-heures ISO 8601 pour limiter les éléments selon leur dernière activité. Passez `limit` pour obtenir de 1 à 50 éléments par appel (20 par défaut), et renvoyez `nextCursor` comme `cursor` pour lister les éléments plus anciens. Chaque élément inclut sa `category`, son `state`, sa `latestActivity` et sa `target`. Lorsque `target.thread` est présent, non résolu et ne se trouve pas sur une page privée, appelez `read_comments` avec son `filePath` et répondez avec `reply_to_comment`, tous deux sur sa `branch`. Les éléments `restricted` n'incluent pas les détails du fil. `read_inbox` est en lecture seule et ne marque jamais les éléments comme lus ou terminés. Les erreurs incluent `invalid_filter`, `invalid_date_range` et `invalid_cursor`.
+- **`read_inbox`**: Liste votre boîte de réception du dashboard sur un projet, l'activité la plus récente en premier. La boîte de réception comprend les commentaires et mentions, les modifications suggérées, ainsi que les pages et dossiers privés partagés avec vous. Par défaut, `read_inbox` renvoie les éléments ouverts. Passez `state` avec la valeur `open`, `done` ou `all`, et `section` avec la valeur `comment`, `suggestion`, `invitation` ou `all` (par défaut). Passez `filter` pour limiter les commentaires à `mentions` ou `on-my-page` (les pages dont vous êtes propriétaire), ou les suggestions à celles provenant de `people` ou de l'`agent`. Le filtre doit correspondre à `section`, sauf si `section` vaut `all`. Passez `dateFrom` et `dateTo` sous forme de dates-heures ISO 8601 pour limiter les éléments selon leur dernière activité. Passez `limit` pour obtenir de 1 à 50 éléments par appel (20 par défaut), et renvoyez `nextCursor` comme `cursor` pour lister les éléments plus anciens. Chaque élément inclut sa `category`, son `state`, sa `latestActivity` et sa `target`. Lorsque `target.thread` est présent, non résolu et ne se trouve pas sur une page privée, appelez `read_comments` avec son `filePath` et répondez avec `reply_to_comment`, tous deux sur sa `branch`. Les éléments `restricted` n'incluent pas les détails du fil. `read_inbox` est en lecture seule et ne marque jamais les éléments comme lus ou terminés. Les erreurs incluent `invalid_filter`, `invalid_date_range` et `invalid_cursor`.
 
 `add_comment`, `suggest_edit`, `reply_to_comment` et `resolve_comment` nécessitent une session OAuth et une `branch`. Ils agissent sur les fils de cette branche et fonctionnent sur votre branche de déploiement même lorsque ses modifications exigent une pull request. Vous pouvez répondre aux fils de suggestions, mais vous devez accepter ou rejeter les suggestions dans l'éditeur. Les commentaires sur les pages privées ne sont pas disponibles via l'Admin MCP. `read_inbox` nécessite également une session OAuth et ne renvoie que la boîte de réception d'un membre actif de l'organisation du projet.
 
@@ -251,7 +265,7 @@ Si un appel à `create_node`, `update_node`, `move_node` ou `delete_node` laisse
   ### Configuration
 </div>
 
-- **`update_config`**: Modifie `docs.json` (thème, racines de navigation, intégrations, paramètres SEO).
+- **`update_config`**: Modifie les paramètres de premier niveau de `docs.json`, comme le thème, les couleurs, le logo, la barre de navigation, le pied de page, les redirections, les intégrations et le SEO. Il ne peut pas modifier `navigation` ; utilisez plutôt les outils de navigation. Mintlify rejette en bloc toute configuration non valide.
 
 <div id="project-management">
   ### Gestion de projet

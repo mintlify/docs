@@ -46,7 +46,7 @@ mint dev [flags]
 
 ## `mint signup`
 
-Create a new Mintlify account from the terminal.
+Create a new Mintlify account from an interactive terminal.
 
 ```bash
 mint signup [flags]
@@ -64,7 +64,9 @@ Run the command without flags to enter your details interactively. The CLI promp
 After you submit your details, Mintlify sends a verification link to your email. The command waits until you click the link, then creates your account, signs you in, and stores your credentials. When it finishes, open the [dashboard](https://app.mintlify.com) to connect your repository and start building.
 
 <Note>
-  `mint signup` does not return until you click the verification link, which can take several minutes. In scripts or automations, run it as a background process instead of waiting on it synchronously.
+  `mint signup` does not return until you click the verification link, which can take several minutes.
+
+  When an AI agent runs `mint signup`, or the command runs without an interactive terminal, it prints the [agent signup guide](https://mintlify.com/auth.md) instead of creating an account. Agents create sites without an account through [Agent signup](/cli/agent-signup).
 </Note>
 
 ### Examples
@@ -362,6 +364,54 @@ mint analytics conversation view conv_123
 
 ---
 
+## `mint agent setup`
+
+Set up AI coding agents to work on your Mintlify project. The command installs Mintlify skills and configures the [admin MCP](/ai/mintlify-mcp) for Claude Code, Codex, or Cursor.
+
+```bash
+mint agent setup [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--agent`, `-a` | Space-separated list of agents to configure: `claude-code`, `codex`, or `cursor`. Without this flag, the CLI prompts you to choose agents and preselects the ones it detects on your machine. |
+| `--global`, `-g` | Set up agents for your user account instead of the current project. Defaults to `false`. |
+
+<Note>
+  `mint agent setup` requires Node.js 22.20 or later and npm.
+</Note>
+
+Without an interactive terminal, the command configures the agents it detects. If it detects none, pass `--agent`.
+
+The command adds an MCP server named `mintlify-admin` with the URL `https://mcp.mintlify.com` to each agent's configuration file.
+
+| Agent | Project file | User account file (`--global`) |
+| --- | --- | --- |
+| Claude Code | `.mcp.json` | `~/.claude.json` |
+| Codex | `.codex/config.toml` | `~/.codex/config.toml`, or `config.toml` in `CODEX_HOME` when set |
+| Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` |
+
+Setup keeps your existing configuration and skips an agent that already has a matching `mintlify-admin` entry. If a `mintlify-admin` entry has a different configuration, or a configuration file can't be parsed, setup stops before it installs skills. Rename or remove the conflicting entry, then run the command again.
+
+Rerunning the command refreshes the installed skills and replaces any local edits you made to them.
+
+The command does not sign you in to the admin MCP or reuse your `mint login` credentials. After setup, complete the OAuth sign-in in each agent. The command prints the steps for each agent you configured.
+
+### Examples
+
+```bash
+# Choose agents and set up the current project
+mint agent setup
+
+# Set up specific agents for the current project
+mint agent setup --agent claude-code codex cursor
+
+# Set up Codex for your user account
+mint agent setup --agent codex --global
+```
+
+---
+
 ## `mint config`
 
 Manage persistent default values for CLI commands. The configuration saves in `~/.config/mintlify/config.json`.
@@ -440,17 +490,88 @@ Checks color contrast ratios and missing alt text on images and videos.
 
 ## `mint validate`
 
-Validate your documentation build in strict mode. Exits with an error if there are any warnings or errors. Includes automatic validation of OpenAPI specifications referenced in your `docs.json`.
+Check your documentation for errors, then validate the build in strict mode. Includes automatic validation of OpenAPI specifications referenced in your `docs.json`.
 
 ```bash
 mint validate [flags]
 ```
 
+`mint validate` runs a set of rules against your pages, snippets, navigation, and OpenAPI specifications, then runs a strict build. Findings print grouped by file, with the line, column, and rule name for each one when available.
+
+The `duplicate-h1`, `unknown-component`, `katex`, and `foreign-syntax` rules report warnings, so their findings don't fail the run. The other rules report errors.
+
+The strict build runs only when no rule reports an error and at least one selected rule needs the build. If a rule reports an error, the command skips the build and tells you to fix the errors first. Warnings that the build can't attribute to a rule fail the run as `build-failed` errors.
+
+| Rule | Group | Description |
+| --- | --- | --- |
+| `parse-error` | `content` | Reports files that MDX can't parse. Other rules skip these files. This check always runs and you can't disable it. |
+| `void-tags` | `content` | Reports HTML void elements, such as `<br>`, `<img>`, `<source>`, and `<input>`, that aren't self-closed. MDX can't parse them unless you write them self-closed, for example `<br />` or `<source />`. `--fix` can self-close them for you. |
+| `duplicate-h1` | `content` | Reports a page whose first heading is an H1 that repeats the frontmatter `title`. Skips pages with `mode` set to `custom` or `frame`. `--fix` removes the heading, unless it has a custom `{#id}` or links in your site point to its anchor. In that case, remove it by hand and update the links. |
+| `unknown-component` | `content` | Reports JSX components on a page that aren't built in, imported, or exported on that page. `--fix` adds an import when a matching file such as `snippets/<Name>.jsx` or `snippets/<Name>.tsx` exists. |
+| `katex` | `content` | Reports inline or block math that KaTeX can't render. Ignores currency amounts such as `$5`. |
+| `foreign-syntax` | `content` | Reports syntax from other documentation frameworks that Mintlify doesn't render, such as `:::` admonitions, Liquid tags, Hugo shortcodes, and `[[wiki links]]`. Each finding names the Mintlify replacement. Runs on files MDX can't parse and skips code. |
+| `missing-file` | `content` | Reports imported files that don't exist. Needs the build. |
+| `import-error` | `content` | Reports imports in pages and snippets that don't resolve. Needs the build. |
+| `missing-nav-page` | `nav` | Reports pages in your navigation that have no file. Needs the build. |
+| `package-import` | `config` | Reports npm package imports that are undeclared or conflict. Needs the build. |
+| `build-failed` | `config` | Reports a strict build failure that no other rule explains. Needs the build. |
+| `openapi-spec` | `openapi` | Reports OpenAPI specifications in `docs.json` or `mint.json` that don't parse or validate, with overlays applied. |
+| `openapi-build` | `openapi` | Reports OpenAPI pages the build could not generate. Needs the build. |
+
 | Flag | Description |
 | --- | --- |
+| `--files` | One or more file paths or globs to limit page checks to. Site-wide checks and the build still cover the whole site. |
+| `--disable` | Turn off rules or groups. Pass a comma-separated list, or `all` to turn off every rule. Parse errors are still reported. Use `--disable openapi` to skip OpenAPI checks. |
+| `--enable` | Turn on rules or groups. Pass a comma-separated list. Use it with `--disable all` to run only specific rules. |
+| `--fix` | Write the available automatic fixes to your files, then check again. Only rules that offer a fix (`void-tags`, `duplicate-h1`, and `unknown-component`) change files. |
+| `--format` | Output format: `text` (default) or `json`. With `json`, the command prints one JSON report on stdout and nothing else. |
+| `--no-build` | Skip the strict build, so the command doesn't download the Mintlify client. Remote OpenAPI specifications are still fetched unless you disable the `openapi` rules. |
 | `--groups` | Space-separated list of user groups to mock for validation. For example, `--groups admin user`. |
-| `--disable-openapi` | Skip OpenAPI file processing and validation. |
 | `--local-schema` | Allow validation of locally hosted OpenAPI files served over HTTP. Only supports HTTPS in production. |
+
+With `--fix`, `mint validate` runs up to five fix passes, because one fix can unlock another. For example, self-closing a `<br>` can let a page parse. After the last pass, every rule runs once more and the report shows what remains. The output lists each applied fix as `fixed <file>:<line> <rule>: "before" → "after"`.
+
+`--fix` skips a fix that overlaps another fix in the same file. It also leaves a Markdown or MDX file unchanged if the fixed content would parse worse than before. Without `--fix`, the output ends with a count of the issues that `--fix` would fix.
+
+<Tip>
+  Commit or stash your changes before you run `--fix`, so you can review its edits.
+</Tip>
+
+With `--format json`, progress output is hidden and other console output goes to stderr, so you can parse stdout directly. The report has these fields:
+
+- `passed`: `true` when no rule reported an error.
+- `summary`: `errors` and `warnings` counts, plus `byRule` with a count for each rule ID.
+- `diagnostics`: each finding, with `rule`, `group`, `severity` (`error` or `warning`), `file`, optional `line` and `column`, `message`, and an optional `fix`.
+- `build`: `{ "ran": true, "passed": <boolean> }` if the strict build ran, otherwise `{ "ran": false, "reason": <reason> }` with a reason of `disabled`, `errors found`, or `no build rules`.
+- `fixed`: only with `--fix`. Each applied change, with `rule`, `file`, optional `line` and `column`, `before`, and `after`.
+
+If `mint validate` can't run, it prints nothing on stdout and writes `Error: <message>` to stderr.
+
+The command exits with one of these codes:
+
+- `0`: No rule reported an error. Warnings don't fail the run.
+- `1`: At least one rule reported an error.
+- `2`: `mint validate` could not run, for example because of an unknown rule name, a `--files` value that matches no pages or snippets, or a crash.
+
+```bash
+# Check pages matching a glob, then build the whole site
+mint validate --files "guides/**/*.mdx"
+
+# Check pages matching a glob and apply automatic fixes
+mint validate --files "guides/**/*.mdx" --fix
+
+# Skip OpenAPI checks
+mint validate --disable openapi
+
+# Run the rule checks without the strict build
+mint validate --no-build
+
+# Fast offline check for scripts and agents, listing each finding's file and message
+mint validate --no-build --format json | jq '.diagnostics[] | {file, message}'
+
+# Run only the content rules (missing-file and import-error still run the build)
+mint validate --disable all --enable content
+```
 
 <Note>
   Use `mint validate` instead of the deprecated standalone `mint openapi-check` command.

@@ -54,6 +54,10 @@ Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para
 
 Conecta tus herramientas al Admin MCP desde [tu panel](https://app.mintlify.com/products/mcp) o completa los siguientes pasos para tu herramienta preferida.
 
+<Tip>
+  Para configurar Claude Code, Codex o Cursor desde tu terminal, ejecuta [`mint agent setup`](/es/cli/commands#mint-agent-setup). El comando agrega el Admin MCP a la configuración de cada agente e instala las skills de Mintlify. Aun así, debes completar el inicio de sesión OAuth en cada agente.
+</Tip>
+
 <Tabs>
   <Tab title="Claude">
     <AdminMcpClaude />
@@ -137,6 +141,16 @@ Mintlify rechaza las ediciones en la rama de despliegue, y no cambia nada, cuand
 
 Mintlify comprueba estas condiciones en cada edición y guarda en caché tus reglas de protección de ramas durante un máximo de 30 segundos. Las herramientas de comentarios siguen funcionando en la rama de despliegue cuando se rechazan las ediciones. Si tu rama de despliegue empieza a requerir una pull request después de que la edites, `publish` devuelve `branch_protected` y tus cambios siguen pendientes. Abre el editor del panel para moverlos a una nueva rama.
 
+<div id="projects-with-auto-publish">
+  ### Proyectos con publicación automática
+</div>
+
+Si tu proyecto tiene la [publicación automática](/es/editor/settings#auto-publish) activada, el Admin MCP no usa ramas para él. Pasa tu rama de despliegue como `branch`. Mintlify hace commit de tus ediciones en la rama de despliegue automáticamente.
+
+Mintlify rechaza `create_branch` y las llamadas sobre cualquier otra rama en estos proyectos, y no cambia nada. Si tu conexión solo abarca ese proyecto, el Admin MCP no muestra `create_branch` ni `list_branches`.
+
+**Enviar directamente a tu rama de despliegue** y la protección de ramas no bloquean las ediciones en la rama de despliegue en un proyecto con publicación automática. Mintlify sigue rechazando las ediciones cuando la edición de la rama de despliegue está bloqueada en el editor del panel, o cuando te conectaste con un token de cliente o de máquina a máquina.
+
 <div id="work-on-a-branch">
   ## Trabajar en una rama
 </div>
@@ -214,7 +228,7 @@ Después de `upload_file`, la herramienta de IA sube los bytes del archivo a `up
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Para añadir una imagen, pasa una `path` de imagen, como `images/dashboard.png`, y la `branch` a `upload_file`. Después de la carga, llama a `finalize_file_upload`. Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Mintlify solo acepta archivos SVG para logotipos y favicons, así que pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes guardadas aparecen en `status` y se publican con el resto de tus ediciones cuando llamas a `publish`.
+Para añadir una imagen, pasa una `path` de imagen, como `images/dashboard.png`, y la `branch` a `upload_file`. Después de la carga, llama a `finalize_file_upload`. Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Solo las cargas de logotipos y favicons pueden ser archivos SVG: pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes de las páginas no pueden ser SVG. Las imágenes guardadas aparecen en `status` y se publican con el resto de tus ediciones cuando llamas a `publish`.
 
 Para escribir una página a partir de un archivo Markdown local, pasa una `path` `.md` o `.mdx` con `contentType` establecido en `text/markdown` o `text/plain`. Las cargas de páginas no necesitan `branch` ni `finalize_file_upload`. Después de la carga, pasa el `uploadId` en lugar de `content` a `write_page`, o como `data.uploadId` a `create_node`. Así evitas reenviar el contenido completo de una página grande en la llamada a la herramienta.
 
@@ -231,7 +245,7 @@ Trabaja con los [comentarios y sugerencias](/es/editor/collaborate#comments) que
 - **`suggest_edit`**: Propone una sugerencia con control de cambios en una página en lugar de editarla. El texto original permanece en la página tachado y el reemplazo aparece a su lado. Nada cambia hasta que alguien acepta o rechaza la sugerencia en el editor del panel. Pasa `path` en los mismos formatos que `read`, `oldString` y `newString`. `oldString` es el fragmento de texto visible único más corto que se va a reemplazar, dentro de un párrafo o encabezado. Usa las palabras renderizadas, no la sintaxis de Markdown o MDX. Pasa un `newString` vacío para sugerir una eliminación. Pasa un `comment` opcional para explicar por qué el cambio es útil. Mintlify lo publica como la respuesta del agente en el hilo de la sugerencia. El parámetro anterior `note` sigue funcionando como alias obsoleto de `comment`. Devuelve el nuevo `threadId` con `originalText` y `suggestedText`, recortados al fragmento que cambia. Si la misma sugerencia ya está abierta, la respuesta incluye `alreadyExists: true` y el `threadId` existente. Los errores `no_match` y `not_unique` funcionan igual que en `add_comment`. El error es `no_change` cuando ambas cadenas son iguales y `conflicting_annotation` cuando el texto se superpone con otra sugerencia abierta.
 - **`reply_to_comment`**: Responde a un hilo por `threadId` con `content`. Pasa `resolve: true` para resolver también el hilo. Mintlify publica la respuesta como el agente en nombre del usuario que autorizó la conexión, y aparece en tiempo real en el editor del panel.
 - **`resolve_comment`**: Resuelve un hilo sin responder.
-- **`read_inbox`**: Lista tu bandeja de entrada del dashboard en un proyecto, con la actividad más reciente primero. La bandeja de entrada incluye comentarios y menciones, ediciones sugeridas e invitaciones a la organización. De forma predeterminada, `read_inbox` devuelve los elementos abiertos. Pasa `state` como `open`, `done` o `all`, y `section` como `comment`, `suggestion`, `invitation` o `all` (predeterminado). Pasa `filter` para limitar los comentarios a `mentions` u `on-my-page` (páginas de las que eres propietario), o las sugerencias a las de `people` o del `agent`. El filtro debe coincidir con `section`, a menos que `section` sea `all`. Pasa `dateFrom` y `dateTo` como fechas y horas ISO 8601 para limitar los elementos según su actividad más reciente. Pasa `limit` para obtener de 1 a 50 elementos por llamada (20 de forma predeterminada), y pasa `nextCursor` como `cursor` para listar elementos más antiguos. Cada elemento incluye su `category`, `state`, `latestActivity` y `target`. Cuando `target.thread` está presente, no está resuelto y no está en una página privada, llama a `read_comments` con su `filePath` y responde con `reply_to_comment`, ambos en su `branch`. Los elementos `restricted` no incluyen detalles del hilo. `read_inbox` es de solo lectura y nunca marca elementos como leídos o completados. Los errores incluyen `invalid_filter`, `invalid_date_range` e `invalid_cursor`.
+- **`read_inbox`**: Lista tu bandeja de entrada del dashboard en un proyecto, con la actividad más reciente primero. La bandeja de entrada incluye comentarios y menciones, ediciones sugeridas, y páginas y carpetas privadas compartidas contigo. De forma predeterminada, `read_inbox` devuelve los elementos abiertos. Pasa `state` como `open`, `done` o `all`, y `section` como `comment`, `suggestion`, `invitation` o `all` (predeterminado). Pasa `filter` para limitar los comentarios a `mentions` u `on-my-page` (páginas de las que eres propietario), o las sugerencias a las de `people` o del `agent`. El filtro debe coincidir con `section`, a menos que `section` sea `all`. Pasa `dateFrom` y `dateTo` como fechas y horas ISO 8601 para limitar los elementos según su actividad más reciente. Pasa `limit` para obtener de 1 a 50 elementos por llamada (20 de forma predeterminada), y pasa `nextCursor` como `cursor` para listar elementos más antiguos. Cada elemento incluye su `category`, `state`, `latestActivity` y `target`. Cuando `target.thread` está presente, no está resuelto y no está en una página privada, llama a `read_comments` con su `filePath` y responde con `reply_to_comment`, ambos en su `branch`. Los elementos `restricted` no incluyen detalles del hilo. `read_inbox` es de solo lectura y nunca marca elementos como leídos o completados. Los errores incluyen `invalid_filter`, `invalid_date_range` e `invalid_cursor`.
 
 `add_comment`, `suggest_edit`, `reply_to_comment` y `resolve_comment` requieren una sesión OAuth y una `branch`. Actúan sobre los hilos de esa rama y funcionan en tu rama de despliegue incluso cuando sus ediciones requieren una pull request. Puedes responder a hilos de sugerencias, pero debes aceptar o rechazar las sugerencias en el editor. Los comentarios en páginas privadas no están disponibles a través del Admin MCP. `read_inbox` también requiere una sesión OAuth y solo devuelve la bandeja de entrada de un miembro activo de la organización del proyecto.
 
@@ -251,7 +265,7 @@ Si una llamada a `create_node`, `update_node`, `move_node` o `delete_node` deja 
   ### Configuración
 </div>
 
-- **`update_config`**: Modifica `docs.json` (tema, raíces de navegación, integraciones, configuración de SEO).
+- **`update_config`**: Cambia los ajustes de nivel superior de `docs.json`, como el tema, los colores, el logotipo, la barra de navegación, el pie de página, las redirecciones, las integraciones y el SEO. No puede cambiar `navigation`; usa las herramientas de navegación en su lugar. Mintlify rechaza por completo una configuración no válida.
 
 <div id="project-management">
   ### Gestión de proyectos

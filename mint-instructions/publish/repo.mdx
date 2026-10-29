@@ -1,0 +1,65 @@
+---
+title: "Docs source repository"
+name: mintlify-publish-repo
+description: "Covers where the docs source lives and how it connects: monorepos, multi-repo projects, Git providers, cloning a Mintlify-created repo, offline export, and self-hosting."
+when: "Monorepo, multi-repo, GitHub/GitLab/Bitbucket, offline export, self-host"
+---
+Use this for docs outside a plain single repo with root `docs.json`, for connecting a Git provider, or when deploys or the editor cannot reach the repo. Repo settings live on the dashboard Git Settings page (https://app.mintlify.com/settings/project/git-settings).
+
+## Workflow
+
+1. Find the current source: Git Settings shows provider, repo, branch and content directory. `mint status` shows the subdomain.
+2. Pick the layout:
+   - Monorepo (docs in a subfolder of an app repo): put `docs.json` and the pages in that folder (for example `docs/docs.json`). In Git Settings enable **docs.json is in a subdirectory**, enter the path (`/docs`, no trailing slash), **Save changes** (triggers a deploy). Run `mint` from that folder.
+   - Several repos into one site: multi-repo project (Enterprise) or the multi-repo GitHub Action (any plan). See below.
+3. Connect the provider (below), set the deployment branch, push a commit, and confirm a deploy appears on the dashboard Publishes page.
+
+## Providers
+
+- GitHub: install the Mintlify GitHub App from Git Settings, choose **Only select repositories**, pick the docs repo (plus agent or workflow context repos). Needs org owner or repo admin, otherwise the owner must approve. Permissions: read `metadata`; read and write `checks`, `code`, `deployments`, `pull requests`. The app cannot push to protected branches. GitHub Enterprise Cloud with an IP allowlist: allow `54.242.90.151`.
+- Mintlify-hosted repo (created during onboarding, in the `mintlify-community` org or a private Mintlify-owned repo): no app needed, web editor works. To work locally, move it: Git Settings wizard, **GitHub**, **Clone** (one-click, recommended: authorize, pick org, confirm, then install the app). Manual setup (**Continue setup**) permanently deletes the Mintlify-hosted repo content: download the zip first.
+- GitHub Enterprise Server (Enterprise): the customer registers and installs their own GitHub App on GHES (permissions per the GHES page) and shares its base URL, App ID, client ID and secret, installation ID and owner, private key and webhook secret with Mintlify, which provides the webhook URL. Network: outbound 443 to `leaves.mintlify.com` (by hostname), inbound 443 from `54.242.90.151`. No air-gapped GHES.
+- GitLab (gitlab.com or a publicly reachable self-hosted instance): Git Settings, **Connect to GitLab**. Needs Project ID (Settings > General) and a project access token (role Maintainer, scopes `api` and `read_api`; personal tokens work but expire). Self-hosted: set **GitLab instance URL** (`https://`, port 443, no credentials). Then add a GitLab webhook: URL `https://leaves.mintlify.com/gitlab-webhook`, secret = dashboard **Show webhook token**, events Push (all branches) and Merge requests. Test should return `HTTP 200`. Stale config: click the green **Active** badge.
+- Self-hosted GitLab OAuth (Pro or Enterprise, feature enabled by support): only needed for automations, on top of the token connection. Register a GitLab OAuth app (redirect `https://app.mintlify.com/api/gitlab-oauth/callback`, scopes `api`, `read_repository`, `write_repository`), enter it under **Self-hosted GitLab**, authorize, select projects (user needs Maintainer). `Invalid url given` on webhook: allow local network webhook requests in GitLab admin. `invalid_client`: secret rotated; revoke, remove, re-add.
+- Bitbucket Cloud (Enterprise, `bitbucket.org` only; no Data Center, no Slack agent or automations): **Connect to Bitbucket**, OAuth, enter workspace slug, repo slug, deploy branch, optional subdirectory (for example `apps/docs`). Missing webhook: disable and re-enable the repo under **Bitbucket OAuth**.
+
+## Multiple repositories
+
+- Multi-repo project (Enterprise): Git Settings, **Add repository**, pick repo, branch, optional subdirectory, and a unique **URL path** (`api` serves `/api`; one source may use `/`). Each repo needs its own `docs.json`. All sources use one provider; adding another provider's repo removes the existing sources. A repo can be added once. URL paths cannot overlap (`/docs` and `/docs/api`). The **Base** source's `docs.json` controls theme, colors, logo, name, top-level navigation, SEO; change with **Set as base**. Place a source's navigation with `{ "sourceRef": "owner/repo" }` in a navigation array. Cross-source links: root-relative with the URL path (`/api/reference/auth`), never full `https://` URLs.
+- Multi-repo GitHub Action (`mintlify/multirepo-action@v1`, no Enterprise needed): copies child repos into one parent repo. Rename the parent `docs.json` to `docs.base.json` (the action generates `docs.json`), list children in `.github/mintlify-multirepo.yml` (`repo`, `destination` required; `path`, `ref`, `name`, `exclude`, `rewriteLinks` optional), add a workflow that runs the action. Private children need a token with `contents: read`. Default opens a PR (needs **Allow GitHub Actions to create and approve pull requests**); `mode: push` pushes. Edit in the child repos: each run overwrites synced folders and `docs.json`.
+
+## Export and self-hosting
+
+- `mint export` (Enterprise, Node.js v20.17.0+): zip of pre-rendered pages for offline or air-gapped viewing. Run `mint export --help` for flags (`--output`, `--groups`). No search, assistant, analytics or integrations; navigation pages only; serve from a domain root (no subpath); external-URL files are not bundled. The archive is unauthenticated. View with `node serve.js`.
+- Self-hosting (Enterprise, scoped with the account team, not self-serve): AWS CDK app or a Helm chart on any Kubernetes (AKS, GKE, OKE, OpenShift). Source can be GitHub, GHES, GitLab (incl. self-managed), Bitbucket, or an internal proxy API. Custom portals need Enterprise plus self-hosting.
+
+## Rules
+
+- The repo folder name does not set the public URL path. Subpaths are set on the custom domain (`mint instructions publish domain`).
+- Never overwrite or delete the user's repo content.
+- Agent and automation runs use dynamic IPs. With a GitHub or GitLab IP allowlist they fail until support routes the project through `54.242.90.151`; then add that IP. Webhooks from the user's server to Mintlify are allowed by hostname (`leaves.mintlify.com`, `app.mintlify.com`), no IP list.
+
+## Errors
+
+- Private repo missing from the onboarding picker (second project on the same repo): visit `https://app.mintlify.com/api/onboarding/github/authorize?private=true` while signed in. Still missing: add the repo to the GitHub App installation. Several projects may share one repo.
+- Branch missing from the editor dropdown: the list shows only editor branches and branches with an open PR to the deployment branch. Search by name, or open a PR from the same repo (fork branches never show).
+- **Repository unavailable** in the editor: repo deleted, renamed, moved, removed from the app, or deploy branch renamed. Fix in Git Settings, then **Reload editor**.
+- Pushes do not deploy: app not on that repo or wrong branch. Reset: uninstall the app in GitHub, reinstall from Git Settings.
+
+## Verify
+
+```bash
+mint validate        # from the folder that contains docs.json
+mint broken-links
+mint status
+```
+
+Push, then confirm the deploy on https://app.mintlify.com/publishes.
+
+## More
+
+- `mint instructions publish`, `mint instructions publish domain`
+- https://www.mintlify.com/docs/deploy/monorepo
+- https://www.mintlify.com/docs/deploy/multi-repo
+- https://www.mintlify.com/docs/deploy/github
+- https://www.mintlify.com/docs/deploy/export
