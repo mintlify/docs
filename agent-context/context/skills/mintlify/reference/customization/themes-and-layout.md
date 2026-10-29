@@ -33,4 +33,4 @@ Use `docs.json.navigation` (groups, tabs, anchors, dropdowns, products, versions
 - Hiding a navigation entry does not restrict access to its page.
 - Active-state selectors are in [selectors](selectors.md).
 
-See the [themes](https://www.mintlify.com/docs/customize/themes) and [navigation](https://www.mintlify.com/docs/organize/navigation) docs.
+See the [themes](https://mintlify.com/docs/customize/themes.md) and [navigation](https://mintlify.com/docs/organize/navigation.md) docs.

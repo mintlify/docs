@@ -64,7 +64,7 @@ When you have no local checkout and no CLI (for example, editing through the Min
 
 ### Migrating from another platform
 
-For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. For any other platform, follow `https://mintlify.com/docs/migration/manual`. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in `reference/site-building.md`.
+For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>.md` (for example `docusaurus.md`), using the Mintlify Search MCP server to read it. For any other platform, follow `https://mintlify.com/docs/migration/manual.md`. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in `reference/site-building.md`.
 
 ## MCP servers
 
@@ -113,7 +113,7 @@ Keep each branch focused on one change. Smaller branches produce easier-to-revie
 
 ## Before you start
 
-Mintlify changes often, so don't rely on what you remember about it. When a detail isn't in this skill, check the current documentation with the Mintlify Search MCP server or at `https://mintlify.com/docs`.
+Mintlify changes often, so don't rely on what you remember about it. When a detail isn't in this skill, check the current documentation with the Mintlify Search MCP server or at `https://mintlify.com/docs`. Every docs page has a Markdown version at its URL plus `.md` (for example `https://mintlify.com/docs/organize/navigation.md`), and `https://mintlify.com/docs/llms.txt` lists them all; fetch those instead of the HTML pages.
 
 Before substantial content work, read `reference/product-context.md` and check for `.mintlify/product-brief.md`.
 

@@ -30,4 +30,4 @@ import { ExampleCounter } from "/snippets/example-counter.jsx";
 
 Snippets can import other snippets; declare each import in the file that uses it, because page-level imports don't apply inside imported snippets. Avoid passing JSX through multiple snippet levels. Conditionally rendered nested snippets, such as `<MDX>{flag && <Outer />}</MDX>`, can render nothing while their headings still appear in the TOC. Check the rendered output, not only compilation.
 
-See [React components](https://www.mintlify.com/docs/customize/react-components) and [reusable snippets](https://www.mintlify.com/docs/create/reusable-snippets).
+See [React components](https://mintlify.com/docs/customize/react-components.md) and [reusable snippets](https://mintlify.com/docs/create/reusable-snippets.md).
