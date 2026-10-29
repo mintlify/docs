@@ -1,6 +1,6 @@
 # Selectors and component state
 
-The [public custom CSS docs](https://www.mintlify.com/docs/customize/custom-scripts) list the ID and class hooks for layout and components. This file covers syntax, state attributes, and component parts that the public list omits. All hooks exist only when their owning element renders.
+The [public custom CSS docs](https://mintlify.com/docs/customize/custom-scripts.md) list the ID and class hooks for layout and components. This file covers syntax, state attributes, and component parts that the public list omits. All hooks exist only when their owning element renders.
 
 ## Syntax
 
