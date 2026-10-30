@@ -40,6 +40,43 @@
 - Include pagination details when they apply.
 - Include rate limits if you can confirm them. Don't guess or leave a placeholder.
 
+### Endpoint summaries
+
+The `summary` field is the endpoint's page title and sidebar label unless the page's frontmatter sets a `title`. When both exist, keep them the same.
+
+- Start with a verb in sentence case: "Get agent job," "Create agent job," "Trigger automation."
+- Use "Get" to read one resource, "List" to read a collection, and "Create," "Update," or "Delete" for those operations. For other actions, use the specific verb, such as "Trigger," "Send," or "Search."
+- Name the resource without articles: "Get assistant conversation thread," not "Get an assistant conversation thread."
+- When more than one version of an endpoint is in the navigation, add the version in parentheses to the older ones only: "Create agent job (v1)."
+
+### Endpoint descriptions
+
+- Start the first sentence with a present-tense, third-person verb that matches the summary: "Creates," "Retrieves," "Lists," "Updates," "Deletes," "Triggers." Don't start with "This endpoint" or an imperative like "Get" or "Queue."
+- Describe what the endpoint does and what it returns in one or two sentences, then add details the reader needs to call it, such as polling behavior or required setup.
+- End with the authentication requirement: "Authenticate with an admin API key."
+
+### Status codes
+
+- Only document status codes that you've confirmed in the server code.
+- Each response needs a description that says when the endpoint returns it. A bare status code or "A successful response" isn't enough.
+- Every authenticated endpoint documents `401`. Every endpoint that accepts parameters or a request body documents `400`.
+- Use the standard descriptions in the following table by default. When the endpoint has specific causes, such as a resource that exists but isn't active, list those causes instead.
+
+| Code | Standard description |
+| --- | --- |
+| `200` | The request succeeded. |
+| `201` | The resource was created. |
+| `202` | The request was accepted and queued for processing. |
+| `400` | The request is invalid. The response body describes the error. |
+| `401` | The API key is missing or invalid. |
+| `402` | Your plan or credits don't cover this request. |
+| `403` | Your API key or plan doesn't have access to this resource. |
+| `404` | The resource doesn't exist or doesn't belong to this project. |
+| `409` | The request conflicts with the current state of the resource. |
+| `429` | You exceeded the rate limit. Wait, then retry the request. |
+| `500` | An unexpected server error occurred. Retry the request. If the error continues, contact support. |
+| `503` | The service is temporarily unavailable. Retry the request. |
+
 ## Two workflows: editor (web or desktop app) and CLI
 
 - When a task can be done in the editor or locally via the CLI, cover both. Use tabs, or separate sections if the steps diverge a lot.
