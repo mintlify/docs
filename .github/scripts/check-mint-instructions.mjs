@@ -93,11 +93,25 @@ for (const topic of TOPICS.filter((topic) => pages.includes(topic))) {
   }
 }
 
-// Topics are hidden pages: keep them out of every navigation file.
+// Topics are hidden pages: keep them out of navigation. Only `pages` entries and group `root`
+// values count, so other config that names the folder (gt.config.json exclusions) is ignored
+const isTopicPath = (value) => typeof value === 'string' && /^\/?mint-instructions\//.test(value);
+const findNavTopics = (node, found = []) => {
+  if (Array.isArray(node)) {
+    for (const item of node) findNavTopics(item, found);
+  } else if (node && typeof node === 'object') {
+    for (const [key, value] of Object.entries(node)) {
+      if (key === 'pages' && Array.isArray(value)) found.push(...value.filter(isTopicPath));
+      if (key === 'root' && isTopicPath(value)) found.push(value);
+      findNavTopics(value, found);
+    }
+  }
+  return found;
+};
 const navFiles = (await readdir(root)).filter((name) => name.endsWith('.json'));
 for (const name of navFiles) {
-  const source = await readFile(path.join(root, name), 'utf8');
-  if (source.includes('"mint-instructions/')) errors.push(`${name}: mint-instructions pages must stay out of navigation`);
+  const found = findNavTopics(JSON.parse(await readFile(path.join(root, name), 'utf8')));
+  if (found.length > 0) errors.push(`${name}: mint-instructions pages must stay out of navigation (${found.join(', ')})`);
 }
 
 if (errors.length > 0) {
