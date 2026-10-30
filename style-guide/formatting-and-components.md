@@ -41,6 +41,7 @@ Google's defaults apply: [headings](https://developers.google.com/style/headings
 - Use `<CodeGroup>` to show the same example in more than one language.
 - Examples are runnable and minimal, with realistic values, and include error handling only when relevant.
 - Never put real API keys in examples.
+- Use reserved domains for example URLs and email addresses: `example.com`, `example.org`, `example.net`, and their subdomains, such as `docs.example.com` and `you@example.com`. Don't use domains someone can register or already owns, such as `acme.com` or `yourdomain.com`. Use Mintlify domains only for real Mintlify addresses, such as `support@mintlify.com`, and for Mintlify-hosted URLs, such as `<your-subdomain>.mintlify.site`.
 
 ## Images
 
