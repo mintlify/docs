@@ -1,0 +1,85 @@
+---
+title: "Troubleshoot"
+name: mintlify-troubleshoot
+description: "Maps Mintlify errors and symptoms to causes and fixes, by stage: install, local preview, validate, deploy, live site, and web editor. Use when a command fails or the site looks wrong."
+when: "An error, a failed build or deploy, or the site looks wrong"
+---
+Use this when a `mint` command errors, a deploy fails, or the local preview, editor or live site behaves unexpectedly.
+
+## Triage workflow
+
+1. Run `mint version`. If the client version is `none` or the CLI is old, run `mint update` (if missing: `npm i -g mint@latest`). Outdated CLIs cause many errors.
+2. `cd` to the directory that contains `docs.json`. `mint dev` and `mint validate` need it.
+3. Run `mint validate` and read every message. It validates OpenAPI specs in `docs.json` and exits non-zero on errors; warnings do not fail it but often explain the problem.
+4. Run `mint broken-links` for link problems.
+5. Deploy problems: the dashboard **Publishes** page (https://app.mintlify.com/publishes) shows each commit's build status and log.
+
+## Install and CLI
+
+- `Could not load the "sharp" module using the darwin-arm64 runtime` -> outdated Node.js. Fix: `npm uninstall -g mint`, upgrade to Node.js v20.17.0+, `npm install -g mint`.
+- `permission denied` on global install -> Fix: suggest `sudo npm i -g mint` and explain the tradeoff.
+- Unknown error -> stale local state. Fix: delete `~/.mintlify`, run `mint dev` again.
+- Odd behavior with both `mint` and `mintlify` installed (`npm ls -g`) -> legacy package. Fix: `npm uninstall -g mintlify`, `npm cache clean --force`, `npm i -g mint`. Never install `mintlify` in scripts or CI.
+- `mint version` shows client version `none` -> firewall or VPN blocks the client download. Fix: ask IT to allowlist `releases.mintlify.com`.
+- `mint new` hangs or prompts in an agent or CI -> non-interactive mode needs flags. Fix: pass `--name` and `--theme`, or `--template`.
+
+## Local preview (mint dev)
+
+- Local preview differs from the live site -> outdated CLI. Fix: `mint update`.
+- No search or assistant locally -> not authenticated. Fix: `mint login`, check with `mint status`.
+- Port 3000 busy -> the CLI tries the next free port automatically, or pass `--port 3333`.
+- Slow preview -> `--disable-openapi` (many specs) or `--disable-prefetch` (thousands of pages).
+
+## Validate and links
+
+- `#.logo.href: Must be a valid url` or `#.navbar.primary.href: Must be a valid url` -> outdated CLI rejects relative paths. Fix: `mint update`, then `mint validate`. Relative paths must start with `/` (`contact` still fails). `github` and `discord` button types still need a full URL.
+- All OpenAPI pages blank -> spec not found or invalid, or OpenAPI 2.0 (unsupported). Fix: run `mint validate`, convert 2.0 to OpenAPI 3.
+- One OpenAPI page blank -> `openapi` frontmatter method or path does not match the spec (for example `/user/{id}` vs `/users/{id}`), or wrong spec filename prefix (`"v1 GET /users/{id}"`).
+- OpenAPI navigation generates no pages -> no `openapi` field on the navigation element, or child groups do not inherit the spec. Fix: add `"openapi": "<path>"` to the group, run `mint validate`.
+- Some operations missing -> `x-hidden: true`, invalid operations, or you referenced some endpoints explicitly (then only those appear).
+- Mixed OpenAPI and MDX broken -> an MDX file and a nav entry for one operation (remove one, or move the href with `x-mint`), or a nav entry matching no operation (treated as a file path). Methods must be uppercase.
+- `mint broken-links` flags a link to an existing file -> the target matches `.mintignore`. Run `mint broken-links --help` for deeper checks.
+
+## Deploy
+
+- `Page api, openapi, or asyncapi frontmatter must be a single endpoint string. Deployment not updated` -> the field is a list, number or boolean. Fix: one quoted string per page, `openapi: "GET /users"`. The live site keeps the last good build.
+- `Failed to fetch OpenAPI file for anchor or tab` -> the build cannot download the `docs.json` `openapi` URL (private, `401`/`403`, TLS or DNS errors, or not published yet). Fix: commit the spec and use a repo path (`"openapi": "openapi.json"`), or a stable public HTTPS URL.
+- `Agent request failed (HTTP 429)` from `mint deploy` -> rate limited, nothing created. Retry once later; don't loop.
+- `No account was created` from `mint signup` -> expected for agents: use `mint deploy`, `mint claim`.
+- `No saved agent registration` from `mint claim` -> run it in the `mint deploy` directory or pass `--directory`.
+- `mintlify.yml already exists` from `mint deploy --github` -> `--force` only if the user agrees.
+- Push did not deploy -> GitHub App not installed on the account or org that owns the repo, or push went to a branch other than the deployment branch. Fix: install the app, push to the configured branch, or click the deploy button in the dashboard.
+- No preview deployment for a fork PR, or the preview API rejects a fork branch -> expected, the GitHub App is not installed on forks. Fix: a maintainer pushes the branch to the main repo and opens the PR from there.
+
+## Live site
+
+- Static file returns `404` -> URL must match repo path exactly (case, extension), file only on a feature branch, unsupported type (`.pdf`, `.txt`, `.xml`, `.csv`, `.zip` need Enterprise), file 20 MB or larger, site has authentication (static files not served), file matches `.mintignore` or sits in `node_modules`, `build`, `dist`, `.git`.
+- Search returns nothing -> `hidden: true` on the only version, anchor, dropdown, language or product. Fix: remove it, or set `"seo": { "indexing": "all" }`. Pages outside navigation or with `hidden`, `noindex` or `searchable: false` frontmatter are excluded. Reindexing happens on rebuild.
+- `llms.txt` is `404` but `llms-full.txt` works -> **Don't index project** is on (dashboard **Site** settings). Turn it off and wait for the redeploy. Otherwise check a reverse proxy forwards `/llms.txt` and `/.well-known/llms.txt`. On fully authenticated sites both files need auth.
+- Custom React component flashes in or is missing from page source -> expected: components defined with `export` or imported by name from a snippet render only in the browser. Fix: use built-in components (cards, columns, tabs, accordions, steps, callouts) or MDX snippets for static content.
+- API playground requests fail behind a reverse proxy -> proxy blocks `POST` to `/_mintlify/api/request`. Allow it, or set `api.playground.proxy` in `docs.json` and configure CORS.
+
+## Web editor
+
+- **Publish** disabled, tooltip `Fix invalid MDX before publishing` -> a page on the branch fails to parse (unclosed tag like `<Note>`, unclosed brace, invalid YAML frontmatter). Fix: open changed files from the Publish menu, switch to source mode (Cmd/Ctrl + Shift + S).
+- **Repository unavailable** -> repo deleted, renamed, moved, removed from the GitHub App, or deployment branch renamed. Fix: **Open Git settings**, correct org, repo and branch, confirm app access, **Reload editor**.
+- Tailwind classes unstyled in live preview -> live preview skips the CSS build. Check with `mint dev` or a preview deployment.
+- Branch missing from dropdown -> only editor branches and open-PR branches are listed. Search by name.
+
+## Verify
+
+```bash
+mint version
+mint validate
+mint broken-links
+mint dev --no-open
+```
+
+Then check the change on the live site after **Publishes** shows a successful build.
+
+## More
+
+- `mint instructions publish`, `mint instructions api-docs`
+- https://www.mintlify.com/docs/cli/install
+- https://www.mintlify.com/docs/api-playground/troubleshooting
+- https://www.mintlify.com/docs/deploy/deployments

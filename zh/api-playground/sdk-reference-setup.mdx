@@ -1,7 +1,7 @@
 ---
 title: "SDK 参考设置"
-description: "了解如何使用 TypeDoc、DocFX、Javadoc、Sphinx 或 phpDocumentor 的构建产物，在 Mintlify 中自动生成 SDK 参考页面、导航分组、跨页链接和搜索索引，并通过 CI 或远程源保持内容更新。本文还介绍格式配置、目录路径、远程压缩包和仓库组织方式。"
-keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "reference"]
+description: "了解如何使用 TypeDoc、DocFX、Javadoc、Sphinx、phpDocumentor 或 Go 的构建产物，在 Mintlify 中自动生成 SDK 参考页面、导航分组、跨页链接和搜索索引，并通过 CI 或远程源保持内容更新。本文还介绍格式配置、目录路径、远程压缩包和仓库组织方式。"
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "go", "golang", "mintlify-go-extractor", "reference"]
 ---
 
 使用 `sdk` 导航属性，可以基于你已经在使用的文档工具，为 SDK 库生成参考页面。Mintlify 会读取每个工具生成的构建产物，为每个 class、interface、module 和 function 创建一个页面，并自动生成导航分组、跨页链接与搜索索引。
@@ -17,6 +17,7 @@ keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "ref
 | `javadoc` | [Javadoc](https://docs.oracle.com/en/java/javase/17/javadoc/javadoc.html) (Java) | 标准 doclet HTML 目录 |
 | `sphinx` | [Sphinx](https://www.sphinx-doc.org) (Python) | JSON builder 输出目录 |
 | `phpdoc` | [phpDocumentor](https://phpdoc.org) (PHP) | `structure.xml` 文件 |
+| `go` | [mintlify-go-extractor](https://github.com/mintlify/mintlify-go-extractor) (Go) | JSON 构建产物文件 |
 
 <div id="generate-an-artifact">
   ## 生成构建产物
@@ -47,7 +48,35 @@ python -m sphinx -b json docs/source artifacts/json
 phpdoc -d src -t artifacts --template=xml
 ```
 
+```bash Go
+go run github.com/mintlify/mintlify-go-extractor@latest -o go.json
+```
+
 </CodeGroup>
+
+<div id="go">
+  ### Go
+</div>
+
+Go 自带的文档工具只输出文本和 HTML，不会生成机器可读的构建产物，因此 Mintlify 维护了开源命令 [`mintlify-go-extractor`](https://github.com/mintlify/mintlify-go-extractor) 来生成构建产物。在你的 Go 模块内的任意位置运行它即可。它使用 Go 标准库读取模块的源文件，因此不会下载依赖，也不需要凭据，并且适用于私有模块。
+
+使用 Go 1.24 或更高版本时，可以在模块的 `go.mod` 中固定该提取器，让每次运行都使用同一版本：
+
+```bash
+go get -tool github.com/mintlify/mintlify-go-extractor@latest
+go tool mintlify-go-extractor -o go.json
+```
+
+每个 [release](https://github.com/mintlify/mintlify-go-extractor/releases) 都附带适用于 macOS、Linux 和 Windows 的预编译二进制文件。
+
+默认情况下，提取器会为模块中除 `internal` 包和命令之外的所有包生成文档，并将文档注释按 Markdown 读取，这也是生成式 SDK（例如由 Stainless、Speakeasy 或 Fern 生成的 SDK）所写的格式。常用选项：
+
+- `-comments=godoc`：按 Go 的[文档注释语法](https://go.dev/doc/comment)而不是 Markdown 读取文档注释。
+- `-exclude`：跳过指定的包，格式为以逗号分隔的包模式列表。
+- `-exclude-symbols`：从参考中排除单个符号，格式为以逗号分隔的模式列表，例如 `NewLegacyClient`、`Client.Debug` 或 `Legacy*`。在模式前加上包目录（例如 `option.WithDebugLog`），即可仅在一个包中匹配。对已排除符号的引用会显示为纯文本，而不是链接。
+- `-goos`、`-goarch`、`-tags`：选择用于筛选文件的平台和构建标签。默认值为 `linux/amd64`。
+
+传入包模式（例如 `./option/...`）即可只为模块的一部分生成文档。完整选项请参阅[提取器 README](https://github.com/mintlify/mintlify-go-extractor#readme)。
 
 <div id="auto-populate-sdk-pages">
   ## 自动填充 SDK 页面
@@ -94,7 +123,7 @@ phpdoc -d src -t artifacts --template=xml
 </Note>
 
 <ParamField path="format" type="string" required>
-  用于生成构建产物的文档工具：`typedoc`、`docfx`、`javadoc`、`sphinx` 或 `phpdoc`。
+  用于生成构建产物的文档工具：`typedoc`、`docfx`、`javadoc`、`sphinx`、`phpdoc` 或 `go`。
 </ParamField>
 
 <ParamField path="source" type="string" required>
@@ -116,6 +145,18 @@ phpdoc -d src -t artifacts --template=xml
 </div>
 
 Mintlify 会将生成的导航组添加到 tab 中已有的任何 `groups` 之后。如果你在 group 上添加了 `sdk`，生成的分组会显示在该 group 的 `pages` 之后。这些组因格式而异，可能表示模块、包、命名空间或符号类型。
+
+对于 TypeDoc 产物，Mintlify 会沿用你通过 `@category` 和 `@group` 标签定义的结构。分类和自定义分组标题会成为导航组。分组内的分类会成为嵌套组，命名空间会成为按其自身分类或分组组织的嵌套组。如果产物中没有分类或自定义分组标题，Mintlify 会按符号类型（例如类、接口和函数）对页面进行分组。
+
+如果你的 TypeDoc 产物包含 README，Mintlify 会在你的 `directory` 下的 `package-overview` 处添加一个概览页面，并将其放在 `Overview` 组中，位于其他生成的分组之前。概览页面会显示 README，随后是该库的类、接口、函数及其他符号的索引。拥有独立 README 的模块会在 `<module>/package-overview` 处获得单独的概览页面，位于 `<module> Overview` 组中，并且只索引该模块的符号。没有 README 或 README 为空的产物不会生成概览页面。
+
+对于 Javadoc 产物，Mintlify 会按包对页面进行分组。当一个包中混合了多种类型时，会按 Javadoc 包页面所用的顺序，将它们嵌套在 Interfaces、Classes、Enums、Records、Exceptions、Errors 和 Annotations 之下。
+
+对于 Go 产物，Mintlify 会按包对页面进行分组。每个包以一个概览页面开头，展示该包的 `README` 和文档注释，随后是其类型和函数的索引。
+
+当一个 Go 包中混合了多种类型时，Mintlify 会按 Interfaces、Structs、Types 和 Functions 的顺序嵌套其其他页面。Types 包含自定义类型和类型别名。Functions 包含包级函数，包括构造函数。
+
+每个类型和每个包级函数都有各自的页面。类型页面包含其字段、构造函数和方法。
 
 每个生成的页面都记录了构建产物中的一个类、接口、函数、类型或其他符号，并链接到相关的生成页面。如果转换器生成的页面不属于任何组，Mintlify 会将它们归入 `Reference` 组。
 
@@ -142,10 +183,12 @@ sdk: "class Client"
 
 字符串形式遵循 `[source] kind name` 的模式。如果省略 `source`，页面会从 tab 或 group 的 `sdk` 配置继承。字符串形式始终继承 `format`，因此只能用于带有 `sdk` 的 tab 或 group 下的页面。其他情况下，请将 `sdk` 设置为包含下述字段的对象。对于 method 和 property，请包含父级名称，例如 `method Client.getUser`。
 
+对于 Go 产物，struct 和其他自定义类型使用 `type`，interface 使用 `interface`，struct 字段使用 `property`，包概览页面使用 `package`。引用包时使用包名，嵌套包则在包名后加上其目录路径，例如 `package openai` 或 `package openai.option`。当多个包中有同名符号时，在符号名前加上包名，例如 `type option.RequestOption`。
+
 如果省略 `title` 或 `description`，Mintlify 会使用为该符号生成的标题和描述。
 
 <ParamField path="kind" type="string" required>
-  符号类型：`class`、`interface`、`enum`、`function`、`type`、`variable`、`method` 或 `property`。
+  符号类型：`package`、`class`、`interface`、`enum`、`function`、`type`、`variable`、`method` 或 `property`。
 </ParamField>
 
 <ParamField path="name" type="string" required>
@@ -154,6 +197,10 @@ sdk: "class Client"
 
 <ParamField path="parent" type="string">
   对 `method` 和 `property` 目标为必填。所属的 class、interface 或 type。
+</ParamField>
+
+<ParamField path="namespace" type="string">
+  对于 Go 产物，表示包含该符号的包，例如 `openai.option`。当多个包中有同名符号时使用。
 </ParamField>
 
 <ParamField path="format" type="string">
@@ -170,7 +217,7 @@ sdk: "class Client"
 
 将 `source` 设置为 HTTPS URL，即可在构建时获取构建产物，而无需将其提交到文档仓库中。
 
-单文件格式（`typedoc`、`phpdoc`）可直接接受文件 URL。目录格式（`docfx`、`javadoc`、`sphinx`）接受 `zip` 压缩包。发布到 Maven Central 的 Javadoc jar 无需重新打包即可使用：
+单文件格式（`typedoc`、`phpdoc`、`go`）可直接接受文件 URL。目录格式（`docfx`、`javadoc`、`sphinx`）接受 `zip` 压缩包。发布到 Maven Central 的 Javadoc jar 无需重新打包即可使用：
 
 ```json
 {

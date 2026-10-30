@@ -95,10 +95,14 @@ footer {
 }
 ```
 
-Mintlify exposes two types of CSS targeting hooks:
+CSS targeting hooks use different syntax:
 
 - **ID selectors**: unique page-level elements targeted with `#value { }` in CSS
-- **Element selectors**: component and layout elements targeted with `value { }` in CSS (no `#` or `.` prefix)
+- **Class selectors**: component and layout classes targeted with `.value { }` in CSS, such as `.card`.
+- **Element selectors**: HTML tags targeted with `value { }` in CSS, such as `footer`.
+- **Attribute selectors**: component parts or states targeted with brackets, such as `[data-component-part="card-icon"]`.
+
+These selectors are not interchangeable. For example, `.card` targets a class, while `card` targets a tag named `<card>`. Hooks depend on the rendered theme, component, configuration, and state. See the [customization skill](/customize/agent-skill) for exact syntax, availability, lifecycle, and compatibility references.
 
 <Tip>
   Use inspect element to find references to elements you're looking to customize.
@@ -106,7 +110,7 @@ Mintlify exposes two types of CSS targeting hooks:
 
 ### ID selectors
 
-Each ID appears once per page. Use these as `#value` in CSS. For example, `#navbar { background: red; }`.
+Use these as `#value` in CSS. For example, `#navbar { background: red; }`. A hook exists only when its owning element renders; inspect the active mounted layout during navigation transitions.
 
 <AccordionGroup>
 <Accordion title="Page layout">
@@ -188,9 +192,9 @@ Each ID appears once per page. Use these as `#value` in CSS. For example, `#navb
 </Accordion>
 </AccordionGroup>
 
-### Element selectors
+### Class and element hooks
 
-Multiple instances of these elements can appear on a page. Use these as `value` in CSS. For example, `accordion { border: 1px solid red; }`.
+Multiple instances of these hooks can appear on a page. The list gives hook names; inspect the rendered element to determine whether the name is a class or a tag. For example, use `.accordion { border: 1px solid red; }` for the accordion class and `footer { margin-top: 2rem; }` for the HTML footer element.
 
 <AccordionGroup>
   <Accordion title="Content components">
@@ -267,6 +271,8 @@ Multiple instances of these elements can appear on a page. Use these as `value` 
     - `sidebar-group-header`: Header label for a sidebar group.
     - `sidebar-title`: Top-level title in the sidebar.
     - `sidebar-nav-group-divider`: Divider between sidebar navigation groups.
+    - `login-link`: Log in link on sites with authentication. Appears on both the navigation bar and sidebar versions of the link. In the sidebar, the class is on the `li` element, so use `event.target.closest('.login-link')` to match clicks in custom JavaScript.
+    - `logout-link`: Log out link on sites with authentication. Appears on both the navigation bar and sidebar versions of the link. In the sidebar, the class is on the `li` element.
   </Accordion>
   <Accordion title="Table of contents">
     - `toc`: Table of contents container.
@@ -363,11 +369,34 @@ Multiple instances of these elements can appear on a page. Use these as `value` 
 
     - `nav-dropdown-item[data-active]`: Active item in a nav dropdown.
     - `mobile-nav-tabs-item[data-active]`: Active tab in the mobile nav.
-    - `sidebar-group[data-active]`: Active sidebar group.
+    - `.sidebar-group:has(> li[data-active])`: Sidebar group containing the current page. The group itself has no `data-active`; its page and nested-group items do.
     - `#sidebar-content li[data-active]`: Active sidebar link.
     - `.nav-tabs-item[data-active]`: Active top nav tab. Only applies to simple tabs; tabs with dropdown menus do not receive `data-active`. Note the leading `.`: this targets a class on a standard `<a>` element, unlike most other components which use custom element names.
     - `toc-item[data-active]`: Active table of contents item.
     - `toc-item[data-active-deepest]`: Deepest active table of contents item. Only present on the exact heading currently in view, unlike `data-active` which is also set on its parent headings.
+
+    Layout regions (`data-layout-item`):
+
+    Use `data-layout-item` to target the main regions of your site with one selector that works the same in every theme. IDs for some regions differ between themes. For example, `#sidebar-content` is the outer sidebar in some themes and the inner scroll area in others, while `[data-layout-item="sidebar"]` is always the outer sidebar.
+
+    - `[data-layout-item="banner"]`: Announcement banner.
+    - `[data-layout-item="topbar"]`: Top navigation bar.
+    - `[data-layout-item="mobile-nav"]`: Navigation drawer on mobile.
+    - `[data-layout-item="sidebar"]`: Outer sidebar navigation panel.
+    - `[data-layout-item="content"]`: Primary content area.
+    - `[data-layout-item="page-header"]`: Page header with the title and description.
+    - `[data-layout-item="side-panel"]`: Right-side panel that contains the table of contents.
+    - `[data-layout-item="toc"]`: Table of contents.
+    - `[data-layout-item="pagination"]`: Previous and next page links at the bottom of a page.
+    - `[data-layout-item="footer"]`: Page footer.
+    - `[data-layout-item="search-entry"]`: Search bar or button that opens search, on desktop and mobile.
+    - `[data-layout-item="assistant-entry"]`: Button that opens the AI assistant, on desktop and mobile.
+
+    ```css style.css
+    [data-layout-item="sidebar"] {
+      border-right: 1px solid #e5e7eb;
+    }
+    ```
 
     Component name (`data-component-name`):
 
@@ -403,6 +432,40 @@ Multiple instances of these elements can appear on a page. Use these as `value` 
     - `[data-badge][data-color="blue"]`: Badge filtered by color.
     - `[data-badge][data-size="sm"]`: Badge filtered by size.
 
+    Search parts (`data-search-item`):
+
+    Use `data-search-item` to style the search bar and search dialog with stable selectors that persist if internal class names change. Values follow a `<block>` or `<block>-<part>` pattern, and states use separate attributes.
+
+    - `[data-search-item="trigger"]`: Search bar in the navbar that opens the search dialog. Contains `trigger-icon`, `trigger-label`, and `trigger-hint` (the keyboard shortcut).
+    - `[data-search-item="backdrop"]`: Overlay behind the search dialog.
+    - `[data-search-item="dialog"]`: Search dialog container.
+    - `[data-search-item="header"]`: Search input area. Contains `header-icon`, `input`, `header-button` (the button that sends the query to the AI assistant), and `header-hint`. Has `data-disabled` when search is unavailable, such as in local previews before you sign in to the CLI.
+    - `[data-search-item="filter-list"]`: Row of search filters. Each filter has a `filter-trigger` with `filter-label`, plus a `filter-indicator` arrow or a `filter-button` that clears the selection. The open menu is `filter-content`, with `filter-item` and `filter-item-label` entries.
+    - `[data-search-item="list"]`: Results list. Has `data-loading` while results load. The scrollbar is `list-scrollbar`.
+    - `[data-search-item="group"]`: Group of results. `data-variant` is `recent`, `results`, or `ask-ai`. The group heading is `group-title`.
+    - `[data-search-item="item"]`: Individual result. Contains `item-icon`, `item-title`, `item-badge` (the HTTP method on API results), `item-breadcrumbs`, `item-breadcrumb`, `item-breadcrumb-separator`, and `item-description`. The row that asks the AI assistant has `data-variant="assistant"`.
+    - `[data-search-item="footer"]`: Keyboard hints at the bottom of the dialog. Contains `footer-hint` and `footer-icon`.
+
+    State and variant attributes on search parts:
+
+    - `[data-search-item="item"][data-highlighted]`: Result currently highlighted with the keyboard or pointer.
+    - `[data-search-item="item-icon"][data-variant="section"]`: Result icon by type. Values are `page`, `section`, and `api-playground`.
+    - `[data-search-item="item-badge"][data-method="post"]`: API result by HTTP method, in lowercase.
+    - `[data-search-item="filter-trigger"][data-variant="version"]`: Filter by type. Values are `product` and `version`.
+    - `[data-search-item="filter-trigger"][data-open]`: Filter whose menu is open. `filter-indicator` also has `data-open`.
+    - `[data-search-item="filter-trigger"][data-active]`: Filter with a value selected.
+    - `[data-search-item="filter-item"][data-selected]`: Selected option in a filter menu.
+
+    ```css style.css
+    [data-search-item="dialog"] {
+      border-radius: 0.5rem;
+    }
+
+    [data-search-item="item"][data-highlighted] [data-search-item="item-title"] {
+      color: #0D9373;
+    }
+    ```
+
     Current path (`data-current-path`):
 
     Use `data-current-path` to style custom CSS on specific pages or subpaths.
@@ -412,6 +475,91 @@ Multiple instances of these elements can appear on a page. Use these as `value` 
     - `html[data-current-path^="/api-reference/"]`: Matches any page under a section.
   </Accordion>
 </AccordionGroup>
+
+### Change the sidebar width
+
+Set the `--sidebar-width` CSS variable to change the width of the sidebar on desktop. The content area, header, and footer adjust to the new width, so you don't need to override `#sidebar` or offset other elements yourself.
+
+```css style.css
+:root {
+  --sidebar-width: 20rem;
+}
+```
+
+If you don't set the variable, each theme uses its default sidebar width:
+
+| Theme | Default width |
+| :--- | :--- |
+| Mint, Linden, Willow, Aspen, Sequoia | `18rem` |
+| Maple, Palm | `19rem` |
+| Almond | `16.5rem` |
+| Luma | `14rem` |
+
+In the Palm theme, the variable sets the width of the expanded sidebar. The collapsed sidebar keeps its fixed width.
+
+### Change the content width
+
+Set the `--content-width` CSS variable to change the maximum width of the text column on pages that use the default [page mode](/organize/pages#page-mode). The value sets the width of the text itself. Each theme adds its own padding around the text, so the same value produces the same text width in every theme.
+
+```css style.css
+:root {
+  --content-width: 768px;
+}
+```
+
+The text column never grows wider than the space between the sidebar and the table of contents. If you set a large value, the column fills the available space without overlapping other elements.
+
+If you don't set the variable, each theme uses its default content width:
+
+| Theme | Default width |
+| :--- | :--- |
+| Mint, Palm, Aspen | No maximum. The text fills the available space. |
+| Linden | No maximum on smaller screens. `35.75rem` on extra-large screens. |
+| Maple | `36rem`. `42rem` on the largest screens. |
+| Willow | `600px` |
+| Almond | `36rem` |
+| Sequoia, Luma | `40.5rem` |
+
+`--content-width` does not affect pages in `wide`, `center`, `custom`, or `frame` mode.
+
+### Add styles to a single page
+
+To style one page without adding a global `.css` file, add a `<style>` block to the page. Write the CSS inside a template literal.
+
+```mdx Example page style
+<style>{`
+  .pricing-callout {
+    border-left: 4px solid #0D9373;
+    padding-left: 1rem;
+  }
+
+  @keyframes page-pulse {
+    from { opacity: 1; }
+    to { opacity: 0.3; }
+  }
+`}</style>
+
+<div className="pricing-callout">Prices shown in USD.</div>
+
+<span className="animate-[page-pulse_1s_ease-in-out_infinite_alternate]">Live</span>
+```
+
+Mintlify scopes every selector in the block to the page's content area, so the rules do not affect the navigation, sidebar, or other pages. Page styles render on your published site and in the web editor.
+
+You can use these at-rules in a page style:
+
+- `@media`, `@supports`, and `@container`.
+- `@keyframes`, when the name starts with `page-`. Reference the animation from an `animation` property or a Tailwind class such as `animate-[page-pulse_1s_infinite]`. The prefix prevents a page from replacing the animations that Mintlify uses.
+
+Mintlify removes anything else from the block:
+
+- Other at-rules, such as `@import` and `@font-face`.
+- Rules whose selector starts with a combinator (`>`, `+`, `~`) or uses the `&` nesting selector.
+- Declarations that load resources, such as `url()` and `image-set()`.
+- `position: fixed`.
+- `!important` inside keyframes.
+
+Mintlify ignores attributes on the `<style>` tag. It removes the whole block if the CSS is not a plain template literal, for example if it contains `${}` expressions or a variable.
 
 ## Custom JavaScript
 
@@ -443,6 +591,49 @@ gtag('config', 'TAG_ID');
 <Warning>
   Use with caution to avoid introducing security vulnerabilities.
 </Warning>
+
+### Run code on every page
+
+Custom JavaScript runs once per visit. When a reader moves between pages, Mintlify swaps the page content without reloading, so code that changes page content only runs on the first page. Listen for the `mintlify:navigate` event to run it again after each navigation. The event fires on `window` once the new page renders, with `event.detail.path`, `event.detail.search`, and `event.detail.hash`. `path` uses the same format as `data-current-path`. It does not fire on the initial load, so call your function once yourself.
+
+```js Add a button to every heading
+function addCopyButtons() {
+  document.querySelectorAll('#content h2[id]').forEach((heading) => {
+    if (heading.querySelector('.copy-link')) return;
+
+    const button = document.createElement('button');
+    button.className = 'copy-link';
+    button.textContent = 'Copy link';
+    button.addEventListener('click', () => {
+      navigator.clipboard.writeText(`${location.origin}${location.pathname}#${heading.id}`);
+    });
+    heading.append(button);
+  });
+}
+
+addCopyButtons();
+window.addEventListener('mintlify:navigate', addCopyButtons);
+```
+
+Use the event instead of a `MutationObserver` on `document.body`, which runs on every DOM change and slows down large pages. To track clicks, use a single listener on `document` instead; it keeps working across navigations without the event.
+
+### Navigate to another page
+
+Use `window.mintlify.navigate` to send readers to another page from custom JavaScript. It uses client-side navigation, so the page changes without a full reload, and it fires the `mintlify:navigate` event. Setting `location.href` reloads the whole page instead.
+
+```js Navigate to a page
+window.mintlify.navigate('/quickstart');
+```
+
+To replace the current entry in the browser history instead of adding a new one, pass `replace: true`. Readers can't use the back button to return to the page you replaced.
+
+```js Replace the current page
+window.mintlify.navigate('/quickstart', { replace: true });
+```
+
+If your site is hosted at a [subpath](/deploy/docs-subpath), Mintlify adds the subpath to root-relative paths that don't already include it. For example, on a site at `/docs`, both `/quickstart` and `/docs/quickstart` go to `/docs/quickstart`.
+
+URLs on another domain, paths outside your subpath, and calls made before the page finishes loading use a full page load.
 
 ### Set API playground server variables
 

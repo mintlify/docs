@@ -1,7 +1,7 @@
 ---
 title: "Markdown 导出"
 description: "将文档页面导出为整洁的 Markdown 格式，用于 AI 工具、LLM 集成和自动化内容处理工作流程。"
-keywords: ["markdown", "token 效率", "AI 处理"]
+keywords: ["markdown", "token 效率", "AI 处理", "组件", "代码片段"]
 ---
 
 import { PreviewButton } from "/snippets/previewbutton.jsx"
@@ -19,6 +19,10 @@ Mintlify 会自动生成针对 AI 工具和外部 integrations 优化的页面 M
 在任意页面的 URL 末尾添加 `.md`，即可查看其 Markdown 版本。
 
 <PreviewButton href="https://mintlify.com/docs/ai/markdown-export.md">以 Markdown 打开此页面</PreviewButton>
+
+指向导航中其他页面的链接会指向这些页面的 Markdown 版本，因此跟随链接的代理会继续读取 Markdown。根相对链接和图片会使用你网站的完整 URL，因此即使你将 Markdown 粘贴到 AI 工具中，或在没有源 URL 的情况下阅读，它们仍然有效。例如，对于位于 `example.com/docs` 的网站，在 Markdown 输出中，`[Quickstart](/quickstart#install)` 会变为 `[Quickstart](https://example.com/docs/quickstart.md#install)`。指向不在导航中的页面的链接会保留其路径，不添加 `.md`。外部 URL 和代码块中的链接保持原样。
+
+在预览部署、自托管网站以及在没有自定义域名的情况下通过子路径提供服务的网站中，链接会保持根相对形式。
 
 <div id="accept-header">
   ## Accept 标头
@@ -70,6 +74,71 @@ The requested page could not be found.
   To create an account, call `POST /v1/accounts` with a valid email address.
 </Visibility>
 ```
+
+<div id="components-and-html">
+  ## 组件和 HTML
+</div>
+
+Markdown 导出会在 Agent 读取页面之前，将组件和 HTML 转换为 Markdown。网页本身不会改变。
+
+<div id="components">
+  ### 组件
+</div>
+
+| 组件 | Markdown 输出 |
+| --- | --- |
+| `Note`、`Info` | 一个 `[!NOTE]` 提示块。 |
+| `Tip`、`Check` | 一个 `[!TIP]` 提示块。 |
+| `Warning` | 一个 `[!WARNING]` 提示块。 |
+| `Danger` | 一个 `[!CAUTION]` 提示块。 |
+| 带有 `title` 的 `Card` | 一个引用块。标题加粗显示；设置了 `href` 时，标题为链接。 |
+| 不带 `title` 的 `Card` | 正文内容的引用块。设置了 `href` 但没有标题时，会在引用块末尾添加一个 `[Open](href)` 链接。 |
+| `Accordion` | 一个引用块，第一行为加粗的标题。 |
+| `Steps` 和 `Step` | 移除 `Steps` 包装。每个步骤为带编号的标题，例如 `**1. Install the CLI**`。设置 `stepNumber` 可指定编号。将 `titleSize` 设置为 `h2`、`h3` 或 `h4`，可将标题转换为相应级别的标题。 |
+| `ParamField`、`ResponseField` | 加粗的名称、代码格式的类型，以及你设置的 `required`、`deprecated` 或 `default`。 |
+| `Tooltip` | 文本，提示内容放在括号中。 |
+| `Frame` | 内容，后面单独一行显示 `caption`。 |
+| `Update` | 加粗的 `label`，然后是 `description` 和内容。 |
+| `Tile` | 加粗的 `title`；设置了 `href` 时显示为链接。然后是 `description` 和内容。没有 `title` 时，使用 `aria-label` 代替。 |
+| `Prompt` | `description`，然后是提示词文本。 |
+| `Color.Item` | 加粗的 `name` 和代码格式的 `value`。同时包含浅色和深色的值会显示两者，并分别标记为 `(light)` 和 `(dark)`。 |
+| `View` | 加粗的 `title`，然后是内容。每个视图都会依次出现在导出内容中。 |
+| `Variation` | 其显示的每个变体的标签，加粗并以逗号分隔，然后是内容。在 `docs.json` 中没有标签的变体会改为显示其 ID。 |
+
+没有专属 Markdown 形式的组件会保留其文本。其 `title` 会加粗显示；如果同时设置了 `href`，则显示为链接。其描述或子内容紧随其后。
+
+<div id="html">
+  ### HTML
+</div>
+
+页面中的 HTML 也会转换为 Markdown。
+
+- 移除 `div` 和 `span` 等包装元素，保留其内容。
+- 标题、链接、图片以及加粗、斜体或代码文本会转换为 Markdown。
+- 移除 `class`、`className`、`style` 和 `data-*` 属性。保留 `id`、`href`、`src`、`alt` 和 ARIA 属性。
+- 当仅浅色模式图片（`dark:hidden`）与仅深色模式图片（`hidden` 搭配 `dark:block`、`dark:inline`、`dark:inline-block`、`dark:flex` 或 `dark:grid`）相邻时，不包含深色副本。旁边没有浅色副本的仅深色模式图片会被保留。
+
+包裹标题的链接会移到该标题上。包裹多个块的链接会保留这些块，并在其后添加一个链接。链接文本依次取 `aria-label`、`title`，最后为 `Open`。
+
+<div id="snippets">
+  ### 代码片段
+</div>
+
+代码片段会渲染所导入文件的内容，而不是 `<Snippet file="path/to/snippet.mdx" />` 这样的标签。Markdown 导出会包含 `docs.json` 中的所有变量。如果找不到引用的代码片段文件，Markdown 导出会包含该标签。
+
+代码片段或自定义组件中的 `<Visibility>` 遵循与页面相同的受众规则。当自定义组件以视觉展示为主，而你希望 Agent 读取更简单的形式（例如 [`Card`](/zh/components/cards)）时，可以使用它。
+
+<div id="custom-react-components">
+  ### 自定义 React 组件
+</div>
+
+Markdown 导出从不包含组件源代码。当页面从代码片段文件导入[自定义 React 组件](/zh/customize/react-components)或数据时，Markdown 导出包含这些组件显示的内容，而不是定义它们的代码。
+
+- **静态输出的组件**会渲染为 Markdown。例如，返回链接、列表或表格的组件会显示为对应的链接、列表或表格。
+- **交互式组件**根据状态或浏览器 API 生成输出，例如计算器、可筛选的图库和图表。它们只保留子元素以及 `title`、`description`、`alt` 和 `href` 属性。不包含其中任何一项的组件会被省略。
+- **导入的数据**（例如作为属性传给组件的对象）不会出现在 Markdown 导出中。
+
+使用 [visibility](/zh/components/visibility) 组件为 Agent 提供交互式组件内容的静态版本。示例请参见[交互式组件](/zh/components/visibility#interactive-components)。
 
 <div id="api-reference-pages">
   ## API 参考页面

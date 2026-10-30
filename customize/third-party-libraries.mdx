@@ -1,0 +1,169 @@
+---
+title: "Third-party libraries"
+description: "Import React components from npm packages, such as charts and design system components, into your MDX pages."
+keywords: ["npm packages", "package.json", "React components", "imports"]
+---
+
+<Info>
+  Third-party libraries require an [Enterprise plan](https://mintlify.com/pricing?ref=third-party-libraries). Contact your account manager to turn them on for your site.
+</Info>
+
+Use components from npm packages, such as charts or your own design system, in your MDX pages. When you deploy, Mintlify installs the packages in your lockfile, renders each component to HTML, and loads its JavaScript in the browser.
+
+<Warning>
+  Only install packages you trust. Package code runs with the same access as the page, including the page content and anything the reader's browser stores for your site. It can make network requests to any server. Removing a package or rolling back a deployment doesn't stop code that already loaded in a reader's browser.
+</Warning>
+
+Third-party libraries aren't available on sites that use [authentication](/deploy/authentication-setup) or [personalization](/create/personalization). Deployments that include `packages` in `docs.json` fail on those sites. This also applies to [preview deployments](/deploy/preview-deployments#restrict-access-to-preview-deployments) that require organization authentication or a password.
+
+While your site uses third-party libraries, you can't turn on authentication, personalization, or access restrictions for preview deployments.
+
+## Add a package
+
+<Steps>
+  <Step title="List your dependencies">
+    Create a `package.json` file in the same folder as your `docs.json` file. List every package you import under `dependencies`, including `react` and `react-dom`.
+
+    ```json package.json
+    {
+      "private": true,
+      "dependencies": {
+        "@acme/charts": "^2.0.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+      }
+    }
+    ```
+
+    Mintlify installs only `dependencies`. Packages listed only in `devDependencies` or `peerDependencies` aren't available to your pages.
+  </Step>
+  <Step title="Commit a lockfile">
+    Install your dependencies and commit the lockfile next to `package.json`.
+
+    <CodeGroup>
+      ```bash pnpm
+      pnpm install
+      ```
+
+      ```bash npm
+      npm install
+      ```
+    </CodeGroup>
+
+    Mintlify installs the exact versions in your lockfile. It supports `pnpm-lock.yaml` version 9 from pnpm and `package-lock.json` from npm. Yarn and Bun lockfiles aren't supported.
+  </Step>
+  <Step title="Turn on packages">
+    Add the `packages` key to your `docs.json`. An empty object turns packages on with the default settings.
+
+    ```json docs.json
+    {
+      "packages": {}
+    }
+    ```
+  </Step>
+  <Step title="Import a component">
+    Create a component in your `snippets` folder that imports from the package.
+
+    ```jsx snippets/requests-chart.jsx
+    import { LineChart } from "@acme/charts";
+
+    const data = [
+      { day: "Mon", requests: 120 },
+      { day: "Tue", requests: 180 },
+      { day: "Wed", requests: 150 },
+    ];
+
+    export const RequestsChart = () => (
+      <LineChart data={data} x="day" y="requests" height={240} />
+    );
+    ```
+
+    Then import it into a page:
+
+    ```mdx
+    import { RequestsChart } from "/snippets/requests-chart.jsx";
+
+    <RequestsChart />
+    ```
+  </Step>
+  <Step title="Deploy">
+    Push your changes. If a package can't be installed or built, the deployment fails with an error that names the package and the problem.
+  </Step>
+</Steps>
+
+To preview locally, install your dependencies and then run [`mint dev`](/cli/preview) from the folder with your `docs.json` file.
+
+## Use package components
+
+You can also import components directly from a package into an MDX page:
+
+```mdx
+import { Tooltip } from "@acme/ui";
+
+<Tooltip content="Requests per day">Usage</Tooltip>
+```
+
+- Place package components on their own lines. They don't work inside a paragraph, a table cell, or inline text.
+- Pass strings, numbers, and booleans as props directly. For functions, arrays, objects, or JSX props, write a wrapper component in your `snippets` folder, like the chart in [Add a package](#add-a-package), and pass the values there.
+- Markdown inside a package component renders as plain HTML. Mintlify components, such as callouts and cards, don't render inside a package component.
+
+## Load package styles
+
+Components can import their own CSS. To load a stylesheet that a package ships separately, add its path inside the installed package to `packages.css`:
+
+```json docs.json
+{
+  "packages": {
+    "css": ["@acme/ui/dist/styles.css"]
+  }
+}
+```
+
+Packages must ship compiled CSS. Mintlify doesn't run CSS build tools or plugins on package code, and doesn't support CSS modules. Package stylesheets can't load fonts or images from remote URLs. Load fonts with your site's [font settings](/customize/fonts) instead.
+
+## Wrap components in a provider
+
+If your components need a theme or context provider, export a `Provider` component from a snippet and set `packages.provider` to its path:
+
+```json docs.json
+{
+  "packages": {
+    "provider": "/snippets/provider.jsx"
+  }
+}
+```
+
+```jsx snippets/provider.jsx
+import { ThemeProvider } from "@acme/ui";
+
+export const Provider = ({ children }) => <ThemeProvider>{children}</ThemeProvider>;
+```
+
+The provider wraps each package component separately. Components don't share state through it.
+
+## Install from another registry
+
+Unscoped packages install from the public npm registry. To install a scope from a different registry, map the scope to the registry's URL in `packages.registries`:
+
+```json docs.json
+{
+  "packages": {
+    "registries": {
+      "@acme": "https://npm.acme.com/"
+    }
+  }
+}
+```
+
+The registry must use HTTPS on the default port and be reachable from the public internet without credentials.
+
+## Limitations
+
+- **Dependency sources**: Dependencies must be registry versions, version ranges, or tags. Git URLs, local paths, `file:`, `link:`, `workspace:`, and `npm:` aliases aren't supported.
+- **Install scripts**: Packages install without running install scripts such as `postinstall`. Packages that need them, or that need native binaries, don't work.
+- **Size**: A deployment's package output can include up to 1,000 files, 8 MB per file, 40 MB in total, and 5 MB gzipped. Packages that load large sets of modules at runtime, such as dynamic icon maps, can go over the file limit.
+- **Server rendering**: Each component must render within three seconds on the server. A component that fails or times out renders only in the browser, so it's missing from the page's HTML.
+- **Search and AI**: Search, the assistant, and Markdown exports use your MDX source, not the content a component renders. Keep important reference content in your MDX text.
+- **Web editor**: The web editor preview doesn't render package components.
+
+To stop using packages, remove `packages` from your `docs.json` file and redeploy.

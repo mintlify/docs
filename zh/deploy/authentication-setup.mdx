@@ -1,6 +1,6 @@
 ---
 title: "认证设置"
-description: "了解如何为 Mintlify 文档站点配置用户认证，使用密码、OAuth、JWT、Info API 或 OAuth 令牌声明控制页面和 API 参考的访问权限，并管理用户登录、公开页面、受保护页面、会话时长以及基于用户组的内容访问。查看不同认证方式的前提条件、配置步骤、用户数据格式和功能可用性。"
+description: "为 Mintlify 文档站点配置用户认证，使用密码、OAuth、JWT 或私有认证控制页面和 API 参考的访问权限，并设置公开页面与用户组访问。"
 keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
 ---
 
@@ -301,6 +301,7 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
       export async function handleRequest(req: Request, res: Response) {
         const user = {
           host: DOCS_HOST, // 必须与你的文档 URL 匹配
+          sub: String(res.locals.user.id), // 用于分析的稳定用户 ID
           expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 周会话过期时间
           groups: res.locals.user.groups,
           apiPlaygroundInputs: {
@@ -485,6 +486,7 @@ groups: ["admin"]
   ```tsx Format
   type User = {
     host?: string;
+    sub?: string;
     expiresAt?: number;
     groups?: string[];
     content?: Record<string, any>;
@@ -501,6 +503,7 @@ groups: ["admin"]
   ```json Example
   {
     "host": "docs.example.com",
+    "sub": "user_8f3a2c",
     "expiresAt": 1893456000,
     "groups": ["admin", "beta-users"],
     "content": {
@@ -521,6 +524,14 @@ groups: ["admin"]
 
 <ParamField path="host" type="string">
   **JWT 认证时必填。** 你的文档站点的主机名。该字符串必须与你部署文档的 domain 完全一致。Mintlify 会验证 JWT 的 host 是否与发起请求的 host 匹配，以防止令牌在不同站点之间被重复使用。
+</ParamField>
+
+<ParamField path="sub" type="string">
+  用户的稳定且唯一的标识符。对于调用你的[已认证 MCP 服务器](/zh/ai/model-context-protocol)的工具调用，Mintlify 会在分析事件中将此值作为 `user_id` 上报，以便你将使用情况归因到具体用户。请使用不透明的 ID，而不是电子邮件地址等个人信息。
+
+  对于 OAuth，Mintlify 会从你的用户信息 API 响应中读取 `sub`；当你[使用令牌声明中的分组](#use-groups-from-oauth-token-claims)时，则从令牌中读取。大多数 OpenID Connect 提供商默认包含该字段。对于 JWT，请将 `sub` 添加到 JWT payload 中。
+
+  该值必须是字符串。在你添加 `sub` 之前创建的会话和 MCP 连接不包含该值。用户必须重新登录并重新连接其 MCP 客户端。
 </ParamField>
 
 <ParamField path="expiresAt" type="number">
@@ -581,7 +592,7 @@ groups: ["admin"]
 | [PDF 导出](/zh/optimize/pdf-exports)                          | 完全支持 | 完全支持，尊重用户分组。已认证页面在导出时会包含图片和资源。 | 完全支持，尊重用户分组。已认证页面在导出时会包含图片和资源。 |
 | [搜索](/zh/assistant/index)                                      | 完全支持 | 完全支持，尊重用户分组                    | 完全支持，尊重用户分组                    |
 | [AI 助手](/zh/assistant/index)                                   | 完全支持 | 完全支持，尊重用户分组                    | 完全支持，尊重用户分组                    |
-| [skill.md](/zh/ai/skillmd)                                  | 完全支持 | 不支持                            | 不支持                            |
-| [站点地图](/zh/optimize/seo#sitemaps-and-robotstxt-files)       | 完全支持 | 需要通过认证后才能访问，但会排除 groups 中的页面   | 需要通过认证后才能访问，但会排除 groups 中的页面   |
-| [robots.txt](/zh/optimize/seo#sitemaps-and-robotstxt-files) | 完全支持 | 需要通过认证后才能访问                    | 需要通过认证后才能访问                    |
+| [skill.md](/zh/ai/skillmd) | 完全支持 | 未登录的访问者只能看到[标记为 `public: true` 的技能](/zh/ai/skillmd#share-skills-on-authenticated-sites)。已登录用户可以看到其所属分组的技能。 | 未登录的访问者只能看到[标记为 `public: true` 的技能](/zh/ai/skillmd#share-skills-on-authenticated-sites)。已登录用户可以看到其所属分组的技能。 |
+| [站点地图](/zh/optimize/seo#sitemaps-and-robotstxt-files) | 完全支持 | 不可用。请求会重定向到登录页面，且对于已认证用户，站点地图为空。 | 可公开访问，仅列出公开页面 |
+| [robots.txt](/zh/optimize/seo#sitemaps-and-robotstxt-files) | 完全支持 | 需要通过认证后才能访问 | 可公开访问 |
 | [实时预览](/zh/editor/review#live-preview) | 完全支持 | 支持编辑器自动认证                    | 支持编辑器自动认证                    |

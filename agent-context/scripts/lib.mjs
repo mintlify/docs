@@ -9,6 +9,8 @@ export const repositoryRoot = path.resolve(scriptsDirectory, '..');
 
 const contextDirectory = path.join(repositoryRoot, 'context', 'skills', 'mintlify');
 const mcpServersPath = path.join(repositoryRoot, 'context', 'mcp-servers.json');
+// The docs site serves this file at /skill.md.
+export const siteSkillPath = path.resolve(repositoryRoot, '..', 'skill.md');
 const targetsDirectory = path.join(repositoryRoot, 'targets');
 const agentPluginsSchemaDirectory = path.join(
   repositoryRoot,
@@ -200,6 +202,79 @@ export async function buildTarget(target, outputRoot) {
   return { targetRoot, provenance };
 }
 
+// The docs site serves skill.md as a single file, so reference files become links: the docs page
+// that covers the topic, or the canonical file on GitHub for agent workflow guidance with no page.
+const canonicalSourceUrl =
+  'https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify';
+export const siteReferenceLinks = {
+  'reference/api-docs.md': ['API playground', 'https://mintlify.com/docs/api-playground/overview.md'],
+  'reference/cli.md': ['CLI commands', 'https://mintlify.com/docs/cli/commands.md'],
+  'reference/components.md': ['Components', 'https://mintlify.com/docs/components.md'],
+  'reference/configuration.md': ['Global settings', 'https://mintlify.com/docs/organize/settings.md'],
+  'reference/customization/index.md': [
+    'Custom scripts',
+    'https://mintlify.com/docs/customize/custom-scripts.md',
+  ],
+  'reference/navigation.md': ['Navigation', 'https://mintlify.com/docs/organize/navigation.md'],
+  'reference/product-context.md': [
+    'Product context',
+    `${canonicalSourceUrl}/reference/product-context.md`,
+  ],
+  'reference/project-settings.md': [
+    'Project settings',
+    `${canonicalSourceUrl}/reference/project-settings.md`,
+  ],
+  'reference/publishing-and-review.md': [
+    'Publishing and review',
+    `${canonicalSourceUrl}/reference/publishing-and-review.md`,
+  ],
+  'reference/site-building.md': [
+    'Site building',
+    `${canonicalSourceUrl}/reference/site-building.md`,
+  ],
+  'reference/widgets.md': ['Widgets', `${canonicalSourceUrl}/reference/widgets.md`],
+  'reference/writing.md': ['Writing pages', `${canonicalSourceUrl}/reference/writing.md`],
+};
+// Text that only makes sense next to local reference files, or that a per-file link would send to
+// the wrong page. Applied before siteReferenceLinks.
+const siteRewrites = [
+  [
+    'Read these files **only when your task requires them**. They are in the `reference/` directory next to this file.',
+    'Read these **only when your task requires them**. Each links to a Mintlify documentation page or, for agent workflow guidance, the source file on GitHub.',
+  ],
+  ['| File | When to read |', '| Reference | When to read |'],
+  [
+    'and more, read `reference/configuration.md`.',
+    'and more, read [Pages](https://mintlify.com/docs/organize/pages.md).',
+  ],
+];
+
+export async function renderSiteSkill() {
+  const template = await readFile(path.join(contextDirectory, 'SKILL.md'), 'utf8');
+  // The docs build parses skill.md as MDX, which rejects HTML comments, so the generated notice
+  // goes in the frontmatter metadata instead of markGenerated's comment.
+  const frontmatterEnd = template.indexOf('\n---\n', 4);
+  if (frontmatterEnd === -1) {
+    throw new Error('SKILL.md frontmatter is not closed');
+  }
+  let skill = `${template.slice(0, frontmatterEnd)}\nmetadata:\n  generated-from: "mintlify/docs/agent-context. Edit the canonical source, not this copy."${template.slice(frontmatterEnd)}`;
+  for (const [from, to] of siteRewrites) {
+    if (!skill.includes(from)) {
+      throw new Error(`site: SKILL.md no longer contains "${from}"; update siteRewrites in lib.mjs`);
+    }
+    skill = skill.replace(from, to);
+  }
+  for (const [file, [title, url]] of Object.entries(siteReferenceLinks)) {
+    skill = skill.replaceAll(`\`${file}\``, `[${title}](${url})`);
+  }
+  const unlinked = skill.match(/`reference\/[^`]*`/g);
+  if (unlinked !== null) {
+    throw new Error(`site: add siteReferenceLinks entries for ${unlinked.join(', ')}`);
+  }
+  validateSkill(skill, { id: 'site' });
+  return skill;
+}
+
 export async function buildAll({ outputRoot, selectedIds = [] } = {}) {
   const resolvedOutput = outputRoot ?? path.join(repositoryRoot, 'dist');
   await mkdir(resolvedOutput, { recursive: true });
@@ -266,8 +341,9 @@ async function releaseSnapshot(root, target) {
   });
 }
 
-// Kiro and Claude Code use the manifest version to detect updates. Bump the patch version whenever the
-// released content changes; a higher version set in the target configuration wins.
+// Kiro uses the manifest version to detect updates. Bump the patch version whenever the released
+// content changes; a higher version set in the target configuration wins. The Claude target has no
+// pluginManifest on purpose: a version in .claude-plugin/plugin.json pins installs until it changes.
 export async function resolveManifestVersion(target, sourceRoot, destination) {
   const configuredVersion = target.pluginManifest.version;
   const existingManifest = await readOptional(path.join(destination, manifestFile(target)));

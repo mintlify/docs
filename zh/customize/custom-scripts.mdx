@@ -1,6 +1,6 @@
 ---
 title: "自定义脚本"
-description: "为你的文档站点添加自定义 JavaScript 和 CSS，用于分析、小组件、样式覆盖、第三方集成和 API Playground 服务器变量。支持身份验证、租户切换和注销后的运行时更新，值仅保存在当前会话内存中，不会写入浏览器存储。"
+description: "使用 Tailwind CSS、自定义 CSS 和 JavaScript 定制文档站点，加载第三方脚本，并设置 API Playground 服务器变量。"
 keywords: ["CSS", "JavaScript", "Tailwind CSS", "样式定制", "API Playground", "服务器变量"]
 ---
 
@@ -113,10 +113,14 @@ footer {
 }
 ```
 
-Mintlify 提供两种类型的 CSS 定位钩子：
+CSS 定位钩子使用不同的语法：
 
 - **ID 选择器**：页面级唯一元素，在 CSS 中使用 `#value { }` 定位
-- **元素选择器**：组件和布局元素，在 CSS 中使用 `value { }` 定位（无 `#` 或 `.` 前缀）
+- **类选择器**：组件和布局的类，在 CSS 中使用 `.value { }` 定位，例如 `.card`。
+- **元素选择器**：HTML 标签，在 CSS 中使用 `value { }` 定位，例如 `footer`。
+- **属性选择器**：组件部件或状态，使用方括号定位，例如 `[data-component-part="card-icon"]`。
+
+这些选择器不能互换使用。例如，`.card` 定位的是一个类，而 `card` 定位的是名为 `<card>` 的标签。钩子取决于渲染时的主题、组件、配置和状态。有关确切的语法、可用性、生命周期和兼容性参考，请参阅[自定义 skill](/zh/customize/agent-skill)。
 
 <Tip>
   使用"检查元素"来定位你要自定义的元素引用。
@@ -126,7 +130,7 @@ Mintlify 提供两种类型的 CSS 定位钩子：
   ### ID 选择器
 </div>
 
-每个 ID 在每个页面上只出现一次。在 CSS 中使用 `#value` 来定位。例如，`#navbar { background: red; }`。
+在 CSS 中使用 `#value` 来定位。例如，`#navbar { background: red; }`。只有当所属元素渲染时，钩子才会存在；在导航过渡期间，请检查当前挂载的布局。
 
 <AccordionGroup>
 <Accordion title="页面布局">
@@ -208,11 +212,11 @@ Mintlify 提供两种类型的 CSS 定位钩子：
 </Accordion>
 </AccordionGroup>
 
-<div id="element-selectors">
-  ### 元素选择器
+<div id="class-and-element-hooks">
+  ### 类与元素钩子
 </div>
 
-这些元素可以在页面上出现多个实例。在 CSS 中使用 `value` 来定位。例如，`accordion { border: 1px solid red; }`。
+这些钩子可以在页面上出现多个实例。列表中给出的是钩子名称；请检查渲染后的元素，以确定该名称是类还是标签。例如，对手风琴的类使用 `.accordion { border: 1px solid red; }`，对 HTML footer 元素使用 `footer { margin-top: 2rem; }`。
 
 <AccordionGroup>
   <Accordion title="内容组件">
@@ -289,6 +293,8 @@ Mintlify 提供两种类型的 CSS 定位钩子：
     - `sidebar-group-header`—侧边栏分组的标题标签。
     - `sidebar-title`—侧边栏中的顶级标题。
     - `sidebar-nav-group-divider`—侧边栏导航分组之间的分隔线。
+    - `login-link`—启用身份验证的站点上的登录链接。同时出现在导航栏和侧边栏版本的链接上。在侧边栏中，该类位于 `li` 元素上，因此请在自定义 JavaScript 中使用 `event.target.closest('.login-link')` 来匹配点击事件。
+    - `logout-link`—启用身份验证的站点上的登出链接。同时出现在导航栏和侧边栏版本的链接上。在侧边栏中，该类位于 `li` 元素上。
   </Accordion>
   <Accordion title="目录">
     - `toc`—目录容器。
@@ -385,11 +391,34 @@ Mintlify 提供两种类型的 CSS 定位钩子：
 
     - `nav-dropdown-item[data-active]`—导航下拉菜单中的激活项。
     - `mobile-nav-tabs-item[data-active]`—移动导航中的激活标签页。
-    - `sidebar-group[data-active]`—激活的侧边栏分组。
+    - `.sidebar-group:has(> li[data-active])`—包含当前页面的侧边栏分组。分组本身没有 `data-active`；其页面项和嵌套分组项才有。
     - `#sidebar-content li[data-active]`—激活的侧边栏链接。
     - `.nav-tabs-item[data-active]`—激活的顶部导航标签页。仅适用于简单标签页；带有下拉菜单的标签页不会接收 `data-active`。注意前导的 `.`：它针对的是标准 `<a>` 元素上的类，与大多数使用自定义元素名称的其他组件不同。
     - `toc-item[data-active]`—激活的目录项。
     - `toc-item[data-active-deepest]`—最深层激活的目录项。仅出现在当前可见的确切标题上，与 `data-active` 不同，后者也会设置在其父级标题上。
+
+    布局区域 (`data-layout-item`)：
+
+    使用 `data-layout-item` 通过一个在所有主题中行为一致的选择器来定位站点的主要区域。某些区域的 ID 因主题而异。例如，`#sidebar-content` 在某些主题中是外层侧边栏，在另一些主题中则是内部滚动区域，而 `[data-layout-item="sidebar"]` 始终表示外层侧边栏。
+
+    - `[data-layout-item="banner"]`—公告横幅。
+    - `[data-layout-item="topbar"]`—顶部导航栏。
+    - `[data-layout-item="mobile-nav"]`—移动端导航抽屉。
+    - `[data-layout-item="sidebar"]`—外层侧边栏导航面板。
+    - `[data-layout-item="content"]`—主要内容区域。
+    - `[data-layout-item="page-header"]`—包含标题和描述的页面头部。
+    - `[data-layout-item="side-panel"]`—包含目录的右侧面板。
+    - `[data-layout-item="toc"]`—目录。
+    - `[data-layout-item="pagination"]`—页面底部的上一页和下一页链接。
+    - `[data-layout-item="footer"]`—页面页脚。
+    - `[data-layout-item="search-entry"]`—在桌面端和移动端打开搜索的搜索栏或按钮。
+    - `[data-layout-item="assistant-entry"]`—在桌面端和移动端打开 AI 助手的按钮。
+
+    ```css style.css
+    [data-layout-item="sidebar"] {
+      border-right: 1px solid #e5e7eb;
+    }
+    ```
 
     组件名称 (`data-component-name`)：
 
@@ -425,6 +454,40 @@ Mintlify 提供两种类型的 CSS 定位钩子：
     - `[data-badge][data-color="blue"]`—按颜色筛选的 badge。
     - `[data-badge][data-size="sm"]`—按尺寸筛选的 badge。
 
+    搜索部分 (`data-search-item`)：
+
+    使用 `data-search-item` 通过稳定的选择器为搜索栏和搜索对话框设置样式，即使内部类名发生变化，这些选择器也会保持不变。值遵循 `<block>` 或 `<block>-<part>` 模式，状态则使用单独的属性。
+
+    - `[data-search-item="trigger"]`—导航栏中用于打开搜索对话框的搜索栏。包含 `trigger-icon`、`trigger-label` 和 `trigger-hint`（键盘快捷键）。
+    - `[data-search-item="backdrop"]`—搜索对话框后面的遮罩层。
+    - `[data-search-item="dialog"]`—搜索对话框容器。
+    - `[data-search-item="header"]`—搜索输入区域。包含 `header-icon`、`input`、`header-button`（将查询发送给 AI 助手的按钮）和 `header-hint`。当搜索不可用时（例如在登录 CLI 之前的本地预览中），带有 `data-disabled`。
+    - `[data-search-item="filter-list"]`—搜索筛选器所在的行。每个筛选器都有一个带 `filter-label` 的 `filter-trigger`，以及一个 `filter-indicator` 箭头或一个用于清除选择的 `filter-button`。打开的菜单为 `filter-content`，其中包含 `filter-item` 和 `filter-item-label` 条目。
+    - `[data-search-item="list"]`—结果列表。结果加载期间带有 `data-loading`。滚动条为 `list-scrollbar`。
+    - `[data-search-item="group"]`—结果分组。`data-variant` 为 `recent`、`results` 或 `ask-ai`。分组标题为 `group-title`。
+    - `[data-search-item="item"]`—单个结果。包含 `item-icon`、`item-title`、`item-badge`（API 结果上的 HTTP 方法）、`item-breadcrumbs`、`item-breadcrumb`、`item-breadcrumb-separator` 和 `item-description`。向 AI 助手提问的那一行带有 `data-variant="assistant"`。
+    - `[data-search-item="footer"]`—对话框底部的键盘提示。包含 `footer-hint` 和 `footer-icon`。
+
+    搜索部分的状态和变体属性：
+
+    - `[data-search-item="item"][data-highlighted]`—当前通过键盘或指针高亮的结果。
+    - `[data-search-item="item-icon"][data-variant="section"]`—按类型区分的结果图标。值为 `page`、`section` 和 `api-playground`。
+    - `[data-search-item="item-badge"][data-method="post"]`—按 HTTP 方法区分的 API 结果，使用小写。
+    - `[data-search-item="filter-trigger"][data-variant="version"]`—按类型区分的筛选器。值为 `product` 和 `version`。
+    - `[data-search-item="filter-trigger"][data-open]`—菜单处于打开状态的筛选器。`filter-indicator` 也带有 `data-open`。
+    - `[data-search-item="filter-trigger"][data-active]`—已选择值的筛选器。
+    - `[data-search-item="filter-item"][data-selected]`—筛选器菜单中已选中的选项。
+
+    ```css style.css
+    [data-search-item="dialog"] {
+      border-radius: 0.5rem;
+    }
+
+    [data-search-item="item"][data-highlighted] [data-search-item="item-title"] {
+      color: #0D9373;
+    }
+    ```
+
     当前路径 (`data-current-path`)：
 
     使用 `data-current-path` 在特定页面或子路径上应用自定义 CSS 样式。
@@ -434,6 +497,97 @@ Mintlify 提供两种类型的 CSS 定位钩子：
     - `html[data-current-path^="/api-reference/"]`—匹配某个部分下的任何页面。
   </Accordion>
 </AccordionGroup>
+
+<div id="change-the-sidebar-width">
+  ### 更改侧边栏宽度
+</div>
+
+设置 CSS 变量 `--sidebar-width` 可更改桌面端侧边栏的宽度。内容区域、页眉和页脚会随新宽度自动调整，因此你无需覆盖 `#sidebar` 或自行偏移其他元素。
+
+```css style.css
+:root {
+  --sidebar-width: 20rem;
+}
+```
+
+如果你未设置该变量，每个主题会使用其默认侧边栏宽度：
+
+| 主题 | 默认宽度 |
+| :--- | :--- |
+| Mint, Linden, Willow, Aspen, Sequoia | `18rem` |
+| Maple, Palm | `19rem` |
+| Almond | `16.5rem` |
+| Luma | `14rem` |
+
+在 Palm 主题中，该变量设置的是展开状态下侧边栏的宽度。折叠状态下的侧边栏保持固定宽度。
+
+<div id="change-the-content-width">
+  ### 更改内容宽度
+</div>
+
+设置 CSS 变量 `--content-width` 可更改使用默认[页面模式](/zh/organize/pages#page-mode)的页面中文本列的最大宽度。该值设置的是文本本身的宽度。每个主题都会在文本周围添加各自的内边距，因此相同的值在所有主题中都会产生相同的文本宽度。
+
+```css style.css
+:root {
+  --content-width: 768px;
+}
+```
+
+文本列的宽度永远不会超过侧边栏与目录之间的空间。如果你设置了较大的值，文本列会填满可用空间，而不会与其他元素重叠。
+
+如果你未设置该变量，每个主题会使用其默认内容宽度：
+
+| 主题 | 默认宽度 |
+| :--- | :--- |
+| Mint, Palm, Aspen | 无最大值。文本填满可用空间。 |
+| Linden | 在较小屏幕上无最大值。在超大屏幕上为 `35.75rem`。 |
+| Maple | `36rem`。在最大的屏幕上为 `42rem`。 |
+| Willow | `600px` |
+| Almond | `36rem` |
+| Sequoia, Luma | `40.5rem` |
+
+`--content-width` 不会影响 `wide`、`center`、`custom` 或 `frame` 模式的页面。
+
+<div id="add-styles-to-a-single-page">
+  ### 为单个页面添加样式
+</div>
+
+如需为某个页面设置样式而不添加全局 `.css` 文件，请在该页面中添加一个 `<style>` 代码块。将 CSS 写在模板字面量中。
+
+```mdx Example page style
+<style>{`
+  .pricing-callout {
+    border-left: 4px solid #0D9373;
+    padding-left: 1rem;
+  }
+
+  @keyframes page-pulse {
+    from { opacity: 1; }
+    to { opacity: 0.3; }
+  }
+`}</style>
+
+<div className="pricing-callout">Prices shown in USD.</div>
+
+<span className="animate-[page-pulse_1s_ease-in-out_infinite_alternate]">Live</span>
+```
+
+Mintlify 会将代码块中的每个选择器限定在该页面的内容区域内，因此这些规则不会影响导航、侧边栏或其他页面。页面样式会在你已发布的站点和 Web 编辑器中渲染。
+
+你可以在页面样式中使用以下 at 规则：
+
+- `@media`、`@supports` 和 `@container`。
+- `@keyframes`，前提是名称以 `page-` 开头。可通过 `animation` 属性或 Tailwind 类（例如 `animate-[page-pulse_1s_infinite]`）引用该动画。该前缀可防止页面替换 Mintlify 使用的动画。
+
+Mintlify 会从代码块中移除其他所有内容：
+
+- 其他 at 规则，例如 `@import` 和 `@font-face`。
+- 选择器以组合符（`>`、`+`、`~`）开头或使用 `&` 嵌套选择器的规则。
+- 加载资源的声明，例如 `url()` 和 `image-set()`。
+- `position: fixed`。
+- keyframes 中的 `!important`。
+
+Mintlify 会忽略 `<style>` 标签上的属性。如果 CSS 不是纯模板字面量，例如包含 `${}` 表达式或变量，Mintlify 会移除整个代码块。
 
 <div id="custom-javascript">
   ## 自定义 JavaScript
@@ -467,6 +621,53 @@ gtag('config', 'TAG_ID');
 <Warning>
   请谨慎使用，避免造成安全漏洞。
 </Warning>
+
+<div id="run-code-on-every-page">
+  ### 在每个页面上运行代码
+</div>
+
+自定义 JavaScript 每次访问只运行一次。当读者在页面之间切换时，Mintlify 会在不重新加载的情况下替换页面内容，因此修改页面内容的代码只会在第一个页面上运行。监听 `mintlify:navigate` 事件，以便在每次导航后再次运行它。新页面渲染完成后，该事件会在 `window` 上触发，并附带 `event.detail.path`、`event.detail.search` 和 `event.detail.hash`。`path` 使用与 `data-current-path` 相同的格式。该事件不会在首次加载时触发，因此请自行调用一次你的函数。
+
+```js Add a button to every heading
+function addCopyButtons() {
+  document.querySelectorAll('#content h2[id]').forEach((heading) => {
+    if (heading.querySelector('.copy-link')) return;
+
+    const button = document.createElement('button');
+    button.className = 'copy-link';
+    button.textContent = 'Copy link';
+    button.addEventListener('click', () => {
+      navigator.clipboard.writeText(`${location.origin}${location.pathname}#${heading.id}`);
+    });
+    heading.append(button);
+  });
+}
+
+addCopyButtons();
+window.addEventListener('mintlify:navigate', addCopyButtons);
+```
+
+请使用该事件，而不是在 `document.body` 上使用 `MutationObserver`，后者会在每次 DOM 变更时运行，并拖慢大型页面。若要跟踪点击，请改为在 `document` 上使用单个监听器；无需该事件，它也能在导航之间持续生效。
+
+<div id="navigate-to-another-page">
+  ### 导航到其他页面
+</div>
+
+使用 `window.mintlify.navigate` 从自定义 JavaScript 中将读者引导到其他页面。它使用客户端导航，因此页面切换时无需完整重新加载，并且会触发 `mintlify:navigate` 事件。而设置 `location.href` 则会重新加载整个页面。
+
+```js Navigate to a page
+window.mintlify.navigate('/quickstart');
+```
+
+如需替换浏览器历史记录中的当前条目而不是添加新条目，请传入 `replace: true`。读者无法使用后退按钮返回到被你替换的页面。
+
+```js Replace the current page
+window.mintlify.navigate('/quickstart', { replace: true });
+```
+
+如果你的网站托管在[子路径](/zh/deploy/docs-subpath)下，Mintlify 会为尚未包含该子路径的根相对路径自动添加子路径。例如，在托管于 `/docs` 的网站上，`/quickstart` 和 `/docs/quickstart` 都会跳转到 `/docs/quickstart`。
+
+指向其他域名的 URL、位于子路径之外的路径，以及在页面加载完成之前发起的调用，都会使用完整页面加载。
 
 <div id="set-api-playground-server-variables">
   ### 设置 API Playground 服务器变量

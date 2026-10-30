@@ -106,6 +106,71 @@ Vercel 的 AI SDK 提供的 `useChat` hook 是在你的应用程序中集成 ass
 
 更多详情参见 AI SDK 文档中的 [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) 和 [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport)。
 
+<div id="migrate-from-v1">
+  ## 从 v1 迁移
+</div>
+
+v1 端点已停用，并返回 `410 Gone`。要进行迁移，请将 URL 从 `/discovery/v1/assistant/{domain}/message` 更改为 `/discovery/v2/assistant/{domain}/message`，并更新你的消息和流处理逻辑。
+
+你的 API 密钥以及以下请求体字段保持不变：`fp`、`threadId`、`threadKey`、`regenerate`、`retrievalPageSize`、`filter`、`context` 和 `currentPath`。
+
+<div id="if-you-use-usechat">
+  ### 如果你使用 `useChat`
+</div>
+
+升级到 AI SDK v5 或更高版本，并按照[与 `useChat` 集成](#integration-with-usechat)中的示例使用 `DefaultChatTransport`。移除 `streamProtocol` 和 `sendExtraMessageFields`，v2 中不再需要它们。从 `message.parts` 而不是 `message.content` 渲染消息。
+
+<div id="if-you-call-the-api-directly">
+  ### 如果你直接调用 API
+</div>
+
+**消息使用 `parts` 而不是 `content`。** 移除 `content` 字符串，并将文本作为 text part 发送。不再接受 `data` 角色。
+
+<CodeGroup>
+
+```json v1
+{
+  "id": "msg_1",
+  "role": "user",
+  "content": "How do I get started?",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+```json v2
+{
+  "id": "msg_1",
+  "role": "user",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+</CodeGroup>
+
+**附件是 `file` part。** 将 `experimental_attachments` 替换为 `parts` 中的条目。
+
+<CodeGroup>
+
+```json v1
+{
+  "experimental_attachments": [
+    { "name": "screenshot.png", "contentType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+```json v2
+{
+  "parts": [
+    { "type": "file", "filename": "screenshot.png", "mediaType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+</CodeGroup>
+
+**响应以 server-sent events 形式流式返回。** v1 返回 AI SDK v4 的 data stream，由 `0:"..."` 行组成。v2 返回 AI SDK 的 [UI message stream](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#ui-message-stream)。每个事件都是一行 `data: {...}` JSON，文本通过 `text-delta` 事件传递，流以 `data: [DONE]` 结束。`X-Thread-Id`、`X-Thread-Key` 和 `X-Message-Id` 响应头保持不变。
+
 <div id="rate-limits">
   ## 速率限制
 </div>
@@ -113,4 +178,3 @@ Vercel 的 AI SDK 提供的 `useChat` hook 是在你的应用程序中集成 ass
 AI 助手 API 有以下限制：
 
 * 每个 Mintlify 组织每小时最多 10,000 个请求
-* 每个 IP 地址每天最多 10,000 个请求

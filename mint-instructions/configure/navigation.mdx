@@ -1,0 +1,159 @@
+---
+title: "Configure navigation"
+name: mintlify-configure-navigation
+description: "Covers the docs.json navigation object: pages, groups, tabs, anchors, dropdowns, products, versions, languages, and moving pages. Use when changing site structure."
+when: "Changing navigation: groups, tabs, anchors, dropdowns, products, versions, languages"
+---
+`navigation` in `docs.json` defines the sidebar and every top-level section. A page that is not listed in `navigation` is hidden from the sidebar (still reachable by URL). Use this when adding a page, group or tab, or when restructuring.
+
+## Workflow
+
+1. Read the current `navigation` object and identify its root pattern (`groups`, `tabs`, `anchors`, `dropdowns`, `products`, `versions`, `languages`, or plain `pages`). Keep that pattern; add inside it.
+2. Create the page file first (`guides/setup.mdx`), then add its path to a `pages` array as `"guides/setup"`: relative to the `docs.json` directory, no leading slash, no extension.
+3. To add a section, add an object to the existing array at the right level (a new `{ "group": ..., "pages": [...] }` or `{ "tab": ..., "groups": [...] }`).
+4. When moving or renaming a page: move the file, update its path in `navigation`, add a `redirects` entry from the old URL to the new one, and fix internal links.
+5. Run `mint validate`, then `mint broken-links --check-redirects`, then `mint dev --no-open` and click through the new section.
+
+## Rules
+
+- Must: one root pattern at the top of `navigation`. Nest other elements inside it.
+- Must: each element holds one type of child per level. A tab can contain `anchors` or `groups`, not both. Mixing fails schema validation.
+- Must: `group` objects have `group` and `pages`. Optional: `icon`, `tag`, `root`, `expanded`, `directory`.
+- Must: required name keys are `tab`, `anchor`, `dropdown`, `product`, `version`, `language`, and `item` (in a `menu`).
+- Must: an element with `href` and no pages is an external or internal link (for example a Blog tab).
+- `expanded` only affects nested groups. Top-level groups are always expanded.
+- `root` makes the group title open that page. `directory` (`"none"`, `"accordion"`, `"card"`) lists children on root pages and inherits down the tree.
+- Versions: the first entry is the default unless one sets `"default": true`. `tag` adds a badge ("Latest").
+- Languages: use supported codes (`en`, `es`, `fr`, `de`, `jp`, `cn`, `pt-BR`, `zh-Hant`, ...). Each language entry can carry its own `banner`, `footer`, `navbar`.
+- `navigation.global` holds links shown on every page (for example `global.anchors`). Each needs a name key and `href`.
+- To hide a page but keep it in config, set `hidden: true` in its frontmatter.
+- Must not: create circular redirects. Redirect sources cannot contain `#anchor` or `?query`.
+
+## Examples
+
+Groups with nesting and a root page:
+
+```json
+"navigation": {
+  "groups": [
+    {
+      "group": "Getting started",
+      "icon": "play",
+      "pages": [
+        "quickstart",
+        {
+          "group": "Editing",
+          "expanded": false,
+          "pages": ["installation", "editor"]
+        }
+      ]
+    },
+    {
+      "group": "API pages",
+      "root": "api-overview",
+      "pages": ["api-reference/get", "api-reference/post"]
+    }
+  ]
+}
+```
+
+Tabs (with an external link tab) and a tab menu:
+
+```json
+"navigation": {
+  "tabs": [
+    {
+      "tab": "Guides",
+      "groups": [{ "group": "Basics", "pages": ["quickstart"] }]
+    },
+    {
+      "tab": "Developer tools",
+      "menu": [
+        { "item": "SDKs", "icon": "code", "pages": ["sdk/fetch", "sdk/create"] }
+      ]
+    },
+    { "tab": "Blog", "href": "https://example.com/blog" }
+  ]
+}
+```
+
+Anchors, dropdowns and products use the same shape with `anchor`, `dropdown` or `product` as the name key. Tabs containing anchors:
+
+```json
+"navigation": {
+  "tabs": [
+    {
+      "tab": "Documentation",
+      "anchors": [
+        { "anchor": "Guides", "icon": "book-open", "pages": ["quickstart"] },
+        { "anchor": "API", "icon": "code", "pages": ["api/overview"] }
+      ]
+    }
+  ]
+}
+```
+
+Versions and global anchors:
+
+```json
+"navigation": {
+  "global": {
+    "anchors": [{ "anchor": "Changelog", "icon": "list", "href": "/changelog" }]
+  },
+  "versions": [
+    { "version": "2.0.0", "default": true, "tag": "Latest",
+      "groups": [{ "group": "Start", "pages": ["v2/overview"] }] },
+    { "version": "1.0.0",
+      "groups": [{ "group": "Start", "pages": ["v1/overview"] }] }
+  ]
+}
+```
+
+Languages:
+
+```json
+"navigation": {
+  "languages": [
+    { "language": "en", "groups": [{ "group": "Start", "pages": ["en/overview"] }] },
+    { "language": "es", "groups": [{ "group": "Start", "pages": ["es/overview"] }] }
+  ]
+}
+```
+
+OpenAPI in navigation: set `openapi` on a group, tab or anchor. With no `pages`, every endpoint is generated. List endpoints to control which appear. Children inherit the spec. Details: `mint instructions api-docs`.
+
+```json
+{
+  "group": "API reference",
+  "openapi": "/openapi.json",
+  "pages": ["overview", "GET /users", "POST /users"]
+}
+```
+
+Redirect after moving `guides/old` to `guides/new` (top-level `docs.json` key, 308 by default):
+
+```json
+"redirects": [
+  { "source": "/guides/old", "destination": "/guides/new" },
+  { "source": "/beta/:slug*", "destination": "/v2/:slug*" }
+]
+```
+
+## Verify
+
+```bash
+mint validate
+mint broken-links --check-redirects
+mint dev --no-open
+```
+
+`mint dev` applies redirects locally, so visit the old path to confirm. Run `mint broken-links --help` for more checks (`--check-anchors`).
+
+## More
+
+- `mint instructions configure`: required fields and the edit loop.
+- `mint instructions configure settings`: redirects, navbar, footer, banner.
+- `mint instructions api-docs`: OpenAPI and AsyncAPI setup.
+- https://www.mintlify.com/docs/organize/navigation
+- https://www.mintlify.com/docs/create/redirects
+- https://www.mintlify.com/docs/organize/hidden-pages

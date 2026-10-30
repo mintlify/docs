@@ -106,11 +106,75 @@ El hook `useChat` del AI SDK de Vercel es la forma recomendada de integrar la as
 
 Consulta [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) y [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport) en la documentación del AI SDK para más detalles.
 
+<div id="migrate-from-v1">
+  ## Migrar desde v1
+</div>
+
+El endpoint v1 está descontinuado y devuelve `410 Gone`. Para migrar, cambia la URL de `/discovery/v1/assistant/{domain}/message` a `/discovery/v2/assistant/{domain}/message` y actualiza tus mensajes y el manejo del stream.
+
+Tu clave de API y estos campos del cuerpo no cambian: `fp`, `threadId`, `threadKey`, `regenerate`, `retrievalPageSize`, `filter`, `context` y `currentPath`.
+
+<div id="if-you-use-usechat">
+  ### Si usas `useChat`
+</div>
+
+Actualiza a AI SDK v5 o posterior y usa `DefaultChatTransport` como se muestra en [Integración con `useChat`](#integration-with-usechat). Elimina `streamProtocol` y `sendExtraMessageFields`. No son necesarios en v2. Renderiza los mensajes a partir de `message.parts` en lugar de `message.content`.
+
+<div id="if-you-call-the-api-directly">
+  ### Si llamas a la API directamente
+</div>
+
+**Los mensajes usan `parts` en lugar de `content`.** Elimina la cadena `content` y envía el texto como una parte de texto. El rol `data` ya no se acepta.
+
+<CodeGroup>
+
+```json v1
+{
+  "id": "msg_1",
+  "role": "user",
+  "content": "How do I get started?",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+```json v2
+{
+  "id": "msg_1",
+  "role": "user",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+</CodeGroup>
+
+**Los archivos adjuntos son partes `file`.** Reemplaza `experimental_attachments` por entradas en `parts`.
+
+<CodeGroup>
+
+```json v1
+{
+  "experimental_attachments": [
+    { "name": "screenshot.png", "contentType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+```json v2
+{
+  "parts": [
+    { "type": "file", "filename": "screenshot.png", "mediaType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+</CodeGroup>
+
+**Las respuestas se transmiten como server-sent events.** v1 devuelve el data stream de AI SDK v4, compuesto por líneas `0:"..."`. v2 devuelve el [UI message stream](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#ui-message-stream) de AI SDK. Cada evento es una línea JSON `data: {...}`, el texto llega en eventos `text-delta` y el stream termina con `data: [DONE]`. Los encabezados de respuesta `X-Thread-Id`, `X-Thread-Key` y `X-Message-Id` no cambian.
+
 <div id="rate-limits">
   ## Límites de uso
 </div>
 
-La API del assistant tiene los siguientes límites:
+La API del assistant tiene el siguiente límite:
 
 * 10.000 solicitudes por organización de Mintlify por hora
-* 10.000 solicitudes por IP por día

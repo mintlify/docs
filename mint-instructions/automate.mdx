@@ -1,0 +1,88 @@
+---
+title: "Automate docs maintenance"
+name: mintlify-automate
+description: "Keeps docs in sync with code using the Mintlify agent, Autopilot, automations (mint automations), the Slack agent, and CI checks. Use when the user wants docs updated automatically or checked on every pull request."
+when: "Keep docs in sync with code: Mintlify agent, Autopilot, automations, Slack, CI checks"
+---
+Use this to keep docs current or check them on every pull request. Most setup is in the dashboard (https://app.mintlify.com/products/automations), which you cannot click: pick the tool, prepare repo files and CI, and give the user exact dashboard steps.
+
+## Pick the right tool
+
+- Fail a PR on broken builds or links, in any CI, any plan: add `mint validate` and `mint broken-links` to the user's own CI (below).
+- Broken internal links and Vale prose linting on GitHub PRs, no CI file: Mintlify CI checks (Pro or Enterprise, GitHub only).
+- Recurring or triggered doc updates (code merged, content pushed, schedule, integration event, webhook): an automation (Pro or Enterprise).
+- "Just keep docs up to date", no prompts or triggers to configure: Autopilot (Pro or Enterprise, GitHub or GitLab including self-hosted).
+- One-off or exploratory change: the Mintlify agent in Slack, the web editor, or the dashboard.
+
+## Workflow
+
+1. Run `mint status` to confirm account and subdomain. Ask the plan if a step needs Pro or Enterprise.
+2. CI in their repo: add the Examples job yourself.
+3. Mintlify CI checks: tell the user to enable them on the dashboard **Site** settings page (https://app.mintlify.com/settings/project/site), choosing `Warning` (never fails) or `Blocking` (fails on errors or suggestions). Needs the Mintlify GitHub App. Optional: commit a `.vale.ini` in the content root (use relative `StylesPath = styles`, no absolute paths or `..`) and `styles/config/vocabularies/Mintlify/accept.txt` / `reject.txt`.
+4. Agent guidance: write `.mintlify/AGENTS.md`. A root `AGENTS.md` also works but is served publicly at `/agents.md` unless you add it to `.mintignore`. The Mintlify agent reads only `AGENTS.md`, not `CLAUDE.md`, `.cursorrules` or similar, so copy shared rules in. The editor agent ignores `AGENTS.md`; it uses **AI instructions** in editor settings.
+5. Automations: you can manage them from the terminal when the user is logged in (`mint login`): `mint automations list`, `mint automations delete <id>`, and `mint automations create` with `--name`, `--prompt`, `--type` (predefined: `changelog`, `source-code-agent`, `translations`, `writing-style`, `typo-check`, `broken-link-detection`, `seo-metadata-audit`, `assistant-docs-updates`, `contextual-feedback-docs-updates`), a trigger (`--cron "<5-field cron>"` or `--push-repo owner/repo`), optional `--context-repo`, `--automerge`, or `--file <json|yaml>`. Confirm name, trigger, and prompt with the user before creating. Otherwise the user uses **Automations** in the dashboard. Prompts: one task, numbered steps, exact paths, done state.
+6. Test: user clicks **Test run** / **Run now** and picks a scope (**Since a date**, **Everything**, **Specific pull request**). Not available for Integration or Webhook triggers. Check the **Runs** tab.
+7. Autopilot: user opens https://app.mintlify.com/products/autopilot, switches on the toggle, picks **Additional repositories** under GitHub **Configure** (GitLab: **Additional projects**, after connecting projects through GitLab OAuth in Git settings), and uses **Chat to configure** to change reviewers, target branch, or schedule.
+8. Slack agent: user clicks **Connect Slack** on the Automations page and installs the `mintlify` app (workspace admin approval may be needed; on Enterprise Grid install to the specific workspace). Test with a DM or `@mintlify` in a channel. Not available for Bitbucket Cloud projects.
+
+## What each piece does
+
+- The Mintlify agent: researches docs, connected repos and the web, plans, writes, runs Mintlify CLI checks, then opens a PR or commits to the deploy branch (**Review process** in Slack settings: **Create a pull request** or **Push to main**; branch protection forces a PR). Name another branch in the prompt to target it. Only reads repos with the Mintlify GitHub App (GitLab: Git Settings); other repos are read-only context. Slack viewers get read-only.
+- Web editor agent: **Ask agent** or Cmd/Ctrl+J; edits the current branch.
+- Automations: one trigger each. **Content update** (push to docs repo), **Code change** (PR merged in source repos; per-repo path filters and excluded authors, up to 50 repos), **Custom schedule** (presets or 5-field cron), **Integration** (Enterprise, custom only), **Webhook** (custom only, `POST` with `Authorization: Bearer <api-key>`, an organization API key with write access).
+- Predefined: Update from code changes (needs a source repo, default twice weekly), Draft changelog, Fill gaps from assistant conversations, Improve docs from user feedback (feedback collection on), Update from support feedback (Intercom, Plain, Pylon, or Zendesk), Translate content (needs a target language, direct merge), Fix broken links, Fix SEO issues, Fix grammar & typos, Enforce your style guide. Custom: your own prompt.
+- Output: PRs against the deploy branch, titled with the automation name. No per-automation base branch; to land elsewhere, change the project's deploy branch in Git Settings or use a separate project. Update mode: **Modify and wait for review** (PR) or **Update and merge changes** (GitHub needs the Mintlify GitHub App on the bypass list, mode **Always**, of every ruleset on the deploy branch). Up to 10 context repos.
+- Autopilot: decides what to update itself, avoids duplicating active automations, never pushes to the deploy or default branch, assigns the code owner as reviewer. Default: updates on code changes plus a daily quality check.
+- Integrations (Enterprise): read-only tools and triggers for automations (Confluence, Jira, Linear, Notion, Stripe, Zendesk, Slack).
+
+## Plans and credits
+
+- Starter has no AI features and cannot buy credits.
+- Each Pro plan adds 10,000 credits per month to one organization-wide balance.
+- Automation run that updates docs: 250 credits. Autopilot run that opens or updates a PR: 250. Runs that find nothing or fail: 0. Editor and Slack agent: no credits.
+- Scheduled runs batch changes into one 250-credit update; push triggers vary with change volume. Max 500 runs per automation per day. Autopilot pauses itself when credits run out.
+
+## Rules
+
+- Never claim Autopilot, Mintlify CI checks, or the Slack app are set up: only the user can do those in the dashboard. Confirm an automation exists with `mint automations list`.
+- For other `mint automations` flags, run `mint automations create --help`.
+- Do not invent `mint publish`. Mintlify CI checks do not check external links; use `mint broken-links --check-external`.
+- If the Git provider uses an IP allow list, the user emails support@mintlify.com to route through `54.242.90.151`, then allows that IP.
+- GitLab automations need a paid GitLab tier and Maintainer role per project. Mintlify CI checks are GitHub only.
+
+## Examples
+
+```yaml
+name: Docs checks
+on:
+  pull_request:
+    paths: ["**/*.mdx", "docs.json"]
+jobs:
+  docs-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm i -g mint
+      - run: mint validate
+      - run: mint broken-links --check-anchors
+```
+
+Run where `docs.json` lives. In large repos scope with `--files "guides/**/*.mdx"`.
+
+## Verify
+
+```bash
+mint validate
+mint broken-links --check-anchors --check-redirects --check-snippets
+mint dev --no-open
+```
+
+Then open a test PR to confirm the CI job runs.
+
+## More
+
+- `mint instructions publish` for deploys, previews, and CI context.
+- https://www.mintlify.com/docs/automations/index
+- https://www.mintlify.com/docs/automations/reference
+- https://www.mintlify.com/docs/deploy/ci
+- https://www.mintlify.com/docs/agent/slack

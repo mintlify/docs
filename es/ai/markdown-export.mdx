@@ -1,7 +1,7 @@
 ---
 title: "Exportación de Markdown"
 description: "Exporta versiones limpias en Markdown de tus páginas de documentación para herramientas de IA, integraciones de LLM y flujos de trabajo automatizados."
-keywords: ["markdown", "eficiencia de tokens", "procesamiento de IA"]
+keywords: ["markdown", "eficiencia de tokens", "procesamiento de IA", "componentes", "snippets"]
 ---
 
 import { PreviewButton } from "/snippets/previewbutton.jsx"
@@ -19,6 +19,10 @@ Cada página Markdown termina con una línea que indica que Mintlify crea y aloj
 Añade `.md` a la URL de cualquier página para ver una versión en Markdown.
 
 <PreviewButton href="https://mintlify.com/docs/ai/markdown-export.md">Abrir esta página como Markdown</PreviewButton>
+
+Los enlaces a otras páginas de tu navegación apuntan a sus versiones en Markdown, de modo que los agentes que siguen un enlace continúan leyendo Markdown. Los enlaces relativos a la raíz y las imágenes usan la URL completa de tu sitio, por lo que siguen funcionando si pegas el Markdown en una herramienta de IA o lo lees sin su URL de origen. Por ejemplo, en un sitio en `example.com/docs`, `[Quickstart](/quickstart#install)` se convierte en `[Quickstart](https://example.com/docs/quickstart.md#install)` en la salida Markdown. Los enlaces a páginas que no están en tu navegación conservan su ruta sin `.md`. Las URL externas y los enlaces dentro de bloques de código se mantienen tal como están escritos.
+
+Los enlaces se mantienen relativos a la raíz en las implementaciones de vista previa, los sitios autoalojados y los sitios servidos en una subruta sin un dominio personalizado.
 
 <div id="accept-header">
   ## Encabezado Accept
@@ -70,6 +74,71 @@ El contenido envuelto en `<Visibility for="humans">` aparece en la página web, 
   To create an account, call `POST /v1/accounts` with a valid email address.
 </Visibility>
 ```
+
+<div id="components-and-html">
+  ## Componentes y HTML
+</div>
+
+La exportación a Markdown convierte los componentes y el HTML en Markdown antes de que un agente lea la página. La página web no cambia.
+
+<div id="components">
+  ### Componentes
+</div>
+
+| Componente | Salida en Markdown |
+| --- | --- |
+| `Note`, `Info` | Una alerta `[!NOTE]`. |
+| `Tip`, `Check` | Una alerta `[!TIP]`. |
+| `Warning` | Una alerta `[!WARNING]`. |
+| `Danger` | Una alerta `[!CAUTION]`. |
+| `Card` con un `title` | Una cita (blockquote). El título aparece en negrita y es un enlace cuando se define `href`. |
+| `Card` sin `title` | Una cita con el contenido. Un `href` sin título añade un enlace `[Open](href)` al final de la cita. |
+| `Accordion` | Una cita con el título en negrita en la primera línea. |
+| `Steps` y `Step` | Elimina el contenedor `Steps`. Cada paso es un título numerado, como `**1. Install the CLI**`. Define `stepNumber` para elegir el número. Define `titleSize` como `h2`, `h3` o `h4` para convertir el título en un encabezado de ese nivel. |
+| `ParamField`, `ResponseField` | El nombre en negrita, el tipo como código y `required`, `deprecated` o `default` cuando los defines. |
+| `Tooltip` | El texto, con la sugerencia entre paréntesis. |
+| `Frame` | El contenido, seguido del `caption` en su propia línea. |
+| `Update` | El `label` en negrita, luego la `description` y el contenido. |
+| `Tile` | El `title` en negrita, o un enlace cuando se establece `href`, luego la `description` y el contenido. Sin un `title`, el `aria-label` ocupa su lugar. |
+| `Prompt` | La `description`, luego el texto del prompt. |
+| `Color.Item` | El `name` en negrita y el `value` en código. Un valor con colores claro y oscuro muestra ambos, marcados como `(light)` y `(dark)`. |
+| `View` | El `title` en negrita, luego el contenido. Todas las vistas aparecen en la exportación, una tras otra. |
+| `Variation` | La etiqueta de cada variación que muestra, en negrita y separadas por comas, luego el contenido. Una variación sin etiqueta en `docs.json` muestra su ID en su lugar. |
+
+Un componente sin forma propia en Markdown conserva su texto. Su `title` aparece en negrita, o como enlace si también tiene un `href`, seguido de su descripción o sus elementos hijos.
+
+<div id="html">
+  ### HTML
+</div>
+
+El HTML de una página también se convierte en Markdown.
+
+- Elimina contenedores como `div` y `span`. Su contenido se conserva.
+- Los encabezados, enlaces, imágenes y el texto en negrita, cursiva o código se convierten en Markdown.
+- Elimina los atributos `class`, `className`, `style` y `data-*`. Los atributos `id`, `href`, `src`, `alt` y ARIA se conservan.
+- Cuando una imagen solo para modo claro (`dark:hidden`) está junto a una imagen solo para modo oscuro (`hidden` con `dark:block`, `dark:inline`, `dark:inline-block`, `dark:flex` o `dark:grid`), la copia oscura no se incluye. Una imagen solo para modo oscuro sin una copia clara al lado se conserva.
+
+Un enlace que envuelve un encabezado se traslada a ese encabezado. Un enlace que envuelve varios bloques conserva los bloques y añade un enlace después de ellos. El texto del enlace es el `aria-label`, luego el `title` y, por último, `Open`.
+
+<div id="snippets">
+  ### Snippets
+</div>
+
+Los snippets muestran el contenido del archivo importado, no la etiqueta, como `<Snippet file="path/to/snippet.mdx" />`. Las exportaciones a Markdown incluyen cualquier variable de `docs.json`. Si no se encuentra un archivo de snippet referenciado, la exportación a Markdown incluye la etiqueta.
+
+`<Visibility>` dentro de un snippet o de un componente personalizado sigue las mismas reglas de audiencia que en la página. Úsalo cuando un componente personalizado sea visual y quieras que los agentes lean una forma más sencilla, como una [`Card`](/es/components/cards).
+
+<div id="custom-react-components">
+  ### Componentes de React personalizados
+</div>
+
+Las exportaciones a Markdown nunca incluyen el código fuente de los componentes. Cuando una página importa [componentes de React personalizados](/es/customize/react-components) o datos desde archivos de snippet, la exportación a Markdown contiene lo que esos componentes muestran, no el código que los define.
+
+- **Componentes con salida estática**: se convierten en Markdown. Por ejemplo, un componente que devuelve un enlace, una lista o una tabla aparece como ese enlace, esa lista o esa tabla.
+- **Componentes interactivos**: generan su salida a partir del estado o de APIs del navegador, como calculadoras, galerías con filtros y gráficos. Solo conservan sus elementos hijos y sus props `title`, `description`, `alt` y `href`. Un componente sin ninguno de ellos se omite.
+- **Datos importados**: como un objeto que se pasa a un componente como prop, no aparecen en las exportaciones a Markdown.
+
+Ofrece a los agentes una versión estática del contenido de un componente interactivo con el componente [visibility](/es/components/visibility). Consulta [Componentes interactivos](/es/components/visibility#interactive-components) para ver un ejemplo.
 
 <div id="api-reference-pages">
   ## Páginas de referencia de API

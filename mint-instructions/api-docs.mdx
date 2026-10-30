@@ -1,0 +1,138 @@
+---
+title: "API reference docs"
+name: mintlify-api-docs
+description: "Adds an API reference from an OpenAPI spec (file or URL), configures the API playground, and covers AsyncAPI, GraphQL, and common OpenAPI errors. Use when setting up API documentation."
+when: "Setting up API documentation: OpenAPI, AsyncAPI, GraphQL, playground"
+---
+Use this topic when a user wants API reference pages, an interactive playground, or a fix for blank or missing endpoint pages.
+
+## Workflow
+
+1. Get an OpenAPI 3.0, 3.1, or 3.2 spec (JSON or YAML). OpenAPI 2.0 (Swagger) is not supported: convert it at https://editor.swagger.io (Edit > Convert to OpenAPI 3).
+2. Prefer committing the spec into the docs repo (for example `openapi.json` at the root). A URL also works, but it must be publicly reachable over HTTPS with no auth, and spec changes at a URL do not trigger a redeploy.
+3. In the spec, set `servers` (base URL) and `components.securitySchemes` + `security`. The playground reads base URL and auth fields from the spec. With no `servers`, the playground falls back to simple mode.
+4. Add `openapi` to a navigation element (tab, group, or anchor) in `docs.json`:
+   - No `pages`: Mintlify generates a page for every endpoint.
+   - With `pages` listing `"METHOD /path"` entries: only those endpoints get pages. Once you list any endpoint from a spec, no others are added.
+5. Optional: tune the playground under `api` in `docs.json` (see Examples).
+6. Run the Verify commands.
+
+## Rules
+
+- Methods in navigation entries and frontmatter must be uppercase and the path must exactly match the spec (`/users/{id}`, not `/user/{id}`). Trailing slashes are tolerated.
+- Child navigation elements inherit the parent's `openapi` unless they set their own.
+- `$ref` works only for internal references inside one document. No external refs.
+- Mintlify uploads every OpenAPI file in the repo, even unreferenced ones. With more than one spec, always include the file path in frontmatter (`openapi: "v1/openapi.json GET /users"`), or delete stale spec files. Otherwise the first alphabetical match wins.
+- Per-page `openapi` frontmatter must be one string for one endpoint. A list or non-string fails the deploy.
+- Do not have both an MDX file and a navigation entry for the same operation (for example `get-users.mdx` and `"GET /users"`).
+- Navigation entries that do not match an operation are treated as file paths.
+- Hide an endpoint from navigation with `x-hidden: true` on the operation (page still exists); remove it entirely with `x-excluded: true`.
+- Customize generated pages from the spec with `x-mint` on an operation: `metadata` (title, sidebarTitle, description, playground, groups...), `content` (MDX before the reference), `href` (custom URL).
+- Generated pages land in `api-reference/` unless you set `directory` in the object form of `openapi`.
+- Localhost spec URLs need `mint dev --local-schema` / `mint validate --local-schema`. Production requires HTTPS.
+- Never invent a validation command. `mint openapi-check` is deprecated; use `mint validate`.
+
+## Examples
+
+Whole spec as a tab (path or URL):
+
+```json
+"navigation": {
+  "tabs": [
+    { "tab": "API reference", "openapi": "openapi.json" }
+  ]
+}
+```
+
+Multiple specs, one per group, with a custom directory:
+
+```json
+"groups": [
+  {
+    "group": "Users API",
+    "openapi": { "source": "openapi/users.json", "directory": "users-api-reference" }
+  },
+  {
+    "group": "Admin API",
+    "openapi": "https://example.com/admin-openapi.yaml"
+  }
+]
+```
+
+Selected endpoints mixed with normal pages:
+
+```json
+{
+  "group": "API reference",
+  "openapi": "openapi.json",
+  "pages": ["api-overview", "GET /users", "POST /users"]
+}
+```
+
+Endpoint from a specific spec with no default set: `"openapi/v2.json GET /orders"` in any `pages` array.
+
+Per-page MDX bound to one operation (page gets the generated params and responses):
+
+```mdx
+---
+title: "Get user"
+openapi: "openapi.json GET /users/{id}"
+---
+```
+
+Data model page: `openapi-schema: "openapi.json OrderItem"`. Webhook page (3.1+): `openapi: "openapi.json webhook orderUpdated"`.
+
+Playground and code examples (all keys documented under `api`):
+
+```json
+"api": {
+  "playground": { "display": "interactive", "proxy": true },
+  "examples": {
+    "languages": ["curl", "python", "javascript"],
+    "defaults": "required",
+    "prefill": true,
+    "autogenerate": true
+  },
+  "params": { "expanded": "all" },
+  "url": "full"
+}
+```
+
+- `playground.display`: `interactive` (default), `simple`, `none`, `auth` (only signed-in readers; requires docs authentication).
+- `playground.proxy` defaults to `true`. Set `false` to send requests from the browser (your API then needs CORS); `credentials: true` only works with `proxy: false`.
+- `examples.defaults`: `required` or `all` (default). `prefill` defaults to `false`.
+- `api.optional`: `collapsed` (default), `expanded`, `static`.
+
+AsyncAPI (WebSocket channels, AsyncAPI 3.0): use `"asyncapi": "asyncapi.json"` on a navigation element, same string/array/`{source, directory}` shapes. Single channel page: `asyncapi: "asyncapi.json channelName"` frontmatter.
+
+GraphQL (SDL file or HTTPS URL): `"graphql": "schema.graphql"` on a tab or group only. Curate with `"QUERY products"`, `"MUTATION cart.createCart"`, `"TYPE Cart"` in a group's `pages` (uppercase kinds).
+
+Manual MDX API pages (no spec): set `api.mdx.server` and `api.mdx.auth` (`method`: `bearer`, `basic`, `key`, `cobo`; `name` for key), then use `api: "POST /v1/users"` frontmatter plus `<ParamField>`, `<ResponseField>`, `<RequestExample>`, `<ResponseExample>`.
+
+## Common errors
+
+- All API pages blank: spec not found or invalid. Run `mint validate`; check it is not OpenAPI 2.0.
+- One page blank: method/path or spec filename in `openapi` frontmatter does not match the spec.
+- `Failed to fetch OpenAPI file for anchor or tab`: the build could not download the spec URL (private host, auth, bad TLS, 5xx). Commit the spec to the repo or serve it from a stable public HTTPS URL.
+- Nav entries not generating pages: the element (or a parent) lacks `openapi`, or the spec has errors.
+- Some operations missing: `x-hidden`, invalid operations, or you listed specific endpoints so only those appear.
+- Playground requests fail behind a reverse proxy: allow `POST` to `/_mintlify/api/request`, or set `api.playground.proxy: false` and enable CORS.
+
+## Verify
+
+```bash
+mint validate                # strict build, includes OpenAPI validation of specs in docs.json
+mint validate --local-schema # when the spec is served from http://localhost
+mint broken-links            # spec files themselves are not link-checked
+mint dev --no-open           # open an endpoint page and send a playground request
+```
+
+Run `mint validate --help` for all flags.
+
+## More
+
+- `mint instructions api-docs sdk`: SDK reference pages, x-codeSamples, oneOf/anyOf, multiple responses, endpoint visibility.
+- https://www.mintlify.com/docs/api-playground/openapi-setup
+- https://www.mintlify.com/docs/organize/settings-api
+- https://www.mintlify.com/docs/api-playground/troubleshooting
+- https://www.mintlify.com/docs/api-playground/mdx-setup

@@ -110,9 +110,67 @@ function MyComponent({ domain }) {
 
 See [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) and [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport) in the AI SDK documentation for more details.
 
+## Migrate from v1
+
+The v1 endpoint is discontinued and returns `410 Gone`. To migrate, change the URL from `/discovery/v1/assistant/{domain}/message` to `/discovery/v2/assistant/{domain}/message` and update your messages and stream handling.
+
+Your API key and these body fields don't change: `fp`, `threadId`, `threadKey`, `regenerate`, `retrievalPageSize`, `filter`, `context`, and `currentPath`.
+
+### If you use `useChat`
+
+Upgrade to AI SDK v5 or later and use `DefaultChatTransport` as shown in [Integration with `useChat`](#integration-with-usechat). Remove `streamProtocol` and `sendExtraMessageFields`. They aren't needed in v2. Render messages from `message.parts` instead of `message.content`.
+
+### If you call the API directly
+
+**Messages use `parts` instead of `content`.** Remove the `content` string and send text as a text part. The `data` role is no longer accepted.
+
+<CodeGroup>
+
+```json v1
+{
+  "id": "msg_1",
+  "role": "user",
+  "content": "How do I get started?",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+```json v2
+{
+  "id": "msg_1",
+  "role": "user",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+</CodeGroup>
+
+**Attachments are `file` parts.** Replace `experimental_attachments` with entries in `parts`.
+
+<CodeGroup>
+
+```json v1
+{
+  "experimental_attachments": [
+    { "name": "screenshot.png", "contentType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+```json v2
+{
+  "parts": [
+    { "type": "file", "filename": "screenshot.png", "mediaType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+</CodeGroup>
+
+**Responses stream as server-sent events.** v1 returns the AI SDK v4 data stream, which is made of `0:"..."` lines. v2 returns the AI SDK [UI message stream](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#ui-message-stream). Each event is a `data: {...}` JSON line, text arrives in `text-delta` events, and the stream ends with `data: [DONE]`. The `X-Thread-Id`, `X-Thread-Key`, and `X-Message-Id` response headers are unchanged.
+
 ## Rate limits
 
-The assistant API has the following limits:
+The assistant API has the following limit:
 
 - 10,000 requests per Mintlify organization per hour
-- 10,000 requests per IP per day

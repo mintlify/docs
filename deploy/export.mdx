@@ -1,6 +1,6 @@
 ---
 title: "Offline export"
-description: "Export your documentation site as a self-contained zip archive for offline viewing, internal distribution, or air-gapped environment hosting."
+description: "Export your documentation site as a zip archive of pre-rendered pages for offline viewing and internal distribution."
 keywords: ["export", "offline", "zip", "static site", "distribution", "mint export"]
 ---
 
@@ -8,9 +8,11 @@ keywords: ["export", "offline", "zip", "static site", "distribution", "mint expo
   Offline exports require an [Enterprise plan](https://mintlify.com/pricing?ref=offline-export).
 </Info>
 
-Use `mint export` to package your entire documentation site into a self-contained zip archive. Recipients can unzip and view the docs in their browser without an internet connection, a Mintlify account, or any build tools. They only need [Node.js](https://nodejs.org) installed.
+Use `mint export` to package your entire documentation site into a zip archive of pre-rendered pages. Recipients can unzip and view the docs in their browser without a Mintlify account or any build tools. They only need [Node.js](https://nodejs.org) installed.
 
-This is useful when you need to distribute documentation to users who can't access your live site, such as for on-premise customers, air-gapped environments, or internal compliance reviews.
+This is useful when you need to distribute documentation to users who can't access your live site, such as for on-premise customers or internal compliance reviews.
+
+The CLI bundles the icons, fonts, and LaTeX styles your site uses into the archive, so exported docs work in air-gapped environments without internet access. Exports are served from the root of a domain unless you set a [base path](#serve-under-a-subpath). Review the [limitations](#limitations) before you deploy an export.
 
 ## Prerequisites
 
@@ -19,8 +21,27 @@ This is useful when you need to distribute documentation to users who can't acce
 
 ## Limitations
 
-- Offline exports do not support search. To add offline search, index the exported HTML with a static search tool.
 - Offline exports do not support the Mintlify assistant.
+- Offline exports do not include analytics or other [integrations](/organize/settings-integrations) configured in your `docs.json`.
+- Images and other files that your pages reference by external URL are not bundled. Store them in your project to include them in the archive.
+
+### Offline search
+
+The search bar works in exported docs without a network connection. When you run `mint export`, the CLI builds a search index from the exported pages and saves it in the archive. The browser searches that index locally.
+
+Offline search follows the same rules as search on your live site. It skips pages that are [hidden from search](/organize/hidden-pages), such as pages with `noindex: true` or `searchable: false` in their frontmatter. Results only include pages in the reader's current language and version.
+
+### Bundled assets
+
+When you run `mint export`, the CLI downloads assets that your site loads from external hosts and saves them in the archive. This includes:
+
+- Icons referenced by name, such as Font Awesome and Lucide icons.
+- Code block language icons and language selector flags.
+- Google Fonts and externally hosted fonts.
+- LaTeX stylesheets and fonts.
+- Files referenced from bundled stylesheets.
+
+The computer running `mint export` needs internet access to download these assets. The CLI only downloads assets from public hosts. If an asset fails to download, the CLI prints a `could not bundle <url>` warning, and the exported docs load that asset from its original host.
 
 ## Export your site
 
@@ -39,6 +60,8 @@ The CLI builds your site, crawls every page defined in your navigation, and pack
 | `--output <path>` | Set the output zip file path. | `export.zip` |
 | `--groups <group>` | Mock [user groups](/deploy/authentication-setup#control-access-with-groups) for the export. Useful when your docs use group-based access control and you want the archive to include restricted pages. | — |
 | `--disable-openapi` | Skip OpenAPI file generation during the export. Use this if you have many OpenAPI specs and want faster builds. | — |
+| `--base-path <path>` | Serve the export under a subpath, such as `/docs`. See [Serve under a subpath](#serve-under-a-subpath). | |
+| `--client-version <version>` | Build the export with a specific Mintlify client release instead of the latest compatible one. See [Pin the client version](#pin-the-client-version). | Latest compatible release |
 
 For example, to export your site to a custom filename with a specific user group:
 
@@ -50,6 +73,30 @@ mint export --output customer-docs.zip --groups enterprise
   The export only includes pages listed in your navigation. [Hidden pages](/organize/hidden-pages) are not included in the archive.
 </Note>
 
+### Serve under a subpath
+
+By default, an export is served from the root of a domain, such as `http://localhost:3000/`. To serve it under a subpath instead, pass the path with `--base-path`:
+
+```bash
+mint export --base-path /docs
+```
+
+The CLI prefixes links, images, favicons, and bundled assets with the base path, and `serve.js` serves the docs at `http://localhost:3000/docs/`. A request to the root redirects to the base path.
+
+The base path can contain letters, numbers, hyphens, and underscores, with segments separated by `/`, such as `/docs` or `/product/docs`. The export fails if any page path starts with the base path. For example, `--base-path /docs` fails if your navigation includes a page at `docs/intro`. Choose a base path that no page uses.
+
+### Pin the client version
+
+By default, `mint export` builds your site with the latest Mintlify client release that is compatible with your CLI version. To build with a specific release instead, pass its version with `--client-version`:
+
+```bash
+mint export --client-version <version>
+```
+
+The CLI downloads that release from `releases.mintlify.com` before it builds the export. Pin a version when you need repeated exports to render the same way, for example when you regenerate an archive for the same customer.
+
+If the download fails and the CLI already has a client release cached from an earlier run, the CLI builds the export with the cached release instead.
+
 ### Security considerations
 
 The exported archive is a static, unauthenticated bundle. Anyone with the zip file can view every page it contains.
@@ -60,12 +107,17 @@ The exported archive is a static, unauthenticated bundle. Anyone with the zip fi
 
 ## What's in the zip
 
-The exported archive contains everything needed to view your docs offline:
+The exported archive contains your pre-rendered pages, their bundled assets, and a server to view them:
 
 | File | Purpose |
 |---|---|
 | HTML pages | Pre-rendered version of every page in your navigation |
+| `index.txt` files | Page data for client-side navigation, saved next to each page's HTML |
 | `_next/static/` | Bundled CSS, JavaScript, and other static assets |
+| `_mintlify/export-assets/` | Icons, fonts, and other assets downloaded from external hosts |
+| `_mintlify/search-index.json` | Search index for [offline search](#offline-search) |
+| `llms.txt` | Index of the exported pages for AI tools |
+| `README.md` | Instructions for viewing the export and hosting it on your own server |
 | `serve.js` | Zero-dependency Node.js HTTP server that serves the site |
 | `Start Docs.command` | macOS launcher. Double-click to open the docs. |
 | `Start Docs.bat` | Windows launcher. Double-click to open the docs. |
@@ -100,3 +152,13 @@ Share the zip file with anyone who has Node.js installed. To view the docs:
     </Note>
   </Tab>
 </Tabs>
+
+## Host the export on your own server
+
+To host an export on your own web server instead of `serve.js`, serve the unzipped folder as static files from the root of a domain. If you exported with `--base-path`, serve the folder under that path instead, and apply these rules to the part of the request path after the base path:
+
+1. **Pages:** Serve `<path>/index.html` for a request to `/<path>`.
+2. **Client-side navigation:** For a request with an `RSC: 1` header or an `_rsc` query parameter, serve `<path>/index.txt` with `Content-Type: text/x-component` and `Vary: RSC`. Without this rule, every link click loads a full page.
+3. **Caching:** Serve `_next/static/*` and `_mintlify/export-assets/*` with `Cache-Control: public, max-age=31536000, immutable`. Serve pages and `index.txt` files with `Cache-Control: no-cache`.
+
+`serve.js` implements all three rules, so you can use it as a reference.

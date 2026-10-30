@@ -1,6 +1,6 @@
 # Mintlify agent context
 
-Single source of truth, maintained in the Mintlify documentation repository, for the Mintlify skill distributed through the Codex, Cursor, and Claude plugins and the Kiro power.
+Single source of truth, maintained in the Mintlify documentation repository, for the Mintlify skill distributed through the Codex, Cursor, and Claude plugins, the Kiro power, and the documentation site's `skill.md`.
 
 ## Repository structure
 
@@ -13,6 +13,24 @@ Single source of truth, maintained in the Mintlify documentation repository, for
 - `../.github/workflows/sync-agent-context.yml` opens generated sync pull requests in all four target repositories.
 
 Plugin manifests, assets, READMEs, and Cursor rules remain owned by their target repositories, except for Kiro's required `plugin.json`, which is generated from its target configuration. This project generates the shared skill and each client's MCP configuration file.
+
+## Install the Mintlify skill
+
+`context/skills/mintlify/` covers authoring, configuration, and customization. Customization guidance lives in `reference/customization/`. Install the folder with:
+
+```bash
+npx skills@latest add https://github.com/mintlify/docs/tree/main/agent-context/context/skills/mintlify --skill mintlify
+```
+
+## Docs site skill
+
+The documentation site serves the root `skill.md` of this repository at `mintlify.com/docs/skill.md`. It is generated from `context/skills/mintlify/SKILL.md`. Because the site serves a single file, references become links: to the matching documentation page, or to the canonical reference file on GitHub when no page covers it. Edit the canonical skill, then regenerate:
+
+```bash
+npm run build:site-skill
+```
+
+`npm run check` fails when `skill.md` is out of date. Map new reference files in `siteReferenceLinks` in `scripts/lib.mjs`.
 
 ## Local development
 
@@ -45,6 +63,8 @@ The sync command replaces `skills/mintlify/`, writes the client-specific MCP con
 Kiro uses the manifest version to detect updates. The sync command bumps the patch version automatically whenever the generated Kiro skill, MCP configuration, or manifest differs from the target repository. For a minor or major release, set a higher `pluginManifest.version` in `targets/kiro.json`; the sync uses it when it is greater than the target's current version. Versions must be `MAJOR.MINOR.PATCH`, without pre-release tags or build metadata.
 
 A target that sets `pluginManifestFile` writes its manifest to that path instead of `plugin.json`, and the version bump reads the target repository's current version from the same path. Claude Code, for example, reads only `.claude-plugin/plugin.json`.
+
+Don't set `pluginManifest` for the Claude target. Its repository keeps a hand-written `.claude-plugin/plugin.json` that sets only `name`. Anthropic's official marketplace bumps the plugin by commit SHA. A `version` in the manifest pins installs to that version, so those bumps wouldn't reach existing users.
 
 `npm run status` compares locally checked-out sibling plugin repositories with fresh builds and reports whether each one is current. Pass a workspace root as the final argument if the repositories do not share this repository's parent directory.
 

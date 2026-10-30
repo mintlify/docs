@@ -43,6 +43,8 @@ Proxy these paths to your Mintlify subdomain:
 | `/docs`                           | `<your-subdomain>.mintlify.site/docs` | No cache |
 | `/docs/*`                         | `<your-subdomain>.mintlify.site/docs/*` | No cache |
 | `/docs/_llms/*`                   | `<your-subdomain>.mintlify.site/docs/_llms/*` | No cache |
+| `/_mintlify/*`                    | `<your-subdomain>.mintlify.site/_mintlify/*` | Use origin headers |
+| `/mintlify-assets/*`              | `<your-subdomain>.mintlify.site/mintlify-assets/*` | Use origin headers |
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site/.well-known/vercel/*` | No cache |
 | `/.well-known/skills/*` (optional)        | `<your-subdomain>.mintlify.site/docs/.well-known/skills/*` | No cache |
 | `/.well-known/agent-skills/*` (optional)  | `<your-subdomain>.mintlify.site/docs/.well-known/agent-skills/*` | No cache |
@@ -50,7 +52,13 @@ Proxy these paths to your Mintlify subdomain:
 | `/llms.txt` (optional)            | `<your-subdomain>.mintlify.site/docs/llms.txt` | No cache |
 | `/llms-full.txt` (optional)       | `<your-subdomain>.mintlify.site/docs/llms-full.txt` | No cache |
 
-Your proxy must forward all HTTP methods on documentation paths. Mintlify sends analytics events as `POST` requests to `/docs/_mintlify/api/v1/e`. A proxy that only allows `GET` and `HEAD` requests silently breaks the analytics in your dashboard.
+<Warning>
+  Proxy `/_mintlify/*` and `/mintlify-assets/*` from the root of your domain, not from under your base path. Mintlify can serve your site's CSS, JavaScript, fonts, favicons, and API requests from root paths like `/_mintlify/assets/*`. If your proxy only forwards your base path, pages load without styles or interactivity.
+</Warning>
+
+Mintlify sets cache headers on `/_mintlify/*` and `/mintlify-assets/*` responses. Versioned files under `/_mintlify/assets/*` are safe to cache long term, and API responses are marked as uncacheable. Pass these headers through instead of setting your own caching rules for these paths. Some sites don't request `/mintlify-assets/*`, but forwarding it is harmless.
+
+Your proxy must forward all HTTP methods on documentation and `/_mintlify/*` paths. Mintlify sends analytics events and API playground requests as `POST` requests to `/_mintlify/api/*` paths. A proxy that only allows `GET` and `HEAD` requests silently breaks the analytics in your dashboard.
 
 Mintlify serves these files under your base path, like `<your-subdomain>.mintlify.site/docs/llms.txt`. They are available on your domain under your subpath, like `your-domain.com/docs/llms.txt`, through your main subpath route.
 
@@ -152,6 +160,26 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
+    # Mintlify assets and API routes, served from the root of your domain.
+    # Keep the cache headers Mintlify sends so browsers cache hashed assets.
+    location ^~ /_mintlify/ {
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+    }
+
+    location ^~ /mintlify-assets/ {
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+    }
+
     # Documentation root
     location = /docs {
         proxy_pass https://<your-subdomain>.mintlify.site;
@@ -188,6 +216,8 @@ Mintlify rebuilds your documentation to serve at your base path, so `<your-subdo
 
 Configure your reverse proxy using the same [routing configuration](#routing-configuration), [header requirements](#required-header-configuration), and nginx patterns as the `/docs` subpath, replacing `/docs` with your base path.
 
+Do not add your base path to the `/_mintlify/*` and `/mintlify-assets/*` routes. With a custom base path, Mintlify serves these files only from the root, so `<your-subdomain>.mintlify.site/<your-base-path>/_mintlify/*` returns a 404.
+
 ## Troubleshooting
 
 ### Changes not appearing
@@ -197,6 +227,14 @@ Configure your reverse proxy using the same [routing configuration](#routing-con
 **Cause**: Your reverse proxy points to an outdated hostname.
 
 **Solution**: Update your reverse proxy configuration to point to `<your-subdomain>.mintlify.site`.
+
+### Pages load without styles
+
+**Symptoms**: Pages render as unstyled HTML. The browser console shows 404 errors for `/_mintlify/assets/*` or `/mintlify-assets/*` files.
+
+**Cause**: Your proxy forwards your base path but not the root `/_mintlify/*` and `/mintlify-assets/*` paths.
+
+**Solution**: Add routes for `/_mintlify/*` and `/mintlify-assets/*` at the root of your domain that point to `<your-subdomain>.mintlify.site`. See [Routing configuration](#routing-configuration).
 
 ### 404 error
 
@@ -227,4 +265,4 @@ Configure your reverse proxy using the same [routing configuration](#routing-con
 
 **Cause**: Incorrect caching configuration.
 
-**Solution**: Disable caching for documentation paths. If you proxy `/mintlify-assets/_next/static/*` paths, enable caching only for those static assets.
+**Solution**: Disable caching for documentation paths. For `/_mintlify/*` and `/mintlify-assets/*`, pass through the cache headers Mintlify sends instead of overriding them.

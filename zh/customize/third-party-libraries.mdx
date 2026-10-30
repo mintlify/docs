@@ -1,0 +1,181 @@
+---
+title: "第三方库"
+description: "将 npm 包中的 React 组件（例如图表和设计系统组件）导入到你的 MDX 页面中。"
+keywords: ["npm 包", "package.json", "React 组件", "导入"]
+---
+
+<Info>
+  第三方库需要 [Enterprise 计划](https://mintlify.com/pricing?ref=third-party-libraries)。请联系你的客户经理为你的站点启用此功能。
+</Info>
+
+在你的 MDX 页面中使用 npm 包中的组件，例如图表或你自己的设计系统。部署时，Mintlify 会安装 lockfile 中的包，将每个组件渲染为 HTML，并在浏览器中加载其 JavaScript。
+
+<Warning>
+  只安装你信任的包。包代码以与页面相同的权限运行，包括页面内容以及读者浏览器为你的站点存储的任何内容。它可以向任何服务器发出网络请求。删除包或回滚部署并不能阻止已在读者浏览器中加载的代码。
+</Warning>
+
+使用 [身份验证](/zh/deploy/authentication-setup) 或 [个性化](/zh/create/personalization) 的站点无法使用第三方库。在这些站点上，`docs.json` 中包含 `packages` 的部署会失败。这同样适用于需要组织身份验证或密码的 [预览部署](/zh/deploy/preview-deployments#restrict-access-to-preview-deployments)。
+
+当你的站点使用第三方库时，你无法为预览部署开启身份验证、个性化或访问限制。
+
+<div id="add-a-package">
+  ## 添加包
+</div>
+
+<Steps>
+  <Step title="列出你的依赖">
+    在与 `docs.json` 文件相同的文件夹中创建 `package.json` 文件。在 `dependencies` 下列出你导入的每个包，包括 `react` 和 `react-dom`。
+
+    ```json package.json
+    {
+      "private": true,
+      "dependencies": {
+        "@acme/charts": "^2.0.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+      }
+    }
+    ```
+
+    Mintlify 只安装 `dependencies`。仅在 `devDependencies` 或 `peerDependencies` 中列出的包无法在你的页面中使用。
+  </Step>
+  <Step title="提交 lockfile">
+    安装你的依赖，并将 lockfile 提交到 `package.json` 旁边。
+
+    <CodeGroup>
+      ```bash pnpm
+      pnpm install
+      ```
+
+      ```bash npm
+      npm install
+      ```
+    </CodeGroup>
+
+    Mintlify 会安装 lockfile 中的确切版本。它支持 pnpm 的 `pnpm-lock.yaml` 第 9 版和 npm 的 `package-lock.json`。不支持 Yarn 和 Bun 的 lockfile。
+  </Step>
+  <Step title="启用包">
+    在你的 `docs.json` 中添加 `packages` 键。空对象会以默认设置启用包。
+
+    ```json docs.json
+    {
+      "packages": {}
+    }
+    ```
+  </Step>
+  <Step title="导入组件">
+    在你的 `snippets` 文件夹中创建一个从包导入的组件。
+
+    ```jsx snippets/requests-chart.jsx
+    import { LineChart } from "@acme/charts";
+
+    const data = [
+      { day: "Mon", requests: 120 },
+      { day: "Tue", requests: 180 },
+      { day: "Wed", requests: 150 },
+    ];
+
+    export const RequestsChart = () => (
+      <LineChart data={data} x="day" y="requests" height={240} />
+    );
+    ```
+
+    然后将其导入到页面中：
+
+    ```mdx
+    import { RequestsChart } from "/snippets/requests-chart.jsx";
+
+    <RequestsChart />
+    ```
+  </Step>
+  <Step title="部署">
+    推送你的更改。如果某个包无法安装或构建，部署会失败，并显示指明该包及问题的错误。
+  </Step>
+</Steps>
+
+要在本地预览，请先安装依赖，然后在包含 `docs.json` 文件的文件夹中运行 [`mint dev`](/zh/cli/preview)。
+
+<div id="use-package-components">
+  ## 使用包组件
+</div>
+
+你也可以将包中的组件直接导入到 MDX 页面中：
+
+```mdx
+import { Tooltip } from "@acme/ui";
+
+<Tooltip content="Requests per day">Usage</Tooltip>
+```
+
+- 将包组件放在单独的行上。它们无法在段落、表格单元格或行内文本中使用。
+- 字符串、数字和布尔值可以直接作为 props 传递。对于函数、数组、对象或 JSX props，请在你的 `snippets` 文件夹中编写一个包装组件（例如 [添加包](#add-a-package) 中的图表），并在其中传递这些值。
+- 包组件内的 Markdown 会渲染为纯 HTML。Mintlify 组件（例如提示框和卡片）不会在包组件内渲染。
+
+<div id="load-package-styles">
+  ## 加载包样式
+</div>
+
+组件可以导入自己的 CSS。要加载包单独提供的样式表，请将其在已安装包中的路径添加到 `packages.css`：
+
+```json docs.json
+{
+  "packages": {
+    "css": ["@acme/ui/dist/styles.css"]
+  }
+}
+```
+
+包必须提供已编译的 CSS。Mintlify 不会对包代码运行 CSS 构建工具或插件，也不支持 CSS 模块。包样式表无法从远程 URL 加载字体或图片。请改用站点的 [字体设置](/zh/customize/fonts) 加载字体。
+
+<div id="wrap-components-in-a-provider">
+  ## 用 provider 包装组件
+</div>
+
+如果你的组件需要主题或上下文 provider，请从 snippet 中导出一个 `Provider` 组件，并将 `packages.provider` 设置为其路径：
+
+```json docs.json
+{
+  "packages": {
+    "provider": "/snippets/provider.jsx"
+  }
+}
+```
+
+```jsx snippets/provider.jsx
+import { ThemeProvider } from "@acme/ui";
+
+export const Provider = ({ children }) => <ThemeProvider>{children}</ThemeProvider>;
+```
+
+provider 会分别包装每个包组件。组件之间不会通过它共享状态。
+
+<div id="install-from-another-registry">
+  ## 从其他 registry 安装
+</div>
+
+无 scope 的包从公共 npm registry 安装。要从其他 registry 安装某个 scope，请在 `packages.registries` 中将该 scope 映射到 registry 的 URL：
+
+```json docs.json
+{
+  "packages": {
+    "registries": {
+      "@acme": "https://npm.acme.com/"
+    }
+  }
+}
+```
+
+该 registry 必须在默认端口上使用 HTTPS，并且无需凭据即可从公共互联网访问。
+
+<div id="limitations">
+  ## 限制
+</div>
+
+- **依赖来源**：依赖必须是 registry 版本、版本范围或标签。不支持 Git URL、本地路径以及 `file:`、`link:`、`workspace:` 和 `npm:` 别名。
+- **安装脚本**：包在安装时不会运行 `postinstall` 等安装脚本。需要这些脚本或需要原生二进制文件的包无法使用。
+- **大小**：一次部署的包输出最多可包含 1,000 个文件，每个文件 8 MB，总计 40 MB，gzip 压缩后 5 MB。在运行时加载大量模块的包（例如动态图标映射）可能会超出文件数量限制。
+- **服务端渲染**：每个组件必须在三秒内完成服务端渲染。渲染失败或超时的组件只会在浏览器中渲染，因此不会出现在页面的 HTML 中。
+- **搜索和 AI**：搜索、助手和 Markdown 导出使用你的 MDX 源内容，而不是组件渲染的内容。请将重要的参考内容保留在 MDX 文本中。
+- **Web 编辑器**：Web 编辑器预览不会渲染包组件。
+
+要停止使用包，请从你的 `docs.json` 文件中删除 `packages` 并重新部署。

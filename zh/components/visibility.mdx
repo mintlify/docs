@@ -7,7 +7,7 @@ boost: 3
 
 使用 `Visibility` 组件在同一页面上向不同受众显示不同的内容。你可以针对浏览你网站的人类读者、处理 Markdown 输出的 AI 代理，或根据读者的登录状态和用户组进行展示。这让你可以为不同受众定制信息，无需维护多个独立页面。
 
-在你已发布的网站上，标记为 `for="humans"` 的内容会正常渲染，而标记为 `for="agents"` 的内容则被隐藏。在 [Markdown 页面视图](/zh/ai/markdown-export)（`.md` URL）中则相反——代理内容会在 Markdown 输出中渲染，而仅供人类阅读的内容不会。同样的规则也适用于 [`llms-full.txt`](/zh/ai/llmstxt) 文件。
+在你已发布的网站上，标记为 `for="humans"` 的内容会正常渲染，而标记为 `for="agents"` 的内容则被隐藏。在 [Markdown 页面视图](/zh/ai/markdown-export)（`.md` URL）中则相反——代理内容会在 Markdown 输出中渲染，而仅供人类阅读的内容不会。同样的规则也适用于 [`llms-full.txt`](/zh/ai/llmstxt) 文件，以及[片段](/zh/create/reusable-snippets)或自定义组件中的 `<Visibility>`。请参阅[组件如何转换为 Markdown](/zh/ai/markdown-export#components-and-html)。
 
 <div id="example">
   ## 示例
@@ -83,13 +83,51 @@ boost: 3
 - `signed-out` 内容仅对未登录的读者渲染。
 - `groups` 内容仅对至少属于所列分组之一的已登录读者渲染。
 
+要排除分组，请传入一个包含 `includes` 和 `excludes` 列表的对象，而不是分组名称列表。排除规则优先于包含规则。仅包含 `excludes` 的规则会对所有不属于被排除分组的读者渲染，包括未登录的读者。
+
+```mdx
+<Visibility for={{ groups: { excludes: ["partner"] } }}>
+  Contact our sales team to upgrade your plan.
+</Visibility>
+
+<Visibility for={{ groups: { includes: ["staff"], excludes: ["contractor"] } }}>
+  Find the internal runbook in the team wiki.
+</Visibility>
+```
+
+要向所有已登录读者显示内容，请使用 `groups: ["*"]`。`excludes` 中不能使用 `*`。
+
 Markdown 页面视图和 `llms-full.txt` 对每位读者都是相同的，因此代理始终获得未登录视图。Mintlify 会从 Markdown 输出中移除 `signed-in` 和 `groups` 内容，并包含 `signed-out` 内容。
 
 要在本地检查这些规则，请运行 [`mint dev --signed-in` 或 `mint dev --groups`](/zh/cli/preview#preview-as-a-specific-group)。如果两个选项都未使用，本地预览将显示未登录视图。
 
 <Warning>
-  登录和分组规则仅在浏览器中隐藏内容。被隐藏的内容仍会发送到每位读者的浏览器。要限制对敏感内容的访问，请将其放在单独的页面上，并使用 [`groups` frontmatter 属性](/zh/deploy/authentication-setup#control-access-with-groups)。
+  登录和分组规则仅在浏览器中隐藏内容。Mintlify 仍会将被隐藏的内容发送到每位读者的浏览器。要限制对敏感内容的访问，请将其放在单独的页面上，并使用 [`groups` frontmatter 属性](/zh/deploy/authentication-setup#control-access-with-groups)。
 </Warning>
+
+<div id="interactive-components">
+  ## 交互式组件
+</div>
+
+计算器、可筛选的图库和图表等交互式组件在浏览器中生成输出，因此在 [Markdown 输出](/zh/ai/markdown-export#custom-react-components)中几乎不显示内容。将交互式组件包裹在 `for="humans"` 中，并在 `for="agents"` 中添加相同信息的静态版本。
+
+```mdx
+import { PricingCalculator } from "/snippets/pricing-calculator.jsx"
+import { PRICING } from "/snippets/pricing-data.jsx"
+
+<Visibility for="humans">
+  <PricingCalculator data={PRICING} />
+</Visibility>
+
+<Visibility for="agents">
+  | 套餐 | 每 100 万 token 价格 |
+  | --- | --- |
+  | Standard | $1.00 |
+  | Pro | $3.00 |
+</Visibility>
+```
+
+Markdown 输出从不包含组件源代码或 `PRICING` 等导入的数据，因此无需使用 `Visibility` 将代码排除在 Markdown 之外。用它来控制每类受众读到的内容。
 
 <div id="properties">
   ## 属性
@@ -103,6 +141,7 @@ Markdown 页面视图和 `llms-full.txt` 对每位读者都是相同的，因此
   - `signed-in`：在网页上对已登录读者可见，从 Markdown 输出中排除。
   - `signed-out`：在网页上对未登录读者可见，包含在 Markdown 输出中。
   - `{ groups: [...] }`：在网页上对至少属于所列分组之一的已登录读者可见，从 Markdown 输出中排除。
+  - `{ groups: { includes: [...], excludes: [...] } }`：在网页上对匹配 `includes` 且不属于 `excludes` 中任何分组的读者可见。至少设置两个列表之一。从 Markdown 输出中排除。
 
   请使用静态值。Mintlify 会从 Markdown 输出中排除 `for` 值为计算结果（例如变量或条件表达式）的内容。
 </ResponseField>

@@ -9,7 +9,7 @@ keywords: ['authentication', 'auth', 'OAuth', 'JWT', 'password', 'private']
 
   Password authentication requires a [Pro or Enterprise plan](https://mintlify.com/pricing?ref=authentication).
 
-  OAuth and JWT authentication require an [Enterprise plan](https://mintlify.com/pricing?ref=authentication).
+  OAuth, JWT, and [emails](/deploy/emails-authentication) authentication require an [Enterprise plan](https://mintlify.com/pricing?ref=authentication).
 </Info>
 
 Authentication requires users to sign in before accessing your content.
@@ -32,6 +32,7 @@ Use this comparison to pick the method that fits your use case. See [Feature ava
 | Private authentication | Internal site for members of your Mintlify organization | All plans | No | No | No |
 | OAuth 2.0 | Existing identity provider or SSO with per-user sessions | Enterprise | Yes | Yes | Yes |
 | JWT | Custom auth backend or embedded content behind your own login | Enterprise | Yes | Yes | Yes |
+| [Emails](/deploy/emails-authentication) | Customers or partners without accounts in your identity provider | Enterprise | Yes | No | No |
 
 ## Configure authentication
 
@@ -257,6 +258,7 @@ const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdD
 export async function handleRequest(req: Request, res: Response) {
   const user = {
     host: DOCS_HOST, // Must match your docs URL
+    sub: String(res.locals.user.id), // Stable user ID for analytics
     expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
     groups: res.locals.user.groups,
     apiPlaygroundInputs: {
@@ -290,6 +292,7 @@ async def return_mintlify_auth_status(current_user):
   jwt_token = jwt.encode(
     payload={
       'host': DOCS_HOST, # Must match your docs URL
+      'sub': str(current_user.id), # Stable user ID for analytics
       'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
       'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 week session expiration
       'groups': ['admin'] if current_user.is_admin else [],
@@ -366,7 +369,7 @@ To make all pages in a group public, add `"public": true` beneath the group's na
 
 ## Control access with groups
 
-When you use OAuth or JWT authentication, you can restrict specific pages to certain user groups. This is useful when you want different users to see different content based on their role or attributes.
+When you use OAuth, JWT, or [emails](/deploy/emails-authentication#control-access-with-groups) authentication, you can restrict specific pages to certain user groups. This is useful when you want different users to see different content based on their role or attributes.
 
 Manage groups through user data passed during authentication. See [User data format](#user-data-format) for details.
 
@@ -428,6 +431,7 @@ When using OAuth or JWT authentication or standalone personalization, your syste
 ```tsx Format
 type User = {
   host?: string;
+  sub?: string;
   expiresAt?: number;
   groups?: string[];
   content?: Record<string, any>;
@@ -444,6 +448,7 @@ type User = {
 ```json Example
 {
   "host": "docs.example.com",
+  "sub": "user_8f3a2c",
   "expiresAt": 1893456000,
   "groups": ["admin", "beta-users"],
   "content": {
@@ -464,6 +469,14 @@ type User = {
 
 <ParamField path="host" type="string">
   **Required for JWT authentication.** The hostname of your documentation site. The string must exactly match the domain where you deploy your documentation. Mintlify validates that the JWT's host matches the requesting host to prevent token reuse across different sites.
+</ParamField>
+
+<ParamField path="sub" type="string">
+  A stable, unique identifier for the user. Mintlify reports this value as `user_id` on analytics events for tool calls to your [authenticated MCP server](/ai/model-context-protocol), so you can attribute usage to individual users. Use an opaque ID instead of personal information like an email address.
+
+  For OAuth, Mintlify reads `sub` from your user info API response, or from the token when you [use groups from token claims](#use-groups-from-oauth-token-claims). Most OpenID Connect providers include it by default. For JWT, add `sub` to the JWT payload.
+
+  The value must be a string. Sessions and MCP connections created before you add `sub` don't include it. Users must sign in again and reconnect their MCP clients.
 </ParamField>
 
 <ParamField path="expiresAt" type="number">
@@ -519,6 +532,6 @@ Some features behave differently or are unavailable when you enable authenticati
 | [Search](/assistant/index) | Full support | Full support, respects user groups | Full support, respects user groups |
 | [Assistant](/assistant/index) | Full support | Full support, respects user groups | Full support, respects user groups |
 | [skill.md](/ai/skillmd) | Full support | Visitors who aren't signed in see only [skills marked `public: true`](/ai/skillmd#share-skills-on-authenticated-sites). Signed-in users see skills for their groups. | Visitors who aren't signed in see only [skills marked `public: true`](/ai/skillmd#share-skills-on-authenticated-sites). Signed-in users see skills for their groups. |
-| [Sitemap](/optimize/seo#sitemaps-and-robotstxt-files) | Full support | Available behind authentication, but excludes pages in groups | Available behind authentication, but excludes pages in groups |
-| [robots.txt](/optimize/seo#sitemaps-and-robotstxt-files) | Full support | Available behind authentication | Available behind authentication |
+| [Sitemap](/optimize/seo#sitemaps-and-robotstxt-files) | Full support | Not available. Requests redirect to login, and the sitemap is empty for authenticated users. | Publicly accessible, listing public pages only |
+| [robots.txt](/optimize/seo#sitemaps-and-robotstxt-files) | Full support | Available behind authentication | Publicly accessible |
 | [Live preview](/editor/review#live-preview) | Full support | Supported for Mintlify authentication | Supported for Mintlify authentication |

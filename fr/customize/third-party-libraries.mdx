@@ -1,0 +1,181 @@
+---
+title: "Bibliothèques tierces"
+description: "Importez des composants React depuis des paquets npm, tels que des graphiques et des composants de design system, dans vos pages MDX."
+keywords: ["npm packages", "package.json", "React components", "imports"]
+---
+
+<Info>
+  Les bibliothèques tierces nécessitent un [forfait Enterprise](https://mintlify.com/pricing?ref=third-party-libraries). Contactez votre gestionnaire de compte pour les activer sur votre site.
+</Info>
+
+Utilisez des composants issus de paquets npm, tels que des graphiques ou votre propre design system, dans vos pages MDX. Lors du déploiement, Mintlify installe les paquets de votre lockfile, rend chaque composant en HTML et charge son JavaScript dans le navigateur.
+
+<Warning>
+  N'installez que des paquets de confiance. Le code des paquets s'exécute avec le même accès que la page, y compris le contenu de la page et tout ce que le navigateur du lecteur stocke pour votre site. Il peut effectuer des requêtes réseau vers n'importe quel serveur. Supprimer un paquet ou annuler un déploiement n'arrête pas le code déjà chargé dans le navigateur d'un lecteur.
+</Warning>
+
+Les bibliothèques tierces ne sont pas disponibles sur les sites qui utilisent l'[authentification](/fr/deploy/authentication-setup) ou la [personnalisation](/fr/create/personalization). Les déploiements qui incluent `packages` dans `docs.json` échouent sur ces sites. Cela s'applique également aux [déploiements de prévisualisation](/fr/deploy/preview-deployments#restrict-access-to-preview-deployments) qui exigent une authentification de l'organisation ou un mot de passe.
+
+Tant que votre site utilise des bibliothèques tierces, vous ne pouvez pas activer l'authentification, la personnalisation ni les restrictions d'accès pour les déploiements de prévisualisation.
+
+<div id="add-a-package">
+  ## Ajouter un paquet
+</div>
+
+<Steps>
+  <Step title="Listez vos dépendances">
+    Créez un fichier `package.json` dans le même dossier que votre fichier `docs.json`. Listez chaque paquet que vous importez sous `dependencies`, y compris `react` et `react-dom`.
+
+    ```json package.json
+    {
+      "private": true,
+      "dependencies": {
+        "@acme/charts": "^2.0.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+      }
+    }
+    ```
+
+    Mintlify installe uniquement les `dependencies`. Les paquets listés uniquement dans `devDependencies` ou `peerDependencies` ne sont pas disponibles pour vos pages.
+  </Step>
+  <Step title="Commitez un lockfile">
+    Installez vos dépendances et commitez le lockfile à côté de `package.json`.
+
+    <CodeGroup>
+      ```bash pnpm
+      pnpm install
+      ```
+
+      ```bash npm
+      npm install
+      ```
+    </CodeGroup>
+
+    Mintlify installe les versions exactes de votre lockfile. Il prend en charge `pnpm-lock.yaml` version 9 de pnpm et `package-lock.json` de npm. Les lockfiles Yarn et Bun ne sont pas pris en charge.
+  </Step>
+  <Step title="Activez les paquets">
+    Ajoutez la clé `packages` à votre `docs.json`. Un objet vide active les paquets avec les paramètres par défaut.
+
+    ```json docs.json
+    {
+      "packages": {}
+    }
+    ```
+  </Step>
+  <Step title="Importez un composant">
+    Créez un composant dans votre dossier `snippets` qui importe depuis le paquet.
+
+    ```jsx snippets/requests-chart.jsx
+    import { LineChart } from "@acme/charts";
+
+    const data = [
+      { day: "Mon", requests: 120 },
+      { day: "Tue", requests: 180 },
+      { day: "Wed", requests: 150 },
+    ];
+
+    export const RequestsChart = () => (
+      <LineChart data={data} x="day" y="requests" height={240} />
+    );
+    ```
+
+    Importez-le ensuite dans une page :
+
+    ```mdx
+    import { RequestsChart } from "/snippets/requests-chart.jsx";
+
+    <RequestsChart />
+    ```
+  </Step>
+  <Step title="Déployez">
+    Poussez vos modifications. Si un paquet ne peut pas être installé ou compilé, le déploiement échoue avec une erreur qui indique le paquet et le problème.
+  </Step>
+</Steps>
+
+Pour prévisualiser en local, installez vos dépendances puis exécutez [`mint dev`](/fr/cli/preview) depuis le dossier contenant votre fichier `docs.json`.
+
+<div id="use-package-components">
+  ## Utiliser des composants de paquets
+</div>
+
+Vous pouvez également importer des composants directement depuis un paquet dans une page MDX :
+
+```mdx
+import { Tooltip } from "@acme/ui";
+
+<Tooltip content="Requests per day">Usage</Tooltip>
+```
+
+- Placez les composants de paquets sur leurs propres lignes. Ils ne fonctionnent pas à l'intérieur d'un paragraphe, d'une cellule de tableau ou de texte en ligne.
+- Passez directement les chaînes, nombres et booléens comme props. Pour les fonctions, tableaux, objets ou props JSX, écrivez un composant wrapper dans votre dossier `snippets`, comme le graphique dans [Ajouter un paquet](#add-a-package), et passez-y les valeurs.
+- Le Markdown à l'intérieur d'un composant de paquet est rendu en HTML brut. Les composants Mintlify, tels que les callouts et les cartes, ne sont pas rendus à l'intérieur d'un composant de paquet.
+
+<div id="load-package-styles">
+  ## Charger les styles des paquets
+</div>
+
+Les composants peuvent importer leur propre CSS. Pour charger une feuille de style qu'un paquet fournit séparément, ajoutez son chemin dans le paquet installé à `packages.css` :
+
+```json docs.json
+{
+  "packages": {
+    "css": ["@acme/ui/dist/styles.css"]
+  }
+}
+```
+
+Les paquets doivent fournir du CSS compilé. Mintlify n'exécute pas d'outils de build ni de plugins CSS sur le code des paquets, et ne prend pas en charge les modules CSS. Les feuilles de style des paquets ne peuvent pas charger de polices ni d'images depuis des URL distantes. Chargez plutôt les polices avec les [paramètres de polices](/fr/customize/fonts) de votre site.
+
+<div id="wrap-components-in-a-provider">
+  ## Envelopper les composants dans un provider
+</div>
+
+Si vos composants ont besoin d'un provider de thème ou de contexte, exportez un composant `Provider` depuis un snippet et définissez `packages.provider` sur son chemin :
+
+```json docs.json
+{
+  "packages": {
+    "provider": "/snippets/provider.jsx"
+  }
+}
+```
+
+```jsx snippets/provider.jsx
+import { ThemeProvider } from "@acme/ui";
+
+export const Provider = ({ children }) => <ThemeProvider>{children}</ThemeProvider>;
+```
+
+Le provider enveloppe chaque composant de paquet séparément. Les composants ne partagent pas d'état par son intermédiaire.
+
+<div id="install-from-another-registry">
+  ## Installer depuis un autre registre
+</div>
+
+Les paquets sans scope s'installent depuis le registre npm public. Pour installer un scope depuis un registre différent, associez le scope à l'URL du registre dans `packages.registries` :
+
+```json docs.json
+{
+  "packages": {
+    "registries": {
+      "@acme": "https://npm.acme.com/"
+    }
+  }
+}
+```
+
+Le registre doit utiliser HTTPS sur le port par défaut et être accessible depuis l'internet public sans identifiants.
+
+<div id="limitations">
+  ## Limitations
+</div>
+
+- **Sources des dépendances** : Les dépendances doivent être des versions du registre, des plages de versions ou des tags. Les URL Git, les chemins locaux et les alias `file:`, `link:`, `workspace:` et `npm:` ne sont pas pris en charge.
+- **Scripts d'installation** : Les paquets s'installent sans exécuter de scripts d'installation tels que `postinstall`. Les paquets qui en ont besoin, ou qui nécessitent des binaires natifs, ne fonctionnent pas.
+- **Taille** : La sortie des paquets d'un déploiement peut inclure jusqu'à 1 000 fichiers, 8 Mo par fichier, 40 Mo au total et 5 Mo compressés avec gzip. Les paquets qui chargent de grands ensembles de modules à l'exécution, comme les maps d'icônes dynamiques, peuvent dépasser la limite de fichiers.
+- **Rendu côté serveur** : Chaque composant doit être rendu en moins de trois secondes sur le serveur. Un composant qui échoue ou expire n'est rendu que dans le navigateur, il est donc absent du HTML de la page.
+- **Recherche et IA** : La recherche, l'assistant et les exports Markdown utilisent votre source MDX, et non le contenu rendu par un composant. Conservez le contenu de référence important dans le texte de votre MDX.
+- **Éditeur web** : L'aperçu de l'éditeur web n'affiche pas les composants de paquets.
+
+Pour ne plus utiliser de paquets, supprimez `packages` de votre fichier `docs.json` et redéployez.

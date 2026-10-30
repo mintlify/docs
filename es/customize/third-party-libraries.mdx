@@ -1,0 +1,181 @@
+---
+title: "Bibliotecas de terceros"
+description: "Importa componentes de React desde paquetes npm, como gráficos y componentes de sistemas de diseño, en tus páginas MDX."
+keywords: ["npm packages", "package.json", "React components", "imports"]
+---
+
+<Info>
+  Las bibliotecas de terceros requieren un [plan Enterprise](https://mintlify.com/pricing?ref=third-party-libraries). Contacta a tu gestor de cuenta para activarlas en tu sitio.
+</Info>
+
+Usa componentes de paquetes npm, como gráficos o tu propio sistema de diseño, en tus páginas MDX. Cuando despliegas, Mintlify instala los paquetes de tu lockfile, renderiza cada componente a HTML y carga su JavaScript en el navegador.
+
+<Warning>
+  Instala solo paquetes en los que confíes. El código de los paquetes se ejecuta con el mismo acceso que la página, incluido el contenido de la página y todo lo que el navegador del lector almacena para tu sitio. Puede realizar solicitudes de red a cualquier servidor. Eliminar un paquete o revertir un despliegue no detiene el código que ya se cargó en el navegador de un lector.
+</Warning>
+
+Las bibliotecas de terceros no están disponibles en sitios que usan [autenticación](/es/deploy/authentication-setup) o [personalización](/es/create/personalization). Los despliegues que incluyen `packages` en `docs.json` fallan en esos sitios. Esto también se aplica a las [implementaciones de vista previa](/es/deploy/preview-deployments#restrict-access-to-preview-deployments) que requieren autenticación de la organización o una contraseña.
+
+Mientras tu sitio use bibliotecas de terceros, no puedes activar la autenticación, la personalización ni las restricciones de acceso para las implementaciones de vista previa.
+
+<div id="add-a-package">
+  ## Agregar un paquete
+</div>
+
+<Steps>
+  <Step title="Enumera tus dependencias">
+    Crea un archivo `package.json` en la misma carpeta que tu archivo `docs.json`. Enumera cada paquete que importes en `dependencies`, incluidos `react` y `react-dom`.
+
+    ```json package.json
+    {
+      "private": true,
+      "dependencies": {
+        "@acme/charts": "^2.0.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+      }
+    }
+    ```
+
+    Mintlify instala solo `dependencies`. Los paquetes que solo aparecen en `devDependencies` o `peerDependencies` no están disponibles para tus páginas.
+  </Step>
+  <Step title="Confirma un lockfile">
+    Instala tus dependencias y confirma el lockfile junto a `package.json`.
+
+    <CodeGroup>
+      ```bash pnpm
+      pnpm install
+      ```
+
+      ```bash npm
+      npm install
+      ```
+    </CodeGroup>
+
+    Mintlify instala las versiones exactas de tu lockfile. Admite `pnpm-lock.yaml` versión 9 de pnpm y `package-lock.json` de npm. Los lockfiles de Yarn y Bun no son compatibles.
+  </Step>
+  <Step title="Activa los paquetes">
+    Agrega la clave `packages` a tu `docs.json`. Un objeto vacío activa los paquetes con la configuración predeterminada.
+
+    ```json docs.json
+    {
+      "packages": {}
+    }
+    ```
+  </Step>
+  <Step title="Importa un componente">
+    Crea un componente en tu carpeta `snippets` que importe desde el paquete.
+
+    ```jsx snippets/requests-chart.jsx
+    import { LineChart } from "@acme/charts";
+
+    const data = [
+      { day: "Mon", requests: 120 },
+      { day: "Tue", requests: 180 },
+      { day: "Wed", requests: 150 },
+    ];
+
+    export const RequestsChart = () => (
+      <LineChart data={data} x="day" y="requests" height={240} />
+    );
+    ```
+
+    Luego impórtalo en una página:
+
+    ```mdx
+    import { RequestsChart } from "/snippets/requests-chart.jsx";
+
+    <RequestsChart />
+    ```
+  </Step>
+  <Step title="Despliega">
+    Sube tus cambios. Si un paquete no se puede instalar o compilar, el despliegue falla con un error que indica el paquete y el problema.
+  </Step>
+</Steps>
+
+Para obtener una vista previa local, instala tus dependencias y luego ejecuta [`mint dev`](/es/cli/preview) desde la carpeta que contiene tu archivo `docs.json`.
+
+<div id="use-package-components">
+  ## Usar componentes de paquetes
+</div>
+
+También puedes importar componentes directamente desde un paquete en una página MDX:
+
+```mdx
+import { Tooltip } from "@acme/ui";
+
+<Tooltip content="Requests per day">Usage</Tooltip>
+```
+
+- Coloca los componentes de paquetes en sus propias líneas. No funcionan dentro de un párrafo, una celda de tabla o texto en línea.
+- Pasa cadenas, números y booleanos directamente como props. Para funciones, arrays, objetos o props JSX, escribe un componente contenedor en tu carpeta `snippets`, como el gráfico de [Agregar un paquete](#add-a-package), y pasa los valores allí.
+- El Markdown dentro de un componente de paquete se renderiza como HTML sin formato. Los componentes de Mintlify, como los callouts y las tarjetas, no se renderizan dentro de un componente de paquete.
+
+<div id="load-package-styles">
+  ## Cargar estilos de paquetes
+</div>
+
+Los componentes pueden importar su propio CSS. Para cargar una hoja de estilos que un paquete distribuye por separado, agrega su ruta dentro del paquete instalado a `packages.css`:
+
+```json docs.json
+{
+  "packages": {
+    "css": ["@acme/ui/dist/styles.css"]
+  }
+}
+```
+
+Los paquetes deben distribuir CSS compilado. Mintlify no ejecuta herramientas de compilación ni plugins de CSS sobre el código de los paquetes, y no admite módulos CSS. Las hojas de estilos de los paquetes no pueden cargar fuentes ni imágenes desde URL remotas. En su lugar, carga las fuentes con la [configuración de fuentes](/es/customize/fonts) de tu sitio.
+
+<div id="wrap-components-in-a-provider">
+  ## Envolver componentes en un proveedor
+</div>
+
+Si tus componentes necesitan un proveedor de tema o de contexto, exporta un componente `Provider` desde un snippet y establece `packages.provider` con su ruta:
+
+```json docs.json
+{
+  "packages": {
+    "provider": "/snippets/provider.jsx"
+  }
+}
+```
+
+```jsx snippets/provider.jsx
+import { ThemeProvider } from "@acme/ui";
+
+export const Provider = ({ children }) => <ThemeProvider>{children}</ThemeProvider>;
+```
+
+El proveedor envuelve cada componente de paquete por separado. Los componentes no comparten estado a través de él.
+
+<div id="install-from-another-registry">
+  ## Instalar desde otro registro
+</div>
+
+Los paquetes sin scope se instalan desde el registro público de npm. Para instalar un scope desde un registro diferente, asigna el scope a la URL del registro en `packages.registries`:
+
+```json docs.json
+{
+  "packages": {
+    "registries": {
+      "@acme": "https://npm.acme.com/"
+    }
+  }
+}
+```
+
+El registro debe usar HTTPS en el puerto predeterminado y ser accesible desde la internet pública sin credenciales.
+
+<div id="limitations">
+  ## Limitaciones
+</div>
+
+- **Orígenes de dependencias**: Las dependencias deben ser versiones del registro, rangos de versiones o etiquetas. Las URL de Git, las rutas locales y los alias `file:`, `link:`, `workspace:` y `npm:` no son compatibles.
+- **Scripts de instalación**: Los paquetes se instalan sin ejecutar scripts de instalación como `postinstall`. Los paquetes que los necesitan, o que necesitan binarios nativos, no funcionan.
+- **Tamaño**: La salida de paquetes de un despliegue puede incluir hasta 1000 archivos, 8 MB por archivo, 40 MB en total y 5 MB comprimidos con gzip. Los paquetes que cargan grandes conjuntos de módulos en tiempo de ejecución, como los mapas de iconos dinámicos, pueden superar el límite de archivos.
+- **Renderizado en el servidor**: Cada componente debe renderizarse en menos de tres segundos en el servidor. Un componente que falla o agota el tiempo de espera solo se renderiza en el navegador, por lo que no aparece en el HTML de la página.
+- **Búsqueda e IA**: La búsqueda, el asistente y las exportaciones de Markdown usan tu código fuente MDX, no el contenido que renderiza un componente. Mantén el contenido de referencia importante en el texto de tu MDX.
+- **Editor web**: La vista previa del editor web no renderiza componentes de paquetes.
+
+Para dejar de usar paquetes, elimina `packages` de tu archivo `docs.json` y vuelve a desplegar.

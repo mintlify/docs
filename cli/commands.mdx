@@ -1,7 +1,7 @@
 ---
 title: "Mintlify CLI command reference"
 sidebarTitle: "Commands"
-description: "Complete reference for Mintlify CLI commands and flags, including mint index, mint dev, mint validate, mint broken-links, and more."
+description: "Complete reference for Mintlify CLI commands and flags, including mint dev, mint validate, mint broken-links, and more."
 keywords:
   - "CLI"
   - "mint"
@@ -34,6 +34,7 @@ mint dev [flags]
 | Flag | Description |
 | --- | --- |
 | `--port` | Port to run the local preview on. Defaults to `3000`. |
+| `--host` | Expose the local preview on your network. Without this flag, the preview is only available at `localhost`. |
 | `--no-open` | Do not open the browser automatically. |
 | `--groups` | Space-separated list of user groups to mock for preview. For example, `--groups admin user`. |
 | `--signed-in` | Preview as a signed-in reader with no groups. Use `--groups` to preview as specific groups. Without either flag, the preview shows the signed-out view. |
@@ -43,75 +44,9 @@ mint dev [flags]
 
 ---
 
-## `mint index`
-
-Install the hosted Mintlify Index MCP server for your coding agents to search across all content on Mintlify sites. The server provides a `context` tool for researching libraries, frameworks, SDKs, APIs, and CLI tools.
-
-The Index MCP server is separate from the [Mintlify Docs MCP server](/ai/model-context-protocol), which searches your documentation site.
-
-```bash
-mint index [options]
-```
-
-### Options
-
-| Option | Description |
-| --- | --- |
-| `--claude` | Set up Claude Code. |
-| `--cursor` | Set up Cursor. |
-| `--vscode` | Set up VS Code. |
-| `--codex` | Set up Codex. |
-| `--opencode` | Set up OpenCode. |
-| `--windsurf` | Set up Windsurf. |
-| `--zed` | Set up Zed. |
-| `--project` | Write project-level configuration instead of global configuration when the client supports it. |
-| `--yes`, `-y` | Skip the picker and set up all detected clients. |
-
-### Select clients
-
-Run `mint index` without client options to detect installed clients and open an interactive picker. Select the clients to configure, then confirm the prompt.
-
-Pass one or more client options to configure specific clients without opening the picker:
-
-```bash
-mint index --claude --cursor
-```
-
-Use `--yes` to configure every detected client without prompts. If the CLI can't detect any clients, pass an explicit client option such as `--claude` or `--cursor`.
-
-Use `--project` with client options to write project configuration in the current directory:
-
-```bash
-mint index --project --cursor --vscode
-```
-
-### Configuration and rules
-
-The command adds the `mintlify-index` server to each selected client and points it to `https://index.mintlify.com/mcp`. By default, it updates global configuration. With `--project`, it uses project configuration where the client supports it.
-
-The command also adds a usage rule for each selected client except Zed. The rule tells the client to use the Index MCP `context` tool for documentation research, including syntax, configuration, migrations, and setup. It tells the client to prefer the tool over web search because training data can be out of date. The rule excludes general programming concepts and business-logic debugging.
-
-Windsurf has a global MCP configuration only. With `--project`, the command still writes the MCP entry to the global Windsurf configuration and writes the usage rule in the current project.
-
-Rerunning the command updates an existing `mintlify-index` entry and its generated rule. The command preserves unrelated configuration. If an existing JSON or JSONC configuration is invalid, the command reports an error without changing that file.
-
-Supported clients and their standard configuration files include:
-
-| Client | Global configuration | Project configuration |
-| --- | --- | --- |
-| Claude Code | `~/.claude.json` | `.mcp.json` |
-| Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` |
-| VS Code | User `mcp.json` | `.vscode/mcp.json` |
-| Codex | `~/.codex/config.toml` | `.codex/config.toml` |
-| OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` |
-| Windsurf | `~/.codeium/windsurf/mcp_config.json` | Global only |
-| Zed | User `settings.json` | `.zed/settings.json` |
-
----
-
 ## `mint signup`
 
-Create a new Mintlify account from the terminal.
+Create a new Mintlify account from an interactive terminal.
 
 ```bash
 mint signup [flags]
@@ -129,7 +64,9 @@ Run the command without flags to enter your details interactively. The CLI promp
 After you submit your details, Mintlify sends a verification link to your email. The command waits until you click the link, then creates your account, signs you in, and stores your credentials. When it finishes, open the [dashboard](https://app.mintlify.com) to connect your repository and start building.
 
 <Note>
-  `mint signup` does not return until you click the verification link, which can take several minutes. In scripts or automations, run it as a background process instead of waiting on it synchronously.
+  `mint signup` does not return until you click the verification link, which can take several minutes.
+
+  When an AI agent runs `mint signup`, or the command runs without an interactive terminal, it prints the [agent signup guide](https://mintlify.com/auth.md) instead of creating an account. Agents create sites without an account through [Agent signup](/cli/agent-signup).
 </Note>
 
 ### Examples
@@ -144,6 +81,69 @@ mint signup \
   --lastName Doe \
   --company Acme \
   --email jane@acme.com
+```
+
+---
+
+## `mint deploy`
+
+Create a site without an account and get Git push access to it. For the full flow, see [Agent signup](/cli/agent-signup).
+
+```bash
+mint deploy [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--subdomain` | Site name. Required for the first deployment, with `--new`, and in GitHub Actions. |
+| `--org-name` | Organization display name. |
+| `--directory` | Documentation directory for the site. Defaults to the current directory. |
+| `--new` | Create another site instead of reusing the site for this directory. |
+| `--email` | Email address to create a claim link for. Can't be combined with `--github`. |
+| `--github` | Trust the current GitHub repository to deploy the site and write `.github/workflows/mintlify.yml`. |
+| `--force` | With `--github`, overwrite an existing workflow file that has different contents. |
+
+Run the command again from the same directory to get a fresh write token for the same site. In GitHub Actions, `mint deploy` pushes the checked-out commit to a site that trusts the repository. The workflow needs the `id-token: write` permission.
+
+### Examples
+
+```bash
+# Create a site
+mint deploy --subdomain my-docs
+
+# Get a claim link for the current site
+mint deploy --email you@example.com
+
+# Deploy from GitHub Actions on every push to the default branch
+mint deploy --github --subdomain my-docs
+```
+
+---
+
+## `mint claim`
+
+Claim a site created with `mint deploy`.
+
+```bash
+mint claim [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--email` | Email address to create a claim link for. |
+| `--code` | Code from the claim page that finishes the claim. |
+| `--directory` | Documentation directory used for `mint deploy`. Defaults to the current directory. |
+
+Run `mint claim --email` to get a claim link. After the site owner opens the link and signs in, run `mint claim --code` with the code from the claim page. `--email` and `--code` can't be combined.
+
+### Examples
+
+```bash
+# Get a claim link
+mint claim --email you@example.com
+
+# Finish the claim
+mint claim --code ABCDEFGH
 ```
 
 ---
@@ -364,6 +364,106 @@ mint analytics conversation view conv_123
 
 ---
 
+## `mint agent setup`
+
+Set up AI coding agents to work on your Mintlify project. The command installs Mintlify skills and configures the [admin MCP](/ai/mintlify-mcp) for Claude Code, Codex, or Cursor.
+
+```bash
+mint agent setup [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--agent`, `-a` | Space-separated list of agents to configure: `claude-code`, `codex`, or `cursor`. Without this flag, the CLI prompts you to choose agents and preselects the ones it detects on your machine. |
+| `--global`, `-g` | Set up agents for your user account instead of the current project. Defaults to `false`. |
+
+<Note>
+  `mint agent setup` requires Node.js 22.20 or later and npm.
+</Note>
+
+Without an interactive terminal, the command configures the agents it detects. If it detects none, pass `--agent`.
+
+The command adds an MCP server named `mintlify-admin` with the URL `https://mcp.mintlify.com` to each agent's configuration file.
+
+| Agent | Project file | User account file (`--global`) |
+| --- | --- | --- |
+| Claude Code | `.mcp.json` | `~/.claude.json` |
+| Codex | `.codex/config.toml` | `~/.codex/config.toml`, or `config.toml` in `CODEX_HOME` when set |
+| Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` |
+
+If your Codex configuration defines `mcp_servers` as an inline table, setup can't add an entry to it and stops with an error. Add a `mintlify-admin` entry with `url = "https://mcp.mintlify.com"` to the inline table yourself.
+
+If `CLAUDE_CONFIG_DIR` is set, `--global` setup for Claude Code stops with an error. Add the server with the Claude Code CLI instead:
+
+```bash
+claude mcp add --scope user --transport http mintlify-admin https://mcp.mintlify.com
+```
+
+Setup keeps your existing configuration and skips an agent that already has a matching `mintlify-admin` entry. If a `mintlify-admin` entry has a different configuration, or a configuration file can't be parsed, setup stops before it installs skills. Rename or remove the conflicting entry, then run the command again.
+
+Rerunning the command refreshes the installed skills and replaces any local edits you made to them.
+
+The command does not sign you in to the admin MCP or reuse your `mint login` credentials. After setup, complete the OAuth sign-in in each agent. The command prints the steps for each agent you configured.
+
+### Examples
+
+```bash
+# Choose agents and set up the current project
+mint agent setup
+
+# Set up specific agents for the current project
+mint agent setup --agent claude-code codex cursor
+
+# Set up Codex for your user account
+mint agent setup --agent codex --global
+```
+
+---
+
+## `mint instructions`
+
+Print step-by-step guidance for a task in Mintlify, written for AI coding agents. Each topic covers a common job, such as publishing a new site or adding a custom domain. It lists the steps, the rules agents commonly get wrong, and how to verify the result. Your agent can run the command before it starts a task instead of relying on its training data.
+
+The CLI fetches each topic from the live Mintlify documentation, so the guidance stays current without a CLI update.
+
+```bash
+mint instructions [topic] [subtopic]
+```
+
+Without a topic, the command lists the available topics and when to use each one. With a topic, it prints that topic's instructions as Markdown. Start with `overview`.
+
+| Topic | Subtopics |
+| --- | --- |
+| `overview` | |
+| `new-site` | |
+| `write` | `components` |
+| `configure` | `navigation`, `settings`, `customization` |
+| `api-docs` | `sdk` |
+| `publish` | `domain`, `repo`, `analytics`, `assistant` |
+| `access` | `team` |
+| `automate` | |
+| `migrate` | |
+| `troubleshoot` | |
+
+The command needs an internet connection. If a topic doesn't exist, the command exits with an error. Run `mint instructions` to see valid topics.
+
+If your installed CLI doesn't recognize the command, run `mint update` or use `npx mint@latest instructions`.
+
+### Examples
+
+```bash
+# List topics
+mint instructions
+
+# Read the overview
+mint instructions overview
+
+# Custom domain instructions
+mint instructions publish domain
+```
+
+---
+
 ## `mint config`
 
 Manage persistent default values for CLI commands. The configuration saves in `~/.config/mintlify/config.json`.
@@ -398,13 +498,15 @@ mint broken-links [flags]
 
 The command scans `.mdx` and `.md` files for links and excludes files matching [.mintignore](/organize/mintignore) patterns. Links inside OpenAPI specification files (`.yaml`, `.yml`, `.json`) are not checked. Links that point to ignored files report as broken.
 
+Relative links (`./`, `../`) and anchor links (`#`) inside a snippet are checked against each page that renders the snippet. The command reports one of these links only if it is broken on at least one of those pages. With `--check-anchors`, headings inside a snippet count as anchors on the pages that render it.
+
 | Flag | Description |
 | --- | --- |
 | `--files` | One or more file paths or globs to check. Defaults to the whole site. |
 | `--check-anchors` | Also validate anchor links (for example, `/page#section`) against heading slugs. |
 | `--check-external` | Also check external URLs for broken links. |
 | `--check-redirects` | Also check that redirect destinations in `docs.json` resolve to valid paths. |
-| `--check-snippets` | Also check links inside `<Snippet>` components. |
+| `--check-snippets` | Also check that snippet import paths resolve to existing files. |
 
 Pass `--files` to limit the check to specific pages. This is useful for validating a single page you just edited or scoping checks to a directory in CI. When `--files` is set with `--check-external`, only external URLs on the selected pages are fetched.
 
@@ -440,17 +542,88 @@ Checks color contrast ratios and missing alt text on images and videos.
 
 ## `mint validate`
 
-Validate your documentation build in strict mode. Exits with an error if there are any warnings or errors. Includes automatic validation of OpenAPI specifications referenced in your `docs.json`.
+Check your documentation for errors, then validate the build in strict mode. Includes automatic validation of OpenAPI specifications referenced in your `docs.json`.
 
 ```bash
 mint validate [flags]
 ```
 
+`mint validate` runs a set of rules against your pages, snippets, navigation, and OpenAPI specifications, then runs a strict build. Findings print grouped by file, with the line, column, and rule name for each one when available.
+
+The `duplicate-h1`, `unknown-component`, `katex`, and `foreign-syntax` rules report warnings, so their findings don't fail the run. The other rules report errors.
+
+The strict build runs only when no rule reports an error and at least one selected rule needs the build. If a rule reports an error, the command skips the build and tells you to fix the errors first. Warnings that the build can't attribute to a rule fail the run as `build-failed` errors.
+
+| Rule | Group | Description |
+| --- | --- | --- |
+| `parse-error` | `content` | Reports files that MDX can't parse. Other rules skip these files. This check always runs and you can't disable it. |
+| `void-tags` | `content` | Reports HTML void elements, such as `<br>`, `<img>`, `<source>`, and `<input>`, that aren't self-closed. MDX can't parse them unless you write them self-closed, for example `<br />` or `<source />`. `--fix` can self-close them for you. |
+| `duplicate-h1` | `content` | Reports a page whose first heading is an H1 that repeats the frontmatter `title`. Skips pages with `mode` set to `custom` or `frame`. `--fix` removes the heading, unless it has a custom `{#id}` or links in your site point to its anchor. In that case, remove it by hand and update the links. |
+| `unknown-component` | `content` | Reports JSX components on a page that aren't built in, imported, or exported on that page. `--fix` adds an import when a matching file such as `snippets/<Name>.jsx` or `snippets/<Name>.tsx` exists. |
+| `katex` | `content` | Reports inline or block math that KaTeX can't render. Ignores currency amounts such as `$5`. |
+| `foreign-syntax` | `content` | Reports syntax from other documentation frameworks that Mintlify doesn't render, such as `:::` admonitions, Liquid tags, Hugo shortcodes, and `[[wiki links]]`. Each finding names the Mintlify replacement. Runs on files MDX can't parse and skips code. |
+| `missing-file` | `content` | Reports imported files that don't exist. Needs the build. |
+| `import-error` | `content` | Reports imports in pages and snippets that don't resolve. Needs the build. |
+| `missing-nav-page` | `nav` | Reports pages in your navigation that have no file. Needs the build. |
+| `package-import` | `config` | Reports npm package imports that are undeclared or conflict. Needs the build. |
+| `build-failed` | `config` | Reports a strict build failure that no other rule explains. Needs the build. |
+| `openapi-spec` | `openapi` | Reports OpenAPI specifications in `docs.json` or `mint.json` that don't parse or validate, with overlays applied. |
+| `openapi-build` | `openapi` | Reports OpenAPI pages the build could not generate. Needs the build. |
+
 | Flag | Description |
 | --- | --- |
+| `--files` | One or more file paths or globs to limit page checks to. Site-wide checks and the build still cover the whole site. |
+| `--disable` | Turn off rules or groups. Pass a comma-separated list, or `all` to turn off every rule. Parse errors are still reported. Use `--disable openapi` to skip OpenAPI checks. |
+| `--enable` | Turn on rules or groups. Pass a comma-separated list. Use it with `--disable all` to run only specific rules. |
+| `--fix` | Write the available automatic fixes to your files, then check again. Only rules that offer a fix (`void-tags`, `duplicate-h1`, and `unknown-component`) change files. |
+| `--format` | Output format: `text` (default) or `json`. With `json`, the command prints one JSON report on stdout and nothing else. |
+| `--no-build` | Skip the strict build, so the command doesn't download the Mintlify client. Remote OpenAPI specifications are still fetched unless you disable the `openapi` rules. |
 | `--groups` | Space-separated list of user groups to mock for validation. For example, `--groups admin user`. |
-| `--disable-openapi` | Skip OpenAPI file processing and validation. |
 | `--local-schema` | Allow validation of locally hosted OpenAPI files served over HTTP. Only supports HTTPS in production. |
+
+With `--fix`, `mint validate` runs up to five fix passes, because one fix can unlock another. For example, self-closing a `<br>` can let a page parse. After the last pass, every rule runs once more and the report shows what remains. The output lists each applied fix as `fixed <file>:<line> <rule>: "before" → "after"`.
+
+`--fix` skips a fix that overlaps another fix in the same file. It also leaves a Markdown or MDX file unchanged if the fixed content would parse worse than before. Without `--fix`, the output ends with a count of the issues that `--fix` would fix.
+
+<Tip>
+  Commit or stash your changes before you run `--fix`, so you can review its edits.
+</Tip>
+
+With `--format json`, progress output is hidden and other console output goes to stderr, so you can parse stdout directly. The report has these fields:
+
+- `passed`: `true` when no rule reported an error.
+- `summary`: `errors` and `warnings` counts, plus `byRule` with a count for each rule ID.
+- `diagnostics`: each finding, with `rule`, `group`, `severity` (`error` or `warning`), `file`, optional `line` and `column`, `message`, and an optional `fix`.
+- `build`: `{ "ran": true, "passed": <boolean> }` if the strict build ran, otherwise `{ "ran": false, "reason": <reason> }` with a reason of `disabled`, `errors found`, or `no build rules`.
+- `fixed`: only with `--fix`. Each applied change, with `rule`, `file`, optional `line` and `column`, `before`, and `after`.
+
+If `mint validate` can't run, it prints nothing on stdout and writes `Error: <message>` to stderr.
+
+The command exits with one of these codes:
+
+- `0`: No rule reported an error. Warnings don't fail the run.
+- `1`: At least one rule reported an error.
+- `2`: `mint validate` could not run, for example because of an unknown rule name, a `--files` value that matches no pages or snippets, or a crash.
+
+```bash
+# Check pages matching a glob, then build the whole site
+mint validate --files "guides/**/*.mdx"
+
+# Check pages matching a glob and apply automatic fixes
+mint validate --files "guides/**/*.mdx" --fix
+
+# Skip OpenAPI checks
+mint validate --disable openapi
+
+# Run the rule checks without the strict build
+mint validate --no-build
+
+# Fast offline check for scripts and agents, listing each finding's file and message
+mint validate --no-build --format json | jq '.diagnostics[] | {file, message}'
+
+# Run only the content rules (missing-file and import-error still run the build)
+mint validate --disable all --enable content
+```
 
 <Note>
   Use `mint validate` instead of the deprecated standalone `mint openapi-check` command.
@@ -458,51 +631,38 @@ mint validate [flags]
 
 ---
 
-## `mint test`
+## `mint og`
 
-Generate tests from your code samples in your documentation. Requires authentication with `mint login`.
+Render the social preview (OG) image for a page to a PNG file. The command uses your `docs.json` [`thumbnails`](/organize/settings-appearance#thumbnails) settings, page and section `thumbnail` overrides, and the same rendering code as your live site.
 
 ```bash
-mint test
+mint og [page] [flags]
 ```
 
-`mint test` scans your content for code blocks, generates unit tests for validating them, and runs the tests with a local coding agent.
-
-### Prerequisites
-
-- Authenticate with `mint login`.
-- Install the SDK for the coding agent you want to use:
-
-  ```bash
-  # Claude (default)
-  npm install @anthropic-ai/claude-agent-sdk @anthropic-ai/sdk @modelcontextprotocol/sdk
-
-  # Codex
-  npm install @openai/codex-sdk
-  ```
-
-Only pages in your `docs.json` navigation appear for selection.
-
-### Revisit a previous run
-
-`mint test` saves a report for each completed run. When a saved report exists, the next interactive run starts with options for it:
-
-- **Update tests**: Rerun the same pages with the same agent and model.
-- **Review last test run**: Browse the saved results without running anything.
-- **Start a brand new test**: Select an agent and pages from scratch.
-
-### Output
-
-The `mint test` command writes to two locations in your project:
-
-| Path | Contents |
+| Argument | Description |
 | --- | --- |
-| `tests/mint-test/<run-id>/` | The generated test projects, one directory per agent and page. |
-| `.mintlify/test/` | Run reports and history, including `runs/<run-id>.json` for each run. |
+| `page` | Optional. Page path, such as `guides/webhooks`. Defaults to `index`. |
 
-Add both paths to your `.gitignore` if you do not want to commit test artifacts.
+| Flag | Description |
+| --- | --- |
+| `--preset` | Try a preset (`classic`, `headline`, or `minimal`) without editing `docs.json`. |
+| `--surface` | Try a surface (`brand` or `neutral`) without editing `docs.json`. |
+| `--appearance` | Try an appearance (`light` or `dark`) without editing `docs.json`. |
+| `--output` | Where to write the PNG. Defaults to a temporary file. |
+| `--no-open` | Don't open the image after rendering. The command also skips opening it when the `CI` environment variable is set. |
 
-When a run finishes, the command prints a result summary, for example `mint test passed: 8 passed, 0 failed, 0 agent errors`. The command exits with code `0` when every test passes and `1` otherwise.
+The command prints warnings when the title is too long to fit on two lines, when no logo is configured or the logo fails to load, when the font fails to load, and when text has low contrast on a `brand` surface. Warnings don't change the exit code. The command exits with code `1` if `docs.json` is invalid or the page doesn't exist.
+
+```bash
+# Render one page and open it
+mint og guides/webhooks
+
+# Try settings on the home page
+mint og --preset headline --surface brand
+
+# Render to a file in CI
+mint og --output og.png --no-open
+```
 
 ---
 
@@ -519,6 +679,8 @@ mint export [flags]
 | `--output` | Output filename. Defaults to `export.zip`. |
 | `--groups` | Space-separated list of user groups to include restricted pages for. For example, `--groups admin user`. |
 | `--disable-openapi` | Skip OpenAPI processing. |
+| `--base-path` | Path prefix to serve the export under. For example, `--base-path /docs`. |
+| `--client-version` | Mintlify client release to build the export with, downloaded from `releases.mintlify.com`. Defaults to the latest release compatible with your CLI version. |
 
 See [Offline export](/deploy/export) for details.
 
@@ -607,6 +769,40 @@ When it finishes, the command prints how many MDX files were reformatted and how
 
 ---
 
+## `mint migrate`
+
+Print step-by-step instructions for migrating an existing documentation site to Mintlify or pass the instructions to an AI agent to complete the migration.
+
+```bash
+mint migrate [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--from` | Add the instructions for a specific source platform to the overview. Accepts `confluence`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
+| `--topic` | Print the detailed instructions for one step of the migration workflow instead of the overview. Accepts `discovery` (inventory the source pages), `conversion` (convert pages to MDX), `navigation` (build `docs.json` navigation and redirects), `api` (migrate an API reference), `changelog` (migrate a changelog), or `verify` (check the finished migration). |
+| `--agent` | Start a coding agent in the current directory and have it run the migration. Accepts `claude`, `codex`, `cursor`, or `gemini`. Combine with `--from` to include a platform guide. |
+| `--claude` | Alias for `--agent claude`. |
+
+Without flags, the command prints an overview of the migration workflow followed by the available topics and source platforms. The instructions are written for coding agents, so you can paste them into your agent or let your agent run `mint migrate` itself.
+
+With `--agent`, the CLI launches the specified agent's command-line tool with a prompt to run `mint migrate` and follow the instructions it prints. You must already have the agent's CLI installed. If the Mintlify CLI can't find the agent CLI, `mint migrate` exits with an error that includes the install command.
+
+### Examples
+
+```bash
+# Print the migration overview
+mint migrate
+
+# Print the overview plus the GitBook guide
+mint migrate --from gitbook
+
+# Migrate a Docusaurus site with Claude Code
+mint migrate --agent claude --from docusaurus
+```
+
+---
+
 ## `mint new`
 
 Create a new documentation project by picking a theme or cloning a pre-defined template from the [mintlify/templates](https://github.com/mintlify/templates) repository.
@@ -657,7 +853,7 @@ These commands are available to run but are not yet functional. Running them rec
 
 ## Telemetry
 
-The CLI collects usage telemetry to help improve Mintlify. Telemetry data includes the command name, CLI version, operating system, architecture, and Node.js version. It also records whether the CLI runs in a CI environment and whether it runs in an interactive terminal. If the CLI detects an AI coding agent running it, telemetry also includes the agent's name. If you are signed in, telemetry events also include your account email address. Signed-out usage stays anonymous, and signing out removes your stored email. Mintlify does **not** collect project content or file paths.
+The CLI collects usage telemetry to help improve Mintlify. Telemetry data includes the command name, CLI version, operating system, architecture, and Node.js version. It also records whether the CLI runs in a CI environment, whether it runs in an interactive terminal, whether this is the first time the CLI has run on your machine, and whether you are signed in. If the CLI detects an AI coding agent running it, telemetry also includes the agent's name. If you are signed in, telemetry events also include your account email address. Signed-out usage stays anonymous, and signing out removes your stored email. Mintlify does **not** collect project content or file paths.
 
 By default, the CLI collects telemetry data. You can opt out at any time using the `--telemetry` flag:
 

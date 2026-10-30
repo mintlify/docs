@@ -7,7 +7,7 @@ boost: 3
 
 Usa el componente `Visibility` para mostrar contenido diferente a distintas audiencias en la misma página. Puedes dirigirte a los humanos que visitan tu sitio, a los agentes de IA que procesan la salida Markdown o a los lectores según su estado de inicio de sesión y sus grupos de usuarios. Esto te permite personalizar la información para cada audiencia sin mantener páginas separadas.
 
-En tu sitio publicado, el contenido marcado con `for="humans"` se renderiza normalmente y el contenido marcado con `for="agents"` se oculta. En las [vistas de página en Markdown](/es/ai/markdown-export) (URLs `.md`), ocurre lo contrario: el contenido para agentes se renderiza en la salida Markdown y el contenido exclusivo para humanos no. Las mismas reglas se aplican al archivo [`llms-full.txt`](/es/ai/llmstxt).
+En tu sitio publicado, el contenido marcado con `for="humans"` se renderiza normalmente y el contenido marcado con `for="agents"` se oculta. En las [vistas de página en Markdown](/es/ai/markdown-export) (URLs `.md`), ocurre lo contrario: el contenido para agentes se renderiza en la salida Markdown y el contenido exclusivo para humanos no. Las mismas reglas se aplican al archivo [`llms-full.txt`](/es/ai/llmstxt) y a `<Visibility>` dentro de un [snippet](/es/create/reusable-snippets) o de un componente personalizado. Consulta [cómo los componentes se convierten en Markdown](/es/ai/markdown-export#components-and-html).
 
 <div id="example">
   ## Ejemplo
@@ -83,13 +83,51 @@ Si tu sitio usa [autenticación](/es/deploy/authentication-setup), puedes mostra
 - El contenido `signed-out` se renderiza solo para lectores que no han iniciado sesión.
 - El contenido `groups` se renderiza solo para lectores con sesión iniciada que pertenecen al menos a uno de los grupos indicados.
 
+Para excluir grupos, pasa un objeto con las listas `includes` y `excludes` en lugar de una lista de nombres de grupos. Las exclusiones tienen prioridad sobre las inclusiones. Una regla que solo tiene `excludes` se renderiza para todos los que no pertenecen a los grupos excluidos, incluidos los lectores sin sesión iniciada.
+
+```mdx
+<Visibility for={{ groups: { excludes: ["partner"] } }}>
+  Contact our sales team to upgrade your plan.
+</Visibility>
+
+<Visibility for={{ groups: { includes: ["staff"], excludes: ["contractor"] } }}>
+  Find the internal runbook in the team wiki.
+</Visibility>
+```
+
+Para mostrar contenido a todos los lectores con sesión iniciada, usa `groups: ["*"]`. No puedes usar `*` en `excludes`.
+
 Las vistas de página en Markdown y `llms-full.txt` son iguales para todos los lectores, por lo que los agentes siempre obtienen la vista sin sesión iniciada. Mintlify elimina el contenido `signed-in` y `groups` de la salida Markdown e incluye el contenido `signed-out`.
 
 Para comprobar estas reglas localmente, ejecuta [`mint dev --signed-in` o `mint dev --groups`](/es/cli/preview#preview-as-a-specific-group). Sin ninguno de los dos flags, la previsualización local muestra la vista sin sesión iniciada.
 
 <Warning>
-  Las reglas de inicio de sesión y de grupo solo ocultan el contenido en el navegador. El contenido oculto se sigue enviando al navegador de cada lector. Para restringir el acceso a contenido sensible, colócalo en una página independiente y usa la [propiedad de frontmatter `groups`](/es/deploy/authentication-setup#control-access-with-groups).
+  Las reglas de inicio de sesión y de grupo solo ocultan el contenido en el navegador. Mintlify sigue enviando el contenido oculto al navegador de cada lector. Para restringir el acceso a contenido sensible, colócalo en una página independiente y usa la [propiedad de frontmatter `groups`](/es/deploy/authentication-setup#control-access-with-groups).
 </Warning>
+
+<div id="interactive-components">
+  ## Componentes interactivos
+</div>
+
+Los componentes interactivos, como calculadoras, galerías con filtros y gráficos, generan su salida en el navegador, por lo que muestran poco o nada en la [salida Markdown](/es/ai/markdown-export#custom-react-components). Envuelve el componente interactivo en `for="humans"` y añade una versión estática de la misma información en `for="agents"`.
+
+```mdx
+import { PricingCalculator } from "/snippets/pricing-calculator.jsx"
+import { PRICING } from "/snippets/pricing-data.jsx"
+
+<Visibility for="humans">
+  <PricingCalculator data={PRICING} />
+</Visibility>
+
+<Visibility for="agents">
+  | Plan | Precio por 1M de tokens |
+  | --- | --- |
+  | Standard | $1.00 |
+  | Pro | $3.00 |
+</Visibility>
+```
+
+La salida Markdown nunca incluye el código fuente de los componentes ni datos importados como `PRICING`, así que no necesitas `Visibility` para mantener el código fuera de Markdown. Úsalo para controlar lo que lee cada audiencia.
 
 <div id="properties">
   ## Propiedades
@@ -103,6 +141,7 @@ Para comprobar estas reglas localmente, ejecuta [`mint dev --signed-in` o `mint 
   - `signed-in`: Contenido visible en la web para lectores con sesión iniciada y excluido de la salida Markdown.
   - `signed-out`: Contenido visible en la web para lectores sin sesión iniciada e incluido en la salida Markdown.
   - `{ groups: [...] }`: Contenido visible en la web para lectores con sesión iniciada que pertenecen al menos a uno de los grupos indicados y excluido de la salida Markdown.
+  - `{ groups: { includes: [...], excludes: [...] } }`: Contenido visible en la web para lectores que coinciden con `includes` y no pertenecen a ningún grupo de `excludes`. Define al menos una de las dos listas. Excluido de la salida Markdown.
 
   Usa un valor estático. Mintlify excluye de la salida Markdown el contenido con un valor `for` calculado, como una variable o una expresión condicional.
 </ResponseField>

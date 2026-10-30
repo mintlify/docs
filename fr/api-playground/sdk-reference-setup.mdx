@@ -1,7 +1,7 @@
 ---
 title: "Configuration des références SDK"
-description: "Générez des pages de référence SDK à partir de votre outillage de documentation existant : TypeDoc, DocFX, Javadoc, Sphinx ou phpDocumentor."
-keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "reference"]
+description: "Générez des pages de référence SDK à partir de votre outillage de documentation existant : TypeDoc, DocFX, Javadoc, Sphinx, phpDocumentor ou Go."
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "go", "golang", "mintlify-go-extractor", "reference"]
 ---
 
 Utilisez la propriété de navigation `sdk` pour générer des pages de référence pour vos bibliothèques SDK à partir des outils de documentation que vous exécutez déjà. Mintlify lit l’artefact de build de chaque outil et crée une page pour chaque classe, interface, module et fonction. Les groupes de navigation, les liens entre les pages et l’indexation pour la recherche sont également inclus.
@@ -17,6 +17,7 @@ Utilisez la propriété de navigation `sdk` pour générer des pages de référe
 | `javadoc` | [Javadoc](https://docs.oracle.com/en/java/javase/17/javadoc/javadoc.html) (Java) | Répertoire HTML du doclet standard |
 | `sphinx` | [Sphinx](https://www.sphinx-doc.org) (Python) | Répertoire de sortie du builder JSON |
 | `phpdoc` | [phpDocumentor](https://phpdoc.org) (PHP) | Fichier `structure.xml` |
+| `go` | [mintlify-go-extractor](https://github.com/mintlify/mintlify-go-extractor) (Go) | Fichier d’artefact JSON |
 
 <div id="generate-an-artifact">
   ## Générer un artefact
@@ -47,7 +48,35 @@ python -m sphinx -b json docs/source artifacts/json
 phpdoc -d src -t artifacts --template=xml
 ```
 
+```bash Go
+go run github.com/mintlify/mintlify-go-extractor@latest -o go.json
+```
+
 </CodeGroup>
+
+<div id="go">
+  ### Go
+</div>
+
+Les outils de documentation de Go produisent du texte et du HTML, pas un artefact lisible par une machine. Mintlify maintient donc [`mintlify-go-extractor`](https://github.com/mintlify/mintlify-go-extractor), une commande open source qui en génère un. Exécutez-la depuis n’importe quel emplacement de votre module Go. Elle lit les fichiers source de votre module avec la bibliothèque standard de Go : elle ne télécharge aucune dépendance, n’a besoin d’aucun identifiant et fonctionne avec les modules privés.
+
+Avec Go 1.24 ou une version ultérieure, épinglez l’extracteur dans le `go.mod` de votre module pour que chaque exécution utilise la même version :
+
+```bash
+go get -tool github.com/mintlify/mintlify-go-extractor@latest
+go tool mintlify-go-extractor -o go.json
+```
+
+Chaque [version](https://github.com/mintlify/mintlify-go-extractor/releases) inclut des binaires précompilés pour macOS, Linux et Windows.
+
+Par défaut, l’extracteur documente tous les packages du module, à l’exception des packages `internal` et des commandes, et lit les commentaires de documentation comme du Markdown, ce qu’écrivent les SDK générés (par exemple avec Stainless, Speakeasy ou Fern). Options courantes :
+
+- `-comments=godoc` : lit les commentaires de documentation avec la [syntaxe des commentaires de documentation](https://go.dev/doc/comment) de Go plutôt qu’en Markdown.
+- `-exclude` : ignore des packages, sous la forme d’une liste de motifs de package séparés par des virgules.
+- `-exclude-symbols` : exclut des symboles individuels de la référence, sous la forme d’une liste de motifs séparés par des virgules, par exemple `NewLegacyClient`, `Client.Debug` ou `Legacy*`. Préfixez un motif avec le répertoire du package, par exemple `option.WithDebugLog`, pour qu’il ne corresponde que dans un seul package. Les références aux symboles exclus apparaissent en texte brut plutôt que sous forme de liens.
+- `-goos`, `-goarch`, `-tags` : choisissent la plateforme et les tags de build utilisés pour sélectionner les fichiers. La valeur par défaut est `linux/amd64`.
+
+Passez des motifs de package, comme `./option/...`, pour ne documenter qu’une partie du module. Consultez le [README de l’extracteur](https://github.com/mintlify/mintlify-go-extractor#readme) pour la liste complète des options.
 
 <div id="auto-populate-sdk-pages">
   ## Remplir automatiquement les pages SDK
@@ -94,7 +123,7 @@ Un groupe avec `sdk` peut aussi lister des `pages` que vous rédigez vous-même.
 </Note>
 
 <ParamField path="format" type="string" required>
-  L’outil de documentation qui a produit l’artefact : `typedoc`, `docfx`, `javadoc`, `sphinx` ou `phpdoc`.
+  L’outil de documentation qui a produit l’artefact : `typedoc`, `docfx`, `javadoc`, `sphinx`, `phpdoc` ou `go`.
 </ParamField>
 
 <ParamField path="source" type="string" required>
@@ -116,6 +145,18 @@ Ajoutez plusieurs onglets ou groupes pour documenter plusieurs bibliothèques. P
 </div>
 
 Mintlify ajoute les groupes de navigation générés après les éventuels `groups` de l’onglet. Si vous ajoutez `sdk` à un groupe, les groupes générés apparaissent après les `pages` de ce groupe. Les groupes varient selon le format et peuvent représenter des modules, des packages, des espaces de noms ou des types de symboles.
+
+Pour les artefacts TypeDoc, Mintlify suit l’organisation que vous définissez avec les balises `@category` et `@group`. Les catégories et les titres de groupe personnalisés deviennent des groupes de navigation. Les catégories à l’intérieur d’un groupe deviennent des groupes imbriqués, et les espaces de noms deviennent des groupes imbriqués qui suivent leurs propres catégories ou groupes. Si l’artefact ne contient ni catégories ni titres de groupe personnalisés, Mintlify regroupe les pages par type de symbole, comme les classes, les interfaces et les fonctions.
+
+Si votre artefact TypeDoc inclut un README, Mintlify ajoute une page de présentation à `package-overview` sous votre `directory`, dans un groupe `Overview` placé avant les autres groupes générés. La page de présentation affiche le README, suivi d’un index des classes, interfaces, fonctions et autres symboles de la bibliothèque. Un module disposant de son propre README obtient une page de présentation distincte à `<module>/package-overview`, dans un groupe `<module> Overview`, qui indexe uniquement les symboles de ce module. Les artefacts sans README, ou avec un README vide, n’obtiennent pas de page de présentation.
+
+Pour les artefacts Javadoc, Mintlify regroupe les pages par package. Lorsqu’un package mélange plusieurs genres, il les imbrique sous Interfaces, Classes, Enums, Records, Exceptions, Errors et Annotations, dans l’ordre utilisé par Javadoc sur ses pages de package.
+
+Pour les artefacts Go, Mintlify regroupe les pages par package. Chaque package commence par une page de présentation qui affiche le `README` et le commentaire de documentation du package, suivie d’un index de ses types et fonctions.
+
+Lorsqu’un package Go mélange plusieurs genres, Mintlify imbrique ses autres pages sous Interfaces, Structs, Types et Functions, dans cet ordre. Types regroupe les types définis et les alias. Functions regroupe les fonctions au niveau du package, y compris les constructeurs.
+
+Chaque type et chaque fonction au niveau du package dispose de sa propre page. La page d’un type comprend ses champs, ses constructeurs et ses méthodes.
 
 Chaque page générée documente une classe, une interface, une fonction, un type ou un autre symbole de l’artefact et renvoie vers les pages générées associées. Si un convertisseur produit des pages qui n’appartiennent à aucun groupe, Mintlify les regroupe sous un groupe `Reference`.
 
@@ -142,10 +183,12 @@ Créez un `Client` pour appeler l’API.
 
 La forme chaîne suit le modèle `[source] kind name`. Si vous omettez `source`, la page l’hérite de la configuration `sdk` de l’onglet ou du groupe. La forme chaîne hérite toujours de `format` et ne fonctionne donc que sur les pages situées sous un onglet ou un groupe avec `sdk`. Dans tous les autres cas, définissez `sdk` comme un objet avec les champs ci-dessous. Pour les méthodes et propriétés, incluez le nom du parent, par exemple `method Client.getUser`.
 
+Pour les artefacts Go, ciblez les structs et les autres types définis avec `type`, les interfaces avec `interface`, les champs de struct avec `property` et les pages de présentation de package avec `package`. Désignez un package par son nom, suivi du chemin de son répertoire pour les packages imbriqués, par exemple `package openai` ou `package openai.option`. Ajoutez le package au nom d’un symbole, par exemple `type option.RequestOption`, lorsque plusieurs packages ont un symbole portant ce nom.
+
 Si vous omettez `title` ou `description`, Mintlify utilise le titre et la description générés pour le symbole.
 
 <ParamField path="kind" type="string" required>
-  Le type de symbole : `class`, `interface`, `enum`, `function`, `type`, `variable`, `method` ou `property`.
+  Le type de symbole : `package`, `class`, `interface`, `enum`, `function`, `type`, `variable`, `method` ou `property`.
 </ParamField>
 
 <ParamField path="name" type="string" required>
@@ -154,6 +197,10 @@ Si vous omettez `title` ou `description`, Mintlify utilise le titre et la descri
 
 <ParamField path="parent" type="string">
   Requis pour les cibles `method` et `property`. La classe, l’interface ou le type englobant.
+</ParamField>
+
+<ParamField path="namespace" type="string">
+  Pour les artefacts Go, le package qui contient le symbole, par exemple `openai.option`. Utilisez-le lorsque plusieurs packages ont un symbole portant le même nom.
 </ParamField>
 
 <ParamField path="format" type="string">
@@ -170,7 +217,7 @@ Si vous omettez `title` ou `description`, Mintlify utilise le titre et la descri
 
 Définissez `source` sur une URL HTTPS pour récupérer l’artefact au moment du build au lieu de le committer dans votre dépôt de documentation.
 
-Les formats à fichier unique (`typedoc`, `phpdoc`) acceptent une URL de fichier directe. Les formats à répertoire (`docfx`, `javadoc`, `sphinx`) acceptent une archive zip. Les jars Javadoc publiés sur Maven Central fonctionnent sans reconditionnement :
+Les formats à fichier unique (`typedoc`, `phpdoc`, `go`) acceptent une URL de fichier directe. Les formats à répertoire (`docfx`, `javadoc`, `sphinx`) acceptent une archive zip. Les jars Javadoc publiés sur Maven Central fonctionnent sans reconditionnement :
 
 ```json
 {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,7 +8,10 @@ import {
   buildTarget,
   copyTargetToRepository,
   loadTargets,
+  renderSiteSkill,
+  repositoryRoot,
   resolveManifestVersion,
+  siteReferenceLinks,
 } from '../scripts/lib.mjs';
 
 test('builds all client variants from one canonical skill', async () => {
@@ -254,5 +257,19 @@ test('manifest version bump reads a manifest outside the plugin root', async () 
     assert.equal(await resolveManifestVersion(target, targetRoot, destination), '2.3.5');
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('renders the site skill.md with links instead of local reference paths', async () => {
+  const skill = await renderSiteSkill();
+
+  assert.match(skill, /^---\nname: mintlify\n/);
+  assert.match(skill, /Edit the canonical source, not this copy/);
+  // The docs build parses skill.md as MDX, which rejects HTML comments.
+  assert.doesNotMatch(skill, /<!--/);
+  assert.doesNotMatch(skill, /`reference\//);
+  for (const [file, [title, url]] of Object.entries(siteReferenceLinks)) {
+    await access(path.join(repositoryRoot, 'context', 'skills', 'mintlify', file));
+    assert.ok(skill.includes(`[${title}](${url})`), `${file} is not linked`);
   }
 });

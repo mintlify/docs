@@ -1,6 +1,6 @@
 ---
 title: "离线导出"
-description: "将文档站点导出为自包含的 zip 压缩包，用于离线查看、内部分发或隔离环境托管。"
+description: "将文档站点导出为包含预渲染页面的 zip 压缩包，用于离线查看和内部分发。"
 keywords: ["导出", "离线", "zip", "静态站点", "分发", "mint export"]
 ---
 
@@ -8,9 +8,11 @@ keywords: ["导出", "离线", "zip", "静态站点", "分发", "mint export"]
   离线导出需要 [Enterprise 方案](https://mintlify.com/pricing?ref=offline-export)。
 </Info>
 
-使用 `mint export` 将整个文档站点打包成一个自包含的 zip 归档文件。收件人可以解压后在浏览器中查看文档，无需互联网连接、Mintlify 账户或任何构建工具—只需安装 [Node.js](https://nodejs.org) 即可。
+使用 `mint export` 将整个文档站点打包成一个包含预渲染页面的 zip 归档文件。收件人可以解压后在浏览器中查看文档，无需 Mintlify 账户或任何构建工具。只需安装 [Node.js](https://nodejs.org) 即可。
 
-当你需要向无法访问线上站点的用户分发文档时（例如本地部署客户、隔离网络环境或内部合规审查），这非常有用。
+当你需要向无法访问线上站点的用户分发文档时（例如本地部署客户或内部合规审查），这非常有用。
+
+CLI 会将你的站点使用的图标、字体和 LaTeX 样式打包到归档文件中，因此导出的文档可以在无法访问互联网的隔离网络（air-gapped）环境中使用。除非你设置了 [base path](#serve-under-a-subpath)，否则导出内容会从域名根路径提供服务。在部署导出内容之前，请查看[限制](#limitations)。
 
 <div id="prerequisites">
   ## 前提条件
@@ -23,8 +25,31 @@ keywords: ["导出", "离线", "zip", "静态站点", "分发", "mint export"]
   ## 限制
 </div>
 
-- 离线导出不支持搜索。如需添加离线搜索，请使用静态搜索工具为导出的 HTML 建立索引。
 - 离线导出不支持 Mintlify 助手。
+- 离线导出不包含在 `docs.json` 中配置的分析工具或其他[集成](/zh/organize/settings-integrations)。
+- 页面通过外部 URL 引用的图片和其他文件不会被打包。请将它们存储在项目中，以便包含在归档文件中。
+
+<div id="offline-search">
+  ### 离线搜索
+</div>
+
+在没有网络连接的情况下，搜索栏也可以在导出的文档中使用。运行 `mint export` 时，CLI 会根据导出的页面构建搜索索引，并将其保存到归档文件中。浏览器会在本地搜索该索引。
+
+离线搜索遵循与线上站点搜索相同的规则。它会跳过[在搜索中隐藏](/zh/organize/hidden-pages)的页面，例如 frontmatter 中设置了 `noindex: true` 或 `searchable: false` 的页面。搜索结果仅包含读者当前语言和版本下的页面。
+
+<div id="bundled-assets">
+  ### 打包的资源
+</div>
+
+运行 `mint export` 时，CLI 会下载你的站点从外部主机加载的资源，并将其保存到归档文件中。这包括：
+
+- 按名称引用的图标，例如 Font Awesome 和 Lucide 图标。
+- 代码块语言图标和语言选择器旗帜。
+- Google Fonts 和外部托管的字体。
+- LaTeX 样式表和字体。
+- 被打包样式表引用的文件。
+
+运行 `mint export` 的计算机需要互联网访问才能下载这些资源。CLI 只会从公共主机下载资源。如果某个资源下载失败，CLI 会显示 `could not bundle <url>` 警告，导出的文档会从该资源的原始主机加载它。
 
 <div id="export-your-site">
   ## 导出你的站点
@@ -47,6 +72,8 @@ CLI 会构建你的站点，抓取导航中定义的所有页面，并将输出�
 | `--output <path>` | 设置输出 zip 文件的路径。 | `export.zip` |
 | `--groups <group>` | 为导出模拟[用户组](/zh/deploy/authentication-setup#control-access-with-groups)。当你的文档使用基于组的访问控制，并且你希望归档文件包含受限页面时，此选项非常有用。 | — |
 | `--disable-openapi` | 在导出过程中跳过 OpenAPI 文件生成。如果你有大量 OpenAPI 规范并且希望加快构建速度，请使用此选项。 | — |
+| `--base-path <path>` | 在子路径（例如 `/docs`）下提供导出内容。请参阅[在子路径下提供服务](#serve-under-a-subpath)。 | |
+| `--client-version <version>` | 使用指定的 Mintlify 客户端版本构建导出内容，而不是最新的兼容版本。请参阅[固定客户端版本](#pin-the-client-version)。 | 最新兼容版本 |
 
 例如，要将站点导出为自定义文件名并指定用户组：
 
@@ -57,6 +84,34 @@ mint export --output customer-docs.zip --groups enterprise
 <Note>
   导出仅包含导航中列出的页面。[隐藏页面](/zh/organize/hidden-pages) 不会包含在归档中。
 </Note>
+
+<div id="serve-under-a-subpath">
+  ### 在子路径下提供服务
+</div>
+
+默认情况下，导出内容从域名根路径提供服务，例如 `http://localhost:3000/`。如需改为在子路径下提供服务，请通过 `--base-path` 传入该路径：
+
+```bash
+mint export --base-path /docs
+```
+
+CLI 会为链接、图片、favicon 和打包的资源添加 base path 前缀，`serve.js` 会在 `http://localhost:3000/docs/` 提供文档。对根路径的请求会重定向到 base path。
+
+base path 可以包含字母、数字、连字符和下划线，各段之间用 `/` 分隔，例如 `/docs` 或 `/product/docs`。如果任何页面路径以 base path 开头，导出将失败。例如，如果你的导航中包含位于 `docs/intro` 的页面，`--base-path /docs` 就会失败。请选择一个没有页面使用的 base path。
+
+<div id="pin-the-client-version">
+  ### 固定客户端版本
+</div>
+
+默认情况下，`mint export` 会使用与你的 CLI 版本兼容的最新 Mintlify 客户端版本来构建站点。如需改用特定版本构建，请通过 `--client-version` 传入其版本号：
+
+```bash
+mint export --client-version <version>
+```
+
+CLI 会在构建导出内容之前从 `releases.mintlify.com` 下载该版本。当你需要多次导出的渲染结果保持一致时（例如为同一客户重新生成归档文件），请固定版本。
+
+如果下载失败，而 CLI 已缓存了之前运行时下载的客户端版本，CLI 会改用缓存的版本构建导出内容。
 
 <div id="security-considerations">
   ### 安全注意事项
@@ -72,12 +127,17 @@ mint export --output customer-docs.zip --groups enterprise
   ## zip 中的内容
 </div>
 
-导出的归档包含离线查看文档所需的一切：
+导出的归档包含你的预渲染页面、其打包的资源，以及用于查看它们的服务器：
 
 | 文件 | 用途 |
 |---|---|
 | HTML 页面 | 导航中每个页面的预渲染版本 |
+| `index.txt` 文件 | 用于客户端导航的页面数据，保存在每个页面的 HTML 旁边 |
 | `_next/static/` | 打包的 CSS、JavaScript 和其他静态资源 |
+| `_mintlify/export-assets/` | 从外部主机下载的图标、字体和其他资源 |
+| `_mintlify/search-index.json` | 用于[离线搜索](#offline-search)的搜索索引 |
+| `llms.txt` | 供 AI 工具使用的导出页面索引 |
+| `README.md` | 查看导出内容以及在你自己的服务器上托管导出内容的说明 |
 | `serve.js` | 零依赖的 Node.js HTTP 服务器，用于提供站点服务 |
 | `Start Docs.command` | macOS 启动器。双击即可打开文档。 |
 | `Start Docs.bat` | Windows 启动器。双击即可打开文档。 |
@@ -114,3 +174,15 @@ mint export --output customer-docs.zip --groups enterprise
     </Note>
   </Tab>
 </Tabs>
+
+<div id="host-the-export-on-your-own-server">
+  ## 在你自己的服务器上托管导出内容
+</div>
+
+如需在你自己的 Web 服务器上托管导出内容而不使用 `serve.js`，请从域名根路径将解压后的文件夹作为静态文件提供服务。如果你使用 `--base-path` 导出，请改为在该路径下提供该文件夹，并将以下规则应用于请求路径中 base path 之后的部分：
+
+1. **页面：** 对 `/<path>` 的请求，返回 `<path>/index.html`。
+2. **客户端导航：** 对带有 `RSC: 1` 请求头或 `_rsc` 查询参数的请求，返回 `<path>/index.txt`，并设置 `Content-Type: text/x-component` 和 `Vary: RSC`。如果没有这条规则，每次点击链接都会加载完整页面。
+3. **缓存：** 为 `_next/static/*` 和 `_mintlify/export-assets/*` 设置 `Cache-Control: public, max-age=31536000, immutable`。为页面和 `index.txt` 文件设置 `Cache-Control: no-cache`。
+
+`serve.js` 实现了全部三条规则，你可以将其作为参考。

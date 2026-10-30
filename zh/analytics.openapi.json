@@ -222,6 +222,67 @@
                         "dismissed"
                       ],
                       "description": "反馈当前的审核状态。"
+                    },
+                    "helpful": {
+                      "type": "boolean",
+                      "description": "用户是否认为该内容有帮助。"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "path",
+                    "comment",
+                    "createdAt",
+                    "source",
+                    "status",
+                    "helpful"
+                  ],
+                  "description": "当来源为 `thumbs_only` 时返回。表示对页面的点赞或点踩投票，不含书面评论。包含用户是否认为页面有帮助。"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "反馈的唯一标识符。"
+                    },
+                    "path": {
+                      "type": "string",
+                      "description": "源文档的路径或 URL。"
+                    },
+                    "comment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "用户反馈评论的正文内容。"
+                    },
+                    "createdAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "提交该反馈时的时间戳。"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "code_snippet",
+                        "contextual",
+                        "agent",
+                        "thumbs_only"
+                      ],
+                      "description": "反馈的来源类型。`code_snippet` 表示针对代码块的反馈，`contextual` 表示页面级别的反馈，`agent` 表示由第三方 AI Agent 提交的反馈，`thumbs_only` 表示点赞/点踩投票。"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "in_progress",
+                        "resolved",
+                        "dismissed"
+                      ],
+                      "description": "反馈当前的审核状态。"
                     }
                   },
                   "required": [
@@ -232,7 +293,7 @@
                     "source",
                     "status"
                   ],
-                  "description": "当来源为 `agent` 或 `thumbs_only` 时返回。仅包含基本反馈字段。"
+                  "description": "当来源为 `agent` 时返回。仅包含基本反馈字段。"
                 }
               ]
             }
@@ -341,19 +402,19 @@
         "properties": {
           "web": {
             "type": "number",
-            "description": "来自网页端（文档站点）的助手查询次数。"
+            "description": "从网页端（文档站点）发起的助手会话数。"
           },
           "api": {
             "type": "number",
-            "description": "来自 API 调用的助手查询次数。"
+            "description": "从 API 调用发起的助手会话数。"
           },
           "other": {
             "type": "number",
-            "description": "来自其他来源（例如集成、SDK）的助手查询次数。"
+            "description": "从其他来源（例如集成、SDK）发起的助手会话数。"
           },
           "total": {
             "type": "number",
-            "description": "所有调用方类型的助手查询总数。"
+            "description": "所有调用方类型的助手会话总数。"
           }
         },
         "required": [
@@ -374,7 +435,11 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "description": "会话的唯一标识符。"
+                  "description": "此轮次的唯一标识符。多轮会话中的每一行都有不同的 `id`。"
+                },
+                "conversationId": {
+                  "type": "string",
+                  "description": "该轮次所属会话的标识符。同一会话中的各行共享相同的 `conversationId`。可将其作为获取 AI 助手会话线程端点的 `threadId` 使用。"
                 },
                 "timestamp": {
                   "type": "string",
@@ -417,6 +482,14 @@
                     ]
                   }
                 },
+                "resolutionStatus": {
+                  "type": "string",
+                  "enum": [
+                    "answered",
+                    "unanswered"
+                  ],
+                  "description": "助手是否成功回答了此轮次。按行计算：当助手将问题标记为现有文档未涵盖时，值为 `unanswered`。如果会话被记录为未回答（例如因为某个响应失败），且没有任何轮次被标记为未涵盖，则该会话中的每个轮次都为 `unanswered`。否则为 `answered`。"
+                },
                 "queryCategory": {
                   "type": [
                     "string",
@@ -446,10 +519,12 @@
               },
               "required": [
                 "id",
+                "conversationId",
                 "timestamp",
                 "query",
                 "response",
                 "sources",
+                "resolutionStatus",
                 "queryCategory",
                 "feedback",
                 "pageUrl"
@@ -676,7 +751,7 @@
     "/v1/analytics/{projectId}/assistant/caller-stats": {
       "get": {
         "summary": "获取 AI 助手调用方统计",
-        "description": "返回指定日期范围内按调用方类型（网页端、API 和其他）划分的助手查询次数明细。\n\n使用管理员 API 密钥进行身份验证。",
+        "description": "返回在指定日期范围内发起的助手会话按调用方类型（网页端、API 和其他）划分的数量明细。\n\n使用管理员 API 密钥进行身份验证。",
         "tags": [
           "Analytics"
         ],
@@ -712,7 +787,7 @@
         ],
         "responses": {
           "200": {
-            "description": "按调用方类型划分的助手查询次数",
+            "description": "按调用方类型划分的助手会话数",
             "content": {
               "application/json": {
                 "schema": {

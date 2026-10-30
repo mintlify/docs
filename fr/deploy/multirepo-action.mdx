@@ -1,0 +1,177 @@
+---
+title: "Combiner des référentiels avec GitHub Actions"
+sidebarTitle: "GitHub Action multi-référentiels"
+description: "Utilisez la GitHub Action multi-référentiels de Mintlify pour copier la documentation de nombreux référentiels dans un seul référentiel de documentation et fusionner leur navigation dans un unique docs.json."
+keywords: ["multirepo", "multi-repo", "GitHub Action", "aggregate", "sync", "child repositories", "sourceRef"]
+---
+
+{/* vale Vale.Terms = NO */}
+La GitHub Action multi-référentiels de Mintlify, [`mintlify/multirepo-action`](https://github.com/mintlify/multirepo-action), copie la documentation d'un nombre quelconque de référentiels enfants dans un seul référentiel de documentation parent. Elle fusionne la navigation de chaque enfant dans un unique `docs.json`, afin que Mintlify déploie le parent comme n'importe quel autre site à référentiel unique.
+{/* vale Vale.Terms = YES */}
+
+Utilisez l'action lorsque votre documentation est répartie sur de nombreux référentiels et que vous souhaitez gérer la liste des sources dans un fichier de configuration plutôt que dans le tableau de bord. Pour combiner des référentiels sans copier de contenu, consultez [Projets multi-référentiels](/fr/deploy/multi-repo).
+
+<div id="how-it-works">
+  ## Fonctionnement
+</div>
+
+À chaque exécution, l'action :
+
+1. Récupère chaque référentiel enfant en parallèle, en téléchargeant uniquement le dossier qui contient sa documentation.
+2. Copie le contenu de chaque enfant dans un dossier de destination du référentiel parent. La destination est aussi le chemin d'URL : un enfant situé dans `api` est donc publié sous `/api`.
+3. Réécrit les liens relatifs à la racine, les images et les imports de snippets dans les fichiers `.md` et `.mdx` de l'enfant pour inclure la destination. Par exemple, `/guides/start` devient `/api/guides/start`.
+4. Génère `docs.json` à partir d'un fichier `docs.base.json`, en y fusionnant la navigation, les variables et les redirections de chaque enfant.
+5. Ouvre ou met à jour une pull request avec les modifications, ou les pousse directement.
+
+Si la récupération ou la fusion d'un enfant échoue, l'action échoue sans modifier le référentiel parent.
+
+<div id="requirements">
+  ## Prérequis
+</div>
+
+- Un référentiel parent sur GitHub connecté à votre projet Mintlify
+- Un fichier `docs.json` contenant un objet `navigation` dans chaque référentiel enfant
+- Pour les référentiels enfants privés, un jeton d'installation de GitHub App ou un jeton d'accès personnel à granularité fine avec `contents: read` sur chaque enfant
+
+<div id="set-up-the-action">
+  ## Configurer l'action
+</div>
+
+<Steps>
+  <Step title="Créer une configuration de base">
+    Dans le référentiel parent, renommez `docs.json` en `docs.base.json`. L'action génère `docs.json` à partir de ce fichier à chaque exécution.
+
+    Ajoutez une entrée `sourceRef` à l'endroit où la navigation de chaque enfant doit apparaître. Un `sourceRef` utilise la même syntaxe que les [projets multi-référentiels](/fr/deploy/multi-repo#reference-navigation-from-another-source).
+
+    ```json docs.base.json
+    {
+      "$schema": "https://mintlify.com/docs.json",
+      "theme": "mint",
+      "name": "Acme",
+      "colors": { "primary": "#16A34A" },
+      "navigation": {
+        "tabs": [
+          { "tab": "Guides", "pages": ["index", "quickstart"] },
+          { "tab": "API", "pages": [{ "sourceRef": "acme/api" }] }
+        ]
+      }
+    }
+    ```
+
+    L'action remplace chaque `sourceRef` par le tableau de navigation de même type de l'enfant. Par exemple, un `sourceRef` dans `tabs` devient le `navigation.tabs` de l'enfant. Un `sourceRef` dans `pages` devient les `pages` de l'enfant, ou ses `groups` s'il n'a pas de `pages`.
+
+    Les enfants sans `sourceRef` sont ajoutés à la fin des `products`, `tabs`, `anchors` ou `dropdowns` de premier niveau de la base.
+  </Step>
+
+  <Step title="Lister les référentiels enfants">
+    Créez `.github/mintlify-multirepo.yml` dans le référentiel parent.
+
+    ```yaml .github/mintlify-multirepo.yml
+    sources:
+      - repo: acme/api
+        path: docs
+        destination: api
+        name: API reference
+      - repo: acme/sdk-js
+        ref: v2
+        path: docs
+        destination: sdks/js
+        exclude: [README.md, "drafts/**"]
+    ```
+
+    | Champ | Obligatoire | Description |
+    | --- | --- | --- |
+    | `repo` | Oui | Le référentiel enfant, au format `owner/repo`. |
+    | `destination` | Oui | Dossier du référentiel parent et chemin d'URL du contenu de l'enfant. |
+    | `path` | Non | Dossier de l'enfant qui contient son `docs.json`. Par défaut, la racine du référentiel. |
+    | `ref` | Non | Branche, tag ou SHA de commit complet. Par défaut, la branche par défaut de l'enfant. |
+    | `name` | Non | Libellé de navigation utilisé lorsque l'enfant n'a pas de `sourceRef`. Par défaut, le `name` du `docs.json` de l'enfant. |
+    | `exclude` | Non | Motifs glob des fichiers à ignorer. |
+    | `rewriteLinks` | Non | Définissez sur `false` pour copier le contenu sans réécrire les liens. Par défaut, `true`. |
+
+    L'action ne copie jamais les fichiers cachés (dotfiles), les liens symboliques, `node_modules` ni le `docs.json` de l'enfant. Seuls les champs `navigation`, `variables` et `redirects` de l'enfant sont fusionnés. Les autres paramètres, comme le thème et les couleurs, proviennent de `docs.base.json`.
+  </Step>
+
+  <Step title="Ajouter le workflow">
+    Créez `.github/workflows/multirepo.yml` dans le référentiel parent. Cet exemple s'exécute toutes les heures, à la demande et lorsqu'un référentiel enfant envoie un événement `docs-updated`.
+
+    ```yaml .github/workflows/multirepo.yml
+    name: Combine docs
+
+    on:
+      workflow_dispatch:
+      schedule:
+        - cron: "0 * * * *"
+      repository_dispatch:
+        types: [docs-updated]
+
+    concurrency:
+      group: mintlify-multirepo
+      cancel-in-progress: true
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    jobs:
+      sync:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/create-github-app-token@v3
+            id: app
+            with:
+              app-id: ${{ vars.DOCS_APP_ID }}
+              private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+              owner: ${{ github.repository_owner }}
+          - uses: actions/checkout@v7
+          - uses: mintlify/multirepo-action@v1
+            with:
+              token: ${{ steps.app.outputs.token }}
+    ```
+
+    Si tous les référentiels enfants sont publics, supprimez l'étape `create-github-app-token` et l'entrée `token`.
+
+    Par défaut, l'action ouvre ou met à jour une seule pull request avec les modifications. Fusionnez-la pour déployer. Pour autoriser le workflow à ouvrir des pull requests, activez **Allow GitHub Actions to create and approve pull requests** dans **Settings** > **Actions** > **General** du référentiel parent. Pour pousser directement les modifications sur la branche, définissez `mode: push`.
+  </Step>
+
+  <Step title="Facultatif : synchroniser lorsqu'un enfant change">
+    Pour synchroniser dès qu'un référentiel enfant change, ajoutez à chaque enfant un workflow qui notifie le parent. Remplacez `acme/docs` par votre référentiel parent. `DOCS_DISPATCH_TOKEN` doit disposer d'un accès `contents: write` sur le référentiel parent.
+
+    ```yaml .github/workflows/notify-docs.yml
+    name: Notify docs repository
+
+    on:
+      push:
+        branches: [main]
+        paths: ["docs/**"]
+
+    jobs:
+      notify:
+        runs-on: ubuntu-latest
+        steps:
+          - env:
+              GH_TOKEN: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+            run: gh api repos/acme/docs/dispatches -f event_type=docs-updated
+    ```
+  </Step>
+</Steps>
+
+<div id="edit-synced-content">
+  ## Modifier le contenu synchronisé
+</div>
+
+L'action remplace chaque dossier de destination et `docs.json` à chaque exécution. Modifiez le contenu dans les référentiels enfants et les paramètres du site dans `docs.base.json`. Les modifications apportées directement aux fichiers synchronisés dans le référentiel parent, y compris via l'[éditeur web](/fr/editor/index), sont écrasées lors de la synchronisation suivante.
+
+Lorsque vous retirez un enfant de `.github/mintlify-multirepo.yml`, l'action supprime son dossier lors de l'exécution suivante.
+
+<div id="link-between-children">
+  ## Créer des liens entre enfants
+</div>
+
+{/* vale Vale.Terms = NO */}
+Rédigez les liens d'un référentiel enfant comme si l'enfant était un site autonome. L'action ajoute la destination de l'enfant aux liens relatifs à la racine : `[Start](/quickstart)` dans un enfant avec `destination: api` devient donc `/api/quickstart`.
+
+L'action ne modifie pas les liens qui pointent déjà vers la destination d'un autre enfant. Par exemple, `[SDK](/sdks/js/install)` reste inchangé lorsque `sdks/js` est la destination d'un autre enfant. L'action ne réécrit pas les liens à l'intérieur des blocs de code.
+{/* vale Vale.Terms = YES */}
+
+Pour connaître toutes les entrées, sorties et options de jeton, consultez le [README de l'action](https://github.com/mintlify/multirepo-action#readme).

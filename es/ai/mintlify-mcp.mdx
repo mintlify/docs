@@ -1,6 +1,6 @@
 ---
 title: "Servidor Admin Model Context Protocol (MCP)"
-shortTitle: "Admin MCP"
+sidebarTitle: "Admin MCP"
 description: "Da a Claude, ChatGPT, Cursor y otras herramientas de IA acceso de escritura a tu contenido y panel de Mintlify para editar páginas, ajustes y abrir PRs."
 keywords: ["MCP", "write access", "AI", "editing", "Claude", "ChatGPT", "Cursor", "branch", "pull request"]
 ---
@@ -15,9 +15,9 @@ import AdminMcpCodex from "/snippets/es/admin-mcp-codex.mdx";
   ## Acerca del Admin MCP
 </div>
 
-El servidor Admin MCP otorga a las herramientas de IA acceso de escritura a tu contenido y configuración de Mintlify. Úsalo para actualizar contenido y acceder a tu panel. Con el Admin MCP, puedes usar tus herramientas de IA preferidas para editar páginas, reestructurar la navegación, actualizar `docs.json`, abrir pull requests, cambiar configuraciones, crear workflows y más.
+El servidor Admin MCP otorga a las herramientas de IA acceso de escritura a tu contenido y configuración de Mintlify. Úsalo para actualizar contenido y acceder a tu panel. Con el Admin MCP, puedes usar tus herramientas de IA preferidas para editar páginas, reestructurar la navegación, actualizar `docs.json`, abrir pull requests, cambiar configuraciones, crear automatizaciones y más.
 
-Conecta cualquier cliente MCP como Claude, Claude Code, ChatGPT o Cursor al servidor Admin MCP. Úsalo para colaborar en tu contenido y configuración de Mintlify con las mismas herramientas que usas para escribir código. Las ediciones de contenido ocurren en una rama y se publican mediante una pull request o un commit cuando llamas a `save`. Los cambios de [gestión de proyectos](#project-management), como las actualizaciones de workflows y de configuración, se aplican de inmediato al proyecto en vivo. Si tu organización tiene varios proyectos, una sola conexión de Admin MCP puede acceder a todos ellos y alternar entre ellos.
+Conecta cualquier cliente MCP como Claude, Claude Code, ChatGPT o Cursor al servidor Admin MCP. Úsalo para colaborar en tu contenido y configuración de Mintlify con las mismas herramientas que usas para escribir código. Cada llamada a una herramienta de contenido indica la rama en la que trabaja. Las ediciones en tu rama de despliegue llegan como cambios no publicados, y las ediciones en cualquier otra rama pasan por una pull request. Se publican cuando llamas a `publish` o haces merge de la pull request. Los cambios de [gestión de proyectos](#project-management), como las actualizaciones de automatizaciones y de configuración, se aplican de inmediato al proyecto en vivo. Si tu organización tiene varios proyectos, una sola conexión de Admin MCP puede acceder a todos ellos y alternar entre ellos.
 
 <Note>
   El servidor Admin MCP permite que las herramientas de IA accedan a tu panel de Mintlify. Trátalo como una herramienta con acceso de escritura. Conéctalo solo desde herramientas de IA de confianza, revisa cada pull request antes de fusionarla y ten en cuenta que los cambios de gestión de proyectos se aplican de inmediato sin una pull request.
@@ -29,14 +29,12 @@ El Admin MCP es un servicio alojado por Mintlify en `https://mcp.mintlify.com`. 
   ### Cómo se diferencia el Admin MCP de otros servidores MCP de Mintlify
 </div>
 
-|  | Admin MCP | Search MCP | Index MCP |
-| :-- | :-- | :-- | :-- |
-| **Audiencia** | Tu equipo | Tus usuarios finales | Todos los desarrolladores y agentes |
-| **Acceso** | Leer, editar, reestructurar, guardar, crear workflows, gestionar la configuración | Leer y buscar en las páginas publicadas de un sitio | Leer y buscar en todos los sitios de Mintlify |
-| **Endpoint** | `https://mcp.mintlify.com` | `/mcp` en el dominio de tu sitio | `https://index.mintlify.com` |
-| **Salida** | Ediciones de contenido, cambios de navegación, pull requests, ejecuciones de workflows | Resultados de búsqueda y contenido de páginas de tu sitio | Resultados de búsqueda y contenido de páginas de todos los sitios de Mintlify |
-
-Consulta la [referencia del MCP de Mintlify Index](/es/search-index/mcp) para ver sus entradas de herramientas y límites de uso.
+|  | Admin MCP | Search MCP |
+| :-- | :-- | :-- |
+| **Audiencia** | Tu equipo | Tus usuarios finales |
+| **Acceso** | Leer, editar, reestructurar, publicar, crear automatizaciones, gestionar la configuración | Leer y buscar en las páginas publicadas de un sitio |
+| **Endpoint** | `https://mcp.mintlify.com` | `/mcp` en el dominio de tu sitio |
+| **Salida** | Ediciones de contenido, cambios de navegación, pull requests, ejecuciones de automatizaciones | Resultados de búsqueda y contenido de páginas de tu sitio |
 
 <div id="prerequisites">
   ## Requisitos previos
@@ -45,14 +43,20 @@ Consulta la [referencia del MCP de Mintlify Index](/es/search-index/mcp) para ve
 Antes de conectar el Admin MCP, confirma lo siguiente:
 
 - **Cuenta de Mintlify**: Necesitas una cuenta de Mintlify con acceso al proyecto que quieres editar. La sesión de OAuth hereda tus permisos del panel, por lo que las acciones exclusivas de administrador (como `update_config` en configuraciones protegidas) requieren un rol de administrador en el proyecto.
-- **Acceso al proveedor de Git**: La conexión de GitHub, GitLab o Bitbucket del proyecto debe tener acceso de escritura al repositorio de la rama de despliegue. `save` abre PRs a través de la misma integración utilizada para los despliegues normales.
+- **Acceso al proveedor de Git**: La conexión de GitHub, GitLab o Bitbucket del proyecto debe tener acceso de escritura al repositorio de la rama de despliegue. `publish` abre PRs a través de la misma integración utilizada para los despliegues normales.
 - **Cliente MCP**: Una herramienta de IA compatible con MCP, como Claude, Claude Code, ChatGPT, Cursor o Codex.
 
 <div id="connect-to-the-admin-mcp">
   ## Conectarse al Admin MCP
 </div>
 
-Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para conectarte al Admin MCP. Las herramientas de IA intercambian ese inicio de sesión por un token de sesión limitado a uno o varios proyectos, según cómo otorgues el acceso. Una conexión limitada a proyectos específicos solo puede hacer checkout de esos proyectos. Una conexión a nivel de organización puede hacer checkout de cualquier proyecto de tu organización.
+Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para conectarte al Admin MCP. Las herramientas de IA intercambian ese inicio de sesión por un token de sesión limitado a uno o varios proyectos, según cómo otorgues el acceso. Una conexión limitada a proyectos específicos solo puede acceder a esos proyectos. Una conexión a nivel de organización puede acceder a cualquier proyecto de tu organización.
+
+Conecta tus herramientas al Admin MCP desde [tu panel](https://app.mintlify.com/products/mcp) o completa los siguientes pasos para tu herramienta preferida.
+
+<Tip>
+  Para configurar Claude Code, Codex o Cursor desde tu terminal, ejecuta [`mint agent setup`](/es/cli/commands#mint-agent-setup). El comando agrega el Admin MCP a la configuración de cada agente e instala las skills de Mintlify. Aun así, debes completar el inicio de sesión OAuth en cada agente.
+</Tip>
 
 <Tabs>
   <Tab title="Claude">
@@ -72,82 +76,130 @@ Debes tener un inicio de sesión OAuth interactivo en tu cuenta de Mintlify para
   </Tab>
 </Tabs>
 
-<div id="how-a-session-works">
-  ## Cómo funciona una sesión
+<div id="how-editing-works">
+  ## Cómo funciona la edición
 </div>
 
-Cada sesión del Admin MCP se vincula a una sola rama de Git. El flujo es:
+Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `read_page_history`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`. El Admin MCP solo puede acceder a páginas privadas en [bases](/es/base/index). En proyectos de documentación, las solicitudes sobre páginas privadas devuelven `private_pages_unavailable`.
+
+El flujo es:
 
 <Steps>
   <Step title="Descubrir proyectos (opcional)">
-    Si tu conexión tiene acceso a más de un proyecto, llama a `list_deployments` para ver qué valores de `subdomain` puedes usar en checkout. Omite este paso si tu conexión cubre solo un proyecto.
-  </Step>
-  <Step title="Hacer checkout de una rama">
-    La primera llamada requerida es `checkout {subdomain}`. Crea una nueva rama `admin-mcp/<slug>-<sha>` a partir de la rama de despliegue de ese proyecto (o se adjunta a una rama existente que indiques). También devuelve un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel.
-
-    Para omitir la rama de sesión y editar directamente tu rama de despliegue, pásala como `branch`. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly).
-
-    Llama a `list_branches` antes de `checkout` si necesitas descubrir o filtrar las ramas existentes en el repositorio de un proyecto.
+    Si tu conexión tiene acceso a más de un proyecto, llama a `list_deployments` para ver qué valores de `subdomain` puedes usar. Omite este paso si tu conexión cubre solo un proyecto.
   </Step>
   <Step title="Leer, buscar y editar">
-    La IA usa herramientas como `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` y `update_config` para realizar cambios. Todas las ediciones se mantienen en la rama de la sesión en tiempo real. Nada toca aún tu rama de despliegue.
+    La IA usa herramientas como `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` y `update_config` para realizar cambios. En una conexión de toda la organización, pasa `subdomain` para elegir el proyecto.
+
+    Pasa tu rama de despliegue como `branch` para editarla directamente. Las ediciones llegan como cambios no publicados. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly). Si tu proyecto requiere una pull request, Mintlify rechaza la edición con un mensaje que explica el motivo y no cambia nada. En su lugar, llama a `create_branch` y pasa el `branchName` devuelto como `branch`. Consulta [Trabajar en una rama](#work-on-a-branch).
   </Step>
   <Step title="Revisar el diff">
-    Llama a `diff` en cualquier momento para ver exactamente qué ha cambiado desde tu rama de despliegue. Abre un `editorUrl` en tu panel para ver los mismos cambios renderizados. Cuando `create_node` agrega una página, devuelve un `editorUrl` que abre esa página directamente.
+    Llama a `diff` en cualquier momento para ver exactamente qué ha cambiado en una rama en comparación con tu rama de despliegue. Llama a `status` para obtener un resumen de los archivos editados, las claves de `docs.json` modificadas y los cambios de navegación. Ambas informan sobre tu rama de despliegue cuando omites `branch`. Abre un `editorUrl` en tu panel para ver los mismos cambios renderizados. Cuando `create_node` agrega una página, devuelve un `editorUrl` que abre esa página directamente.
   </Step>
-  <Step title="Guardar">
-    Llama a `save` para enviar la rama a Git. `mode: "auto"` (predeterminado) abre una pull request. Si la configuración de revisión del agente del proyecto es push-to-main y la rama de despliegue no está protegida, Mintlify fusiona la pull request de inmediato (la respuesta incluye `merged: true`). Usa `mode: "pr"` para abrir siempre una pull request y dejarla abierta para revisión. Usa `mode: "commit"` para hacer push directamente a una rama de PR existente sin abrir una nueva PR.
+  <Step title="Publicar">
+    Llama a `publish` con la `branch` y un `title` para publicar tus ediciones. El Admin MCP indica a la herramienta de IA que llame a `publish` solo cuando le pidas publicar, lanzar o fusionar, así que tus ediciones siguen sin publicar hasta que lo hagas. En tu rama de despliegue, `publish` hace commit de tus propios cambios pendientes. En una rama, `publish` hace commit de todo lo pendiente y devuelve la pull request de la rama, y abre una si no existe. Si vuelves a llamarlo sin nada nuevo que confirmar, devuelve la pull request existente. Si no hay nada que confirmar ni ninguna pull request, `publish` devuelve `no_pending_changes`.
 
-    Cuando `save` abre o actualiza una pull request, la respuesta incluye un `editorUrl` que abre la primera página creada o actualizada en la rama. Si los cambios solo afectan a la configuración, el enlace abre la rama. Los guardados que se fusionan de inmediato no devuelven un `editorUrl`.
+    `publish` no fusiona la pull request a menos que pases `merge: true`. Con `merge: true`, `publish` también fusiona la pull request en tu rama de despliegue y devuelve `merged: true`. Mintlify solo permite la fusión cuando aceptaría ediciones directas en tu rama de despliegue. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly). De lo contrario, `publish` devuelve `merge_not_allowed` con el motivo y deja la pull request abierta para revisión. Pide a la herramienta de IA que fusione solo cuando quieras que los cambios omitan la revisión.
+
+    La respuesta incluye un `editorUrl` que abre la primera página creada o actualizada. Si los cambios solo afectan a la configuración, el enlace abre la rama. Los clientes antiguos aún pueden pasar `mode`, pero `publish` lo ignora.
+  </Step>
+  <Step title="Comprobar el despliegue">
+    Cuando `publish` hace commit en tu rama de despliegue, directamente o al fusionar la pull request, la respuesta incluye un `commitSha` y un objeto `deployment`. Tus cambios no están en vivo en tu sitio hasta que termina el despliegue. Llama a `deployment_status` con el `commitSha` para comprobar el progreso. La herramienta de IA vuelve a comprobarlo aproximadamente cada 30 segundos hasta que `live` sea `true`, o se detiene e informa el `message` si el estado es `failed`, `not_live` o `skipped`.
   </Step>
   <Step title="Descartar si es necesario">
-    Llama a `discard_session` para descartar todos los cambios en la sesión y liberar la rama.
+    Llama a `discard` con la `branch` para abandonar tus ediciones. Lo que elimina depende de la rama. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly) y [Trabajar en una rama](#work-on-a-branch).
   </Step>
 </Steps>
 
 <Tip>
-  Si tu conexión tiene acceso a varios proyectos, cada proyecto del que hagas checkout mantiene su propia sesión y rama en memoria al mismo tiempo.
-
-  Llamar a `checkout` de nuevo con un `subdomain` o una rama distinta cambia qué sesión está activa. No descarta las demás. Para abandonar un borrador en curso en lugar de simplemente alejarte de él, llama a `discard_session`.
+  Cada llamada indica su propio proyecto y su propia rama, así que puedes trabajar en varios proyectos o ramas en una misma conversación sin cambiar entre ellos.
 </Tip>
 
 <div id="edit-the-deploy-branch-directly">
   ## Editar la rama de despliegue directamente
 </div>
 
-Pasa tu rama de despliegue a `checkout` para editarla igual que en el [editor del panel](/es/editor/publish). Por ejemplo, `checkout { subdomain: "acme", branch: "main" }`. Mintlify vincula la sesión a la rama de despliegue en lugar de crear una rama `admin-mcp/*`. El checkout es más rápido y no se crea ninguna pull request.
+Cuando nada requiere una pull request, pasa tu rama de despliegue como `branch` y el Admin MCP la edita igual que tú en el [editor del panel](/es/editor/publish). No llamas a `create_branch` y no se crea ninguna pull request.
 
 La herramienta de IA actúa en tu nombre en la rama de despliegue:
 
 - **Las ediciones son visibles en vivo para los colaboradores.** Cualquier otra persona que edite la rama de despliegue en el panel ve los cambios de la IA a medida que ocurren.
-- **`save` publica solo tus cambios.** Ignora `mode` y hace commit de tus cambios pendientes directamente en la rama de despliegue, como al hacer clic en **Publish** en el editor. Los cambios no publicados de otras personas siguen pendientes. Tus propias ediciones no publicadas del editor del panel también se publican.
-- **`discard_session` revierte solo tus cambios.** Devuelve `discardedChanges` con el número de cambios revertidos. Los cambios de otras personas y la propia rama no se modifican.
-- **`get_session_state` lista solo tus cambios.**
+- **`publish` publica solo tus cambios.** Hace commit de tus cambios pendientes directamente en la rama de despliegue, como al hacer clic en **Publish** en el editor. Los cambios no publicados de otras personas siguen pendientes. Tus propias ediciones no publicadas del editor del panel también se publican.
+- **`discard` revierte solo tus cambios.** Devuelve `discardedChanges` con el número de cambios revertidos. Los cambios de otras personas y la propia rama no se modifican.
+- **`status` lista solo tus cambios.**
 
-Mintlify registra los cambios por página. Si tú y otra persona editaron la misma página, `save` publica la página completa y `discard_session` revierte la página completa, incluidas las ediciones de la otra persona.
+Una [base](/es/base/index) no tiene sitio de documentación, por lo que no tiene paso de publicación. Cuando `list_deployments` devuelve `projectType: "workspace"`, el proyecto es una base y Mintlify confirma automáticamente las ediciones en la rama de despliegue, incluidas las imágenes subidas.
 
-Cuando se cumple alguna de estas condiciones, Mintlify crea en su lugar una rama de sesión a partir de la rama de despliegue. `checkout` devuelve una `note` que explica el motivo:
+Mintlify registra los cambios por página. Si tú y otra persona editaron la misma página, `publish` publica la página completa y `discard` revierte la página completa, incluidas las ediciones de la otra persona.
 
+Mintlify rechaza las ediciones en la rama de despliegue, y no cambia nada, cuando se cumple alguna de estas condiciones:
+
+- **Enviar directamente a tu rama de despliegue** está desactivado en tu [configuración de publicación](#publishing).
 - La protección de tu rama de despliegue exige pull requests, o Mintlify no puede comprobar tus reglas de protección de ramas.
 - La edición de la rama de despliegue está bloqueada en el editor del panel.
-- **Enviar directamente a tu rama de despliegue** está desactivado en tu [configuración de publicación](#publishing).
 - Te conectaste con un token de cliente o de máquina a máquina en lugar de un inicio de sesión OAuth. Estos tokens no están vinculados a un usuario, así que no tienen cambios "propios".
+
+Mintlify comprueba estas condiciones en cada edición y guarda en caché tus reglas de protección de ramas durante un máximo de 30 segundos. Las herramientas de comentarios siguen funcionando en la rama de despliegue cuando se rechazan las ediciones. Si tu rama de despliegue empieza a requerir una pull request después de que la edites, `publish` devuelve `branch_protected` y tus cambios siguen pendientes. Abre el editor del panel para moverlos a una nueva rama.
+
+<div id="projects-with-auto-publish">
+  ### Proyectos con publicación automática
+</div>
+
+Si tu proyecto tiene la [publicación automática](/es/editor/settings#auto-publish) activada, el Admin MCP no usa ramas para él. Pasa tu rama de despliegue como `branch`. Mintlify hace commit de tus ediciones en la rama de despliegue automáticamente.
+
+Mintlify rechaza `create_branch` y las llamadas sobre cualquier otra rama en estos proyectos, y no cambia nada. Si tu conexión solo abarca ese proyecto, el Admin MCP no muestra `create_branch` ni `list_branches`.
+
+**Enviar directamente a tu rama de despliegue** y la protección de ramas no bloquean las ediciones en la rama de despliegue en un proyecto con publicación automática. Mintlify sigue rechazando las ediciones cuando la edición de la rama de despliegue está bloqueada en el editor del panel, o cuando te conectaste con un token de cliente o de máquina a máquina.
+
+<div id="work-on-a-branch">
+  ## Trabajar en una rama
+</div>
+
+Llama a `create_branch` con un `title` cuando tu proyecto requiera una pull request, o cuando quieras una de todos modos. Mintlify crea una nueva rama a partir de tu rama de despliegue, la nombra `<your-name>/<title-slug>` igual que el editor del panel nombra las ramas, y la inicializa a partir de tu contenido publicado. La pull request se abre con este título. Por ejemplo, `create_branch { subdomain: "acme", title: "Add tips page" }`.
+
+`create_branch` devuelve el `branchName`, la `baseBranch` y el `baseSha` desde los que empezó, una `note` y un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel. Pasa el `branchName` como `branch` en todas las llamadas posteriores.
+
+Para trabajar en una rama existente, pasa su nombre como `branch`. Llama a `list_branches` para descubrir las ramas del repositorio de un proyecto. Mintlify rechaza las llamadas sobre ramas que no existen.
+
+En una rama, Mintlify hace commit de tus ediciones automáticamente, aproximadamente 15 segundos después del último cambio. Esto incluye el contenido de las páginas, los cambios de navegación y las actualizaciones de `docs.json`. El primer commit abre una pull request contra tu rama de despliegue. La pull request se abre como borrador si [Create draft pull requests by default](/es/editor/settings#create-draft-pull-requests-by-default) está activado. Nada llega a tu rama de despliegue hasta que alguien hace merge de la pull request.
+
+`discard` en una rama distinta de tu rama de despliegue elimina la rama y cierra su pull request, aunque la rama tenga commits. Equivale a eliminar una rama en el editor del panel. `discard` solo elimina ramas que creaste en Mintlify. Para cualquier otra rama, lo rechaza y no cambia nada.
 
 <div id="publishing">
   ## Publicación
 </div>
 
-La sección **Publicación** en la página de configuración del Admin MCP de tu panel controla qué ocurre cuando `save` se ejecuta con `mode: "auto"`. Activa **Enviar directamente a tu rama de despliegue** para que Mintlify envíe los cambios directamente a tu rama de despliegue. Desactívalo para que `save` abra una pull request en su lugar.
+La sección **Publicación** de la página **MCP → Configure** en la barra lateral de tu panel controla si el Admin MCP puede editar tu rama de despliegue sin una pull request. Activa **Enviar directamente a tu rama de despliegue** para que las herramientas de IA editen y publiquen directamente en tu rama de despliegue. Desactívalo para exigir `create_branch` y una pull request en las ediciones del MCP.
 
 Este interruptor comparte el mismo ajuste `agentReviewProcess` que los agentes de Slack y del panel, por lo que cualquier cambio aquí también se aplica a esos flujos.
 
 El interruptor se deshabilita en tres casos:
 
-- **Tu rama de despliegue requiere una pull request.** Si las reglas de protección de rama o las aprobaciones requeridas impiden los push directos, los cambios del MCP siempre abren una pull request, independientemente de este ajuste.
+- **Tu rama de despliegue requiere una pull request.** Si las reglas de protección de rama o las aprobaciones requeridas impiden los push directos, los cambios del MCP siempre pasan por una pull request, independientemente de este ajuste.
 - **Mintlify aloja tu proyecto.** Para los sitios alojados por Mintlify, los cambios del MCP siempre se envían directamente, a menos que la protección de rama aún requiera una pull request.
 - **No eres administrador.** Cambiar este ajuste requiere el [rol de administrador](/es/dashboard/roles) en tu proyecto. Los editores y lectores ven el interruptor deshabilitado con un banner de permisos.
 
-También puedes anular el ajuste caso por caso pasando un `mode` explícito a `save`. Establece `"pr"` para abrir siempre una pull request, o `"commit"` para hacer push a una rama de PR existente sin abrir una nueva PR.
+<div id="redirect-uris">
+  ## URI de redirección
+</div>
+
+Los clientes MCP populares, como Claude, ChatGPT y Cursor, siempre pueden completar el inicio de sesión de OAuth. Para permitir que otros clientes se conecten, agrega sus dominios de redirección en la sección **Redirect URIs** de **MCP → Configure**. Introduce un dominio o un esquema personalizado, como `myapp://callback`, en el campo **Allowed domains** y haz clic en **Add domain**.
+
+Los dominios permitidos se aplican tanto al Admin MCP como a tu [servidor Search MCP](/es/ai/model-context-protocol#enable-authenticated-mcp).
+
+<div id="credentials">
+  ## Credenciales
+</div>
+
+Las credenciales permiten que las aplicaciones y gateways de IA se conecten al Admin MCP sin un inicio de sesión interactivo. Úsalas en entornos donde un usuario no puede completar el inicio de sesión de OAuth.
+
+1. En la barra lateral de tu panel, haz clic en **MCP** y luego en **Credentials**.
+2. Haz clic en **Create credential**.
+3. Copia el secreto. El panel muestra el secreto solo una vez.
+
+Las credenciales pueden leer contenido, pero no pueden modificarlo. Las herramientas que editan, comentan, crean ramas, publican o descartan contenido, así como `read_inbox`, requieren un inicio de sesión de OAuth y devuelven `user_principal_required` para una credencial.
+
+Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
 
 <div id="what-the-admin-mcp-can-do">
   ## Qué puede hacer el Admin MCP
@@ -157,68 +209,126 @@ También puedes anular el ajuste caso por caso pasando un `mode` explícito a `s
   ### Contenido
 </div>
 
-- **`read`**: Obtén el MDX completo de cualquier página en la rama de la sesión. Pasa una ruta de página como `/quickstart`, o el ID de página de una URL del editor (el segmento después de `~/`), para que una herramienta de IA pueda abrir una página directamente desde un enlace del editor. Para leer una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` obtenido de `list_nodes` con `visibility: "private"`. Las lecturas privadas funcionan sin un checkout y requieren una sesión OAuth. El Admin MCP rechaza los tokens de cliente y de máquina a máquina para el acceso a páginas privadas.
-- **`search`**: Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas.
-- **`edit_page`**: Aplica una edición dirigida a una página. Para editar una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` como `path`. Las ediciones privadas requieren una sesión OAuth con rol de editor o superior en la página y funcionan sin un checkout.
-- **`write_page`**: Sobrescribe el contenido MDX completo de una página. Acepta un ID de nodo `private-page-<uuid>` para sobrescribir una página privada bajo los mismos requisitos de OAuth y rol que `edit_page`. Usa `create_node` para crear una nueva página privada.
+- **`read`**: Obtén el MDX completo de cualquier página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa una ruta de página, como `guides/setup`, o el último segmento de una URL del editor, que es el ID de la página con un título opcional delante. Cuando uses un ID de página de una URL del editor, pasa la rama de esa URL como `branch`. La respuesta incluye un `filePath` que puedes pasar como `path` a `edit_page` y `write_page`. Para leer una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` obtenido de `list_nodes` con `visibility: "private"`. Las lecturas privadas no necesitan `branch` y requieren una sesión OAuth. El Admin MCP rechaza los tokens de cliente y de máquina a máquina para el acceso a páginas privadas.
+- **`search`**: Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas. Busca en `branch`, o en tu rama de despliegue cuando lo omites.
+- **`edit_page`**: Aplica una edición dirigida a una página. Pasa `path` en los mismos formatos que en `read`. Pasa `oldString` y `newString` para un solo reemplazo, o pasa una lista `edits` de hasta 100 reemplazos para cambiar varias partes de una página en una sola llamada. Mintlify aplica las ediciones en orden, cada una sobre el resultado de la anterior. Si alguna edición falla, no se aplica ninguna. Al igual que `write_page`, `edit_page` devuelve `notRendered` para el marcado que añade la edición y que el editor descarta. No informa del marcado que ya estaba en la página. Para editar una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` como `path`. Las ediciones privadas requieren una sesión OAuth con rol de editor o superior en la página y no necesitan `branch`.
+- **`write_page`**: Sobrescribe el contenido MDX completo de una página. Pasa `path` en los mismos formatos que en `read`. También acepta un ID de nodo `private-page-<uuid>` para sobrescribir una página privada bajo los mismos requisitos de OAuth y rol que `edit_page`. Usa `create_node` para crear una nueva página privada. Si el contenido incluye marcado que el editor de Mintlify descarta, como etiquetas `<script>`, bloques `<style>`, controladores de eventos como `onClick` o expresiones de JavaScript, la respuesta incluye un campo `notRendered`. Cada entrada indica el `element` descartado, su `line`, `why` el editor lo descarta y qué usar `instead`, como clases de Tailwind, objetos `style={{}}` en línea con valores literales o componentes de Mintlify como acordeones y pestañas.
+- **`read_page_history`**: Enumera el [historial de versiones](/es/editor/pages#version-history) guardado de una página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa `path` en los mismos formatos que en `read`, incluido un ID de nodo `private-page-<uuid>`. Devuelve `versions`, de la más reciente a la más antigua, y un `nextCursor`. Cada versión tiene un `versionId`, `createdAt` y `authors`, cada uno con un `name` y un `type` de `user`, `git` o `system`. Pasa `limit` para devolver de 1 a 50 versiones por llamada (20 por defecto), y vuelve a pasar `nextCursor` como `cursor` para enumerar versiones más antiguas. Pasa un `versionId` para obtener el MDX completo de esa versión como `content`. La herramienta es de solo lectura. Para restaurar una versión anterior, pasa su `content` a `write_page`. Los errores incluyen `page_not_found`, `version_not_found` e `invalid_cursor`.
 
-<div id="images">
-  ### Imágenes
+<div id="uploads">
+  ### Cargas
 </div>
 
-- **`upload_image`**: Inicia la carga de un archivo de imagen local a la rama de la sesión. Pasa la `path` de destino (por ejemplo, `images/dashboard.png`), el `contentType` del archivo y su `size` exacto en bytes. Devuelve un `uploadId`, una `uploadUrl` prefirmada y los `headers` que debes enviar con la carga.
-- **`finalize_image_upload`**: Guarda la imagen cargada en la rama de la sesión. Pasa el `uploadId` y la misma `path`. Devuelve el `src` que debes referenciar en MDX con `edit_page` o `write_page`, o en los campos `logo` o `favicon` de `docs.json` con `update_config`.
+- **`upload_file`**: Inicia la carga de un archivo local. Pasa la `path` de destino, el `contentType` del archivo y su `size` exacto en bytes. Devuelve un `uploadId`, una `uploadUrl` prefirmada y los `headers` que debes enviar con la carga.
+- **`finalize_file_upload`**: Guarda una imagen cargada en `branch`. Pasa el `uploadId` y la misma `path`. Devuelve el `src` que debes referenciar en MDX con `edit_page` o `write_page`, o en los campos `logo` o `favicon` de `docs.json` con `update_config`.
 
-Después de `upload_image`, la herramienta de IA sube los bytes del archivo a `uploadUrl` con una solicitud `PUT` y los encabezados devueltos. Por ejemplo:
+Después de `upload_file`, la herramienta de IA sube los bytes del archivo a `uploadUrl` con una solicitud `PUT` y los encabezados devueltos. Por ejemplo:
 
 ```bash
 curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadUrl>'
 ```
 
-Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Mintlify solo acepta archivos SVG para logotipos y favicons, así que pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes guardadas aparecen en `get_session_state` y se publican con el resto de la sesión cuando llamas a `save`.
+Para añadir una imagen, pasa una `path` de imagen, como `images/dashboard.png`, y la `branch` a `upload_file`. Después de la carga, llama a `finalize_file_upload`. Mintlify comprueba que el contenido del archivo cargado coincida con su extensión antes de guardarlo. Una carga a una `path` existente reemplaza esa imagen. Solo las cargas de logotipos y favicons pueden ser archivos SVG: pasa `purpose: "logo"` a ambas herramientas cuando subas uno. Las imágenes de las páginas no pueden ser SVG. Las imágenes guardadas aparecen en `status` y se publican con el resto de tus ediciones cuando llamas a `publish`.
+
+Para escribir una página a partir de un archivo Markdown local, pasa una `path` `.md` o `.mdx` con `contentType` establecido en `text/markdown` o `text/plain`. Las cargas de páginas no necesitan `branch` ni `finalize_file_upload`. Después de la carga, pasa el `uploadId` en lugar de `content` a `write_page`, o como `data.uploadId` a `create_node`. Así evitas reenviar el contenido completo de una página grande en la llamada a la herramienta.
+
+Usa el `uploadId` en un plazo de 10 minutos. Cada `uploadId` funciona una sola vez, en el mismo proyecto y para el mismo usuario o cliente que lo creó. Mintlify elimina el archivo cargado después de la escritura. Un `uploadId` reutilizado o caducado devuelve `upload_not_found`.
+
+<div id="comments">
+  ### Comentarios
+</div>
+
+Trabaja con los [comentarios y sugerencias](/es/editor/collaborate#comments) que tu equipo deja en el editor del panel.
+
+- **`read_comments`**: Lista los hilos de comentarios y sugerencias abiertos en una página, del más antiguo al más reciente. Pasa `path` en los mismos formatos que `read`. Cada hilo incluye un `threadId`, su `type` (`comment` o `suggestion`), el `quotedText` al que está anclado, el `suggestedText` de las sugerencias y sus `comments` con el `author`, el `content` y el `createdAt` de cada uno. Si el texto anclado ya no existe en la página, el hilo incluye `anchorRemoved: true` y `quotedText` muestra la cita original. Lee los hilos de `branch`, o de tu rama de despliegue cuando lo omites.
+- **`add_comment`**: Inicia un nuevo hilo de comentarios en una página sin cambiar su contenido. Úsalo para dejar comentarios a tu equipo en lugar de editar. Pasa `path` en los mismos formatos que `read`, el `content` del comentario y `quotedText`: el fragmento de texto visible único más corto al que anclarlo, dentro de un párrafo o encabezado. Usa las palabras renderizadas, no la sintaxis de Markdown o MDX. Por ejemplo, cita `custom domain`, no `[custom domain](/path)`. Devuelve el nuevo `threadId`. Si el texto no está en la página, el error es `no_match`. Si coincide más de una vez, el error es `not_unique`, así que cita un fragmento más largo.
+- **`suggest_edit`**: Propone una sugerencia con control de cambios en una página en lugar de editarla. El texto original permanece en la página tachado y el reemplazo aparece a su lado. Nada cambia hasta que alguien acepta o rechaza la sugerencia en el editor del panel. Pasa `path` en los mismos formatos que `read`, `oldString` y `newString`. `oldString` es el fragmento de texto visible único más corto que se va a reemplazar, dentro de un párrafo o encabezado. Usa las palabras renderizadas, no la sintaxis de Markdown o MDX. Pasa un `newString` vacío para sugerir una eliminación. Pasa un `comment` opcional para explicar por qué el cambio es útil. Mintlify lo publica como la respuesta del agente en el hilo de la sugerencia. El parámetro anterior `note` sigue funcionando como alias obsoleto de `comment`. Devuelve el nuevo `threadId` con `originalText` y `suggestedText`, recortados al fragmento que cambia. Si la misma sugerencia ya está abierta, la respuesta incluye `alreadyExists: true` y el `threadId` existente. Los errores `no_match` y `not_unique` funcionan igual que en `add_comment`. El error es `no_change` cuando ambas cadenas son iguales y `conflicting_annotation` cuando el texto se superpone con otra sugerencia abierta.
+- **`reply_to_comment`**: Responde a un hilo por `threadId` con `content`. Pasa `resolve: true` para resolver también el hilo. Mintlify publica la respuesta como el agente en nombre del usuario que autorizó la conexión, y aparece en tiempo real en el editor del panel.
+- **`resolve_comment`**: Resuelve un hilo sin responder.
+- **`read_inbox`**: Lista tu bandeja de entrada del dashboard en un proyecto, con la actividad más reciente primero. La bandeja de entrada incluye comentarios y menciones, ediciones sugeridas, y páginas y carpetas privadas compartidas contigo. De forma predeterminada, `read_inbox` devuelve los elementos abiertos. Pasa `state` como `open`, `done` o `all`, y `section` como `comment`, `suggestion`, `invitation` o `all` (predeterminado). Pasa `filter` para limitar los comentarios a `mentions` u `on-my-page` (páginas de las que eres propietario), o las sugerencias a las de `people` o del `agent`. El filtro debe coincidir con `section`, a menos que `section` sea `all`. Pasa `dateFrom` y `dateTo` como fechas y horas ISO 8601 para limitar los elementos según su actividad más reciente. Pasa `limit` para obtener de 1 a 50 elementos por llamada (20 de forma predeterminada), y pasa `nextCursor` como `cursor` para listar elementos más antiguos. Cada elemento incluye su `category`, `state`, `latestActivity` y `target`. Cuando `target.thread` está presente, no está resuelto y no está en una página privada, llama a `read_comments` con su `filePath` y responde con `reply_to_comment`, ambos en su `branch`. Los elementos `restricted` no incluyen detalles del hilo. `read_inbox` es de solo lectura y nunca marca elementos como leídos o completados. Los errores incluyen `invalid_filter`, `invalid_date_range` e `invalid_cursor`.
+
+`add_comment`, `suggest_edit`, `reply_to_comment` y `resolve_comment` requieren una sesión OAuth y una `branch`. Actúan sobre los hilos de esa rama y funcionan en tu rama de despliegue incluso cuando sus ediciones requieren una pull request. Puedes responder a hilos de sugerencias, pero debes aceptar o rechazar las sugerencias en el editor. Los comentarios en páginas privadas no están disponibles a través del Admin MCP. `read_inbox` también requiere una sesión OAuth y solo devuelve la bandeja de entrada de un miembro activo de la organización del proyecto.
 
 <div id="navigation">
   ### Navegación
 </div>
 
-- **`list_nodes`**: Recorre el árbol de navegación con filtros opcionales. Filtra por `parentId` (usa `recursive: true` para incluir todos los descendientes), uno o más tipos de nodo, o cualquier ámbito de división: `language`, `version`, `tab`, `dropdown`, `anchor`, `product` o `item`. Los resultados se paginan a través de un `cursor` opaco. Pasa `visibility: "private"` para listar las [páginas privadas](/es/editor/pages#private-pages) y carpetas a las que el usuario OAuth tiene acceso, en lugar del árbol de navegación de la rama. El listado privado funciona sin un checkout, ignora los demás filtros y devuelve el `role` de cada nodo.
-- **`create_node`**: Agrega una nueva página, grupo, pestaña, ancla, versión, idioma, producto o desplegable. Pasa `visibility: "private"` con `data.type: "page"` o `data.type: "group"` para crear una [página privada](/es/editor/pages#private-pages) o carpeta privada en el árbol privado del autor de la llamada. El autor de la llamada se convierte en el manager del nodo. La creación privada requiere una sesión OAuth, funciona sin un checkout y coloca el nodo en la raíz privada o bajo un padre `private-folder-<uuid>` existente. Para las páginas nuevas, la respuesta incluye un `editorUrl` que abre la página en tu panel.
-- **`update_node`**: Actualiza las propiedades de un nodo en su lugar (renombrar un grupo, cambiar un icono, establecer una versión predeterminada). Acepta un ID de nodo `private-page-<uuid>` o `private-folder-<uuid>` para renombrar una [página privada](/es/editor/pages#private-pages) o carpeta o cambiar su icono o etiqueta. Las actualizaciones privadas requieren una sesión OAuth con rol de editor o superior y funcionan sin un checkout.
+- **`list_nodes`**: Recorre el árbol de navegación de `branch`, o de tu rama de despliegue cuando lo omites, con filtros opcionales. Filtra por `parentId` (usa `recursive: true` para incluir todos los descendientes), uno o más tipos de nodo, o cualquier ámbito de división: `language`, `version`, `tab`, `dropdown`, `anchor`, `product` o `item`. Los archivos y carpetas subidos (nodos `file` y `file_directory`) solo aparecen cuando los incluyes en el filtro de tipo. Cada nodo devuelve su `id`, `type`, `text` y `parent`, además de `path`, `pageId` y `hidden` cuando corresponda. Pasa el `path` de una página a `read` para obtener su contenido y su frontmatter. Los resultados se paginan a través de un `cursor` opaco. Pasa `visibility: "private"` para listar las [páginas privadas](/es/editor/pages#private-pages) y carpetas a las que el usuario OAuth tiene acceso, en lugar del árbol de navegación de la rama. El listado privado ignora `branch` y los demás filtros, y devuelve el `role` de cada nodo.
+- **`create_node`**: Agrega una nueva página, grupo, pestaña, ancla, versión, idioma, producto o desplegable. Pasa `visibility: "private"` con `data.type: "page"` o `data.type: "group"` para crear una [página privada](/es/editor/pages#private-pages) o carpeta privada en el árbol privado del autor de la llamada. El autor de la llamada se convierte en el manager del nodo. La creación privada requiere una sesión OAuth, no necesita `branch` y coloca el nodo en la raíz privada o bajo un padre `private-folder-<uuid>` existente. Para las páginas nuevas, la respuesta incluye un `editorUrl` que abre la página en tu panel. Si ya existe una página en la `path` de `branch`, `create_node` escribe el nuevo contenido en esa página en lugar de fallar. La página conserva su lugar en la navegación, aunque pases un padre diferente, y la respuesta incluye `updated: true`. Si Mintlify agrega una página nueva a la navegación pero no puede guardar su contenido, `create_node` devuelve `PAGE_SEED_FAILED`. Llama de nuevo a `create_node` con la misma `path` para escribir el contenido.
+- **`update_node`**: Actualiza las propiedades de un nodo en su lugar (renombrar un grupo, cambiar un icono, establecer una versión predeterminada). Acepta un ID de nodo `private-page-<uuid>` o `private-folder-<uuid>` para renombrar una [página privada](/es/editor/pages#private-pages) o carpeta o cambiar su icono o etiqueta. Las actualizaciones privadas requieren una sesión OAuth con rol de editor o superior y no necesitan `branch`.
 - **`move_node`**: Mueve un nodo, incluido renombrar la ruta de una página.
-- **`delete_node`**: Elimina un nodo de la navegación. Acepta un ID de nodo `private-page-<uuid>` o `private-folder-<uuid>` para eliminar una [página privada](/es/editor/pages#private-pages) o carpeta del árbol privado del autor de la llamada. Las eliminaciones privadas requieren una sesión OAuth con rol de manager en el nodo y funcionan sin un checkout.
+- **`delete_node`**: Elimina un nodo de la navegación. Acepta un ID de nodo `private-page-<uuid>` o `private-folder-<uuid>` para eliminar una [página privada](/es/editor/pages#private-pages) o carpeta del árbol privado del autor de la llamada. Las eliminaciones privadas requieren una sesión OAuth con rol de manager en el nodo y no necesitan `branch`.
 
-Si una llamada a `create_node`, `update_node`, `move_node` o `delete_node` deja la navegación en un estado no válido, la respuesta incluye un campo `navigationErrors` que describe el problema. Por ejemplo, una página colocada en la raíz junto a pestañas devuelve `navigationErrors`. Mintlify puede omitir los nodos no válidos de la navegación publicada, así que corrige estos errores antes de llamar a `save`.
+Si una llamada a `create_node`, `update_node`, `move_node` o `delete_node` deja la navegación en un estado no válido, la respuesta incluye un campo `navigationErrors` que describe el problema. Por ejemplo, una página colocada en la raíz junto a pestañas devuelve `navigationErrors`. Mintlify puede omitir los nodos no válidos de la navegación publicada, así que corrige estos errores antes de llamar a `publish`.
 
 <div id="configuration">
   ### Configuración
 </div>
 
-- **`update_config`**: Modifica `docs.json` (tema, raíces de navegación, integraciones, configuración de SEO).
+- **`update_config`**: Cambia los ajustes de nivel superior de `docs.json`, como el tema, los colores, el logotipo, la barra de navegación, el pie de página, las redirecciones, las integraciones y el SEO. No puede cambiar `navigation`; usa las herramientas de navegación en su lugar. Mintlify rechaza por completo una configuración no válida.
+
+<div id="mintlify-skill">
+  ### Skill de Mintlify
+</div>
+
+- **`read_skill`**: Lee la guía de Mintlify para escribir documentación, que abarca páginas, componentes, widgets, navegación y `docs.json`. Es la misma skill de Mintlify que usa el [agente](/es/agent). Llámala sin `path` para obtener `SKILL.md`, el índice de la skill, y una lista `files` con sus archivos de referencia. Pasa un archivo de esa lista como `path`, como `reference/widgets.md`, para leerlo. La herramienta es de solo lectura y no necesita `subdomain` ni `branch`. Si el archivo no existe, devuelve `skill_file_not_found` con la lista `files`.
+
+La respuesta del índice también incluye una lista `skills` con las [skills del agente](/es/editor/agent#skills) de tu organización y las tuyas que estén activadas, cada una con `name`, `description` y `path`. Pasa el `path` de una skill, como `org/release-notes/SKILL.md`, para leer sus instrucciones. La respuesta enumera los archivos de referencia de la skill en `files`, y puedes pasar cualquiera de ellos como `path`. Las rutas de las skills personales empiezan por `me/` y solo aparecen en sesiones OAuth.
+
+El Admin MCP indica a las herramientas de IA que llamen a `read_skill` antes de escribir, reestructurar o dar estilo a las páginas, y que sigan cualquier skill de la organización o personal cuya descripción se ajuste a la tarea.
 
 <div id="project-management">
   ### Gestión de proyectos
 </div>
 
-El modo de código gestiona las operaciones a nivel de proyecto que no tienen una herramienta dedicada, como administrar workflows, la configuración del proyecto, los miembros, la facturación, las integraciones, las analíticas y el uso compartido de [páginas privadas](/es/editor/pages#private-pages). Las herramientas del modo de código no requieren un `checkout`.
+Las herramientas de gestión de proyectos gestionan las operaciones a nivel de proyecto, como administrar [automatizaciones](/es/automations), la configuración del proyecto, los dominios personalizados, las fuentes de Git, la autenticación, los miembros, las analíticas y el uso compartido de [páginas privadas](/es/editor/pages#private-pages). Actúan sobre el proyecto en vivo, no sobre una rama.
 
-- **`search_code_operations`**: Busca los métodos de gestión de proyectos disponibles para el modo de código. Cada resultado incluye el esquema de entrada completo del método.
-- **`execute_code`**: Ejecuta un script de TypeScript contra los métodos de gestión de proyectos. Los ámbitos otorgados a la conexión controlan cada método, y cualquier método que no te haya sido otorgado devuelve un error de autorización.
+Cada herramienta recibe un `subdomain` del proyecto sobre el que actuar. Las conexiones de toda la organización deben pasar `subdomain`. Llama a `list_deployments` para encontrarlo. Las herramientas de lectura también aceptan `subdomains`, una lista de hasta 25 proyectos, y devuelven un resultado o un error para cada uno. La mayoría de las herramientas reciben un objeto `request` cuyo campo `action` selecciona la operación. Por ejemplo:
+
+```json
+{
+  "subdomain": "acme",
+  "request": { "action": "noindex", "noindex": true }
+}
+```
+
+Herramientas de lectura:
+
+- **`get_deployment_settings`**: Lee la configuración del dashboard de un proyecto, sus fuentes de Git, el estado de sus hostnames personalizados y sus comprobaciones de fuentes en una sola llamada. La configuración de Slack y los snippets son opcionales.
+- **`get_analytics_report`**: Lee un informe de analíticas predefinido, como vistas de página, páginas populares, referencias, feedback, chats del asistente o calidad de búsqueda. Selecciona el informe con `request.report`. Los resultados grandes se paginan con `maxRows` y `rowOffset`. Para consultas personalizadas, usa `query_analytics`.
+- **`get_analytics_schema`**: Lee las tablas, los eventos y las reglas de SQL que acepta `query_analytics`. La herramienta de IA lo llama una vez antes de escribir una consulta.
+- **`query_analytics`**: Ejecuta una consulta `SELECT` de solo lectura sobre las analíticas de tu sitio, como vistas de página, búsqueda, asistente, feedback y tráfico de agentes y humanos. Los resultados ya están limitados al proyecto. Si las consultas de analíticas no están habilitadas para el proyecto, ambas herramientas de consulta de analíticas devuelven un error `not_enabled`.
+- **`get_workflows`**: Lista las automatizaciones, obtiene una o recorre sus ejecuciones.
+- **`list_repos_and_prs`**: Lista los repositorios conectados, las pull requests de un repositorio o las integraciones disponibles para usar en una automatización.
+
+Herramientas de escritura:
+
+- **`update_deployment_settings`**: Cambia un ajuste del dashboard, como `noindex`, `base_path`, `name`, `disable_ai_chat`, `search_settings`, `privacy`, `custom_scripts` o un complemento. Usa `update_config` para los ajustes de `docs.json`.
+- **`manage_custom_domain`**: Agrega o elimina un dominio personalizado, aprovisiona su hostname o vuelve a lanzar la validación del hostname.
+- **`manage_git_source`**: Agrega, actualiza, elimina o reordena los repositorios de Git desde los que se compila un proyecto, o establece la fuente base.
+- **`manage_access_auth`**: Configura o elimina la [autenticación](/es/deploy/authentication-setup) del sitio, agrega o elimina contraseñas, configura la autenticación de usuarios finales o cambia cuál está activa.
+- **`manage_workflow`**: Crea, actualiza, habilita o deshabilita, elimina o ejecuta una automatización.
+- **`manage_workflow_prs`**: Fusiona o cierra una pull request abierta por una ejecución de [automatización](/es/automations). Para fusionar una pull request de una rama que editó la herramienta de IA, usa `publish` con `merge: true` en su lugar.
+- **`manage_members_sharing`**: Lista o elimina miembros de la organización, actualiza sus roles o gestiona los permisos y traslados de páginas privadas en bases.
+
+Las herramientas de escritura devuelven el estado actualizado del proyecto en `state`, para que la herramienta de IA pueda confirmar el cambio sin una segunda llamada. Cada acción comprueba los ámbitos otorgados a la conexión y tu rol en el dashboard. Una acción para la que no tienes autorización devuelve un error como `insufficient_scope`.
 
 <Warning>
-  Las escrituras del modo de código se aplican de inmediato al proyecto en vivo. No crean una rama ni abren una pull request. Confirma el cambio previsto antes de pedirle a una herramienta de IA que actualice workflows, configuraciones, miembros, facturación o integraciones.
+  Las escrituras de gestión de proyectos se aplican de inmediato al proyecto en vivo. No crean una rama ni abren una pull request. Confirma el cambio previsto antes de pedirle a una herramienta de IA que actualice automatizaciones, configuraciones, dominios, autenticación o miembros.
 </Warning>
 
-<div id="session">
-  ### Sesión
+<div id="branches-and-publishing">
+  ### Ramas y publicación
 </div>
 
-- **`list_deployments`**: Lista los proyectos a los que tu conexión puede acceder, devolviendo cada `{subdomain, name}`. Llama a esto para descubrir qué `subdomain` pasar a `checkout`.
-- **`checkout`**: Vincula una sesión a una rama para un `subdomain` de proyecto dado, o cambia qué sesión de proyecto está activa. Pasa la rama de despliegue como `branch` para [editarla directamente](#edit-the-deploy-branch-directly).
-- **`list_branches`**: Lista las ramas de Git disponibles para el repositorio de un proyecto, con filtrado opcional por `query`. Devuelve los nombres de las ramas, el total y la rama de despliegue. Llama a esto antes de `checkout` para adjuntarte a una rama existente por nombre.
-- **`get_session_state`**: Inspecciona la rama actual, los archivos editados y el diff de navegación pendiente. En la rama de despliegue, lista solo tus cambios.
-- **`diff`**: Lista todos los cambios entre la sesión y tu rama de despliegue. Cada archivo modificado y la entrada de `docs.json` incluyen `authors` y `byYou`. `authors` enumera los miembros cuyas ediciones no publicadas contiene la entrada. `byYou` es `true` cuando la entrada incluye tus propias ediciones. Usa `byYou` para distinguir tus cambios de los de un colega en una rama compartida.
-- **`save`**: Abre una pull request o hace commit en la rama de la sesión. Mintlify fusiona automáticamente la PR cuando el proyecto está configurado para enviar los cambios del agente a `main` y la rama de despliegue no está protegida. En la rama de despliegue, hace commit directamente solo de tus cambios pendientes.
-- **`discard_session`**: Descarta la sesión y sus cambios pendientes. En la rama de despliegue, revierte solo tus cambios pendientes.
+- **`list_deployments`**: Lista los proyectos a los que tu conexión puede acceder, devolviendo cada `{subdomain, name, projectType}`. `projectType` es `site` para un sitio de documentación o `workspace` para una base. Llama a esto para descubrir qué `subdomain` pasar.
+- **`create_branch`**: Crea una nueva rama a partir de tu rama de despliegue con un `title` que también nombra su pull request. Devuelve el `branchName` que debes pasar como `branch`. Consulta [Trabajar en una rama](#work-on-a-branch). No lo necesitas para [editar la rama de despliegue directamente](#edit-the-deploy-branch-directly).
+- **`list_branches`**: Lista las ramas de Git disponibles para el repositorio de un proyecto, con filtrado opcional por `query`. Devuelve los nombres de las ramas, el total y la rama de despliegue. Pasa cualquiera de ellas como `branch`.
+- **`status`**: Lista los archivos editados, las claves de `docs.json` modificadas y el diff de navegación pendiente en `branch`, o en tu rama de despliegue cuando lo omites. En la rama de despliegue, lista solo tus cambios.
+- **`diff`**: Lista todos los cambios entre `branch` y tu rama de despliegue. Cada archivo modificado y la entrada de `docs.json` incluyen `authors` y `byYou`. `authors` enumera los miembros cuyas ediciones no publicadas contiene la entrada. `byYou` es `true` cuando la entrada incluye tus propias ediciones. Usa `byYou` para distinguir tus cambios de los de un colega en una rama compartida.
+- **`publish`**: En la rama de despliegue, hace commit directamente solo de tus cambios pendientes. En una rama, hace commit de los cambios pendientes y devuelve la pull request de la rama, y abre una si es necesario. Pasa `merge: true` para fusionar también la pull request cuando se permiten ediciones en la rama de despliegue. Cuando los cambios llegan a la rama de despliegue, también devuelve un estado `deployment` que puedes seguir con `deployment_status`.
+- **`deployment_status`**: Comprueba si los cambios publicados ya están activos en tu sitio de documentación. Pasa el `commitSha` de `publish`, u omítelo para comprobar el despliegue más reciente. Devuelve un `state` con el valor `pending`, `queued`, `building`, `live`, `not_live`, `failed` o `skipped`, junto con `live` y un `message` para compartir contigo. `not_live` significa que el sitio aún sirve una versión anterior, por ejemplo porque el despliegue se revirtió o tu despliegue está fijado a una versión anterior.
+- **`discard`**: Abandona las ediciones en `branch`. En la rama de despliegue, revierte solo tus cambios pendientes. En otra rama que creaste, elimina la rama y cierra su pull request.
 
 <div id="example-prompts">
   ## Ejemplos de prompts
@@ -226,9 +336,10 @@ El modo de código gestiona las operaciones a nivel de proyecto que no tienen un
 
 Después de conectarte al Admin MCP, puedes manejarlo con prompts en lenguaje natural. Por ejemplo:
 
-- _"Haz checkout de una rama llamada `add-billing-faq` y crea una nueva página bajo el grupo FAQ titulada 'Billing'. Redacta respuestas para las cinco preguntas de este issue de Linear."_
-- _"Encuentra todas las páginas que mencionen el campo obsoleto `legacy_token` y actualiza el ejemplo para que use `api_key` en su lugar. Guarda como PR titulada 'docs: replace legacy\_token references'."_
+- _"Crea una rama titulada 'Add billing FAQ' y crea una nueva página bajo el grupo FAQ titulada 'Billing'. Redacta respuestas para las cinco preguntas de este issue de Linear."_
+- _"Encuentra todas las páginas que mencionen el campo obsoleto `legacy_token` y actualiza el ejemplo para que use `api_key` en su lugar. Publícalo como PR titulada 'docs: replace legacy\_token references'."_
 - _"Reorganiza la referencia de API: mueve las páginas de webhooks a un nuevo grupo llamado 'Webhooks' y actualiza los iconos para que coincidan con el resto de la sección."_
+- _"Lee los comentarios abiertos en la página de inicio rápido, haz las ediciones solicitadas y responde a cada hilo, resolviéndolo cuando esté atendido."_
 
 <div id="best-practices">
   ## Buenas prácticas
@@ -236,24 +347,20 @@ Después de conectarte al Admin MCP, puedes manejarlo con prompts en lenguaje na
 
 <AccordionGroup>
   <Accordion title="Abrir la URL del editor">
-    `checkout` devuelve un `editorUrl` para la rama. `create_node` y `save` devuelven un `editorUrl` para la página que cambió. Abre estos enlaces en una pestaña aparte para ver cómo se renderizan los cambios de la IA en vivo en el editor del panel mientras escribes prompts.
+    `create_branch` devuelve un `editorUrl` para la rama. `create_node` y `publish` devuelven un `editorUrl` para la página que cambió. Abre estos enlaces en una pestaña aparte para ver cómo se renderizan los cambios de la IA en vivo en el editor del panel mientras escribes prompts.
   </Accordion>
 
   <Accordion title="Revisar cada PR">
     El Admin MCP es lo suficientemente potente como para reescribir cientos de páginas en una sola sesión. Antes de fusionar, lee el diff de la PR y revisa la vista previa renderizada. No apruebes cambios grandes sin revisarlos.
   </Accordion>
 
-  <Accordion title="Usar slugs para los nombres de ramas">
-    Pasa un `slug` a `checkout` (por ejemplo, `add-quickstart`) para que la rama generada automáticamente sea legible. Sin él, el nombre de la rama deriva del token de sesión y es difícil de reconocer en tu repositorio.
-  </Accordion>
-
-  <Accordion title="Mantener las sesiones enfocadas">
-    Mantén cada sesión enfocada en un solo cambio. Las sesiones más pequeñas producen pull requests más fáciles de revisar y preservan las ventanas de contexto de los agentes. Usa `discard_session` y vuelve a llamar a `checkout` para cambiar a un trabajo no relacionado.
+  <Accordion title="Mantener las ramas enfocadas">
+    Mantén cada rama enfocada en un solo cambio. Las ramas más pequeñas producen pull requests más fáciles de revisar y preservan las ventanas de contexto de los agentes. Vuelve a llamar a `create_branch` para empezar un trabajo no relacionado.
   </Accordion>
 </AccordionGroup>
 
 <Note>
-  Las sesiones mantienen una rama en memoria en el lado de Mintlify. Si abandonas una sesión sin guardarla ni descartarla, la rama persiste hasta que tu próximo checkout la sobrescriba. Evita dejar ramas `admin-mcp/*` obsoletas en tu repositorio. Límpialas periódicamente.
+  Si abandonas una rama que creaste con `create_branch` sin descartarla, la rama y su pull request permanecen en tu repositorio. Llama a `discard` para eliminar una rama que ya no necesites, o cierra su pull request.
 </Note>
 
 <div id="disconnect-or-revoke-access">
@@ -262,12 +369,29 @@ Después de conectarte al Admin MCP, puedes manejarlo con prompts en lenguaje na
 
 Desconecta el Admin MCP cuando ya no quieras que una herramienta de IA edite tu proyecto, o cuando quieras forzar un nuevo inicio de sesión de OAuth.
 
-- **Revocar la autorización de OAuth**: En tu panel de Mintlify, ve a **Settings → Security & access → Connected apps** y revoca la entrada de la herramienta de IA que conectaste. Revocar invalida el token de acceso de la herramienta en un plazo de 30 segundos. Después, las llamadas a herramientas fallan y la herramienta debe completar un nuevo inicio de sesión de OAuth en la próxima llamada.
-- **Eliminar el conector en el cliente**:
-  - Claude: **Settings → Connectors**, luego elimina la entrada del Admin MCP.
-  - Claude Code: `claude mcp remove mintlify`.
+- **Revocar la autorización de OAuth**: En tu panel de Mintlify, ve a la [configuración de MCP](https://app.mintlify.com/products/mcp) y revoca la entrada de la herramienta de IA que conectaste. Revocar invalida el token de acceso de la herramienta en un plazo de 30 segundos. Después, las llamadas a herramientas fallan y la herramienta debe completar un nuevo inicio de sesión de OAuth en la próxima llamada.
+- **Eliminar una credencial**: Para revocar el acceso de una aplicación o gateway de IA que usa una [credencial](#credentials), ve a la página [Credentials](https://app.mintlify.com/products/mcp/admin-credentials) de tu configuración de MCP y elimínala.
+- **Eliminar el conector en el cliente**: La entrada del Admin MCP tiene la URL `https://mcp.mintlify.com`. Su nombre depende de cómo la agregaste, por ejemplo `mintlify-admin` o `mintlify`.
+  - Claude: **Settings → Connectors**, luego elimina la entrada de Mintlify.
+  - Claude Code: ejecuta `claude mcp list` para encontrar el nombre de la entrada y luego ejecuta `claude mcp remove <name>`.
   - ChatGPT: **Settings → Connectors**, luego elimina la entrada de Mintlify.
-  - Cursor: elimina la entrada `mintlify` de `mcp.json` y recarga.
-  - Codex: elimina el bloque `[mcp_servers.mintlify]` de `~/.codex/config.toml`.
+  - Cursor: desinstala el plugin de Mintlify, o elimina la entrada de `mcp.json` y recarga.
+  - Codex: elimina el bloque `[mcp_servers.<name>]` de la entrada en `~/.codex/config.toml`, o en `.codex/config.toml` de tu proyecto.
 
 Revocar la autorización de OAuth no afecta a las pull requests que el MCP ya haya abierto. Cierra o revierte esas PRs en tu proveedor de Git si quieres deshacer los cambios pendientes.
+
+<div id="troubleshooting">
+  ## Solución de problemas
+</div>
+
+<Accordion title="La conexión falla con un error de registro obsoleto">
+  Tu herramienta de IA está usando una conexión guardada antes de que Mintlify actualizara su sistema de inicio de sesión. Reinstala el conector de Mintlify: elimínalo de tu herramienta de IA y vuelve a agregarlo. Consulta [Desconectar o revocar el acceso](#disconnect-or-revoke-access) para ver los pasos de cada herramienta.
+</Accordion>
+
+<Accordion title="La conexión sigue fallando después de reinstalar el conector">
+  Cierra sesión en el [panel](https://app.mintlify.com), vuelve a iniciar sesión y luego conecta de nuevo tu herramienta de IA. Esto reemplaza una sesión del panel que comenzó antes de la actualización del inicio de sesión.
+</Accordion>
+
+<Accordion title="Las herramientas del Admin MCP aparecen duplicadas">
+  Tu herramienta de IA tiene más de una entrada para `https://mcp.mintlify.com`. Esto puede ocurrir cuando conectas el Admin MCP de más de una forma, por ejemplo al agregarlo manualmente y luego ejecutar [`mint agent setup`](/es/cli/commands#mint-agent-setup), o al instalar el plugin de Cursor y ejecutar la configuración. Conserva una entrada y elimina las demás. Consulta [Desconectar o revocar el acceso](#disconnect-or-revoke-access) para ver los pasos de cada herramienta.
+</Accordion>

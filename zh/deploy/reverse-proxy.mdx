@@ -49,6 +49,8 @@ import SubpathSetupSteps from "/snippets/zh/subpath-setup-steps.mdx";
 | `/docs`                           | `<your-subdomain>.mintlify.site/docs` | No cache |
 | `/docs/*`                         | `<your-subdomain>.mintlify.site/docs/*` | No cache |
 | `/docs/_llms/*`                   | `<your-subdomain>.mintlify.site/docs/_llms/*` | No cache |
+| `/_mintlify/*`                    | `<your-subdomain>.mintlify.site/_mintlify/*` | Use origin headers |
+| `/mintlify-assets/*`              | `<your-subdomain>.mintlify.site/mintlify-assets/*` | Use origin headers |
 | `/.well-known/vercel/*`           | `<your-subdomain>.mintlify.site/.well-known/vercel/*` | No cache |
 | `/.well-known/skills/*` (可选)        | `<your-subdomain>.mintlify.site/docs/.well-known/skills/*` | No cache |
 | `/.well-known/agent-skills/*` (可选)  | `<your-subdomain>.mintlify.site/docs/.well-known/agent-skills/*` | No cache |
@@ -56,7 +58,13 @@ import SubpathSetupSteps from "/snippets/zh/subpath-setup-steps.mdx";
 | `/llms.txt` (可选)            | `<your-subdomain>.mintlify.site/docs/llms.txt` | No cache |
 | `/llms-full.txt` (可选)       | `<your-subdomain>.mintlify.site/docs/llms-full.txt` | No cache |
 
-你的代理必须在文档路径上转发所有 HTTP 方法。Mintlify 会以 `POST` 请求的形式将分析事件发送到 `/docs/_mintlify/api/v1/e`，因此仅允许 `GET` 和 `HEAD` 请求的代理会悄无声息地导致仪表板中的分析数据失效。
+<Warning>
+  请从你域名的根路径代理 `/_mintlify/*` 和 `/mintlify-assets/*`，而不是从你的基础路径下代理。Mintlify 可能会通过 `/_mintlify/assets/*` 等根路径提供站点的 CSS、JavaScript、字体、favicon 和 API 请求。如果你的代理只转发基础路径，页面加载时将没有样式，也无法交互。
+</Warning>
+
+Mintlify 会在 `/_mintlify/*` 和 `/mintlify-assets/*` 的响应上设置缓存头。`/_mintlify/assets/*` 下带版本号的文件可以安全地长期缓存，而 API 响应会被标记为不可缓存。请直接透传这些缓存头，而不要为这些路径设置你自己的缓存规则。有些站点不会请求 `/mintlify-assets/*`，但转发该路径不会造成任何影响。
+
+你的代理必须在文档路径和 `/_mintlify/*` 路径上转发所有 HTTP 方法。Mintlify 会以 `POST` 请求的形式将分析事件和 API 演练场请求发送到 `/_mintlify/api/*` 路径，因此仅允许 `GET` 和 `HEAD` 请求的代理会悄无声息地导致仪表板中的分析数据失效。
 
 Mintlify 会在你的基础路径下提供这些文件，例如 `<your-subdomain>.mintlify.site/docs/llms.txt`，因此它们可以通过你的主要子路径路由，在你域名的子路径下访问，例如 `your-domain.com/docs/llms.txt`。
 
@@ -162,6 +170,26 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
     }
 
+    # Mintlify assets and API routes, served from the root of your domain.
+    # Keep the cache headers Mintlify sends so browsers cache hashed assets.
+    location ^~ /_mintlify/ {
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+    }
+
+    location ^~ /mintlify-assets/ {
+        proxy_pass https://<your-subdomain>.mintlify.site;
+        proxy_set_header Origin <your-subdomain>.mintlify.site;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header User-Agent $http_user_agent;
+    }
+
     # Documentation root
     location = /docs {
         proxy_pass https://<your-subdomain>.mintlify.site;
@@ -200,6 +228,8 @@ Mintlify 会重新构建你的文档以在你的基础路径下提供服务，�
 
 按照与 `/docs` 子路径相同的[路由配置](#routing-configuration)、[请求头要求](#required-header-configuration)和 nginx 模式来配置你的反向代理，只需将 `/docs` 替换为你的基础路径。
 
+不要在 `/_mintlify/*` 和 `/mintlify-assets/*` 路由中添加你的基础路径。使用自定义基础路径时，Mintlify 只会从根路径提供这些文件，因此 `<your-subdomain>.mintlify.site/<your-base-path>/_mintlify/*` 会返回 404。
+
 <div id="troubleshooting">
   ## 疑难解答
 </div>
@@ -213,6 +243,16 @@ Mintlify 会重新构建你的文档以在你的基础路径下提供服务，�
 **原因**：你的反向代理指向了过时的主机名。
 
 **解决方案**：将反向代理配置更新为指向 `<your-subdomain>.mintlify.site`。
+
+<div id="pages-load-without-styles">
+  ### 页面加载时没有样式
+</div>
+
+**症状**：页面以无样式的 HTML 呈现。浏览器控制台显示 `/_mintlify/assets/*` 或 `/mintlify-assets/*` 文件的 404 错误。
+
+**原因**：你的代理转发了基础路径，但没有转发根路径下的 `/_mintlify/*` 和 `/mintlify-assets/*`。
+
+**解决方案**：在你域名的根路径为 `/_mintlify/*` 和 `/mintlify-assets/*` 添加指向 `<your-subdomain>.mintlify.site` 的路由。请参见[路由配置](#routing-configuration)。
 
 <div id="404-error">
   ### 404 错误
@@ -249,4 +289,4 @@ Mintlify 会重新构建你的文档以在你的基础路径下提供服务，�
 
 **原因**：缓存配置不正确。
 
-**解决方案**：为文档路径禁用缓存。如果你代理了 `/mintlify-assets/_next/static/*` 路径，仅对这些静态资源启用缓存。
+**解决方案**：为文档路径禁用缓存。对于 `/_mintlify/*` 和 `/mintlify-assets/*`，请透传 Mintlify 发送的缓存头，而不要覆盖它们。

@@ -222,6 +222,67 @@
                         "dismissed"
                       ],
                       "description": "Estado actual de revisión del comentario."
+                    },
+                    "helpful": {
+                      "type": "boolean",
+                      "description": "Indica si el usuario considera útil el contenido."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "path",
+                    "comment",
+                    "createdAt",
+                    "source",
+                    "status",
+                    "helpful"
+                  ],
+                  "description": "Se devuelve cuando el origen es `thumbs_only`. Un voto de pulgar arriba o pulgar abajo en una página sin comentario escrito. Incluye si el usuario encontró útil la página."
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Identificador único del comentario."
+                    },
+                    "path": {
+                      "type": "string",
+                      "description": "La ruta o URL del documento de origen."
+                    },
+                    "comment": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Texto del comentario del usuario."
+                    },
+                    "createdAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "Marca de tiempo del envío del comentario."
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "code_snippet",
+                        "contextual",
+                        "agent",
+                        "thumbs_only"
+                      ],
+                      "description": "Origen del comentario. `code_snippet` indica un comentario sobre un bloque de código, `contextual` indica un comentario a nivel de página, `agent` indica un comentario enviado por un agente de IA de terceros, `thumbs_only` es un voto de pulgar arriba/abajo."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "in_progress",
+                        "resolved",
+                        "dismissed"
+                      ],
+                      "description": "Estado actual de revisión del comentario."
                     }
                   },
                   "required": [
@@ -232,7 +293,7 @@
                     "source",
                     "status"
                   ],
-                  "description": "Se devuelve cuando el origen es `agent` o `thumbs_only`. Solo contiene los campos base de comentarios."
+                  "description": "Se devuelve cuando el origen es `agent`. Solo contiene los campos base de comentarios."
                 }
               ]
             }
@@ -329,19 +390,19 @@
         "properties": {
           "web": {
             "type": "number",
-            "description": "Número de consultas del assistant originadas desde la web (sitio de documentación)."
+            "description": "Número de conversaciones del assistant iniciadas desde la web (sitio de documentación)."
           },
           "api": {
             "type": "number",
-            "description": "Número de consultas del assistant originadas desde llamadas a la API."
+            "description": "Número de conversaciones del assistant iniciadas desde llamadas a la API."
           },
           "other": {
             "type": "number",
-            "description": "Número de consultas del assistant desde otras fuentes (por ejemplo, integraciones, SDKs)."
+            "description": "Número de conversaciones del assistant iniciadas desde otras fuentes (por ejemplo, integraciones, SDKs)."
           },
           "total": {
             "type": "number",
-            "description": "Total de consultas del assistant en todos los tipos de origen."
+            "description": "Total de conversaciones del assistant en todos los tipos de origen."
           }
         },
         "required": [
@@ -362,7 +423,11 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "description": "Identificador único de la conversación."
+                  "description": "Identificador único de este turno. Cada fila de una conversación con varios turnos tiene un `id` distinto."
+                },
+                "conversationId": {
+                  "type": "string",
+                  "description": "Identificador de la conversación a la que pertenece este turno. Las filas de una misma conversación comparten el mismo `conversationId`. Úsalo como `threadId` en el endpoint Obtener hilo de conversación del assistant."
                 },
                 "timestamp": {
                   "type": "string",
@@ -405,6 +470,14 @@
                     ]
                   }
                 },
+                "resolutionStatus": {
+                  "type": "string",
+                  "enum": [
+                    "answered",
+                    "unanswered"
+                  ],
+                  "description": "Indica si el assistant respondió correctamente a este turno. Se calcula por fila: `unanswered` cuando el assistant marcó la pregunta como no cubierta por la documentación disponible. Si la conversación se registra como sin responder, por ejemplo porque falló una respuesta, y ningún turno se marcó como no cubierto, todos los turnos de la conversación son `unanswered`. En caso contrario, `answered`."
+                },
                 "queryCategory": {
                   "type": [
                     "string",
@@ -434,10 +507,12 @@
               },
               "required": [
                 "id",
+                "conversationId",
                 "timestamp",
                 "query",
                 "response",
                 "sources",
+                "resolutionStatus",
                 "queryCategory",
                 "feedback",
                 "pageUrl"
@@ -633,7 +708,7 @@
     "/v1/analytics/{projectId}/assistant/caller-stats": {
       "get": {
         "summary": "Obtener estadísticas de llamadas del assistant",
-        "description": "Devuelve un desglose del número de consultas del assistant por tipo de origen (web, API y otros) para el rango de fechas especificado.\n\nAutentícate con una clave de API de administrador.",
+        "description": "Devuelve un desglose del número de conversaciones del assistant por tipo de origen (web, API y otros) para las conversaciones iniciadas en el rango de fechas especificado.\n\nAutentícate con una clave de API de administrador.",
         "tags": [
           "Analytics"
         ],
@@ -669,7 +744,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Número de consultas del assistant desglosado por tipo de origen",
+            "description": "Número de conversaciones del assistant desglosado por tipo de origen",
             "content": {
               "application/json": {
                 "schema": {

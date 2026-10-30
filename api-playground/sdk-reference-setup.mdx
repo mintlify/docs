@@ -1,8 +1,8 @@
 ---
 title: "Generate SDK reference pages from doc-tool output"
 sidebarTitle: "SDK reference setup"
-description: "Publish SDK reference documentation in Mintlify from TypeDoc, DocFX, Javadoc, Sphinx, or phpDocumentor artifacts using the sdk navigation property."
-keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "reference"]
+description: "Publish SDK reference documentation in Mintlify from TypeDoc, DocFX, Javadoc, Sphinx, phpDocumentor, or Go artifacts using the sdk navigation property."
+keywords: ["sdk", "typedoc", "docfx", "javadoc", "sphinx", "phpdocumentor", "go", "golang", "mintlify-go-extractor", "reference"]
 ---
 
 Use the `sdk` navigation property to generate reference pages for your SDK libraries from the documentation tools you already run. Mintlify reads each tool's build artifact. It creates a page for every class, interface, module, and function. It also includes navigation groups, cross-page links, and search indexing.
@@ -16,6 +16,7 @@ Use the `sdk` navigation property to generate reference pages for your SDK libra
 | `javadoc` | [Javadoc](https://docs.oracle.com/en/java/javase/17/javadoc/javadoc.html) (Java) | Standard doclet HTML directory |
 | `sphinx` | [Sphinx](https://www.sphinx-doc.org) (Python) | JSON builder output directory |
 | `phpdoc` | [phpDocumentor](https://phpdoc.org) (PHP) | `structure.xml` file |
+| `go` | [mintlify-go-extractor](https://github.com/mintlify/mintlify-go-extractor) (Go) | JSON artifact file |
 
 ## Generate an artifact
 
@@ -44,7 +45,33 @@ python -m sphinx -b json docs/source artifacts/json
 phpdoc -d src -t artifacts --template=xml
 ```
 
+```bash Go
+go run github.com/mintlify/mintlify-go-extractor@latest -o go.json
+```
+
 </CodeGroup>
+
+### Go
+
+Go's own documentation tools produce text and HTML, not a machine-readable artifact, so Mintlify maintains [`mintlify-go-extractor`](https://github.com/mintlify/mintlify-go-extractor), an open source command that writes one. Run it from anywhere inside your Go module. It reads your module's source files with the Go standard library, so it doesn't download dependencies or need credentials, and it works for private modules.
+
+With Go 1.24 or later, pin the extractor in your module's `go.mod` so every run uses the same version:
+
+```bash
+go get -tool github.com/mintlify/mintlify-go-extractor@latest
+go tool mintlify-go-extractor -o go.json
+```
+
+Each [release](https://github.com/mintlify/mintlify-go-extractor/releases) includes prebuilt binaries for macOS, Linux, and Windows.
+
+By default, the extractor documents every package in the module except `internal` packages and commands, and it reads doc comments as Markdown, which is what generated SDKs (for example, from Stainless, Speakeasy, or Fern) write. Common options:
+
+- `-comments=godoc`: read doc comments with Go's [doc comment syntax](https://go.dev/doc/comment) instead of Markdown.
+- `-exclude`: skip packages, as a comma-separated list of package patterns.
+- `-exclude-symbols`: leave individual symbols out of the reference, as a comma-separated list of patterns such as `NewLegacyClient`, `Client.Debug`, or `Legacy*`. Prefix a pattern with the package directory, such as `option.WithDebugLog`, to match in one package only. References to excluded symbols appear as plain text instead of links.
+- `-goos`, `-goarch`, `-tags`: choose the platform and build tags used to select files. The default is `linux/amd64`.
+
+Pass package patterns, such as `./option/...`, to document part of the module. See the [extractor README](https://github.com/mintlify/mintlify-go-extractor#readme) for every option.
 
 ## Auto-populate SDK pages
 
@@ -89,7 +116,7 @@ A group with `sdk` can also list `pages` that you write yourself. Your pages app
 </Note>
 
 <ParamField path="format" type="string" required>
-  The documentation tool that produced the artifact: `typedoc`, `docfx`, `javadoc`, `sphinx`, or `phpdoc`.
+  The documentation tool that produced the artifact: `typedoc`, `docfx`, `javadoc`, `sphinx`, `phpdoc`, or `go`.
 </ParamField>
 
 <ParamField path="source" type="string" required>
@@ -109,6 +136,18 @@ Add multiple tabs or groups to document multiple libraries. For example, use two
 ## Generated pages
 
 Mintlify adds the generated navigation groups after any `groups` on the tab. If you add `sdk` to a group, the generated groups appear after that group's `pages`. The groups vary by format and may represent modules, packages, namespaces, or symbol types.
+
+For TypeDoc artifacts, Mintlify follows the layout you define with `@category` and `@group` tags. Categories and custom group titles become navigation groups. Categories inside a group become nested groups, and namespaces become nested groups that follow their own categories or groups. If the artifact has no categories or custom group titles, Mintlify groups pages by symbol type, such as classes, interfaces, and functions.
+
+If your TypeDoc artifact includes a README, Mintlify adds an overview page at `package-overview` under your `directory`, in an `Overview` group before the other generated groups. The overview page shows the README, followed by an index of the library's classes, interfaces, functions, and other symbols. A module with its own README gets a separate overview page at `<module>/package-overview`, in a `<module> Overview` group, that indexes only that module's symbols. Artifacts without a README, or with an empty one, get no overview page.
+
+For Javadoc artifacts, Mintlify groups pages by package. When a package mixes kinds, it nests them under Interfaces, Classes, Enums, Records, Exceptions, Errors, and Annotations in the order Javadoc uses on its package pages.
+
+For Go artifacts, Mintlify groups pages by package. Each package starts with an overview page that shows the package's `README` and doc comment, followed by an index of its types and functions.
+
+When a Go package mixes kinds, Mintlify nests its other pages under Interfaces, Structs, Types, and Functions, in that order. Types holds defined types and aliases. Functions holds package-level functions, including constructors.
+
+Each type and package-level function gets its own page. A type's page includes its fields, constructors, and methods.
 
 Each generated page documents a class, interface, function, type, or other symbol from the artifact and links to related generated pages. If a converter produces pages that do not belong to a group, Mintlify collects them under a `Reference` group.
 
@@ -133,10 +172,12 @@ Create a `Client` to call the API.
 
 The string form follows the pattern `[source] kind name`. If you leave out `source`, the page inherits it from the tab or group `sdk` config. The string form always inherits `format`, so it only works on pages under a tab or group with `sdk`. Everywhere else, set `sdk` to an object with the fields below. For methods and properties, include the parent name, such as `method Client.getUser`.
 
+For Go artifacts, target structs and other defined types as `type`, interfaces as `interface`, struct fields as `property`, and package overview pages as `package`. Refer to a package by its name, followed by its directory path for nested packages, such as `package openai` or `package openai.option`. Add the package to a symbol name, such as `type option.RequestOption`, when more than one package has a symbol with that name.
+
 If you leave out `title` or `description`, Mintlify uses the title and description generated for the symbol.
 
 <ParamField path="kind" type="string" required>
-  The symbol kind: `class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, or `property`.
+  The symbol kind: `package`, `class`, `interface`, `enum`, `function`, `type`, `variable`, `method`, or `property`.
 </ParamField>
 
 <ParamField path="name" type="string" required>
@@ -145,6 +186,10 @@ If you leave out `title` or `description`, Mintlify uses the title and descripti
 
 <ParamField path="parent" type="string">
   Required for `method` and `property` targets. The enclosing class, interface, or type.
+</ParamField>
+
+<ParamField path="namespace" type="string">
+  For Go artifacts, the package that contains the symbol, such as `openai.option`. Use it when more than one package has a symbol with the same name.
 </ParamField>
 
 <ParamField path="format" type="string">
@@ -159,7 +204,7 @@ If you leave out `title` or `description`, Mintlify uses the title and descripti
 
 Set `source` to an HTTPS URL to fetch the artifact at build time instead of committing it to your docs repository.
 
-Single-file formats (`typedoc`, `phpdoc`) accept a direct file URL. Directory formats (`docfx`, `javadoc`, `sphinx`) accept a zip archive. Javadoc jars published to Maven Central work without repackaging:
+Single-file formats (`typedoc`, `phpdoc`, `go`) accept a direct file URL. Directory formats (`docfx`, `javadoc`, `sphinx`) accept a zip archive. Javadoc jars published to Maven Central work without repackaging:
 
 ```json
 {

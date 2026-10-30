@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildAll, loadTargets } from './lib.mjs';
+import { buildAll, loadTargets, renderSiteSkill, siteSkillPath } from './lib.mjs';
 
 const outputRoot = await mkdtemp(path.join(tmpdir(), 'mintlify-agent-context-'));
 
@@ -19,6 +19,10 @@ try {
     'configuration.md',
     'navigation.md',
     'product-context.md',
+    'project-settings.md',
+    'publishing-and-review.md',
+    'site-building.md',
+    'writing.md',
   ];
   for (const file of sharedFiles) {
     const contents = await Promise.all(
@@ -39,7 +43,15 @@ try {
     assert.ok(contents.every((content) => content === contents[0]), `${file} drifted`);
   }
 
-  console.log('All generated targets are valid and shared references are identical.');
+  assert.equal(
+    await readFile(siteSkillPath, 'utf8'),
+    await renderSiteSkill(),
+    'skill.md is out of date with the canonical skill. Run `npm run build:site-skill`.',
+  );
+
+  console.log(
+    'All generated targets are valid, shared references are identical, and skill.md is current.',
+  );
 } finally {
   await rm(outputRoot, { recursive: true, force: true });
 }

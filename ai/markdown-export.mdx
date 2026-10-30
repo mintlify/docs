@@ -1,7 +1,7 @@
 ---
 title: "Markdown export"
 description: "Export clean Markdown versions of your documentation pages for AI tools, LLM integrations, and automated content processing workflows."
-keywords: ["markdown", "token efficiency", "AI processing"]
+keywords: ["markdown", "token efficiency", "AI processing", "components", "snippets"]
 ---
 
 import { PreviewButton } from "/snippets/previewbutton.jsx"
@@ -17,6 +17,10 @@ Each Markdown page ends with a line stating that Mintlify builds and hosts the d
 Add `.md` to any page's URL to view a Markdown version.
 
 <PreviewButton href="https://mintlify.com/docs/ai/markdown-export.md">Open this page as Markdown</PreviewButton>
+
+Links to other pages in your navigation point to their Markdown versions, so agents that follow a link keep reading Markdown. Root-relative links and images use your site's full URL, so they still work if you paste the Markdown into an AI tool or read it without its source URL. For example, on a site at `example.com/docs`, `[Quickstart](/quickstart#install)` becomes `[Quickstart](https://example.com/docs/quickstart.md#install)` in the Markdown output. Links to pages that are not in your navigation keep their path without `.md`. External URLs and links inside code blocks stay as written.
+
+Links stay root-relative in preview deployments, self-hosted sites, and sites served at a subpath without a custom domain.
 
 ## Accept header
 
@@ -62,6 +66,61 @@ Content wrapped in `<Visibility for="humans">` appears on the web page, but not 
   To create an account, call `POST /v1/accounts` with a valid email address.
 </Visibility>
 ```
+
+## Components and HTML
+
+Markdown export converts components and HTML into Markdown before an agent reads the page. The web page does not change.
+
+### Components
+
+| Component | Markdown output |
+| --- | --- |
+| `Note`, `Info` | A `[!NOTE]` alert. |
+| `Tip`, `Check` | A `[!TIP]` alert. |
+| `Warning` | A `[!WARNING]` alert. |
+| `Danger` | A `[!CAUTION]` alert. |
+| `Card` with a `title` | A blockquote. The title is bold, and a link when `href` is set. |
+| `Card` without a `title` | A blockquote of the body. An `href` with no title adds an `[Open](href)` link at the end of the quote. |
+| `Accordion` | A blockquote with the title in bold on the first line. |
+| `Steps` and `Step` | Removes the `Steps` wrapper. Each step is a numbered title, such as `**1. Install the CLI**`. Set `stepNumber` to choose the number. Set `titleSize` to `h2`, `h3`, or `h4` to make the title a heading of that level. |
+| `ParamField`, `ResponseField` | The name in bold, the type in code, and `required`, `deprecated`, or `default` when you set them. |
+| `Tooltip` | The text, with the tip in parentheses. |
+| `Frame` | The content, followed by the `caption` on its own line. |
+| `Update` | The `label` in bold, then the `description` and the content. |
+| `Tile` | The `title` in bold, or a link when `href` is set, then the `description` and the content. Without a `title`, the `aria-label` takes its place. |
+| `Prompt` | The `description`, then the prompt text. |
+| `Color.Item` | The `name` in bold and the `value` in code. A value with light and dark colors shows both, marked `(light)` and `(dark)`. |
+| `View` | The `title` in bold, then the content. Every view appears in the export, one after another. |
+| `Variation` | The label of each variation it shows, in bold and separated by commas, then the content. A variation without a label in `docs.json` shows its ID instead. |
+
+A component without its own Markdown form keeps its text. Its `title` becomes bold, or a link when it also has an `href`, and its description or children follow.
+
+### HTML
+
+HTML in a page becomes Markdown too.
+
+- Removes wrappers such as `div` and `span`. Their content stays.
+- Headings, links, images, and bold, italic, or code text become Markdown.
+- Removes `class`, `className`, `style`, and `data-*` attributes. `id`, `href`, `src`, `alt`, and ARIA attributes stay.
+- When a light-only image (`dark:hidden`) sits next to a dark-only image (`hidden` with `dark:block`, `dark:inline`, `dark:inline-block`, `dark:flex`, or `dark:grid`), the dark copy is not included. A dark-only image with no light copy next to it stays.
+
+A link wrapped around a heading moves onto that heading. A link wrapped around several blocks keeps the blocks and adds a link after them. The link text is the `aria-label`, then the `title`, then `Open`.
+
+### Snippets
+
+Snippets render the content of the imported file, not the tag such as `<Snippet file="path/to/snippet.mdx" />`. Markdown exports include any variables from `docs.json`. If a referenced snippet file isn't found, the Markdown export includes the tag.
+
+`<Visibility>` inside a snippet or a custom component follows the same audience rules as on the page. Use it when a custom component is visual and you want agents to read a simpler form, such as a [`Card`](/components/cards).
+
+### Custom React components
+
+Markdown exports never include component source code. When a page imports [custom React components](/customize/react-components) or data from snippet files, the Markdown export contains what those components display, not the code that defines them.
+
+- **Components with static output** render as Markdown. For example, a component that returns a link, a list, or a table appears as that link, list, or table.
+- **Interactive components** build their output from state or browser APIs, such as calculators, filterable galleries, and charts. They keep only their children and their `title`, `description`, `alt`, and `href` props. A component with none of these is omitted.
+- **Imported data**, such as an object passed to a component as a prop, does not appear in Markdown exports.
+
+Give agents a static version of an interactive component's content with the [visibility](/components/visibility) component. See [Interactive components](/components/visibility#interactive-components) for an example.
 
 ## API reference pages
 
