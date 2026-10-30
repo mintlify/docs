@@ -42,7 +42,7 @@
 
 ### Endpoint summaries
 
-The `summary` field is the endpoint's page title and sidebar label.
+The `summary` field is the endpoint's page title and sidebar label unless the page's frontmatter sets a `title`. When both exist, keep them the same.
 
 - Start with a verb in sentence case: "Get agent job," "Create agent job," "Trigger automation."
 - Use "Get" to read one resource, "List" to read a collection, and "Create," "Update," or "Delete" for those operations. For other actions, use the specific verb, such as "Trigger," "Send," or "Search."
