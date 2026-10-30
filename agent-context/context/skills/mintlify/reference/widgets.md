@@ -16,6 +16,7 @@ Build a widget when the reader understands faster by changing something and watc
 | Numbers with a shape (benchmarks, trends, distributions, before and after) | An SVG chart with hover values |
 | UI or visual behavior (a component, an animation, a layout, an interaction) | A live, working version of it |
 | Options to compare | One widget with a toggle between them |
+| A walkthrough to present (a launch, a review, a demo) | A slide deck: one slide at a time, Back and Next buttons, arrow keys and a progress bar |
 
 Prefer a widget over Mermaid, screenshots of charts, and screen recordings whenever a row above fits. A page about a UI component shows the component working, not a recording of it. Keep Mermaid for a static graph the user asks for, or when the site already uses Mermaid for that kind of diagram.
 
@@ -55,11 +56,22 @@ export const BackoffCalculator = () => {
 - Use the default page layout, or `mode: "wide"` for wide widgets. Don't use `mode: "custom"` or `mode: "frame"`, because the editor shows those pages as a read-only preview.
 - In a local repository, you can move a widget to `/snippets/<name>.jsx`, import it and place it directly in the page (see `reference/customization/react-and-snippets.md`); a widget that uses an imported snippet inside its own code fails in the editor. Through the Admin MCP server and in Workspace, keep widgets in the page.
 
+## Larger widgets
+
+A widget can grow to several hundred lines spread across many exports. In the editor, each widget tag in the page runs in its own sandbox together with every `export const` and `export function` on the page.
+
+- Write every top-level statement as an export: sub-components, custom hooks (`export const useTween = (target) => { ... }`), pure helpers, data arrays and `Intl.NumberFormat` instances are all `export const`. MDX treats only lines that start with `import` or `export` as code, so a top-level `const` shows up as page text and is undefined inside the widget.
+- All exports share one page scope. Give the exports that belong to one widget the same short prefix (`RbData`, `RbBar`, `useRbTween`) so two widgets on a page can't collide.
+- Inside widget code, components are ordinary React. Sub-components take any props, including functions, JSX and `{...rest}`. The literal-values rule applies only to the tags you place in the page body.
+- Write a control that several widgets need, such as a button, toggle or slider, once as an export and use it in each of them.
+- Sub-components run inside their widget's sandbox, so they don't count toward the 10 widgets the editor runs at a time.
+
 ## What you can use
 
 - React hooks without importing them: `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback`, `useReducer`, `useLayoutEffect`, `useId` and the other built-in hooks, plus `React`.
 - HTML elements, inline SVG, `<canvas>`, form controls such as `<input type="range">`, `<select>` and `<button>`.
-- Browser APIs inside `useEffect` and event handlers, with cleanup: `requestAnimationFrame`, `ResizeObserver`, pointer and keyboard events, canvas 2D, fullscreen.
+- Browser APIs inside `useEffect`, `useLayoutEffect` and event handlers, with cleanup: `requestAnimationFrame`, `ResizeObserver`, `matchMedia`, `performance.now()`, pointer and keyboard events, canvas 2D, fullscreen. Measure your own elements through refs (`getBoundingClientRect`, `offsetWidth`) in `useLayoutEffect`, and check `typeof ResizeObserver !== "undefined"` before you use it.
+- Animation: CSS transitions driven by state (`transform`, `width`, `opacity`), or a `requestAnimationFrame` tween for counters and playheads. When `window.matchMedia("(prefers-reduced-motion: reduce)").matches` is true, jump to the end state, and add `motion-reduce:transition-none` next to Tailwind transitions.
 - An embedded hosted app: `<iframe src="https://..." style={{ width: "100%", height: 480 }} />`. The embedded page loads with its own network access, so hosted playgrounds, sandboxes and demos work. Use only URLs the user gave you or that come from the project.
 - A charting or graphics library, only when hand-written SVG or canvas would be much worse: add a `<script>` element in `useEffect` that loads one exact pinned version from `https://cdn.jsdelivr.net/npm/` or `https://cdnjs.cloudflare.com/ajax/libs/`, then use its global after it loads. The library must not fetch anything after loading.
 - A self-contained HTML app in ``<iframe srcDoc={`<!doctype html>...`} />`` with its own `<style>` and `<script>`, at a fixed height. Use this to port an existing single-file HTML artifact as is.
@@ -75,16 +87,16 @@ Each of these breaks a widget in the editor, on the site, or both.
 - Stay inside the widget's root element: no `document.querySelector` outside your own refs, no `window.parent` or `window.top`, and no global CSS. Page-level `<style>` blocks and the site's custom CSS don't reach widgets in the editor.
 - No `position: fixed`. The editor clips anything drawn outside the widget's box, so keep tooltips and popovers inside the root element.
 - Links inside a widget don't navigate in the editor. Put links in the surrounding prose.
-- Keep each widget under about 300 lines. The editor runs at most 10 widgets at a time and pauses the rest until they scroll into view.
+- Keep each export under about 300 lines; split a larger widget as described in Larger widgets. The editor runs at most 10 widgets at a time and pauses the rest until they scroll into view.
 
 ## Styling
 
 - Give the root element `className="not-prose"` so the docs typography doesn't restyle your controls.
 - Style with inline `style={{ ... }}` objects, or with one ``<style>{`...`}</style>`` element inside the component. In that element, prefix every class with a short widget-specific prefix (`.bc-row`, `.bc-bar`), because on the site it applies to the whole page.
 - Make every color work in light and dark mode. Use `color: "inherit"` for text, translucent neutrals such as `rgba(127,127,127,.25)` for borders and surfaces, and accent colors of medium lightness. Set a solid background only for a deliberate screen, such as a canvas or a terminal, and set its text colors explicitly.
-- Tailwind classes work as complete literal strings, including arbitrary values (`bg-[#0f172a]`) and `hover:` and `dark:` variants. Classes built by concatenation or template strings stay unstyled. In the editor, pages over about 500 KB lose Tailwind, so use inline styles on very large pages.
+- Tailwind classes work as complete literal strings, including arbitrary values (`bg-[#0f172a]`) and `hover:` and `dark:` variants. Page classes are generated with Tailwind 3.4 and its default theme, which covers arbitrary properties and variants (`[container-type:inline-size]`, `[&_svg]:size-4`), `data-[state=on]:`, `aria-pressed:`, named groups (`group/row` with `group-hover/row:`), `has-[...]:`, `motion-reduce:`, `rtl:` and `print:`. Tailwind 4 syntax such as `w-(--thumb)`, `not-*:` and `in-*:`, and color names outside the default palette, are not generated; write `w-[var(--thumb)]` or `bg-[var(--accent)]` instead. Classes built by concatenation or template strings stay unstyled. In the editor, pages over about 500 KB lose Tailwind, so use inline styles on very large pages.
 - Make the widget fit any width. Use `width: "100%"`, let rows wrap (`flexWrap: "wrap"` or `gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))"`), set `minWidth: 0` on flex and grid children that hold text, and draw SVG with a `viewBox` and `width: "100%"`. Height follows the content; give `<canvas>` and `<iframe>` explicit heights.
-- Make it usable without a mouse. Use `<button type="button">` for actions and wrap inputs in a `<label>` with visible text, show each slider's current value next to it, and add an `aria-label` to icon-only buttons.
+- Make it usable without a mouse. Use `<button type="button">` for actions and wrap inputs in a `<label>` with visible text, show each slider's current value next to it, and add an `aria-label` to icon-only buttons. For a chart or list the reader steps through, make the root focusable with `tabIndex={0}`, handle arrow keys, Home and End in `onKeyDown`, and announce the selected value in an `aria-live="polite"` element.
 
 ## Markdown output and crawlers
 
@@ -219,3 +231,78 @@ export const LatencyChart = () => {
 ```
 
 The latency numbers in this example are placeholders. In a real page, take them from the source and say where they come from.
+
+### Widget split into exports
+
+A larger widget split into prefixed exports: data, a formatter, a custom hook, a sub-component that takes a function prop, and the widget itself. Only `<RankedBars />` goes in the page body.
+
+```jsx
+export const RbData = [
+  { name: "api", p50: 412, p95: 655 },
+  { name: "web", p50: 268, p95: 390 },
+  { name: "docs", p50: 95, p95: 170 },
+];
+
+export const RbSeconds = new Intl.NumberFormat("en-US", { style: "unit", unit: "second" });
+
+export const useRbTween = (target, duration = 400) => {
+  const [value, setValue] = useState(target);
+  const current = useRef(target);
+  useEffect(() => {
+    const from = current.current;
+    if (from === target || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      current.current = target;
+      setValue(target);
+      return;
+    }
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      current.current = from + (target - from) * (1 - (1 - t) ** 3);
+      setValue(current.current);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+  return value;
+};
+
+export const RbBar = ({ label, value, max, format }) => {
+  const shown = useRbTween(value);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "64px minmax(0, 1fr) 72px", alignItems: "center", gap: 8, fontSize: 13 }}>
+      <span>{label}</span>
+      <div style={{ height: 10, borderRadius: 5, background: "#3b82f6", width: `${(shown / max) * 100}%`, minWidth: 4 }} />
+      <span style={{ textAlign: "right" }}>{format(Math.round(shown))}</span>
+    </div>
+  );
+};
+
+export const RankedBars = () => {
+  const [metric, setMetric] = useState("p50");
+  const max = Math.max(...RbData.map((d) => d.p95));
+  const rows = [...RbData].sort((a, b) => b[metric] - a[metric]);
+  const toggle = (active) => ({
+    padding: "4px 10px", borderRadius: 8, font: "inherit", color: "inherit", cursor: "pointer",
+    border: "1px solid rgba(127,127,127,.35)", background: active ? "rgba(59,130,246,.15)" : "transparent",
+  });
+  return (
+    <div className="not-prose" style={{ border: "1px solid rgba(127,127,127,.25)", borderRadius: 12, padding: 16, display: "grid", gap: 10 }}>
+      <div role="group" aria-label="Percentile" style={{ display: "flex", gap: 6 }}>
+        {["p50", "p95"].map((m) => (
+          <button key={m} type="button" aria-pressed={metric === m} style={toggle(metric === m)} onClick={() => setMetric(m)}>
+            {m}
+          </button>
+        ))}
+      </div>
+      {rows.map((d) => (
+        <RbBar key={d.name} label={d.name} value={d[metric]} max={max} format={(s) => RbSeconds.format(s)} />
+      ))}
+    </div>
+  );
+};
+```
+
+The build times in this example are placeholders.
