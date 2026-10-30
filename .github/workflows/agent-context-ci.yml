@@ -35,3 +35,67 @@ jobs:
         working-directory: agent-context
       - run: npm run build
         working-directory: agent-context
+
+  # The skill and the `mint instructions` topics cover the same product, so a skill change
+  # usually needs a topic change too. Comment once as a reminder; never fail the PR
+  topic-reminder:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Remind to update mint instructions topics
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          skill=$(grep '^agent-context/context/' <<< "$files" || true)
+          if [ -z "$skill" ] || grep -q '^mint-instructions/' <<< "$files"; then
+            echo "No reminder needed"
+            exit 0
+          fi
+
+          topics_for() {
+            case "$1" in
+              */SKILL.md) echo "the topic for the changed section (list in overview)" ;;
+              */reference/product-context.md) echo "new-site, write" ;;
+              */reference/api-docs.md) echo "api-docs, api-docs/sdk" ;;
+              */reference/cli.md) echo "every topic that mentions the changed command (grep mint-instructions/)" ;;
+              */reference/components.md) echo write/components ;;
+              */reference/widgets.md) echo configure/customization ;;
+              */reference/configuration.md) echo "configure, configure/settings, write" ;;
+              */reference/customization/*) echo configure/customization ;;
+              */reference/navigation.md) echo configure/navigation ;;
+              */reference/project-settings.md) echo "publish, publish/analytics, access" ;;
+              */reference/publishing-and-review.md) echo "publish, new-site" ;;
+              */reference/site-building.md) echo "new-site, migrate" ;;
+              */reference/writing.md) echo write ;;
+              */mcp-servers.json) echo publish ;;
+              *) echo "check the topic list in mint-instructions/overview.mdx" ;;
+            esac
+          }
+
+          marker='<!-- mint-instructions-topic-reminder -->'
+          comments=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[].body')
+          if grep -qF "$marker" <<< "$comments"; then
+            echo "Reminder already posted"
+            exit 0
+          fi
+
+          {
+            echo "$marker"
+            echo "This PR changes the Mintlify skill but no \`mint instructions\` topic. Agents read both, so check whether the matching topic in \`mint-instructions/\` needs the same change. If not, ignore this comment."
+            echo
+            echo "| Changed skill file | Likely topics |"
+            echo "| - | - |"
+            while read -r f; do
+              echo "| \`$f\` | $(topics_for "$f") |"
+            done <<< "$skill"
+          } > reminder.md
+
+          echo "::warning::Skill changed without a mint-instructions topic change"
+          gh pr comment "$PR" --repo "$REPO" --body-file reminder.md
