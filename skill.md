@@ -9,8 +9,6 @@ metadata:
 
 Reference for working on Mintlify projects. This file covers essentials that apply to every task. For detailed reference on specific topics, read the files listed in the reference index below.
 
-The Mintlify CLI also prints current workflow guidance fetched from the live docs. Run `mint instructions` to list topics, then `mint instructions <topic>`. If the command is unknown, run `npx mint@latest instructions`. When it differs from this file, follow `mint instructions`.
-
 ## Reference index
 
 Read these **only when your task requires them**. Each links to a Mintlify documentation page or, for agent workflow guidance, the source file on GitHub.
