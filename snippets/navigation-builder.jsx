@@ -5,7 +5,19 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
   // Security: user input is only rendered as React text and serialized with JSON.stringify.
   // The builder has no network requests, storage, global listeners, or raw HTML.
 
-  const LANGUAGE_CODES = ["en", "es", "fr", "de", "ja", "zh", "ko", "pt-BR"]
+  // Supported codes from the language enum in https://mintlify.com/docs.json, minus the lowercase
+  // aliases fr-ca and ja-jp. Update this when the schema changes.
+  const SUPPORTED_LANGUAGE_CODES = [
+    "ar", "ca", "cn", "cs", "da", "de", "en", "es", "fi", "fr", "fr-CA", "he", "hi", "hu", "id", "it", "ja",
+    "ja-JP", "jp", "ko", "lv", "nl", "no", "pl", "pt", "pt-BR", "ro", "ru", "sv", "tr", "uk", "uz", "vi",
+    "zh", "zh-CN", "zh-Hans", "zh-Hant", "zh-TW",
+  ]
+  // Common languages come first as defaults, then the rest, so default names don't repeat.
+  const COMMON_LANGUAGE_CODES = ["en", "es", "fr", "de", "ja", "zh", "ko", "pt-BR"]
+  const DEFAULT_LANGUAGE_ORDER = [
+    ...COMMON_LANGUAGE_CODES,
+    ...SUPPORTED_LANGUAGE_CODES.filter((code) => !COMMON_LANGUAGE_CODES.includes(code)),
+  ]
 
   // key: the JSON key that names each entry. label: UI name for one entry.
   const DIVISIONS = {
@@ -45,7 +57,7 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
   // Each new element gets a unique default name so the generated JSON reads like a real config.
   const defaultLabel = (division) => {
     const count = nextCount(division)
-    if (division === "languages") return LANGUAGE_CODES[(count - 1) % LANGUAGE_CODES.length]
+    if (division === "languages") return DEFAULT_LANGUAGE_ORDER[(count - 1) % DEFAULT_LANGUAGE_ORDER.length]
     if (division === "versions") return `v${count}`
     const label = DIVISIONS[division].label
     return `${label.charAt(0).toUpperCase()}${label.slice(1)} ${count}`
@@ -83,15 +95,15 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
     if (node.type !== "container") return node
     return { ...node, children: node.children.map((child) => mapTree(child, id, fn)) }
   }
-  const removeFromTree = (node, id) =>
-    node.type !== "container"
-      ? node
-      : {
-          ...node,
-          children: node.children
-            .filter((child) => child.id !== id)
-            .map((child) => removeFromTree(child, id)),
-        }
+  // Removing the last child returns its parent to the child-type picker. Several navigation
+  // arrays require at least one item, so the builder never outputs an empty array.
+  const removeFromTree = (node, id) => {
+    if (node.type !== "container") return node
+    const children = node.children
+      .filter((child) => child.id !== id)
+      .map((child) => removeFromTree(child, id))
+    return { ...node, children, childDivision: children.length ? node.childDivision : null }
+  }
 
   const update = (id, fn) => setRoot((current) => mapTree(current, id, fn))
 
@@ -231,8 +243,8 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
 
   const renderContainer = (node) => {
     const meta = DIVISIONS[node.division]
-    const hint = node.division === "languages" ? "Use a language code, like en or fr." : null
-    const hintId = `${node.id}-hint`
+    const nameLabel = `${meta.label.charAt(0).toUpperCase()}${meta.label.slice(1)} name`
+    const setLabel = (event) => update(node.id, (item) => ({ ...item, label: event.target.value }))
     return (
       <div
         key={node.id}
@@ -240,27 +252,35 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
         aria-label={nodeName(node)}
         className="rounded-xl border border-zinc-950/10 dark:border-white/10 p-3 space-y-3"
       >
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className={tagClasses} aria-hidden="true">
-              {meta.key}
-            </span>
+        <div className="flex items-center gap-2">
+          <span className={tagClasses} aria-hidden="true">
+            {meta.key}
+          </span>
+          {/* Language names must be a supported code, so they come from a fixed list. */}
+          {node.division === "languages" ? (
+            <select
+              value={node.label || node.defaultLabel}
+              onChange={setLabel}
+              aria-label="Language code"
+              className={`${inputClasses} font-mono`}
+            >
+              {SUPPORTED_LANGUAGE_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          ) : (
             <input
               type="text"
               value={node.label}
-              onChange={(event) => update(node.id, (item) => ({ ...item, label: event.target.value }))}
+              onChange={setLabel}
               placeholder={node.defaultLabel}
-              aria-label={`${meta.label.charAt(0).toUpperCase()}${meta.label.slice(1)} name`}
-              aria-describedby={hint ? hintId : undefined}
+              aria-label={nameLabel}
               className={inputClasses}
             />
-            {renderRemoveButton(node)}
-          </div>
-          {hint ? (
-            <div id={hintId} className="text-xs text-zinc-950/60 dark:text-white/60">
-              {hint}
-            </div>
-          ) : null}
+          )}
+          {renderRemoveButton(node)}
         </div>
         <div className="pl-4 border-l border-dashed border-zinc-950/15 dark:border-white/15">
           {renderChildren(node)}
