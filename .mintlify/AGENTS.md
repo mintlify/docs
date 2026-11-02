@@ -6,7 +6,7 @@ Before you write or edit content, read `style-guide/README.md` and the style gui
 
 ## Keep `mint instructions` topics in sync
 
-`mint-instructions/*.mdx` are hidden pages that the `mint instructions <topic>` CLI command prints for coding agents. They restate the English docs as short workflows, so they go stale whenever the docs change. When you update English docs or the agent skill in `agent-context/`, check whether a topic teaches the same fact, and update it in the same pull request.
+`mint-instructions/*.mdx` are hidden pages that the `mint instructions <topic>` CLI command prints for agents. They restate the English docs as short workflows, so they go stale whenever the docs change. When you update English docs or the agent skill in `agent-context/`, check whether a topic teaches the same fact, and update it in the same pull request.
 
 Update a topic when a change affects:
 
