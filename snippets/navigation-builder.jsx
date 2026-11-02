@@ -76,6 +76,7 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
   })
 
   const [root, setRoot] = useState(createRoot)
+  const [activePanel, setActivePanel] = useState("editor")
 
   const mapTree = (node, id, fn) => {
     if (node.id === id) return fn(node)
@@ -114,6 +115,7 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
     idRef.current = 0
     countersRef.current = {}
     setRoot(createRoot())
+    setActivePanel("editor")
   }
 
   const toJSON = (node) => {
@@ -267,24 +269,89 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
     )
   }
 
+  // The page renders one builder, so static IDs are unique.
+  const PANELS = [
+    { id: "editor", label: "Editor" },
+    { id: "json", label: "docs.json" },
+  ]
+
+  const selectPanel = (id) => {
+    setActivePanel(id)
+    const tab = document.getElementById(`navigation-builder-tab-${id}`)
+    if (tab) tab.focus()
+  }
+
+  // Arrow keys move between tabs, following the WAI-ARIA tabs pattern.
+  const onTabKeyDown = (event) => {
+    const index = PANELS.findIndex((panel) => panel.id === activePanel)
+    let next = null
+    if (event.key === "ArrowRight") next = (index + 1) % PANELS.length
+    if (event.key === "ArrowLeft") next = (index - 1 + PANELS.length) % PANELS.length
+    if (event.key === "Home") next = 0
+    if (event.key === "End") next = PANELS.length - 1
+    if (next === null) return
+    event.preventDefault()
+    selectPanel(PANELS[next].id)
+  }
+
   return (
-    <div className="not-prose space-y-4">
-      <div className="rounded-2xl border border-zinc-950/10 dark:border-white/10 p-4 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="text-base font-semibold text-zinc-950 dark:text-white">Navigation builder</div>
+    <div className="not-prose rounded-2xl border border-zinc-950/10 dark:border-white/10 p-4 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-base font-semibold text-zinc-950 dark:text-white">Navigation builder</div>
+        <div className="flex items-center gap-3">
           {root.childDivision ? (
             <button type="button" onClick={reset} className={subtleButtonClasses}>
               Start over
             </button>
           ) : null}
+          <div
+            role="tablist"
+            aria-label="Navigation builder view"
+            onKeyDown={onTabKeyDown}
+            className="flex items-center gap-1 p-0.5 rounded-lg bg-zinc-950/5 dark:bg-white/10"
+          >
+            {PANELS.map((panel) => {
+              const selected = activePanel === panel.id
+              return (
+                <button
+                  key={panel.id}
+                  id={`navigation-builder-tab-${panel.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls={`navigation-builder-panel-${panel.id}`}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setActivePanel(panel.id)}
+                  className={`px-2.5 py-1 text-sm rounded-md transition-colors ${
+                    selected
+                      ? "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white font-medium shadow-sm"
+                      : "text-zinc-950/60 dark:text-white/60 hover:text-zinc-950 dark:hover:text-white"
+                  } ${panel.id === "json" ? "font-mono" : ""}`}
+                >
+                  {panel.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
-        {renderChildren(root)}
       </div>
-      {root.childDivision ? (
-        <CodeBlockComponent language="json" filename="docs.json">
-          {output}
-        </CodeBlockComponent>
-      ) : null}
+      <div
+        id={`navigation-builder-panel-${activePanel}`}
+        role="tabpanel"
+        aria-labelledby={`navigation-builder-tab-${activePanel}`}
+      >
+        {activePanel === "editor" ? (
+          renderChildren(root)
+        ) : root.childDivision ? (
+          <CodeBlockComponent language="json" filename="docs.json">
+            {output}
+          </CodeBlockComponent>
+        ) : (
+          <div className="text-sm text-zinc-950/70 dark:text-white/70">
+            Choose a root element in the editor to generate JSON.
+          </div>
+        )}
+      </div>
     </div>
   )
 }
