@@ -7,7 +7,7 @@ description: Review and edit Mintlify documentation against the house style guid
 
 `style-guide/` holds the rules for this repo's docs. This skill doesn't repeat them. It describes the order to apply them in.
 
-Before you review anything, read `style-guide/README.md` and every file it lists. Don't work from memory of the guide or a summary of it.
+Before you review anything, read `style-guide/README.md` and every file it lists. Don't work from memory of the guide or a summary of it. If you don't have a local checkout, read the files from the `mintlify` project with the Mintlify Admin MCP `read` tool.
 
 ## Check facts against the product
 
@@ -22,7 +22,7 @@ If you can't verify a fact, list it under areas of uncertainty in your report. N
 
 Review your own drafts the same way you review anyone else's. Cut first, then check the structure, then the sentences. Rewriting a sentence is wasted work if the sentence shouldn't be on the page.
 
-1. **Lint.** Run `vale` on the changed files, `mint broken-links`, and `mint a11y`. A clean Vale run doesn't mean the page follows the guide.
+1. **Lint.** If you have a shell, run `vale` on the changed files, `mint broken-links`, and `mint a11y`. If you don't, fix any validation errors your edits return. Either way, a clean run doesn't mean the page follows the guide.
 2. **Cut what the reader won't act on.** Read the page one paragraph at a time and apply "Leave out what the reader won't act on" in `style-guide/content-strategy.md`. Apply it to existing content, other people's content, and your own draft. No other step catches this, and restructuring a sentence that should be cut makes the page longer.
 3. **Check the structure** against `style-guide/content-strategy.md`: page structure, prerequisites, where content goes, and duplication.
 4. **Check every sentence** against `style-guide/voice-and-tone.md`. Take the "Clear sentences" rules one heading at a time, and check every sentence on the page against that rule before you move to the next one. Then check "Phrases to cut" and "AI-writing tells."
