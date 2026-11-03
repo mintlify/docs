@@ -1,0 +1,256 @@
+---
+title: "Use Mintlify as a knowledge graph for your codebase"
+sidebarTitle: "Codebase knowledge graph"
+description: "Generate documentation for your repositories with a coding agent, keep it current with automations, and give AI agents access to it through MCP."
+keywords: ["knowledge graph", "codebase documentation", "internal documentation", "MCP", "automations", "coding agent", "multi-repo", "agent context"]
+---
+
+A codebase knowledge graph is a Mintlify project that describes your code: what each repository does, the services and APIs it exposes, how repositories depend on each other, and how to work in each one. Agents query it through MCP before they write or change code, so they work from an accurate picture of your systems instead of guessing.
+
+You don't need existing documentation or a migration to build one. A coding agent generates the first version from your source code, automations update it when code changes, and the [search MCP server](/ai/model-context-protocol) serves it to any agent your team uses.
+
+The setup has three steps:
+
+1. [Generate the initial knowledge graph](#step-1-generate-the-initial-knowledge-graph) with your coding agent.
+2. [Set up automations](#step-2-keep-the-knowledge-graph-current) to keep it current.
+3. [Use the knowledge graph through MCP](#step-3-use-the-knowledge-graph-through-mcp).
+
+## Prerequisites
+
+- A Mintlify project connected to a Git repository. This is the central hub repository that holds the knowledge graph. It can start empty. If you don't have a project yet, see the [Quickstart](/quickstart).
+- The [Mintlify GitHub App](/deploy/github) installed on the hub repository and on every source repository you want to document.
+- An [Enterprise plan](https://mintlify.com/pricing?ref=knowledge-graph) for [custom automations](/automations/create).
+- A coding agent such as [Claude Code](/guides/claude-code), [Codex](/guides/codex), or [Cursor](/guides/cursor).
+
+<Tip>
+  If the knowledge graph should only be visible to your team, set up [authentication](/deploy/authentication-setup) on the project. The search MCP server then requires each user to log in and only returns content they have access to.
+</Tip>
+
+## Plan the structure
+
+Keep every repository's documentation in one hub project rather than a separate site per repository. A single project gives agents one MCP server to query and lets pages link across repositories.
+
+Give each repository its own group, and add an overview section that explains how the repositories fit together.
+
+```json docs.json
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Overview",
+        "pages": ["index", "architecture", "glossary"]
+      },
+      {
+        "group": "Web app",
+        "pages": ["repos/web-app/index", "repos/web-app/local-development", "repos/web-app/routing"]
+      },
+      {
+        "group": "API service",
+        "pages": ["repos/api-service/index", "repos/api-service/endpoints", "repos/api-service/data-model"]
+      },
+      {
+        "group": "API gateway",
+        "pages": ["repos/api-gateway/index", "repos/api-gateway/auth"]
+      }
+    ]
+  }
+}
+```
+
+Each repository section should answer the questions an agent asks before it changes code:
+
+- **Purpose**: What the repository does and who owns it.
+- **Interfaces**: Endpoints, events, packages, or other services it exposes.
+- **Dependencies**: Which repositories and services it calls, and which call it.
+- **Data**: Key models, schemas, and where the data lives.
+- **Working in the repository**: How to run, test, and deploy it, plus conventions a contributor needs to follow.
+
+Start with a few representative repositories, such as one frontend, one backend, and one shared service. Confirm the structure works for them before you add the rest.
+
+## Step 1: Generate the initial knowledge graph
+
+Use a coding agent with local access to your source code to write the first version of each repository's documentation.
+
+<Steps>
+  <Step title="Set up your coding agent">
+    Clone the hub repository and your source repositories into the same parent directory so the agent can read all of them.
+
+    ```bash
+    mkdir knowledge-graph && cd knowledge-graph
+    git clone https://github.com/your-org/docs-hub.git
+    git clone https://github.com/your-org/web-app.git
+    git clone https://github.com/your-org/api-service.git
+    git clone https://github.com/your-org/api-gateway.git
+    ```
+
+    From the hub repository, run [`mint agent setup`](/cli/commands#mint-agent-setup) to install the Mintlify skill and connect the [admin MCP server](/ai/mintlify-mcp) to Claude Code, Codex, or Cursor. The skill gives the agent context on Mintlify components, `docs.json`, and writing standards.
+
+    ```bash
+    cd docs-hub
+    mint agent setup
+    ```
+  </Step>
+  <Step title="Generate documentation for one repository">
+    Start your agent in the parent directory and give it a prompt that names the source repository, the target folder, and the questions each page must answer.
+
+    ```text Example prompt
+    Read the source code in ../api-service and write documentation for it in
+    docs-hub/repos/api-service/.
+
+    Create these pages:
+    - index.mdx: what the service does, who owns it, and how it fits into the
+      rest of the system
+    - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
+      response shape, based on the route definitions
+    - data-model.mdx: the main models and database tables
+    - local-development.mdx: how to install, run, and test the service
+
+    For each page, list the other repositories this service calls or is called
+    by, and link to their pages under docs-hub/repos/.
+
+    Only document what you can confirm from the code. If something is unclear,
+    leave a TODO comment instead of guessing.
+
+    Add the new pages to docs-hub/docs.json in a group named "API service".
+    ```
+
+    Review the output, fix anything the agent got wrong, and run `mint dev` from the hub repository to preview the pages.
+  </Step>
+  <Step title="Repeat for each repository">
+    Run the same prompt for your other representative repositories, changing the repository name and page list. Then ask the agent to write the overview pages from the repository pages it created.
+
+    ```text Example prompt
+    Read every page under docs-hub/repos/ and write docs-hub/architecture.mdx.
+    Describe how the repositories depend on each other, which services call
+    which, and how a request moves through the system. Link to the repository
+    pages for details.
+    ```
+  </Step>
+  <Step title="Publish the hub">
+    Commit the pages to the hub repository and open a pull request. When it merges, Mintlify deploys the knowledge graph and indexes it for search and MCP.
+  </Step>
+</Steps>
+
+<Tip>
+  Save the prompts that worked as a [custom skill](/ai/skillmd#custom-skill-files) or an `AGENTS.md` file in the hub repository. Anyone adding a new repository later gets the same page structure.
+</Tip>
+
+## Step 2: Keep the knowledge graph current
+
+A knowledge graph is only useful while it matches the code. Create a [custom automation](/automations/create) with a code change trigger so the agent updates the documentation whenever a pull request merges in a source repository.
+
+<Steps>
+  <Step title="Create the automation">
+    1. Open your [Automations](https://app.mintlify.com/settings/project/automations) settings.
+    2. Click **New automation**.
+    3. Select the **Code change** trigger.
+    4. Click **Add repo** for each source repository you documented in step 1. One automation can listen to up to 50 repositories.
+  </Step>
+  <Step title="Filter the trigger">
+    Under **Show advanced options** on each repository card, narrow when the automation runs:
+
+    - **Listening to changes in**: Only run for pull requests that touch source paths, such as `src/**`, so changes to tests or CI configuration don't trigger an update.
+    - **Excluding PRs from**: Skip pull requests from bots, such as dependency update accounts.
+
+    See [Filter code change triggers](/automations/manage#filter-code-change-triggers) for details.
+  </Step>
+  <Step title="Write the instructions">
+    Tell the agent how source repositories map to pages in the hub and what to change.
+
+    ```text Example instructions
+    1. Read the merged pull request diff from the trigger repository.
+    2. Find the matching folder under /repos/ in this project. The folder name
+       matches the repository name.
+    3. Identify changes to endpoints, events, data models, dependencies on
+       other repositories, or setup steps.
+    4. Update the affected pages in that folder. If the change affects how
+       repositories depend on each other, also update /architecture.mdx.
+    5. If the pull request doesn't change anything the documentation covers,
+       make no changes.
+    6. Open a pull request that lists the pages you changed and links to the
+       source pull request.
+    ```
+
+    See [Use automations](/guides/use-automations#write-effective-instructions) for more guidance on writing instructions.
+  </Step>
+  <Step title="Choose an update mode">
+    - **Modify and wait for review**: The agent opens a pull request in the hub repository and assigns the authors of the source change as reviewers. Start here while you tune the instructions.
+    - **Update and merge changes**: Changes merge without review. Switch to this once the results are consistent. If your hub repository has branch protection, see [Configure automerge](/guides/configure-automerge).
+  </Step>
+  <Step title="Test the automation">
+    Save the automation and [run it manually](/automations/manage#run-an-automation-manually) against a recent pull request. Check the [run history](/automations/manage#view-run-history) to confirm the agent changed the right pages, then refine the instructions if needed.
+  </Step>
+</Steps>
+
+To add a repository later, generate its pages with your coding agent as in step 1, then add the repository to the automation's trigger.
+
+<Note>
+  Each automation run that updates the knowledge graph uses credits. Runs that find nothing to update cost nothing. To batch changes from busy repositories, use a custom schedule trigger instead and have the agent review pull requests merged since the last run. See [Control credit usage](/guides/use-automations#control-credit-usage).
+</Note>
+
+## Step 3: Use the knowledge graph through MCP
+
+Mintlify hosts a [search MCP server](/ai/model-context-protocol) for every project. Connect it to the agents your team uses so they can search the knowledge graph and read full pages while they work.
+
+Your MCP server URL is the `/mcp` path of your site URL, for example `https://docs.your-company.com/mcp`. If your project requires authentication, use the `/authed/mcp` path and [enable authenticated MCP](/ai/model-context-protocol#enable-authenticated-mcp) first.
+
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http knowledge-graph https://docs.your-company.com/mcp
+    ```
+  </Tab>
+  <Tab title="Codex">
+    ```bash
+    codex mcp add knowledge-graph --url https://docs.your-company.com/mcp
+    ```
+  </Tab>
+  <Tab title="Cursor">
+    Add the server to `.cursor/mcp.json` in your project, or `~/.cursor/mcp.json` for all projects.
+
+    ```json .cursor/mcp.json
+    {
+      "mcpServers": {
+        "knowledge-graph": {
+          "url": "https://docs.your-company.com/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+See [Use your MCP server](/ai/model-context-protocol#use-your-mcp-server) for other clients.
+
+To make agents check the knowledge graph without being asked, add an instruction to the `CLAUDE.md`, `AGENTS.md`, or Cursor rules file in each source repository.
+
+```markdown AGENTS.md
+Before changing code that calls another service or repository, search the
+knowledge-graph MCP server for that service. Use its documented endpoints,
+data models, and conventions instead of guessing.
+```
+
+Agents can then answer questions such as:
+
+- Which services call the API gateway, and what headers do they send?
+- What do I need to change in other repositories if I rename this field?
+- How do I run the API service locally?
+
+When an agent finds a page that is wrong or outdated, it can report it with the MCP server's feedback tool. Reports appear in your [feedback](/optimize/feedback) dashboard, so you can see which parts of the knowledge graph need attention.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Automations" icon="bot" href="/automations">
+    Learn about trigger types, update modes, and usage limits.
+  </Card>
+  <Card title="Search MCP server" icon="plug" href="/ai/model-context-protocol">
+    Configure indexing, authentication, and client credentials for your MCP server.
+  </Card>
+  <Card title="Skills" icon="sparkles" href="/ai/skillmd">
+    Teach agents how to use your knowledge graph with skill files.
+  </Card>
+  <Card title="Authentication" icon="lock" href="/deploy/authentication-setup">
+    Restrict the knowledge graph to your team.
+  </Card>
+</CardGroup>
