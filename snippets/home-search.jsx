@@ -1,5 +1,5 @@
 // A search field for the home page. It opens the site's own search dialog
-// through the documented `data-search-item="trigger"` hook, so readers get
+// through the `data-search-item="trigger"` hook, so readers get
 // the same results and assistant handoff as the navbar search. If no
 // trigger is visible, it falls back to the `?search=` URL parameter.
 // Tokens come from home.css, so this only renders correctly inside
