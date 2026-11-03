@@ -41,7 +41,9 @@ Rules:
 | `parse-error` | `content` | error | no | no | Files MDX can't parse. Always runs; other rules skip these files. |
 | `void-tags` | `content` | error | no | yes | Lowercase HTML void elements (`<br>`, `<img>`, `<source>`, `<input>`, …) that aren't self-closed. Components such as `<Source />` aren't flagged. |
 | `duplicate-h1` | `content` | warning | no | yes | A page's first heading is an H1 that repeats the frontmatter `title`. Skipped when `mode` is `custom` or `frame`. Not auto-fixed when the heading has a custom `{#id}` or links point to its anchor. |
-| `unknown-component` | `content` | warning | no | yes | JSX components on a page that aren't built in, imported, or exported. The fix adds an import when `snippets/<Name>.jsx` or `.tsx` exists. |
+| `unknown-component` | `content` | error | no | yes | JSX components on a page that aren't built in, imported, or exported. The fix adds an import when `snippets/<Name>.jsx` or `.tsx` exists. |
+| `undefined-variable` | `content` | error | no | no | `{{variableName}}` placeholders in pages and snippets that `docs.json` `variables` doesn't define. Code is skipped. |
+| `missing-snippet` | `content` | error | no | no | `<Snippet file="...">` tags whose snippet file doesn't exist, after Mintlify replaces any `docs.json` variables in the path. |
 | `katex` | `content` | warning | no | no | Math KaTeX can't render. Currency amounts such as `$5` are ignored. |
 | `foreign-syntax` | `content` | warning | no | no | Syntax from other docs frameworks that Mintlify doesn't render: GitBook/Liquid tags, Hugo shortcodes, `:::` admonitions, MkDocs `!!!` admonitions, Kramdown `{: }` attributes, `[[wiki links]]`, ReadMe `doc:` links, and `@site/` paths. Each finding names the Mintlify replacement. Runs on files MDX can't parse. |
 | `missing-file` | `content` | error | yes | no | Imported files that don't exist. |
