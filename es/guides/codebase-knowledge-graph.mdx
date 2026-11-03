@@ -1,0 +1,675 @@
+---
+title: "Usa Mintlify como grafo de conocimiento de tu código"
+sidebarTitle: "Grafo de conocimiento del código"
+description: "Genera documentación para tus repositorios con un agente, mantenla actualizada con automatizaciones y da acceso a ella a los agentes de IA mediante MCP."
+keywords: ["grafo de conocimiento", "documentación del código", "documentación interna", "MCP", "automatizaciones", "agente de programación", "múltiples repositorios", "contexto para agentes"]
+---
+
+Un grafo de conocimiento del código es un proyecto de Mintlify que describe tu código: qué hace cada repositorio, qué expone y cómo dependen los repositorios entre sí. Los agentes lo consultan mediante MCP antes de modificar el código.
+
+No necesitas documentación existente ni una migración. La configuración consta de tres pasos:
+
+1. [Genera el grafo de conocimiento inicial](#step-1-generate-the-initial-knowledge-graph) con el agente de Mintlify o con tu propio agente de programación.
+2. [Configura automatizaciones](#step-2-keep-the-knowledge-graph-current) para mantenerlo actualizado.
+3. [Usa el grafo de conocimiento mediante MCP](#step-3-use-the-knowledge-graph-through-mcp).
+
+<KgPipeline />
+
+<Note>
+  Los repositorios, las pull requests y las respuestas de los ejemplos de esta página son datos de muestra.
+</Note>
+
+<div id="prerequisites">
+  ## Requisitos previos
+</div>
+
+- Un proyecto de Mintlify conectado a un repositorio de Git. Este repositorio central contiene el grafo de conocimiento y puede empezar vacío. Consulta la [Guía rápida](/es/quickstart).
+- La [GitHub App de Mintlify](/es/deploy/github) instalada en el repositorio central y en cada repositorio de origen que quieras documentar.
+- Un [plan Enterprise](https://mintlify.com/pricing?ref=knowledge-graph) para las [automatizaciones personalizadas](/es/automations/create).
+- El [agente de Mintlify](/es/agent/index) o un agente de programación como [Claude Code](/es/guides/claude-code), [Codex](/es/guides/codex) o [Cursor](/es/guides/cursor).
+
+<Tip>
+  Para mantener privado el grafo de conocimiento, configura la [autenticación](/es/deploy/authentication-setup). Así, el servidor MCP de búsqueda requerirá que cada usuario inicie sesión.
+</Tip>
+
+<div id="plan-the-structure">
+  ## Planifica la estructura
+</div>
+
+Coloca todos los repositorios en un único proyecto central, para que los agentes consulten un solo servidor MCP y las páginas puedan enlazarse entre repositorios. Asigna a cada repositorio su propio grupo, además de una sección de descripción general.
+
+```json docs.json
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Overview",
+        "pages": ["index", "architecture", "glossary"]
+      },
+      {
+        "group": "Web app",
+        "pages": ["repos/web-app/index", "repos/web-app/local-development", "repos/web-app/routing"]
+      },
+      {
+        "group": "API service",
+        "pages": ["repos/api-service/index", "repos/api-service/endpoints", "repos/api-service/data-model"]
+      },
+      {
+        "group": "API gateway",
+        "pages": ["repos/api-gateway/index", "repos/api-gateway/auth"]
+      }
+    ]
+  }
+}
+```
+
+La sección de cada repositorio debe cubrir lo que un agente necesita saber antes de modificar el código: qué hace el repositorio y quién es responsable de él, los endpoints o eventos que expone, a qué llama y qué lo llama, sus modelos de datos principales y cómo ejecutarlo y probarlo.
+
+<KgHubExplorer />
+
+Empieza con unos pocos repositorios representativos, como un frontend, un backend y un servicio compartido, antes de añadir el resto.
+
+<div id="step-1-generate-the-initial-knowledge-graph">
+  ## Paso 1: Genera el grafo de conocimiento inicial
+</div>
+
+Haz que un agente lea tu código fuente y escriba las primeras páginas en el repositorio central. Usa el agente de Mintlify, o clona los repositorios y ejecuta tu propio agente de programación.
+
+<Tabs>
+  <Tab title="Agente de Mintlify">
+    El [agente de Mintlify](/es/agent/index) lee cualquier repositorio que tenga instalada la GitHub App de Mintlify, así que no necesitas clonar nada.
+
+    <Steps>
+      <Step title="Conecta tus repositorios de origen">
+        Instala la [GitHub App de Mintlify](https://github.com/apps/mintlify/installations/new) en cada repositorio de origen que quieras documentar. Consulta [Conectar repositorios como contexto](/es/agent/index#connect-repositories-as-context).
+      </Step>
+      <Step title="Genera la documentación de un repositorio">
+        Abre el agente en tu [dashboard](https://app.mintlify.com) o en [Slack](/es/agent/slack) e indica el repositorio de origen, la carpeta de destino y las páginas que debe escribir.
+
+        ```text Example prompt
+        Read the source code in the your-org/api-service repository and write
+        documentation for it in repos/api-service/.
+
+        Create these pages:
+        - index.mdx: what the service does, who owns it, and how it fits into the
+          rest of the system
+        - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
+          response shape, based on the route definitions
+        - data-model.mdx: the main models and database tables
+        - local-development.mdx: how to install, run, and test the service
+
+        For each page, list the other repositories this service calls or is called
+        by, and link to their pages under repos/.
+
+        Only document what you can confirm from the code. If something is unclear,
+        leave a TODO comment instead of guessing.
+
+        Add the new pages to docs.json in a group named "API service".
+        ```
+
+        El agente abre una pull request en el repositorio central. Revísala y corrige cualquier error que haya cometido el agente.
+      </Step>
+      <Step title="Repite el proceso para cada repositorio">
+        Repite el proceso con tus otros repositorios y, después, pide al agente las páginas de descripción general.
+
+        ```text Example prompt
+        Read every page under repos/ and write architecture.mdx. Describe how the
+        repositories depend on each other, which services call which, and how a
+        request moves through the system. Link to the repository pages for details.
+        ```
+      </Step>
+      <Step title="Fusiona las pull requests">
+        Cuando se fusionan las pull requests, Mintlify despliega el grafo de conocimiento y lo indexa para la búsqueda y MCP.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Clonar y hacer push">
+    Ejecuta Claude Code, Codex o Cursor sobre clones locales y, después, haz push de las páginas al repositorio central.
+
+    <Steps>
+      <Step title="Configura tu agente de programación">
+        Clona el repositorio central y los repositorios de origen en un mismo directorio principal.
+
+        ```bash
+        mkdir knowledge-graph && cd knowledge-graph
+        git clone https://github.com/your-org/docs-hub.git
+        git clone https://github.com/your-org/web-app.git
+        git clone https://github.com/your-org/api-service.git
+        git clone https://github.com/your-org/api-gateway.git
+        ```
+
+        Desde el repositorio central, ejecuta [`mint agent setup`](/es/cli/commands#mint-agent-setup) para instalar la skill de Mintlify y conectar el [servidor MCP de administración](/es/ai/mintlify-mcp).
+
+        ```bash
+        cd docs-hub
+        mint agent setup
+        ```
+      </Step>
+      <Step title="Genera la documentación de un repositorio">
+        Inicia tu agente en el directorio principal e indica el repositorio de origen, la carpeta de destino y las páginas que debe escribir.
+
+        ```text Example prompt
+        Read the source code in ../api-service and write documentation for it in
+        docs-hub/repos/api-service/.
+
+        Create these pages:
+        - index.mdx: what the service does, who owns it, and how it fits into the
+          rest of the system
+        - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
+          response shape, based on the route definitions
+        - data-model.mdx: the main models and database tables
+        - local-development.mdx: how to install, run, and test the service
+
+        For each page, list the other repositories this service calls or is called
+        by, and link to their pages under docs-hub/repos/.
+
+        Only document what you can confirm from the code. If something is unclear,
+        leave a TODO comment instead of guessing.
+
+        Add the new pages to docs-hub/docs.json in a group named "API service".
+        ```
+
+        Revisa el resultado, corrige cualquier error que haya cometido el agente y ejecuta `mint dev` desde el repositorio central para previsualizar las páginas.
+      </Step>
+      <Step title="Repite el proceso para cada repositorio">
+        Repite el proceso con tus otros repositorios y, después, pide al agente las páginas de descripción general.
+
+        ```text Example prompt
+        Read every page under docs-hub/repos/ and write docs-hub/architecture.mdx.
+        Describe how the repositories depend on each other, which services call
+        which, and how a request moves through the system. Link to the repository
+        pages for details.
+        ```
+      </Step>
+      <Step title="Haz push al repositorio central">
+        Haz commit de las páginas, haz push al repositorio central y abre una pull request. Cuando se fusione, Mintlify desplegará el grafo de conocimiento y lo indexará para la búsqueda y MCP.
+
+        ```bash
+        git checkout -b initial-knowledge-graph
+        git add repos architecture.mdx docs.json
+        git commit -m "Add initial knowledge graph"
+        git push -u origin initial-knowledge-graph
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+<Tip>
+  Guarda los prompts que te hayan funcionado como una [skill personalizada](/es/ai/skillmd#custom-skill-files) o en un archivo `AGENTS.md` en el repositorio central. Así, quien añada un repositorio nuevo más adelante obtendrá la misma estructura de páginas.
+</Tip>
+
+<div id="step-2-keep-the-knowledge-graph-current">
+  ## Paso 2: Mantén actualizado el grafo de conocimiento
+</div>
+
+Crea una [automatización personalizada](/es/automations/create) con un activador de cambio de código para que el agente actualice el repositorio central cada vez que se fusione una pull request en un repositorio de origen.
+
+<Steps>
+  <Step title="Crea la automatización">
+    1. Abre la configuración de [Automatizaciones](https://app.mintlify.com/settings/project/automations).
+    2. Haz clic en **New automation**.
+    3. Selecciona el activador **Code change**.
+    4. Haz clic en **Add repo** para cada repositorio de origen que documentaste en el paso 1. Una automatización puede escuchar hasta 50 repositorios.
+  </Step>
+  <Step title="Filtra el activador">
+    En **Show advanced options** de la tarjeta de cada repositorio, configura **Listening to changes in** con rutas de código fuente como `src/**` y usa **Excluding PRs from** para omitir bots. Consulta [Filtrar activadores de cambio de código](/es/automations/manage#filter-code-change-triggers).
+  </Step>
+  <Step title="Escribe las instrucciones">
+    Indica al agente cómo se corresponden los repositorios con las páginas del repositorio central y qué debe cambiar.
+
+    ```text Example instructions
+    1. Read the merged pull request diff from the trigger repository.
+    2. Find the matching folder under /repos/ in this project. The folder name
+       matches the repository name.
+    3. Identify changes to endpoints, events, data models, dependencies on
+       other repositories, or setup steps.
+    4. Update the affected pages in that folder. If the change affects how
+       repositories depend on each other, also update /architecture.mdx.
+    5. If the pull request doesn't change anything the documentation covers,
+       make no changes.
+    6. Open a pull request that lists the pages you changed and links to the
+       source pull request.
+    ```
+
+  </Step>
+  <Step title="Elige un modo de actualización">
+    Empieza con **Modify and wait for review**, que abre una pull request y asigna como revisores a los autores del cambio de origen. Cambia a **Update and merge changes** cuando los resultados sean consistentes. Si usas protección de ramas, consulta [Configurar la fusión automática](/es/guides/configure-automerge).
+  </Step>
+  <Step title="Prueba la automatización">
+    Guárdala y [ejecútala manualmente](/es/automations/manage#run-an-automation-manually); después, revisa el [historial de ejecuciones](/es/automations/manage#view-run-history) y ajusta las instrucciones.
+  </Step>
+</Steps>
+
+Este simulador usa una automatización que escucha `src/**` en los tres repositorios de ejemplo y excluye a `dependabot[bot]`.
+
+<KgTriggerSimulator />
+
+Para añadir un repositorio más adelante, genera sus páginas como en el paso 1 y, después, añádelo al activador.
+
+Cada ejecución que actualiza el repositorio central consume créditos, y las ejecuciones que no cambian nada son gratuitas. En repositorios con mucha actividad, un activador programado agrupa muchas fusiones en una sola ejecución. Consulta [Controlar el uso de créditos](/es/guides/use-automations#control-credit-usage).
+
+<KgCreditEstimator />
+
+<Note>
+  La estimación supone que cada fusión cambia código documentado, por lo que el uso real probablemente sea menor.
+</Note>
+
+<div id="step-3-use-the-knowledge-graph-through-mcp">
+  ## Paso 3: Usa el grafo de conocimiento mediante MCP
+</div>
+
+Cada proyecto tiene un [servidor MCP de búsqueda](/es/ai/model-context-protocol) alojado en la ruta `/mcp` de la URL de tu sitio. Si usas autenticación, utiliza `/authed/mcp` y, antes, [habilita el MCP autenticado](/es/ai/model-context-protocol#enable-authenticated-mcp).
+
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http knowledge-graph https://docs.your-company.com/mcp
+    ```
+  </Tab>
+  <Tab title="Codex">
+    ```bash
+    codex mcp add knowledge-graph --url https://docs.your-company.com/mcp
+    ```
+  </Tab>
+  <Tab title="Cursor">
+    Añade el servidor a `.cursor/mcp.json` en tu proyecto, o a `~/.cursor/mcp.json` para todos los proyectos.
+
+    ```json .cursor/mcp.json
+    {
+      "mcpServers": {
+        "knowledge-graph": {
+          "url": "https://docs.your-company.com/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+Consulta [Usar tu servidor MCP](/es/ai/model-context-protocol#use-your-mcp-server) para otros clientes.
+
+Para que los agentes lo consulten sin que se lo pidas, añade una línea al archivo `CLAUDE.md`, `AGENTS.md` o de reglas de Cursor en cada repositorio de origen.
+
+```markdown AGENTS.md
+Before changing code that calls another service or repository, search the
+knowledge-graph MCP server for that service. Use its documented endpoints,
+data models, and conventions instead of guessing.
+```
+
+Así es como un agente usa las herramientas de MCP para responder preguntas sobre tu código:
+
+<KgMcpReplay />
+
+Cuando un agente encuentra una página incorrecta, puede informar de ello con la herramienta de comentarios. Los informes aparecen en tu dashboard de [comentarios](/es/optimize/feedback).
+
+<div id="next-steps">
+  ## Próximos pasos
+</div>
+
+<CardGroup cols={2}>
+  <Card title="Automatizaciones" icon="bot" href="/es/automations">
+    Conoce los tipos de activadores, los modos de actualización y los límites de uso.
+  </Card>
+  <Card title="Servidor MCP de búsqueda" icon="plug" href="/es/ai/model-context-protocol">
+    Configura la indexación, la autenticación y las credenciales de cliente de tu servidor MCP.
+  </Card>
+  <Card title="Skills" icon="sparkles" href="/es/ai/skillmd">
+    Enseña a los agentes a usar tu grafo de conocimiento con archivos de skills.
+  </Card>
+  <Card title="Autenticación" icon="lock" href="/es/deploy/authentication-setup">
+    Restringe el grafo de conocimiento a tu equipo.
+  </Card>
+</CardGroup>
+
+export const KgTheme = {
+  accent: "#26BD6C",
+  accentSoft: "rgba(38,189,108,.12)",
+  border: "rgba(127,127,127,.25)",
+  surface: "rgba(127,127,127,.06)",
+  warn: "#D97706",
+  warnSoft: "rgba(217,119,6,.12)",
+};
+
+export const KgFrame = ({ children, title, caption }) => (
+  <div className="not-prose" style={{ border: `1px solid ${KgTheme.border}`, borderRadius: 14, padding: 16, display: "grid", gap: 14, width: "100%", fontSize: 14, color: "inherit" }}>
+    {title ? (
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontWeight: 600 }}>{title}</div>
+        {caption ? <div style={{ fontSize: 12, opacity: 0.65 }}>{caption}</div> : null}
+      </div>
+    ) : null}
+    {children}
+  </div>
+);
+
+export const KgButton = ({ children, onClick, disabled, pressed, label }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-label={label}
+    aria-pressed={pressed}
+    style={{
+      padding: "6px 12px", borderRadius: 8, font: "inherit", fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.45 : 1, color: "inherit",
+      border: `1px solid ${pressed ? KgTheme.accent : "rgba(127,127,127,.35)"}`,
+      background: pressed ? KgTheme.accentSoft : "transparent",
+    }}
+  >
+    {children}
+  </button>
+);
+
+export const KgPipeline = () => {
+  const stages = [
+    { name: "Repositorios de origen", tag: "Tu código", detail: "Los repositorios de tus aplicaciones, servicios y bibliotecas. Nada en ellos se mueve ni cambia. El agente y las automatizaciones solo los leen." },
+    { name: "Agente", tag: "Paso 1", detail: "El agente de Mintlify, o Claude Code, Codex o Cursor sobre clones locales, lee cada repositorio de origen y escribe la primera versión de sus páginas en el repositorio central. Revisas la pull request antes de fusionarla." },
+    { name: "Proyecto central", tag: "Mintlify", detail: "Un único proyecto de Mintlify contiene las páginas de todos los repositorios, con un grupo por repositorio y una sección de descripción general. Cada fusión despliega el sitio y lo indexa para la búsqueda y MCP." },
+    { name: "Automatización", tag: "Paso 2", detail: "Cuando se fusiona una pull request en un repositorio de origen, una automatización de cambio de código ejecuta el agente. Este actualiza las páginas afectadas y abre una pull request en el repositorio central, o fusiona los cambios directamente." },
+    { name: "Servidor MCP de búsqueda", tag: "Paso 3", detail: "Mintlify aloja un servidor MCP en /mcp, o en /authed/mcp para sitios con autenticación. Expone herramientas para buscar en el grafo de conocimiento, leer páginas y enviar comentarios." },
+    { name: "Tus agentes", tag: "Consumidores", detail: "Los agentes de programación conectados al servidor MCP consultan servicios, endpoints y convenciones antes de modificar el código, e informan de las páginas incorrectas." },
+  ];
+  const [active, setActive] = useState(0);
+  const loopActive = active === 3;
+  return (
+    <KgFrame title="Cómo funciona un grafo de conocimiento del código" caption={`Etapa ${active + 1} de ${stages.length}`}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+        {stages.map((stage, i) => {
+          const isActive = i === active;
+          return (
+            <button
+              key={stage.name}
+              type="button"
+              onClick={() => { setActive(i); }}
+              aria-current={isActive ? "step" : undefined}
+              style={{
+                textAlign: "left", padding: 10, borderRadius: 10, font: "inherit", color: "inherit", cursor: "pointer", minWidth: 0,
+                border: isActive ? `2px solid ${KgTheme.accent}` : `1px solid ${KgTheme.border}`,
+                background: isActive ? KgTheme.accentSoft : i < active ? KgTheme.surface : "transparent",
+                opacity: i > active ? 0.6 : 1, transition: "background .25s, opacity .25s",
+              }}
+            >
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", opacity: 0.7 }}>{stage.tag}</div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{stage.name}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, opacity: loopActive ? 1 : 0.55, transition: "opacity .25s" }}>
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <path d="M3 9a6 6 0 0 1 10.5-4M15 9a6 6 0 0 1-10.5 4" fill="none" stroke={loopActive ? KgTheme.accent : "currentColor"} strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M13.8 1.8v3.4h-3.4M4.2 16.2v-3.4h3.4" fill="none" stroke={loopActive ? KgTheme.accent : "currentColor"} strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        <span>La automatización vuelve a ejecutarse con cada pull request fusionada, de modo que el repositorio central se mantiene sincronizado con los repositorios de origen.</span>
+      </div>
+      <p style={{ margin: 0, lineHeight: 1.55, minHeight: 66 }}>{stages[active].detail}</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <KgButton onClick={() => { setActive(active - 1); }} disabled={active === 0}>Atrás</KgButton>
+        <KgButton onClick={() => { setActive(active + 1); }} disabled={active === stages.length - 1}>Siguiente</KgButton>
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgHubExplorer = () => {
+  const repos = {
+    overview: { label: "Descripción general", x: 260, y: 40, pages: ["index", "architecture", "glossary"], purpose: "Explica cómo encajan los repositorios entre sí. El agente la escribe al final, a partir de las páginas de los repositorios.", calls: [], calledBy: [] },
+    web: { label: "web-app", x: 90, y: 160, pages: ["repos/web-app/index", "repos/web-app/local-development", "repos/web-app/routing"], purpose: "El frontend orientado a clientes. Envía todas las solicitudes a la API a través del gateway.", calls: ["gateway"], calledBy: [] },
+    gateway: { label: "api-gateway", x: 260, y: 160, pages: ["repos/api-gateway/index", "repos/api-gateway/auth"], purpose: "Autentica las solicitudes y las enruta a los servicios de backend.", calls: ["api"], calledBy: ["web"] },
+    api: { label: "api-service", x: 430, y: 160, pages: ["repos/api-service/index", "repos/api-service/endpoints", "repos/api-service/data-model"], purpose: "Gestiona los pedidos y las cuentas, y los expone mediante HTTP.", calls: [], calledBy: ["gateway"] },
+  };
+  const edges = [["web", "gateway"], ["gateway", "api"]];
+  const [selected, setSelected] = useState("gateway");
+  const [hover, setHover] = useState(null);
+  const focus = hover || selected;
+  const repo = repos[focus];
+  const related = (key) => key === focus || repos[focus].calls.includes(key) || repos[focus].calledBy.includes(key) || focus === "overview";
+  const names = (keys) => (keys.length ? keys.map((k) => repos[k].label).join(", ") : "Ninguno");
+  return (
+    <KgFrame title="Estructura de ejemplo del repositorio central" caption="Haz clic en un nodo o pasa el cursor sobre él">
+      <svg viewBox="0 0 520 210" style={{ width: "100%", display: "block" }} onMouseLeave={() => setHover(null)} role="group" aria-label="Repositorios del repositorio central y sus dependencias">
+        <defs>
+          <marker id="kg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#8A8A8A" />
+          </marker>
+        </defs>
+        {["web", "gateway", "api"].map((key) => (
+          <line key={`o-${key}`} x1={260} y1={58} x2={repos[key].x} y2={140} stroke="currentColor" strokeOpacity={focus === "overview" ? 0.45 : 0.15} strokeDasharray="3 4" />
+        ))}
+        {edges.map(([from, to]) => {
+          const lit = focus === from || focus === to;
+          return <line key={`${from}-${to}`} x1={repos[from].x + 62} y1={160} x2={repos[to].x - 64} y2={160} stroke={lit ? KgTheme.accent : "currentColor"} strokeOpacity={lit ? 1 : 0.35} strokeWidth={lit ? 2 : 1.4} markerEnd="url(#kg-arrow)" style={{ color: lit ? KgTheme.accent : "currentColor" }} />;
+        })}
+        {Object.entries(repos).map(([key, r]) => {
+          const isFocus = key === focus;
+          return (
+            <g key={key} onMouseEnter={() => setHover(key)} onClick={() => setSelected(key)} style={{ cursor: "pointer" }} tabIndex={0} role="button" aria-label={r.label} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(key); } }}>
+              <rect x={r.x - 62} y={r.y - 18} width={124} height={36} rx={9} fill={isFocus ? KgTheme.accentSoft : "rgba(127,127,127,.08)"} stroke={isFocus ? KgTheme.accent : "currentColor"} strokeOpacity={isFocus ? 1 : 0.3} strokeWidth={isFocus ? 2 : 1} opacity={related(key) ? 1 : 0.45} />
+              <text x={r.x} y={r.y + 4} textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor" opacity={related(key) ? 1 : 0.5} style={{ fontFamily: key === "overview" ? "inherit" : "ui-monospace, monospace" }}>{r.label}</text>
+            </g>
+          );
+        })}
+        <text x={260} y={204} textAnchor="middle" fontSize="10" fill="currentColor" opacity="0.55">Las flechas van del llamador al llamado</text>
+      </svg>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, padding: 12, borderRadius: 10, background: KgTheme.surface }}>
+        <div style={{ minWidth: 0, display: "grid", gap: 6 }}>
+          <div style={{ fontWeight: 600 }}>{repo.label}</div>
+          <div style={{ lineHeight: 1.5, opacity: 0.85 }}>{repo.purpose}</div>
+          {focus !== "overview" ? (
+            <div style={{ fontSize: 13, display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 12px" }}>
+              <span style={{ opacity: 0.6 }}>Llama a</span><span>{names(repo.calls)}</span>
+              <span style={{ opacity: 0.6 }}>Llamado por</span><span>{names(repo.calledBy)}</span>
+            </div>
+          ) : null}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 6 }}>Páginas en docs.json</div>
+          <div style={{ display: "grid", gap: 4 }}>
+            {repo.pages.map((page) => (
+              <code key={page} style={{ fontSize: 12, padding: "3px 8px", borderRadius: 6, border: `1px solid ${KgTheme.border}`, overflowWrap: "anywhere" }}>{page}</code>
+            ))}
+          </div>
+        </div>
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgTriggerSimulator = () => {
+  const prs = [
+    { id: "pagination", repo: "api-service", title: "Añadir paginación a GET /orders", author: "maria", files: ["src/routes/orders.ts", "tests/orders.spec.ts"], documented: true, pages: ["repos/api-service/endpoints.mdx"] },
+    { id: "rename", repo: "api-service", title: "Renombrar customer_id a account_id", author: "dev-lee", files: ["src/models/order.ts", "src/routes/orders.ts"], documented: true, pages: ["repos/api-service/data-model.mdx", "repos/api-service/endpoints.mdx", "repos/api-gateway/auth.mdx", "architecture.mdx"] },
+    { id: "tests", repo: "web-app", title: "Corregir test inestable del checkout", author: "sam", files: ["tests/checkout.spec.ts"], documented: false, pages: [] },
+    { id: "bump", repo: "api-gateway", title: "Actualizar express de 4.19.2 a 4.21.0", author: "dependabot[bot]", files: ["package.json", "package-lock.json"], documented: false, pages: [] },
+    { id: "styles", repo: "web-app", title: "Refactorizar estilos de botones", author: "sam", files: ["src/components/Button.tsx"], documented: false, pages: [] },
+  ];
+  const [prId, setPrId] = useState("rename");
+  const [mode, setMode] = useState("review");
+  const pr = prs.find((p) => p.id === prId);
+  const pathMatch = pr.files.some((f) => f.startsWith("src/"));
+  const authorExcluded = pr.author === "dependabot[bot]";
+  const checks = [
+    { label: "Fusionada en un repositorio del activador", pass: true, note: `${pr.repo} es uno de los repositorios de la automatización.` },
+    { label: "Modifica src/**", pass: pathMatch, note: pathMatch ? `Modificados: ${pr.files.filter((f) => f.startsWith("src/")).join(", ")}` : "Ningún archivo modificado coincide con src/**, así que la automatización no se ejecuta." },
+    { label: "Autor no excluido", pass: !authorExcluded, note: authorExcluded ? "Las pull requests de dependabot[bot] están excluidas." : `${pr.author} no está en la lista de exclusión.` },
+  ];
+  const firstFail = checks.findIndex((c) => !c.pass);
+  const runs = firstFail === -1;
+  const updates = runs && pr.documented;
+  let outcome;
+  if (!runs) outcome = { tone: "skip", head: "Sin ejecución", body: "La automatización no llega a iniciarse, así que no cuesta nada." };
+  else if (!updates) outcome = { tone: "skip", head: "La ejecución no encuentra nada que actualizar", body: "El agente lee el diff, comprueba que no ha cambiado ningún comportamiento documentado y no realiza cambios. Las ejecuciones sin actualizaciones no cuestan nada." };
+  else outcome = { tone: "ok", head: mode === "review" ? "Pull request abierta en el repositorio central" : "Cambios fusionados en el repositorio central", body: mode === "review" ? `El agente actualiza ${pr.pages.length} ${pr.pages.length === 1 ? "página" : "páginas"} y abre una pull request. Se asigna a ${pr.author} como revisor porque es autor del cambio de origen.` : `El agente actualiza ${pr.pages.length} ${pr.pages.length === 1 ? "página" : "páginas"} y las fusiona en la rama de despliegue sin revisión.` };
+  const tone = outcome.tone === "ok" ? { color: KgTheme.accent, bg: KgTheme.accentSoft } : { color: KgTheme.warn, bg: KgTheme.warnSoft };
+  return (
+    <KgFrame title="Simulador del activador de cambio de código" caption="Pull requests de muestra">
+      <div style={{ display: "grid", gap: 6 }}>
+        <div style={{ fontSize: 12, opacity: 0.65 }}>Pull request fusionada</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 6 }}>
+          {prs.map((p) => (
+            <button key={p.id} type="button" onClick={() => setPrId(p.id)} aria-pressed={p.id === prId} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, font: "inherit", color: "inherit", cursor: "pointer", minWidth: 0, border: p.id === prId ? `2px solid ${KgTheme.accent}` : `1px solid ${KgTheme.border}`, background: p.id === prId ? KgTheme.accentSoft : "transparent" }}>
+              <div style={{ fontSize: 12, opacity: 0.7, fontFamily: "ui-monospace, monospace" }}>{p.repo} · {p.author}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{p.title}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 6 }}>
+        {checks.map((c, i) => {
+          const reached = firstFail === -1 || i <= firstFail;
+          const color = !reached ? "currentColor" : c.pass ? KgTheme.accent : KgTheme.warn;
+          return (
+            <div key={c.label} style={{ display: "flex", gap: 10, alignItems: "flex-start", opacity: reached ? 1 : 0.4, transition: "opacity .25s" }}>
+              <span aria-hidden="true" style={{ width: 20, height: 20, borderRadius: 10, flexShrink: 0, display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, color: "#fff", background: reached ? color : "rgba(127,127,127,.35)" }}>{!reached ? "·" : c.pass ? "✓" : "✕"}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{c.label}<span style={{ position: "absolute", left: -9999 }}>{!reached ? " (no comprobado)" : c.pass ? " (se cumple)" : " (se detiene aquí)"}</span></div>
+                {reached ? <div style={{ fontSize: 12, opacity: 0.75, overflowWrap: "anywhere" }}>{c.note}</div> : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, opacity: 0.65 }}>Modo de actualización</span>
+        <KgButton pressed={mode === "review"} onClick={() => setMode("review")}>Modify and wait for review</KgButton>
+        <KgButton pressed={mode === "merge"} onClick={() => setMode("merge")}>Update and merge changes</KgButton>
+      </div>
+      <div aria-live="polite" style={{ borderRadius: 10, padding: 12, background: tone.bg, borderLeft: `3px solid ${tone.color}`, display: "grid", gap: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontWeight: 600 }}>{outcome.head}</span>
+          <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{updates ? "250 créditos" : "0 créditos"}</span>
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>{outcome.body}</div>
+        {updates ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {pr.pages.map((page) => <code key={page} style={{ fontSize: 12, padding: "2px 7px", borderRadius: 6, border: `1px solid ${KgTheme.border}` }}>{page}</code>)}
+          </div>
+        ) : null}
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgCreditEstimator = () => {
+  const schedules = [
+    { id: "daily", label: "Diaria", runs: 7 },
+    { id: "twice", label: "Dos veces por semana", runs: 2 },
+    { id: "weekly", label: "Semanal", runs: 1 },
+  ];
+  const [merges, setMerges] = useState(40);
+  const [scheduleId, setScheduleId] = useState("daily");
+  const schedule = schedules.find((s) => s.id === scheduleId);
+  const perRun = 250;
+  const pushRuns = merges;
+  const scheduledRuns = Math.min(merges, schedule.runs);
+  const push = pushRuns * perRun;
+  const scheduled = scheduledRuns * perRun;
+  const max = Math.max(push, scheduled, perRun);
+  const fmt = (n) => n.toLocaleString("en-US");
+  const bars = [
+    { label: "Activador de cambio de código", runs: pushRuns, credits: push, note: "Una ejecución por cada pull request fusionada" },
+    { label: `Programación ${schedule.label.toLowerCase()}`, runs: scheduledRuns, credits: scheduled, note: `Hasta ${schedule.runs} ${schedule.runs === 1 ? "ejecución" : "ejecuciones"} por semana, cada una agrupando todas las fusiones desde la ejecución anterior` },
+  ];
+  return (
+    <KgFrame title="Estimación semanal de créditos" caption="250 créditos por cada ejecución que actualiza la documentación">
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+          <span style={{ fontWeight: 600 }}>Pull requests fusionadas por semana que cambian código documentado</span>
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{merges}</span>
+        </span>
+        <input type="range" min={0} max={150} step={1} value={merges} onChange={(e) => setMerges(Number(e.target.value))} style={{ width: "100%", accentColor: KgTheme.accent }} />
+      </label>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, opacity: 0.65 }}>Programación para comparar</span>
+        {schedules.map((s) => <KgButton key={s.id} pressed={s.id === scheduleId} onClick={() => setScheduleId(s.id)}>{s.label}</KgButton>)}
+      </div>
+      <div style={{ display: "grid", gap: 12 }}>
+        {bars.map((b) => (
+          <div key={b.label} style={{ display: "grid", gap: 4 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+              <span style={{ fontWeight: 600 }}>{b.label}</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(b.credits)} créditos · {b.runs} {b.runs === 1 ? "ejecución" : "ejecuciones"}</span>
+            </div>
+            <div style={{ height: 12, borderRadius: 6, background: KgTheme.surface, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(b.credits / max) * 100}%`, minWidth: b.credits ? 4 : 0, borderRadius: 6, background: KgTheme.accent, transition: "width .3s ease" }} />
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.65 }}>{b.note}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 13, padding: 10, borderRadius: 8, background: KgTheme.surface }}>
+        {merges === 0 ? "Sin fusiones, ninguna opción se ejecuta, así que ninguna cuesta nada." : push === scheduled ? "Ambas opciones cuestan lo mismo con este volumen. El activador de cambio de código actualiza la documentación antes." : `La programación ${schedule.label.toLowerCase()} usa ${fmt(push - scheduled)} créditos menos por semana. La contrapartida es que la documentación puede ir por detrás del código hasta ${schedule.runs === 7 ? "un día" : schedule.runs === 2 ? "media semana" : "una semana"}.`}
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgMcpReplay = () => {
+  const scenarios = [
+    {
+      id: "rename",
+      question: "¿Qué tengo que cambiar en otros repositorios si renombro customer_id?",
+      steps: [
+        { tool: "search", input: "customer_id", output: "repos/api-service/data-model · repos/api-gateway/auth · architecture" },
+        { tool: "query docs filesystem", input: "cat repos/api-service/data-model.mdx", output: "orders.customer_id es una clave foránea a accounts.id. La devuelven GET /orders y GET /orders/{id}." },
+        { tool: "query docs filesystem", input: "grep -r customer_id repos/api-gateway", output: "repos/api-gateway/auth.mdx: el gateway copia customer_id del token en el encabezado X-Customer-Id." },
+        { tool: "answer", input: "", output: "Actualiza el mapeo de encabezados del gateway en api-gateway y la respuesta de GET /orders en api-service. web-app lee el campo a través del gateway, así que revisa también sus vistas de pedidos." },
+      ],
+    },
+    {
+      id: "local",
+      question: "¿Cómo ejecuto el servicio de API en local?",
+      steps: [
+        { tool: "search", input: "ejecutar api-service en local", output: "repos/api-service/local-development" },
+        { tool: "query docs filesystem", input: "cat repos/api-service/local-development.mdx", output: "Copia .env.example a .env, inicia Postgres con docker compose up db y, después, ejecuta npm run dev en el puerto 4000." },
+        { tool: "answer", input: "", output: "Copia .env.example a .env, ejecuta docker compose up db y, después, npm run dev. El servicio escucha en el puerto 4000." },
+      ],
+    },
+    {
+      id: "stale",
+      question: "¿Qué encabezados envía el gateway a los servicios de backend?",
+      steps: [
+        { tool: "search", input: "encabezados gateway backend", output: "repos/api-gateway/auth" },
+        { tool: "query docs filesystem", input: "cat repos/api-gateway/auth.mdx", output: "El gateway envía X-Customer-Id y X-Request-Id." },
+        { tool: "submit feedback", input: "repos/api-gateway/auth: la página no menciona X-Trace-Id, que el código del gateway establece en cada solicitud", output: "Registrado. Aparece en el dashboard de comentarios del proyecto." },
+        { tool: "answer", input: "", output: "Envía X-Customer-Id, X-Request-Id y X-Trace-Id. He informado de que a la página de autenticación le falta X-Trace-Id." },
+      ],
+    },
+  ];
+  const toolColor = { search: "#3B82F6", "query docs filesystem": "#8B5CF6", "submit feedback": KgTheme.warn, answer: KgTheme.accent };
+  const [scenarioId, setScenarioId] = useState("rename");
+  const [shown, setShown] = useState(1);
+  const scenario = scenarios.find((s) => s.id === scenarioId);
+  const pick = (id) => { setScenarioId(id); setShown(1); };
+  const done = shown >= scenario.steps.length;
+  return (
+    <KgFrame title="Reproducción de llamadas a herramientas MCP" caption={`Paso ${shown} de ${scenario.steps.length}`}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {scenarios.map((s) => <KgButton key={s.id} pressed={s.id === scenarioId} onClick={() => pick(s.id)}>{s.question}</KgButton>)}
+      </div>
+      <div style={{ display: "grid", gap: 8, padding: 12, borderRadius: 10, background: KgTheme.surface }}>
+        <div style={{ justifySelf: "end", maxWidth: "85%", padding: "8px 12px", borderRadius: 12, background: "rgba(127,127,127,.14)", fontSize: 13 }}>{scenario.question}</div>
+        {scenario.steps.slice(0, shown).map((step, i) => {
+          const color = toolColor[step.tool];
+          if (step.tool === "answer") {
+            return <div key={i} style={{ maxWidth: "90%", padding: "8px 12px", borderRadius: 12, border: `1px solid ${KgTheme.accent}`, background: KgTheme.accentSoft, fontSize: 13, lineHeight: 1.5 }}>{step.output}</div>;
+          }
+          return (
+            <div key={i} style={{ display: "grid", gap: 4, padding: "8px 10px", borderRadius: 9, border: `1px solid ${KgTheme.border}`, borderLeft: `3px solid ${color}`, minWidth: 0 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline", minWidth: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", color }}>{step.tool}</span>
+                <code style={{ fontSize: 12, opacity: 0.85, overflowWrap: "anywhere" }}>{step.input}</code>
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.75, overflowWrap: "anywhere" }}>{step.output}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <KgButton onClick={() => { setShown(Math.max(1, shown - 1)); }} disabled={shown <= 1}>Atrás</KgButton>
+        <KgButton onClick={() => { setShown(shown + 1); }} disabled={done}>Siguiente</KgButton>
+      </div>
+    </KgFrame>
+  );
+};
