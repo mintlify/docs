@@ -24,6 +24,72 @@ Google's defaults apply: [voice](https://developers.google.com/style/voice), [to
 - Use "Mintlify" in a feature name when readers need to tell it apart from similar tools, such as "the Mintlify agent" on a page that also covers coding agents.
 - Make the reader or their site the subject rather than Mintlify. Write "After you push changes, your site deploys," not "Mintlify deploys your site."
 
+## Clear sentences
+
+Agent drafts often break these rules, and Vale can't catch them, so check every sentence for them when you review a page.
+
+### Don't give human verbs to things that aren't human
+
+A file, setting, field, or path can't say, know, decide, or want anything. Name what actually happens instead.
+
+- Instead of: "Each project's own setting decides what happens to it."
+- Write: "When the shared balance runs out, projects with overages on keep running. Projects with overages off lose their credit-powered features."
+
+This rule doesn't apply to AI features that really do act, such as "the agent opens a pull request." Conventional technical verbs are fine too, such as "the API returns" or "the command accepts."
+
+### Write conditions as "if" clauses
+
+When a sentence applies only in some cases, put the case in an "if" clause. Don't hide the condition in a long subject.
+
+- Instead of: "A page that isn't in the navigation is still public."
+- Write: "If a page isn't in the navigation, anyone with its URL can still open it."
+
+A "that" clause is fine when it identifies which thing you mean rather than stating a condition: "Select the group that contains the page."
+
+### Make sentences unambiguous
+
+Many words can be a noun or a verb, such as group, link, change, update, list, and set. When one of these words sits where both readings fit, readers pick the wrong one and reread. The fix is usually a small word, such as "the," "that," or "to," that shorter drafts drop.
+
+| Instead of | Write |
+| --- | --- |
+| Navigation groups pages into sections. ("Navigation groups" reads as the subject, and "pages" as the verb) | In the navigation, groups organize pages into sections. |
+| Select the page redirects apply to. (Reads as "select the page redirects") | Select the page that the redirects apply to. |
+
+### Lead with the behavior, not a label for it
+
+Words like "exception," "special case," and "caveat" warn the reader that something is different without saying what's different. Describe the behavior.
+
+- Instead of: "Hidden pages are the exception."
+- Write: "Hidden pages don't appear in the navigation, but anyone with the URL can open them."
+
+### Name what actually happens
+
+Say which tool or person does what, and what the result is. An abstract phrase can hide that the writer didn't know how the feature works.
+
+- Instead of: "Your docs are validated before deployment."
+- Write: "`mint validate` checks your pages, navigation, and OpenAPI specs, then runs a strict build."
+
+### Say what a qualifier refers to
+
+"Default," "built-in," "standard," and "underlying" need the thing they refer to: a default for what? Name it or describe it directly.
+
+- Instead of: "If you don't set `appearance.default`, the default applies."
+- Write: "If you don't set `appearance.default`, your site matches the reader's operating system setting."
+
+### Keep pronouns close to what they refer to
+
+If the reader has to look back to work out what "it" or "they" means, repeat the noun.
+
+- Instead of: "Add the snippet to the page, then check the preview to confirm it renders."
+- Write: "Add the snippet to the page, then check the preview to confirm the snippet renders."
+
+### Give every transitive verb its object
+
+Verbs like create, send, return, sync, and apply need an object that says what's created, sent, returned, synced, or applied. Objects often go missing when someone trims the end of a long sentence, so read the second half of long sentences on their own.
+
+- Instead of: "`mint broken-links` checks every page and reports."
+- Write: "`mint broken-links` checks every page and reports each broken link it finds."
+
 ## Phrases to cut
 
 Vale flags these as suggestions with `.vale/styles/Mintlify/CutPhrases.yml`. Keep the two lists in sync.
