@@ -87,6 +87,34 @@ export const RxCalculator = () => {
 - **Label controls.** Give buttons and inputs visible labels or `aria-label`, and mark the selected option with `aria-pressed` or `aria-current`.
 - **Share components across pages with snippets.** If more than one page uses a widget, move it to a file in `/snippets/` and import it. See [Reusable snippets](/create/reusable-snippets).
 
+## Advanced examples
+
+These widgets use SVG, timers, and pointer events. They follow the same guidelines as the simpler ones above.
+
+### Dependency graph
+
+Click a service to see everything that depends on it. Use a graph when readers need to know what a change affects, not only what exists.
+
+<RxGraph />
+
+### Line chart with hover
+
+Hover or drag across the chart to read exact values. Switch the range to see how the trend changes. Compute the scale from the data, so the chart still fits when the numbers change.
+
+<RxLineChart />
+
+### Terminal replay
+
+Press **Play** to watch a sample setup session. A replay runs on a timer with `useEffect`, and readers can pause or step through it. Use it to show a sequence of commands without recording a video.
+
+<RxReplay />
+
+### Request waterfall
+
+Hover a bar for its timing, and highlight the critical path to see which steps set the total time. Use a waterfall to explain where time goes in a request, build, or agent run.
+
+<RxWaterfall />
+
 ## Videos
 
 Record a short video when readers need to see something move: a walkthrough of a UI, a deployment finishing, or an agent working through a task. Muted videos that loop work like animated screenshots.
@@ -354,6 +382,288 @@ export const RxChart = () => {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${weeks.length}, 1fr)`, gap: 10, fontSize: 11, opacity: 0.6, textAlign: "center" }}>
         {weeks.map((w) => <span key={w}>{w}</span>)}
+      </div>
+    </RxFrame>
+  );
+};
+
+export const RxGraph = () => {
+  const nodes = {
+    web: { label: "web-app", x: 80, y: 60 },
+    mobile: { label: "mobile-app", x: 80, y: 180 },
+    gateway: { label: "api-gateway", x: 250, y: 120 },
+    orders: { label: "orders", x: 420, y: 50 },
+    billing: { label: "billing", x: 420, y: 130 },
+    search: { label: "search", x: 420, y: 210 },
+    db: { label: "postgres", x: 580, y: 90 },
+    queue: { label: "queue", x: 580, y: 190 },
+  };
+  const deps = [["web", "gateway"], ["mobile", "gateway"], ["gateway", "orders"], ["gateway", "billing"], ["gateway", "search"], ["orders", "db"], ["billing", "db"], ["orders", "queue"], ["search", "queue"]];
+  const [selected, setSelected] = useState("db");
+  const [hover, setHover] = useState(null);
+  const focus = hover || selected;
+  const affected = new Set();
+  const visit = (key) => {
+    deps.filter(([from, to]) => to === key).forEach(([from]) => {
+      if (!affected.has(from)) {
+        affected.add(from);
+        visit(from);
+      }
+    });
+  };
+  visit(focus);
+  const direct = deps.filter(([, to]) => to === focus).map(([from]) => from);
+  const lit = (from, to) => (from === focus || affected.has(from)) && (to === focus || affected.has(to));
+  const w = 112;
+  return (
+    <RxFrame title="Sample service graph" caption="Click or hover a service">
+      <svg viewBox="0 0 660 250" style={{ width: "100%", display: "block" }} onMouseLeave={() => setHover(null)} role="group" aria-label="Services and their dependencies">
+        <defs>
+          <marker id="rx-arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill={RxTheme.accent} />
+          </marker>
+          <marker id="rx-arrow-off" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#8A8A8A" />
+          </marker>
+        </defs>
+        {deps.map(([from, to]) => {
+          const a = nodes[from];
+          const b = nodes[to];
+          const on = lit(from, to);
+          const mx = (a.x + w / 2 + b.x - w / 2) / 2;
+          return (
+            <path
+              key={`${from}-${to}`}
+              d={`M${a.x + w / 2} ${a.y} C${mx} ${a.y}, ${mx} ${b.y}, ${b.x - w / 2 - 2} ${b.y}`}
+              fill="none"
+              stroke={on ? RxTheme.accent : "currentColor"}
+              strokeOpacity={on ? 1 : 0.25}
+              strokeWidth={on ? 2 : 1.2}
+              markerEnd={on ? "url(#rx-arrow-on)" : "url(#rx-arrow-off)"}
+              style={{ transition: "stroke .2s, stroke-opacity .2s" }}
+            />
+          );
+        })}
+        {Object.entries(nodes).map(([key, n]) => {
+          const isFocus = key === focus;
+          const isAffected = affected.has(key);
+          return (
+            <g key={key} onMouseEnter={() => setHover(key)} onClick={() => setSelected(key)} style={{ cursor: "pointer" }} tabIndex={0} role="button" aria-label={n.label} aria-pressed={key === selected} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(key); } }}>
+              <rect x={n.x - w / 2} y={n.y - 17} width={w} height={34} rx={9} fill={isFocus ? RxTheme.accent : isAffected ? RxTheme.accentSoft : "rgba(127,127,127,.08)"} stroke={isFocus || isAffected ? RxTheme.accent : "currentColor"} strokeOpacity={isFocus || isAffected ? 1 : 0.3} style={{ transition: "fill .2s" }} />
+              <text x={n.x} y={n.y + 4} textAnchor="middle" fontSize="12" fontWeight="600" fill={isFocus ? "#fff" : "currentColor"} style={{ fontFamily: "ui-monospace, monospace" }}>{n.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, padding: 12, borderRadius: 10, background: RxTheme.surface }}>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.6 }}>If you change</div>
+          <div style={{ fontWeight: 600, fontFamily: "ui-monospace, monospace" }}>{nodes[focus].label}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.6 }}>Direct dependents</div>
+          <div>{direct.length ? direct.map((k) => nodes[k].label).join(", ") : "None"}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.6 }}>Affected services</div>
+          <div style={{ fontWeight: 600 }}>{affected.size} of {Object.keys(nodes).length - 1}</div>
+        </div>
+      </div>
+    </RxFrame>
+  );
+};
+
+export const RxLineChart = () => {
+  const series = [
+    { name: "Human visits", color: "#3B82F6", base: 900, trend: 4, wave: 140 },
+    { name: "Agent visits", color: RxTheme.accent, base: 260, trend: 22, wave: 60 },
+  ];
+  const ranges = { "7 days": 7, "30 days": 30, "90 days": 90 };
+  const [range, setRange] = useState("30 days");
+  const [hover, setHover] = useState(null);
+  const days = ranges[range];
+  const data = series.map((s) => ({
+    ...s,
+    values: Array.from({ length: days }, (_, i) => {
+      const d = 90 - days + i;
+      return Math.round(s.base + s.trend * d + s.wave * Math.sin(d / 3.2) + (d % 7 === 5 || d % 7 === 6 ? -s.wave : 0));
+    }),
+  }));
+  const W = 600;
+  const H = 200;
+  const pad = { l: 44, r: 12, t: 12, b: 24 };
+  const all = data.flatMap((s) => s.values);
+  const max = Math.ceil(Math.max(...all) / 500) * 500;
+  const x = (i) => pad.l + (i / Math.max(days - 1, 1)) * (W - pad.l - pad.r);
+  const y = (v) => pad.t + (1 - v / max) * (H - pad.t - pad.b);
+  const ticks = [0, max / 2, max];
+  const onMove = (e) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - box.left) / box.width) * W;
+    const i = Math.round(((px - pad.l) / (W - pad.l - pad.r)) * (days - 1));
+    setHover(Math.min(days - 1, Math.max(0, i)));
+  };
+  const idx = hover === null ? days - 1 : hover;
+  return (
+    <RxFrame title="Sample site traffic" caption={hover === null ? "Latest day" : `Day ${idx + 1} of ${days}`}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+          {data.map((s) => (
+            <div key={s.name} style={{ display: "grid", gap: 2 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: 0.75 }}>
+                <span style={{ width: 10, height: 3, borderRadius: 2, background: s.color }} />
+                {s.name}
+              </span>
+              <span style={{ fontSize: 18, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.values[idx].toLocaleString("en-US")}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "start" }}>
+          {Object.keys(ranges).map((r) => (
+            <RxButton key={r} pressed={range === r} onClick={() => { setRange(r); setHover(null); }}>{r}</RxButton>
+          ))}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", display: "block", touchAction: "none" }} onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setHover(null)} role="img" aria-label={`Daily human and agent visits over ${range}`}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="currentColor" strokeOpacity="0.12" />
+            <text x={pad.l - 8} y={y(t) + 4} textAnchor="end" fontSize="10" fill="currentColor" opacity="0.55">{t >= 1000 ? `${t / 1000}k` : t}</text>
+          </g>
+        ))}
+        {data.map((s) => {
+          const line = s.values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+          return (
+            <g key={s.name}>
+              <path d={`${line} L${x(days - 1)} ${y(0)} L${x(0)} ${y(0)} Z`} fill={s.color} opacity="0.08" />
+              <path d={line} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" />
+            </g>
+          );
+        })}
+        {hover !== null ? (
+          <g>
+            <line x1={x(idx)} x2={x(idx)} y1={pad.t} y2={H - pad.b} stroke="currentColor" strokeOpacity="0.35" strokeDasharray="3 3" />
+            {data.map((s) => <circle key={s.name} cx={x(idx)} cy={y(s.values[idx])} r="4" fill={s.color} stroke="var(--background, #fff)" strokeWidth="2" />)}
+          </g>
+        ) : null}
+        <text x={pad.l} y={H - 6} fontSize="10" fill="currentColor" opacity="0.55">{days} days ago</text>
+        <text x={W - pad.r} y={H - 6} textAnchor="end" fontSize="10" fill="currentColor" opacity="0.55">Today</text>
+      </svg>
+    </RxFrame>
+  );
+};
+
+export const RxReplay = () => {
+  const lines = [
+    { kind: "cmd", text: "npm i -g mint" },
+    { kind: "out", text: "added 1 package in 4s" },
+    { kind: "cmd", text: "mint new docs" },
+    { kind: "out", text: "Created docs/ from the starter template" },
+    { kind: "cmd", text: "cd docs && mint dev" },
+    { kind: "out", text: "Preview ready at http://localhost:3000" },
+    { kind: "note", text: "Edit quickstart.mdx. The preview reloads." },
+    { kind: "cmd", text: "mint broken-links" },
+    { kind: "ok", text: "No broken links found" },
+    { kind: "cmd", text: "git push" },
+    { kind: "ok", text: "Deployed to https://sample.mintlify.app" },
+  ];
+  const [shown, setShown] = useState(1);
+  const [playing, setPlaying] = useState(false);
+  const boxRef = useRef(null);
+  const done = shown >= lines.length;
+  useEffect(() => {
+    if (!playing) return undefined;
+    if (done) {
+      setPlaying(false);
+      return undefined;
+    }
+    const id = setTimeout(() => setShown(shown + 1), lines[shown].kind === "cmd" ? 900 : 500);
+    return () => clearTimeout(id);
+  }, [playing, shown, done]);
+  useEffect(() => {
+    if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
+  }, [shown]);
+  const color = { cmd: "#E5E7EB", out: "#9CA3AF", note: "#FBBF24", ok: "#34D399" };
+  const prefix = { cmd: "$ ", out: "", note: "# ", ok: "✓ " };
+  return (
+    <RxFrame title="Sample setup session" caption={`${shown} of ${lines.length} lines`}>
+      <div style={{ borderRadius: 10, overflow: "hidden", background: "#0B0F14", border: `1px solid ${RxTheme.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+          {["#F87171", "#FBBF24", "#34D399"].map((c) => <span key={c} style={{ width: 10, height: 10, borderRadius: 10, background: c, opacity: 0.85 }} />)}
+          <span style={{ marginLeft: 8, fontSize: 12, color: "#9CA3AF" }}>~/projects</span>
+        </div>
+        <div ref={boxRef} style={{ height: 200, overflowY: "auto", padding: 12, fontFamily: "ui-monospace, monospace", fontSize: 12.5, lineHeight: 1.7 }}>
+          {lines.slice(0, shown).map((line, i) => (
+            <div key={i} style={{ color: color[line.kind], whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+              <span style={{ color: line.kind === "cmd" ? RxTheme.accent : color[line.kind] }}>{prefix[line.kind]}</span>
+              {line.text}
+            </div>
+          ))}
+          {playing ? <span style={{ display: "inline-block", width: 7, height: 14, background: "#E5E7EB", verticalAlign: "middle", animation: "pulse 1s infinite" }} /> : null}
+        </div>
+        <div style={{ height: 3, background: "rgba(255,255,255,.08)" }}>
+          <div style={{ width: `${(shown / lines.length) * 100}%`, height: "100%", background: RxTheme.accent, transition: "width .3s" }} />
+        </div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <RxButton onClick={() => { if (done) setShown(1); setPlaying(!playing || done); }} pressed={playing}>{playing ? "Pause" : done ? "Replay" : "Play"}</RxButton>
+        <RxButton onClick={() => { setPlaying(false); setShown(Math.max(1, shown - 1)); }} disabled={shown <= 1}>Back</RxButton>
+        <RxButton onClick={() => { setPlaying(false); setShown(shown + 1); }} disabled={done}>Next</RxButton>
+      </div>
+    </RxFrame>
+  );
+};
+
+export const RxWaterfall = () => {
+  const spans = [
+    { name: "DNS lookup", start: 0, dur: 18, group: "Network", critical: true },
+    { name: "TLS handshake", start: 18, dur: 42, group: "Network", critical: true },
+    { name: "Authenticate", start: 60, dur: 35, group: "Gateway", critical: true },
+    { name: "Load account", start: 95, dur: 48, group: "Service", critical: false },
+    { name: "Search index", start: 95, dur: 160, group: "Service", critical: true },
+    { name: "Fetch orders", start: 95, dur: 92, group: "Service", critical: false },
+    { name: "Render page", start: 255, dur: 64, group: "Gateway", critical: true },
+    { name: "Write analytics", start: 260, dur: 30, group: "Background", critical: false },
+  ];
+  const colors = { Network: "#3B82F6", Gateway: "#8B5CF6", Service: RxTheme.accent, Background: "#D97706" };
+  const total = Math.max(...spans.map((s) => s.start + s.dur));
+  const [critical, setCritical] = useState(false);
+  const [hover, setHover] = useState(null);
+  const active = hover === null ? null : spans[hover];
+  return (
+    <RxFrame title="Sample request waterfall" caption={`${total} ms total`}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, fontSize: 12 }}>
+          {Object.entries(colors).map(([g, c]) => (
+            <span key={g} style={{ display: "flex", alignItems: "center", gap: 6, opacity: 0.8 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: c }} />
+              {g}
+            </span>
+          ))}
+        </div>
+        <RxButton pressed={critical} onClick={() => setCritical(!critical)}>Highlight critical path</RxButton>
+      </div>
+      <div style={{ display: "grid", gap: 6 }} onMouseLeave={() => setHover(null)}>
+        {spans.map((s, i) => {
+          const dim = (critical && !s.critical) || (hover !== null && hover !== i);
+          return (
+            <div key={s.name} onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} tabIndex={0} aria-label={`${s.name}: starts at ${s.start} ms, takes ${s.dur} ms`} style={{ display: "grid", gridTemplateColumns: "minmax(90px, 130px) 1fr", gap: 10, alignItems: "center", cursor: "default", opacity: dim ? 0.35 : 1, transition: "opacity .2s" }}>
+              <span style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span>
+              <div style={{ position: "relative", height: 18, borderRadius: 4, background: RxTheme.surface }}>
+                <div style={{ position: "absolute", left: `${(s.start / total) * 100}%`, width: `${Math.max((s.dur / total) * 100, 1)}%`, top: 0, bottom: 0, borderRadius: 4, background: colors[s.group], outline: critical && s.critical ? `2px solid ${colors[s.group]}` : "none", outlineOffset: 1 }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ minHeight: 40, padding: "8px 12px", borderRadius: 10, background: RxTheme.surface, fontSize: 13 }}>
+        {active ? (
+          <span><strong>{active.name}</strong> starts at {active.start} ms and takes {active.dur} ms ({Math.round((active.dur / total) * 100)}% of the request).{active.critical ? " It's on the critical path." : " Other steps run while it does, so it doesn't add to the total."}</span>
+        ) : critical ? (
+          <span>The critical path is the chain of steps that sets the total time. Speeding up <strong>Search index</strong> cuts the total the most.</span>
+        ) : (
+          <span style={{ opacity: 0.7 }}>Hover a bar to see its timing.</span>
+        )}
       </div>
     </RxFrame>
   );
