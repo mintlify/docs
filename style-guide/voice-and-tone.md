@@ -48,7 +48,7 @@ A "that" clause is fine when it identifies which thing you mean rather than stat
 
 ### Make sentences unambiguous
 
-Many words can be a noun or a verb, such as group, link, change, update, list, and set. When one of these words sits where both readings fit, readers pick the wrong one and reread. The fix is usually a small word, such as "the," "that," or "to," that shorter drafts drop.
+Many words can be a noun or a verb, such as group, link, change, update, or list. When one of these words could be interpreted in multiple ways, readers may pick the wrong one and misunderstand or reread. The fix is usually a small word, such as "the," "that," or "to," that shorter drafts drop.
 
 | Instead of | Write |
 | --- | --- |

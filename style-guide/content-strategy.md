@@ -5,9 +5,9 @@
 - Document what readers need to succeed, and nothing more. Too much content hides what people are looking for.
 - For AI agents, exhaustive reference can be helpful for information that isn't in their training data. For example, provide all flags and settings options for commands and operations an agent can perform. But for content only relevant to agents, consider making it a hidden page.
 
-### Leave out what the reader won't act on
+### Leave out what readers won't act on
 
-A fact can be true and still not belong on the page. Before you add a fact, ask what the reader would do differently after reading it. If the answer is nothing, cut it.
+A fact can be true and still not belong on the page. Before you add a fact, consider what a reader would do differently after reading it. If the answer is nothing, cut it.
 
 Facts that usually fail this test:
 
@@ -16,7 +16,7 @@ Facts that usually fail this test:
 - Warnings about mistakes the steps don't lead the reader to make.
 - Facts another page already covers. Link to that page instead.
 
-If a fact matters only to some readers, such as readers with an unusual setup, put it where those readers run into it, such as a troubleshooting section.
+If a fact matters only to some readers, such as readers with an unusual setup, put it where those readers run into it, such as a troubleshooting section or a note callout.
 
 ## Before you write
 
@@ -42,7 +42,7 @@ If a fact matters only to some readers, such as readers with an unusual setup, p
 - Lead with context: what something is and why you'd use it, then how.
 - Prerequisites go at the start of procedural pages.
   - Make each prerequisite something the reader can check before they start. Write "The admin role in your organization," not "The permissions these steps require."
-  - Ask for the least access that works. Don't require an admin role if an editor can complete the task.
+  - Require the least access that works. Don't require an admin role if an editor can complete the task.
 - When you say the reader can do something, link to the steps or include them. Write "You can [add a custom domain](/customize/custom-domain)," not "You can also use a custom domain."
 - Link to sections instead of pointing at them. Write "See [Overages](#overages)," not "See the section above."
 - Offer one opinionated path. Only show alternatives when readers genuinely choose between them.
