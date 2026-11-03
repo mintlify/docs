@@ -1,0 +1,360 @@
+---
+title: "Rich page examples"
+sidebarTitle: "Rich page examples"
+description: "Build pages with interactive widgets, videos, screenshots, and comparison tables, with working examples and prompts for your coding agent."
+keywords: ["interactive widgets", "rich pages", "React components", "video", "screenshots", "examples", "inline components", "agent prompts"]
+---
+
+Text explains a product. A page that lets readers click through a flow, try numbers in a calculator, or watch the product work explains it faster. This page shows the four building blocks we use for those pages, each with a working example:
+
+1. [Interactive widgets](#interactive-widgets) written into the page as React components.
+2. [Videos](#videos) of the product, or of an agent session, recorded with a browser script.
+3. [Screenshots](#screenshots) in frames, with light and dark versions.
+4. [Tables](#tables) for status, limits, and comparisons.
+
+<Note>
+  The products, numbers, and steps in the examples on this page are sample data.
+</Note>
+
+## Choose a building block
+
+| You want to show | Use | Why |
+| --- | --- | --- |
+| A flow with several steps or states | Interactive widget | Readers click through at their own pace, and each state gets its own explanation. |
+| How a cost, limit, or setting changes with input | Interactive widget | Readers try their own numbers instead of reading a worked example. |
+| The product doing something end to end | Video | Motion shows timing and transitions that screenshots can't. |
+| One screen, setting, or result | Screenshot | It loads instantly and readers can scan it. |
+| Status, limits, or options side by side | Table | Readers compare rows without reading prose. |
+
+Start with a table or a screenshot. Add a widget or a video when a reader would otherwise need to read several paragraphs to picture what happens.
+
+## Interactive widgets
+
+A widget is a React component declared in the page with `export const`, then placed with a tag like `<RxJourney />`. Put the component definitions at the end of the file so the content reads top to bottom. See [React components](/customize/react-components) for the full list of constraints.
+
+### Click through a flow
+
+Use a stepper when a process has a clear order. Each step names who acts and what happens.
+
+<RxJourney />
+
+### Try your own numbers
+
+Use a calculator when the answer depends on the reader's inputs. Show the formula in the result, so readers can check it.
+
+<RxCalculator />
+
+### Compare values
+
+Use a chart with a toggle when readers need to compare a few series. Keep it to one question per chart.
+
+<RxChart />
+
+### How the calculator is built
+
+Every widget on this page follows the same pattern. Here is the calculator:
+
+```mdx rich-page-examples.mdx [expandable]
+<RxCalculator />
+
+export const RxCalculator = () => {
+  const [seats, setSeats] = useState(12);
+  const [runs, setRuns] = useState(40);
+  const perRun = 0.08;
+  const total = seats * runs * perRun;
+  return (
+    <div className="not-prose" style={{ border: "1px solid rgba(127,127,127,.25)", borderRadius: 14, padding: 16 }}>
+      <label>
+        Seats: {seats}
+        <input type="range" min={1} max={50} value={seats} onChange={(e) => setSeats(Number(e.target.value))} />
+      </label>
+      <label>
+        Runs per seat each month: {runs}
+        <input type="range" min={5} max={200} step={5} value={runs} onChange={(e) => setRuns(Number(e.target.value))} />
+      </label>
+      <div style={{ fontWeight: 600 }}>${total.toFixed(2)} per month</div>
+    </div>
+  );
+};
+```
+
+### Widget guidelines
+
+- **Work in light and dark mode.** Use `currentColor` for text and lines, translucent grays like `rgba(127,127,127,.25)` for borders and fills, and one accent color. Avoid fixed black or white.
+- **Opt out of prose styles.** Add `className="not-prose"` to the outer element so typography styles from the page don't change spacing inside the widget.
+- **Keep data in the component.** Widgets on this page don't fetch data or store anything in the browser, so they render the same for every reader and in every preview.
+- **Prefix component names.** Use a short prefix per page, like `Rx`, so names don't collide with built-in components or with components on other pages.
+- **Label controls.** Give buttons and inputs visible labels or `aria-label`, and mark the selected option with `aria-pressed` or `aria-current`.
+- **Share components across pages with snippets.** If more than one page uses a widget, move it to a file in `/snippets/` and import it. See [Reusable snippets](/create/reusable-snippets).
+
+## Videos
+
+Record a short video when readers need to see something move: a walkthrough of a UI, a deployment finishing, or an agent working through a task. Muted videos that loop work like animated screenshots.
+
+```mdx
+<Frame caption="Creating a project, from sign in to the first deployment">
+  <video
+    src="/images/walkthrough.webm"
+    controls
+    autoPlay
+    muted
+    loop
+    playsInline
+    className="w-full rounded-xl"
+  />
+</Frame>
+```
+
+### Record the product with a script
+
+A browser script gives you the same video every time, so you can record it again after the UI changes. This [Playwright](https://playwright.dev) script records a WebM file while it clicks through a flow:
+
+```js record.mjs
+import { chromium } from "playwright";
+
+const browser = await chromium.launch();
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 720 },
+  recordVideo: { dir: "videos", size: { width: 1280, height: 720 } },
+});
+const page = await context.newPage();
+
+await page.goto("http://localhost:3000");
+await page.waitForTimeout(800);
+await page.getByRole("link", { name: "New project" }).click();
+await page.getByLabel("Name").pressSequentially("Sample project", { delay: 60 });
+await page.getByRole("button", { name: "Create" }).click();
+await page.waitForTimeout(1500);
+
+await context.close();
+await browser.close();
+```
+
+Tips for readable recordings:
+
+- Pause for about a second after each action, so readers can follow the change.
+- Type with a delay instead of filling fields instantly.
+- Keep videos under 30 seconds and a few megabytes. Split longer flows into several videos next to the steps they show.
+- Use sample accounts and data, never production data.
+
+### Replay an agent session
+
+To show what an agent did, record its session and play it back as a video. Claude Code and Codex can write the session as JSON lines, for example `claude -p "<task>" --output-format stream-json --verbose > session.jsonl`. Render the messages and tool calls into a simple terminal-style HTML page, then record that page with the script above. A replay shows the real commands and the order the agent took them in, without exposing a live terminal.
+
+## Screenshots
+
+Put screenshots in a `<Frame>` with a caption that says what to look at. Crop to the part of the screen that matters.
+
+```mdx
+<Frame caption="The settings page, with the custom domain field highlighted">
+  <img className="block dark:hidden" src="/images/settings-light.png" alt="Settings page in light mode" />
+  <img className="hidden dark:block" src="/images/settings-dark.png" alt="Settings page in dark mode" />
+</Frame>
+```
+
+To keep screenshots current, take them with a script, like the video script above but with `page.screenshot({ path: "images/settings-light.png" })`. Run it again when the UI changes. See [Images and embeds](/create/image-embeds) for sizing and zoom options.
+
+## Tables
+
+Tables hold the details readers come back for: status, limits, prices, and support across options. Lead with the table and keep prose around it short.
+
+| Feature | Starter | Team | Enterprise |
+| --- | --- | --- | --- |
+| Projects | 1 | 10 | Unlimited |
+| Monthly runs | 100 | 5,000 | Custom |
+| Single sign-on | No | No | Yes |
+| Support | Community | Email | Dedicated channel |
+
+For a page that is mostly tables, set `mode: "wide"` in the frontmatter to give them the full width. See [Pages](/organize/pages#page-mode).
+
+## Build these pages with an agent
+
+Coding agents write widgets and recording scripts well when you give them the pattern and the data. Point the agent at this page, then describe what you want the reader to understand.
+
+```text Widget
+Read https://mintlify.com/docs/create/rich-page-examples.md.
+Add an interactive widget to docs/billing/usage.mdx that lets readers
+pick a plan and a number of monthly runs, and shows the monthly cost with
+the formula. Use the prices in the table on that page. Follow the widget
+guidelines: export const at the end of the file, not-prose, currentColor,
+no fetch. Run mint dev and check it in light and dark mode.
+```
+
+```text Video
+Write a Playwright script that records the "create a project" flow on
+http://localhost:3000 as a 1280x720 WebM: sign in with the sample account
+from .env.example, click New project, type "Sample project", and wait
+for the deployment to finish. Pause about a second after each action.
+Save it to images/create-project.webm and embed it in quickstart.mdx in a
+Frame with a caption.
+```
+
+Before you publish:
+
+- Run `mint dev` and open the page in light and dark mode.
+- Check that every widget renders and responds to clicks.
+- Narrow the browser to phone width and check that nothing overflows.
+- Play each video and open each image.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="React components" icon="react" href="/customize/react-components">
+    Constraints and patterns for components in MDX.
+  </Card>
+  <Card title="Reusable snippets" icon="recycle" href="/create/reusable-snippets">
+    Share components and content across pages.
+  </Card>
+  <Card title="Images and embeds" icon="image" href="/create/image-embeds">
+    Add images, videos, and iframes.
+  </Card>
+  <Card title="Frames" icon="crop" href="/components/frames">
+    Wrap images and videos with captions.
+  </Card>
+</CardGroup>
+
+export const RxTheme = {
+  accent: "#26BD6C",
+  accentSoft: "rgba(38,189,108,.12)",
+  border: "rgba(127,127,127,.25)",
+  surface: "rgba(127,127,127,.06)",
+};
+
+export const RxFrame = ({ children, title, caption }) => (
+  <div className="not-prose" style={{ border: `1px solid ${RxTheme.border}`, borderRadius: 14, padding: 16, display: "grid", gap: 14, width: "100%", fontSize: 14, color: "inherit" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+      <div style={{ fontWeight: 600 }}>{title}</div>
+      {caption ? <div style={{ fontSize: 12, opacity: 0.65 }}>{caption}</div> : null}
+    </div>
+    {children}
+  </div>
+);
+
+export const RxButton = ({ children, onClick, disabled, pressed }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-pressed={pressed}
+    style={{
+      padding: "6px 12px", borderRadius: 8, font: "inherit", fontSize: 13, fontWeight: 600, color: "inherit",
+      cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.45 : 1,
+      border: `1px solid ${pressed ? RxTheme.accent : "rgba(127,127,127,.35)"}`,
+      background: pressed ? RxTheme.accentSoft : "transparent",
+    }}
+  >
+    {children}
+  </button>
+);
+
+export const RxJourney = () => {
+  const steps = [
+    { name: "Sign up", who: "Reader", detail: "The reader creates an account with an email address and confirms it from the inbox." },
+    { name: "Create project", who: "Reader", detail: "The reader names the project and picks a template. The product creates a repository with starter pages." },
+    { name: "First deploy", who: "Product", detail: "The product builds the starter pages and publishes them to a preview URL in about a minute." },
+    { name: "Invite team", who: "Reader", detail: "The reader invites teammates by email. Each teammate gets editor access to the project." },
+    { name: "Go live", who: "Reader", detail: "The reader adds a custom domain and points DNS at the product. The site is live on the domain." },
+  ];
+  const [active, setActive] = useState(0);
+  return (
+    <RxFrame title="Sample onboarding journey" caption={`Step ${active + 1} of ${steps.length}`}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8 }}>
+        {steps.map((step, i) => {
+          const isActive = i === active;
+          return (
+            <button
+              key={step.name}
+              type="button"
+              onClick={() => setActive(i)}
+              aria-current={isActive ? "step" : undefined}
+              style={{
+                textAlign: "left", padding: 10, borderRadius: 10, font: "inherit", color: "inherit", cursor: "pointer", minWidth: 0,
+                border: isActive ? `2px solid ${RxTheme.accent}` : `1px solid ${RxTheme.border}`,
+                background: isActive ? RxTheme.accentSoft : i < active ? RxTheme.surface : "transparent",
+                opacity: i > active ? 0.6 : 1, transition: "background .25s, opacity .25s",
+              }}
+            >
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", opacity: 0.7 }}>{step.who}</div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{step.name}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ height: 4, borderRadius: 4, background: RxTheme.surface, overflow: "hidden" }}>
+        <div style={{ width: `${((active + 1) / steps.length) * 100}%`, height: "100%", background: RxTheme.accent, transition: "width .3s" }} />
+      </div>
+      <p style={{ margin: 0, lineHeight: 1.55, minHeight: 44 }}>{steps[active].detail}</p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <RxButton onClick={() => setActive(active - 1)} disabled={active === 0}>Back</RxButton>
+        <RxButton onClick={() => setActive(active + 1)} disabled={active === steps.length - 1}>Next</RxButton>
+      </div>
+    </RxFrame>
+  );
+};
+
+export const RxSlider = ({ label, value, min, max, step, onChange, format }) => (
+  <label style={{ display: "grid", gap: 6 }}>
+    <span style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+      <span style={{ opacity: 0.75 }}>{label}</span>
+      <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{format ? format(value) : value}</span>
+    </span>
+    <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: "100%", accentColor: RxTheme.accent }} />
+  </label>
+);
+
+export const RxCalculator = () => {
+  const plans = { Starter: 0.12, Team: 0.08, Enterprise: 0.05 };
+  const [plan, setPlan] = useState("Team");
+  const [seats, setSeats] = useState(12);
+  const [runs, setRuns] = useState(40);
+  const perRun = plans[plan];
+  const total = seats * runs * perRun;
+  return (
+    <RxFrame title="Sample cost calculator" caption="Prices are examples">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {Object.keys(plans).map((name) => (
+          <RxButton key={name} pressed={plan === name} onClick={() => setPlan(name)}>{name}</RxButton>
+        ))}
+      </div>
+      <RxSlider label="Seats" value={seats} min={1} max={50} step={1} onChange={setSeats} />
+      <RxSlider label="Runs per seat each month" value={runs} min={5} max={200} step={5} onChange={setRuns} />
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8, padding: 12, borderRadius: 10, background: RxTheme.surface }}>
+        <span style={{ fontSize: 13, opacity: 0.75, fontVariantNumeric: "tabular-nums" }}>{seats} seats × {runs} runs × ${perRun.toFixed(2)}</span>
+        <span style={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / month</span>
+      </div>
+    </RxFrame>
+  );
+};
+
+export const RxChart = () => {
+  const weeks = ["W1", "W2", "W3", "W4", "W5", "W6"];
+  const series = {
+    "Page views": [420, 510, 480, 620, 700, 760],
+    "Searches": [130, 150, 170, 160, 210, 240],
+    "Feedback": [12, 18, 15, 22, 19, 27],
+  };
+  const [metric, setMetric] = useState("Page views");
+  const values = series[metric];
+  const max = Math.max(...values);
+  const change = Math.round(((values[values.length - 1] - values[0]) / values[0]) * 100);
+  return (
+    <RxFrame title="Sample weekly usage" caption={`${metric}: ${change >= 0 ? "+" : ""}${change}% over six weeks`}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {Object.keys(series).map((name) => (
+          <RxButton key={name} pressed={metric === name} onClick={() => setMetric(name)}>{name}</RxButton>
+        ))}
+      </div>
+      <div role="img" aria-label={`${metric} by week: ${values.join(", ")}`} style={{ display: "grid", gridTemplateColumns: `repeat(${values.length}, 1fr)`, alignItems: "end", gap: 10, height: 160 }}>
+        {values.map((v, i) => (
+          <div key={weeks[i]} style={{ display: "grid", gap: 4, alignItems: "end", height: "100%" }}>
+            <div style={{ fontSize: 11, textAlign: "center", opacity: 0.7, fontVariantNumeric: "tabular-nums", alignSelf: "end" }}>{v}</div>
+            <div style={{ height: `${(v / max) * 120}px`, borderRadius: "6px 6px 2px 2px", background: i === values.length - 1 ? RxTheme.accent : "rgba(127,127,127,.3)", transition: "height .3s" }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${weeks.length}, 1fr)`, gap: 10, fontSize: 11, opacity: 0.6, textAlign: "center" }}>
+        {weeks.map((w) => <span key={w}>{w}</span>)}
+      </div>
+    </RxFrame>
+  );
+};
