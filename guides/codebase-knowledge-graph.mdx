@@ -1,40 +1,38 @@
 ---
 title: "Use Mintlify as a knowledge graph for your codebase"
 sidebarTitle: "Codebase knowledge graph"
-description: "Generate documentation for your repositories with a coding agent, keep it current with automations, and give AI agents access to it through MCP."
+description: "Generate documentation for your repositories with an agent, keep it current with automations, and give AI agents access to it through MCP."
 keywords: ["knowledge graph", "codebase documentation", "internal documentation", "MCP", "automations", "coding agent", "multi-repo", "agent context"]
 ---
 
-A codebase knowledge graph is a Mintlify project that describes your code: what each repository does, the services and APIs it exposes, how repositories depend on each other, and how to work in each one. Agents query it through MCP before they write or change code, so they work from an accurate picture of your systems instead of guessing.
+A codebase knowledge graph is a Mintlify project that describes your code: what each repository does, what it exposes, and how repositories depend on each other. Agents query it through MCP before they change code.
 
-You don't need existing documentation or a migration to build one. A coding agent generates the first version from your source code, automations update it when code changes, and the [search MCP server](/ai/model-context-protocol) serves it to any agent your team uses.
+You don't need existing docs or a migration. Setup takes three steps:
 
-The setup has three steps:
-
-1. [Generate the initial knowledge graph](#step-1-generate-the-initial-knowledge-graph) with your coding agent.
+1. [Generate the initial knowledge graph](#step-1-generate-the-initial-knowledge-graph) with the Mintlify agent or your own coding agent.
 2. [Set up automations](#step-2-keep-the-knowledge-graph-current) to keep it current.
 3. [Use the knowledge graph through MCP](#step-3-use-the-knowledge-graph-through-mcp).
 
-Step through the pipeline to see what each part does.
-
 <KgPipeline />
+
+<Note>
+  The repositories, pull requests, and answers in the examples on this page are sample data.
+</Note>
 
 ## Prerequisites
 
-- A Mintlify project connected to a Git repository. This is the central hub repository that holds the knowledge graph. It can start empty. If you don't have a project yet, see the [Quickstart](/quickstart).
+- A Mintlify project connected to a Git repository. This hub repository holds the knowledge graph and can start empty. See the [Quickstart](/quickstart).
 - The [Mintlify GitHub App](/deploy/github) installed on the hub repository and on every source repository you want to document.
 - An [Enterprise plan](https://mintlify.com/pricing?ref=knowledge-graph) for [custom automations](/automations/create).
-- A coding agent such as [Claude Code](/guides/claude-code), [Codex](/guides/codex), or [Cursor](/guides/cursor).
+- The [Mintlify agent](/agent/index), or a coding agent such as [Claude Code](/guides/claude-code), [Codex](/guides/codex), or [Cursor](/guides/cursor).
 
 <Tip>
-  If the knowledge graph should only be visible to your team, set up [authentication](/deploy/authentication-setup) on the project. The search MCP server then requires each user to log in and only returns content they have access to.
+  To keep the knowledge graph private, set up [authentication](/deploy/authentication-setup). The search MCP server then requires each user to log in.
 </Tip>
 
 ## Plan the structure
 
-Keep every repository's documentation in one hub project rather than a separate site per repository. A single project gives agents one MCP server to query and lets pages link across repositories.
-
-Give each repository its own group, and add an overview section that explains how the repositories fit together.
+Put every repository in one hub project, so agents query one MCP server and pages can link across repositories. Give each repository its own group, plus an overview section.
 
 ```json docs.json
 {
@@ -61,87 +59,135 @@ Give each repository its own group, and add an overview section that explains ho
 }
 ```
 
-Each repository section should answer the questions an agent asks before it changes code:
-
-- **Purpose**: What the repository does and who owns it.
-- **Interfaces**: Endpoints, events, packages, or other services it exposes.
-- **Dependencies**: Which repositories and services it calls, and which call it.
-- **Data**: Key models, schemas, and where the data lives.
-- **Working in the repository**: How to run, test, and deploy it, plus conventions a contributor needs to follow.
-
-Click a repository in the example below to see its pages and how it connects to the others.
+Each repository section should cover what an agent needs before it changes code: what the repository does and who owns it, the endpoints or events it exposes, what it calls and what calls it, its key data models, and how to run and test it.
 
 <KgHubExplorer />
 
-<Note>
-  The repositories, pages, and dependencies in this example are sample data. Use your own repositories and the dependencies your coding agent finds in the code.
-</Note>
-
-Start with a few representative repositories, such as one frontend, one backend, and one shared service. Confirm the structure works for them before you add the rest.
+Start with a few representative repositories, such as one frontend, one backend, and one shared service, before you add the rest.
 
 ## Step 1: Generate the initial knowledge graph
 
-Use a coding agent with local access to your source code to write the first version of each repository's documentation.
+Have an agent read your source code and write the first pages into the hub repository. Use the Mintlify agent, or clone the repositories and run your own coding agent.
 
-<Steps>
-  <Step title="Set up your coding agent">
-    Clone the hub repository and your source repositories into the same parent directory so the agent can read all of them.
+<Tabs>
+  <Tab title="Mintlify agent">
+    The [Mintlify agent](/agent/index) reads any repository with the Mintlify GitHub App installed, so you don't clone anything.
 
-    ```bash
-    mkdir knowledge-graph && cd knowledge-graph
-    git clone https://github.com/your-org/docs-hub.git
-    git clone https://github.com/your-org/web-app.git
-    git clone https://github.com/your-org/api-service.git
-    git clone https://github.com/your-org/api-gateway.git
-    ```
+    <Steps>
+      <Step title="Connect your source repositories">
+        Install the [Mintlify GitHub App](https://github.com/apps/mintlify/installations/new) on each source repository you want to document. See [Connect repositories as context](/agent/index#connect-repositories-as-context).
+      </Step>
+      <Step title="Generate documentation for one repository">
+        Open the agent in your [dashboard](https://app.mintlify.com) or [Slack](/agent/slack) and name the source repository, the target folder, and the pages to write.
 
-    From the hub repository, run [`mint agent setup`](/cli/commands#mint-agent-setup) to install the Mintlify skill and connect the [admin MCP server](/ai/mintlify-mcp) to Claude Code, Codex, or Cursor. The skill gives the agent context on Mintlify components, `docs.json`, and writing standards.
+        ```text Example prompt
+        Read the source code in the your-org/api-service repository and write
+        documentation for it in repos/api-service/.
 
-    ```bash
-    cd docs-hub
-    mint agent setup
-    ```
-  </Step>
-  <Step title="Generate documentation for one repository">
-    Start your agent in the parent directory and give it a prompt that names the source repository, the target folder, and the questions each page must answer.
+        Create these pages:
+        - index.mdx: what the service does, who owns it, and how it fits into the
+          rest of the system
+        - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
+          response shape, based on the route definitions
+        - data-model.mdx: the main models and database tables
+        - local-development.mdx: how to install, run, and test the service
 
-    ```text Example prompt
-    Read the source code in ../api-service and write documentation for it in
-    docs-hub/repos/api-service/.
+        For each page, list the other repositories this service calls or is called
+        by, and link to their pages under repos/.
 
-    Create these pages:
-    - index.mdx: what the service does, who owns it, and how it fits into the
-      rest of the system
-    - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
-      response shape, based on the route definitions
-    - data-model.mdx: the main models and database tables
-    - local-development.mdx: how to install, run, and test the service
+        Only document what you can confirm from the code. If something is unclear,
+        leave a TODO comment instead of guessing.
 
-    For each page, list the other repositories this service calls or is called
-    by, and link to their pages under docs-hub/repos/.
+        Add the new pages to docs.json in a group named "API service".
+        ```
 
-    Only document what you can confirm from the code. If something is unclear,
-    leave a TODO comment instead of guessing.
+        The agent opens a pull request in the hub repository. Review it and fix anything the agent got wrong.
+      </Step>
+      <Step title="Repeat for each repository">
+        Repeat for your other repositories, then ask the agent for the overview pages.
 
-    Add the new pages to docs-hub/docs.json in a group named "API service".
-    ```
+        ```text Example prompt
+        Read every page under repos/ and write architecture.mdx. Describe how the
+        repositories depend on each other, which services call which, and how a
+        request moves through the system. Link to the repository pages for details.
+        ```
+      </Step>
+      <Step title="Merge the pull requests">
+        When the pull requests merge, Mintlify deploys the knowledge graph and indexes it for search and MCP.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Clone and push">
+    Run Claude Code, Codex, or Cursor on local clones, then push the pages to the hub repository.
 
-    Review the output, fix anything the agent got wrong, and run `mint dev` from the hub repository to preview the pages.
-  </Step>
-  <Step title="Repeat for each repository">
-    Run the same prompt for your other representative repositories, changing the repository name and page list. Then ask the agent to write the overview pages from the repository pages it created.
+    <Steps>
+      <Step title="Set up your coding agent">
+        Clone the hub and source repositories into one parent directory.
 
-    ```text Example prompt
-    Read every page under docs-hub/repos/ and write docs-hub/architecture.mdx.
-    Describe how the repositories depend on each other, which services call
-    which, and how a request moves through the system. Link to the repository
-    pages for details.
-    ```
-  </Step>
-  <Step title="Publish the hub">
-    Commit the pages to the hub repository and open a pull request. When it merges, Mintlify deploys the knowledge graph and indexes it for search and MCP.
-  </Step>
-</Steps>
+        ```bash
+        mkdir knowledge-graph && cd knowledge-graph
+        git clone https://github.com/your-org/docs-hub.git
+        git clone https://github.com/your-org/web-app.git
+        git clone https://github.com/your-org/api-service.git
+        git clone https://github.com/your-org/api-gateway.git
+        ```
+
+        From the hub repository, run [`mint agent setup`](/cli/commands#mint-agent-setup) to install the Mintlify skill and connect the [admin MCP server](/ai/mintlify-mcp).
+
+        ```bash
+        cd docs-hub
+        mint agent setup
+        ```
+      </Step>
+      <Step title="Generate documentation for one repository">
+        Start your agent in the parent directory and name the source repository, the target folder, and the pages to write.
+
+        ```text Example prompt
+        Read the source code in ../api-service and write documentation for it in
+        docs-hub/repos/api-service/.
+
+        Create these pages:
+        - index.mdx: what the service does, who owns it, and how it fits into the
+          rest of the system
+        - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
+          response shape, based on the route definitions
+        - data-model.mdx: the main models and database tables
+        - local-development.mdx: how to install, run, and test the service
+
+        For each page, list the other repositories this service calls or is called
+        by, and link to their pages under docs-hub/repos/.
+
+        Only document what you can confirm from the code. If something is unclear,
+        leave a TODO comment instead of guessing.
+
+        Add the new pages to docs-hub/docs.json in a group named "API service".
+        ```
+
+        Review the output, fix anything the agent got wrong, and run `mint dev` from the hub repository to preview the pages.
+      </Step>
+      <Step title="Repeat for each repository">
+        Repeat for your other repositories, then ask the agent for the overview pages.
+
+        ```text Example prompt
+        Read every page under docs-hub/repos/ and write docs-hub/architecture.mdx.
+        Describe how the repositories depend on each other, which services call
+        which, and how a request moves through the system. Link to the repository
+        pages for details.
+        ```
+      </Step>
+      <Step title="Push to the hub repository">
+        Commit the pages, push them to the hub repository, and open a pull request. When it merges, Mintlify deploys the knowledge graph and indexes it for search and MCP.
+
+        ```bash
+        git checkout -b initial-knowledge-graph
+        git add repos architecture.mdx docs.json
+        git commit -m "Add initial knowledge graph"
+        git push -u origin initial-knowledge-graph
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
 
 <Tip>
   Save the prompts that worked as a [custom skill](/ai/skillmd#custom-skill-files) or an `AGENTS.md` file in the hub repository. Anyone adding a new repository later gets the same page structure.
@@ -149,7 +195,7 @@ Use a coding agent with local access to your source code to write the first vers
 
 ## Step 2: Keep the knowledge graph current
 
-A knowledge graph is only useful while it matches the code. Create a [custom automation](/automations/create) with a code change trigger so the agent updates the documentation whenever a pull request merges in a source repository.
+Create a [custom automation](/automations/create) with a code change trigger so the agent updates the hub whenever a pull request merges in a source repository.
 
 <Steps>
   <Step title="Create the automation">
@@ -159,15 +205,10 @@ A knowledge graph is only useful while it matches the code. Create a [custom aut
     4. Click **Add repo** for each source repository you documented in step 1. One automation can listen to up to 50 repositories.
   </Step>
   <Step title="Filter the trigger">
-    Under **Show advanced options** on each repository card, narrow when the automation runs:
-
-    - **Listening to changes in**: Only run for pull requests that touch source paths, such as `src/**`, so changes to tests or CI configuration don't trigger an update.
-    - **Excluding PRs from**: Skip pull requests from bots, such as dependency update accounts.
-
-    See [Filter code change triggers](/automations/manage#filter-code-change-triggers) for details.
+    Under **Show advanced options** on each repository card, set **Listening to changes in** to source paths such as `src/**`, and use **Excluding PRs from** to skip bots. See [Filter code change triggers](/automations/manage#filter-code-change-triggers).
   </Step>
   <Step title="Write the instructions">
-    Tell the agent how source repositories map to pages in the hub and what to change.
+    Tell the agent how repositories map to hub pages and what to change.
 
     ```text Example instructions
     1. Read the merged pull request diff from the trigger repository.
@@ -183,44 +224,32 @@ A knowledge graph is only useful while it matches the code. Create a [custom aut
        source pull request.
     ```
 
-    See [Use automations](/guides/use-automations#write-effective-instructions) for more guidance on writing instructions.
   </Step>
   <Step title="Choose an update mode">
-    - **Modify and wait for review**: The agent opens a pull request in the hub repository and assigns the authors of the source change as reviewers. Start here while you tune the instructions.
-    - **Update and merge changes**: Changes merge without review. Switch to this once the results are consistent. If your hub repository has branch protection, see [Configure automerge](/guides/configure-automerge).
+    Start with **Modify and wait for review**, which opens a pull request and assigns the source change's authors as reviewers. Switch to **Update and merge changes** once results are consistent. With branch protection, see [Configure automerge](/guides/configure-automerge).
   </Step>
   <Step title="Test the automation">
-    Save the automation and [run it manually](/automations/manage#run-an-automation-manually) against a recent pull request. Check the [run history](/automations/manage#view-run-history) to confirm the agent changed the right pages, then refine the instructions if needed.
+    Save and [run it manually](/automations/manage#run-an-automation-manually), then check the [run history](/automations/manage#view-run-history) and refine the instructions.
   </Step>
 </Steps>
 
-The simulator below uses an automation configured for the three example repositories, listening to changes in `src/**` and excluding pull requests from `dependabot[bot]`. Pick a merged pull request to see whether the automation runs and what it changes.
+This simulator uses an automation that listens to `src/**` in the three example repositories and excludes `dependabot[bot]`.
 
 <KgTriggerSimulator />
 
-<Note>
-  The pull requests and the pages they update are sample data. The trigger rules, update modes, and credit cost match how automations work.
-</Note>
+To add a repository later, generate its pages as in step 1, then add it to the trigger.
 
-To add a repository later, generate its pages with your coding agent as in step 1, then add the repository to the automation's trigger.
-
-<Note>
-  Each automation run that updates the knowledge graph uses credits. Runs that find nothing to update cost nothing. To batch changes from busy repositories, use a custom schedule trigger instead and have the agent review pull requests merged since the last run. See [Control credit usage](/guides/use-automations#control-credit-usage).
-</Note>
-
-Use the estimator to compare a code change trigger with a schedule for your merge volume.
+Each run that updates the hub uses credits, and runs that change nothing are free. For busy repositories, a schedule trigger batches many merges into one run. See [Control credit usage](/guides/use-automations#control-credit-usage).
 
 <KgCreditEstimator />
 
 <Note>
-  This estimate assumes every merged pull request changes something the knowledge graph documents, and that merges spread evenly across the week. Runs that find nothing to update cost nothing, so your actual usage is likely lower.
+  The estimate assumes every merge changes documented code, so actual usage is likely lower.
 </Note>
 
 ## Step 3: Use the knowledge graph through MCP
 
-Mintlify hosts a [search MCP server](/ai/model-context-protocol) for every project. Connect it to the agents your team uses so they can search the knowledge graph and read full pages while they work.
-
-Your MCP server URL is the `/mcp` path of your site URL, for example `https://docs.your-company.com/mcp`. If your project requires authentication, use the `/authed/mcp` path and [enable authenticated MCP](/ai/model-context-protocol#enable-authenticated-mcp) first.
+Every project has a hosted [search MCP server](/ai/model-context-protocol) at the `/mcp` path of your site URL. With authentication, use `/authed/mcp` and [enable authenticated MCP](/ai/model-context-protocol#enable-authenticated-mcp) first.
 
 <Tabs>
   <Tab title="Claude Code">
@@ -250,7 +279,7 @@ Your MCP server URL is the `/mcp` path of your site URL, for example `https://do
 
 See [Use your MCP server](/ai/model-context-protocol#use-your-mcp-server) for other clients.
 
-To make agents check the knowledge graph without being asked, add an instruction to the `CLAUDE.md`, `AGENTS.md`, or Cursor rules file in each source repository.
+To make agents check it without being asked, add a line to the `CLAUDE.md`, `AGENTS.md`, or Cursor rules file in each source repository.
 
 ```markdown AGENTS.md
 Before changing code that calls another service or repository, search the
@@ -258,21 +287,11 @@ knowledge-graph MCP server for that service. Use its documented endpoints,
 data models, and conventions instead of guessing.
 ```
 
-Agents can then answer questions such as:
-
-- Which services call the API gateway, and what headers do they send?
-- What do I need to change in other repositories if I rename this field?
-- How do I run the API service locally?
-
-Replay how an agent uses the MCP tools to answer one of these questions.
+Here's how an agent uses the MCP tools to answer questions about your code:
 
 <KgMcpReplay />
 
-<Note>
-  The questions, tool calls, and answers in this replay are sample data that show the order agents typically call the tools in. Your agent decides which tools to call based on the conversation.
-</Note>
-
-When an agent finds a page that is wrong or outdated, it can report it with the MCP server's feedback tool. Reports appear in your [feedback](/optimize/feedback) dashboard, so you can see which parts of the knowledge graph need attention.
+When an agent finds a wrong page, it can report it with the feedback tool. Reports appear in your [feedback](/optimize/feedback) dashboard.
 
 ## Next steps
 
@@ -332,8 +351,8 @@ export const KgButton = ({ children, onClick, disabled, pressed, label }) => (
 
 export const KgPipeline = () => {
   const stages = [
-    { name: "Source repositories", tag: "Your code", detail: "Your application, service, and library repositories. Nothing in them moves or changes. The coding agent and automations only read them." },
-    { name: "Coding agent", tag: "Step 1", detail: "Claude Code, Codex, or Cursor reads each source repository and writes the first version of its pages into the hub repository. You review the output before you merge it." },
+    { name: "Source repositories", tag: "Your code", detail: "Your application, service, and library repositories. Nothing in them moves or changes. The agent and automations only read them." },
+    { name: "Agent", tag: "Step 1", detail: "The Mintlify agent, or Claude Code, Codex, or Cursor on local clones, reads each source repository and writes the first version of its pages into the hub repository. You review the pull request before you merge it." },
     { name: "Hub project", tag: "Mintlify", detail: "One Mintlify project holds the pages for every repository, with a group per repository and an overview section. Each merge deploys the site and indexes it for search and MCP." },
     { name: "Automation", tag: "Step 2", detail: "When a pull request merges in a source repository, a code change automation runs the agent. It updates the affected pages and opens a pull request in the hub, or merges directly." },
     { name: "Search MCP server", tag: "Step 3", detail: "Mintlify hosts an MCP server at /mcp, or /authed/mcp for sites with authentication. It exposes tools to search the knowledge graph, read pages, and submit feedback." },
@@ -383,7 +402,7 @@ export const KgPipeline = () => {
 
 export const KgHubExplorer = () => {
   const repos = {
-    overview: { label: "Overview", x: 260, y: 40, pages: ["index", "architecture", "glossary"], purpose: "Explains how the repositories fit together. The coding agent writes it last, from the repository pages.", calls: [], calledBy: [] },
+    overview: { label: "Overview", x: 260, y: 40, pages: ["index", "architecture", "glossary"], purpose: "Explains how the repositories fit together. The agent writes it last, from the repository pages.", calls: [], calledBy: [] },
     web: { label: "web-app", x: 90, y: 160, pages: ["repos/web-app/index", "repos/web-app/local-development", "repos/web-app/routing"], purpose: "The customer-facing frontend. It sends every API request through the gateway.", calls: ["gateway"], calledBy: [] },
     gateway: { label: "api-gateway", x: 260, y: 160, pages: ["repos/api-gateway/index", "repos/api-gateway/auth"], purpose: "Authenticates requests and routes them to backend services.", calls: ["api"], calledBy: ["web"] },
     api: { label: "api-service", x: 430, y: 160, pages: ["repos/api-service/index", "repos/api-service/endpoints", "repos/api-service/data-model"], purpose: "Owns orders and accounts, and exposes them over HTTP.", calls: [], calledBy: ["gateway"] },
