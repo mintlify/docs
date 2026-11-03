@@ -8,7 +8,7 @@
 // the prompt fits in an Open in Cursor link.
 
 export const HomeSetupPrompt = () => {
-  const prompt = `Set up a Mintlify documentation site for me. Follow the agent setup workflow at https://www.mintlify.com/docs/quickstart.md and run the commands yourself. Ask me before you start whether I have existing docs to bring. Tell me when a step needs me, like signing in or claiming my site. You're done when my live site URL loads.`;
+  const prompt = `Set up Mintlify for me. Fetch https://www.mintlify.com/docs/quickstart.md and follow its agent setup workflow.`;
 
   const [copied, setCopied] = useState(false);
 
@@ -29,7 +29,7 @@ export const HomeSetupPrompt = () => {
       <div className="flex min-h-9 flex-wrap items-center gap-2 ps-2.5">
         <span className="flex items-center gap-1.5 text-[14px] leading-5 font-medium text-[color:var(--mh-text-strong)]">
           <Icon icon="sparkles" size={16} color="var(--mh-icon-base)" />
-          Set up Mintlify with your agent
+          Agent setup prompt
         </span>
 
         <div className="ms-auto flex shrink-0 items-center gap-1 p-1">
