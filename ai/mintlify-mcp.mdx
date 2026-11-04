@@ -231,6 +231,35 @@ Work with the [comments and suggestions](/editor/collaborate#comments) that your
 
 `add_comment`, `suggest_edit`, `reply_to_comment`, and `resolve_comment` require an OAuth session and a `branch`. They act on the threads left on that branch, and work on your deploy branch even when edits to it require a pull request. You can reply to suggestion threads, but you must accept or reject suggestions in the editor. Comments on private pages aren't available through the admin MCP. `read_inbox` also requires an OAuth session, and only returns the inbox of an active member of the project's organization.
 
+### Live agents
+
+An AI tool can join a page as a live collaborator. While it's on the page, its avatar appears in the editor's presence bar with a live indicator, and your team can @-mention it in comments. The agent hears new comments and edits on the page until it leaves or someone removes it.
+
+To bring an agent onto a page, ask your AI tool to join it, for example by sharing the page's editor URL. After you spend a minute on a page in the [editor](/editor) with no live agents present, an **Agent** button with a plus icon appears next to the collaborator avatars. Click it to copy a prompt that tells Claude Code or another MCP client how to join the page and listen for mentions.
+
+- **`join_page`**: Join a page on `branch` as a live collaborator. Pass `path` in the same forms as `read_comments`, including a page ID from an editor URL. Returns a `sessionId`, a `cursor`, a `watch` object with a `url` and a `command` that streams page activity as newline-delimited JSON, and `instructions` for the AI tool. To rejoin in place of your own earlier session on the page, such as after a restart, pass its `sessionId` as `replaces`.
+- **`wait_for_page_activity`**: Wait for activity on a page you joined, for AI tools that can't run `watch.command` in the background. Pass the `sessionId` and `cursor`, and an optional `timeoutSeconds` from 1 to 50 (default 25). Returns `status`, `events`, and the `cursor` to pass to the next call. Stop calling it when `status` is `ended`.
+- **`leave_page`**: Leave a page you joined. The agent's avatar disappears and its watch stream ends. Returns `left: true`.
+
+Pass the same `subdomain` to `wait_for_page_activity` and `leave_page` that you used to join. Each event has a `type`:
+
+- **`comment`**: A new or edited comment, suggestion, or reply. Includes who wrote it (`by`), the `content`, the `quotedText` it's anchored to, `mentionsYou`, and `fromOwner`. `fromOwner` is `false` when a teammate, rather than the person who connected the agent, wrote the comment.
+- **`edit`**: Someone else changed the page. Includes who edited (`by`) and a `diff` of the change.
+- **`removed`**: A person removed the agent from the page.
+- **`ended`**: The session ended because the agent left, rejoined with `replaces`, or the session expired.
+
+The admin MCP tells the AI tool to act on comments that mention it, reply with `reply_to_comment`, and treat other comments and edits as context. When a teammate other than its user asks, the AI tool checks with its user before anything destructive or hard to undo, such as publishing.
+
+Anyone who can edit the page can remove a live agent: right-click its avatar in the presence bar, then select the option to remove it from the page. A removed agent can't rejoin the same page for 10 minutes.
+
+Live agents have these limits:
+
+- Up to 10 live agents can be on a page at once. If several agents from the same person are on a page, their labels are numbered, such as `Claude Code (Alex) 1/2`.
+- A session ends after 8 hours, or after 1 hour for a connection that uses a [credential](#credentials) instead of an OAuth login. It also ends if the person who connected the agent is no longer an active member of your organization.
+- Live agents aren't available on private pages.
+
+`join_page` returns `not_enabled` if live agents aren't enabled for your organization. Other errors include `page_not_found`, `too_many_agents`, `removed_recently`, `busy` when other agents are joining the page at the same moment, and `session_not_found`.
+
 ### Navigation
 
 - **`list_nodes`**: Walk the navigation tree of `branch`, or of your deploy branch when you omit it, with optional filters. Filter by `parentId` (use `recursive: true` to include all descendants), one or more node types, or any division scope: `language`, `version`, `tab`, `dropdown`, `anchor`, `product`, or `item`. Uploaded files and folders (`file` and `file_directory` nodes) appear only when you include them in the type filter. Each node returns its `id`, `type`, `text`, and `parent`, plus `path`, `pageId`, and `hidden` when they apply. Pass a page's `path` to `read` to get its content and frontmatter. Results paginate through an opaque `cursor`. Pass `visibility: "private"` to list the [private pages](/editor/pages#private-pages) and folders the OAuth user can access instead of the branch navigation tree. Private listing ignores `branch` and the other filters, and returns each node's `role`.
