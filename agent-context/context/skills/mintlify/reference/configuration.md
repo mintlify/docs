@@ -639,7 +639,7 @@ Or omit the page from `docs.json` navigation entirely. The two approaches differ
 
 ## .mintignore
 
-Exclude files completely from the published docs. Place `.mintignore` in the docs root. Uses `.gitignore` syntax.
+Exclude files completely from the published docs. Place `.mintignore` in the docs root. Uses `.gitignore` syntax. In a multi-repo project, each source's `.mintignore` excludes only that source's files.
 
 ```
 drafts/
