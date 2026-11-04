@@ -26,11 +26,8 @@ Vous n'avez besoin ni de documentation existante ni de migration. La configurati
 - Un projet Mintlify connecté à un dépôt Git. Ce dépôt central (hub) contient le graphe de connaissances et peut être vide au départ. Consultez le [Quickstart](/fr/quickstart).
 - La [GitHub App Mintlify](/fr/deploy/github) installée sur le dépôt central et sur chaque dépôt source que vous souhaitez documenter.
 - Un [forfait Enterprise](https://mintlify.com/pricing?ref=knowledge-graph) pour les [automatisations personnalisées](/fr/automations/create).
+- L'[authentification](/fr/deploy/authentication-setup) sur le projet, afin que seule votre équipe puisse lire le graphe de connaissances et se connecter à son serveur MCP. Sans authentification, n'importe qui peut lire les pages qui décrivent votre code interne.
 - L'[agent Mintlify](/fr/agent/index), ou un agent de code tel que [Claude Code](/fr/guides/claude-code), [Codex](/fr/guides/codex) ou [Cursor](/fr/guides/cursor).
-
-<Tip>
-  Pour garder le graphe de connaissances privé, configurez l'[authentification](/fr/deploy/authentication-setup). Le serveur MCP de recherche exige alors que chaque utilisateur se connecte.
-</Tip>
 
 <div id="plan-the-structure">
   ## Planifier la structure
@@ -63,7 +60,13 @@ Placez tous les dépôts dans un seul projet central, afin que les agents interr
 }
 ```
 
-Chaque section de dépôt doit couvrir ce dont un agent a besoin avant de modifier le code : ce que fait le dépôt et qui en est responsable, les endpoints ou événements qu'il expose, ce qu'il appelle et ce qui l'appelle, ses principaux modèles de données, et comment l'exécuter et le tester.
+Chaque section de dépôt doit couvrir ce dont un agent a besoin avant de modifier le code :
+
+- Ce que fait le dépôt et qui en est responsable
+- Les endpoints ou événements qu'il expose
+- Ce qu'il appelle et ce qui l'appelle
+- Ses principaux modèles de données
+- Comment l'exécuter et le tester
 
 <KgHubExplorer />
 
@@ -80,9 +83,6 @@ Demandez à un agent de lire votre code source et d'écrire les premières pages
     L'[agent Mintlify](/fr/agent/index) lit n'importe quel dépôt sur lequel la GitHub App Mintlify est installée : vous n'avez donc rien à cloner.
 
     <Steps>
-      <Step title="Connecter vos dépôts sources">
-        Installez la [GitHub App Mintlify](https://github.com/apps/mintlify/installations/new) sur chaque dépôt source que vous souhaitez documenter. Consultez [Connecter des dépôts comme contexte](/fr/agent/index#connect-repositories-as-context).
-      </Step>
       <Step title="Générer la documentation d'un dépôt">
         Ouvrez l'agent dans votre [dashboard](https://app.mintlify.com) ou dans [Slack](/fr/agent/slack) et indiquez le dépôt source, le dossier cible et les pages à écrire.
 
@@ -138,11 +138,10 @@ Demandez à un agent de lire votre code source et d'écrire les premières pages
         git clone https://github.com/your-org/api-gateway.git
         ```
 
-        Depuis le dépôt central, exécutez [`mint agent setup`](/fr/cli/commands#mint-agent-setup) pour installer la skill Mintlify et connecter le [serveur MCP d'administration](/fr/ai/mintlify-mcp).
+        Exécutez [`mint agent setup`](/fr/cli/commands#mint-agent-setup) avec `--global` pour installer la skill Mintlify et connecter le [serveur MCP d'administration](/fr/ai/mintlify-mcp) pour votre compte utilisateur. Sans `--global`, la commande ne configure que le dépôt central, et un agent lancé dans le répertoire parent ne charge pas cette configuration.
 
         ```bash
-        cd docs-hub
-        mint agent setup
+        mint agent setup --global
         ```
       </Step>
       <Step title="Générer la documentation d'un dépôt">
@@ -213,7 +212,7 @@ Créez une [automatisation personnalisée](/fr/automations/create) avec un décl
     4. Cliquez sur **Add repo** pour chaque dépôt source documenté à l'étape 1. Une automatisation peut écouter jusqu'à 50 dépôts.
   </Step>
   <Step title="Filtrer le déclencheur">
-    Dans **Show advanced options** sur chaque carte de dépôt, définissez **Listening to changes in** sur des chemins sources tels que `src/**`, et utilisez **Excluding PRs from** pour ignorer les bots. Consultez [Filtrer les déclencheurs de modification de code](/fr/automations/manage#filter-code-change-triggers).
+    Sur chaque carte de dépôt, cliquez sur **Show advanced options**. Définissez **Listening to changes in** sur des chemins sources tels que `src/**`, et ajoutez les comptes de bots à **Exclude author**. Consultez [Filtrer les déclencheurs de modification de code](/fr/automations/manage#filter-code-change-triggers).
   </Step>
   <Step title="Rédiger les instructions">
     Indiquez à l'agent comment les dépôts correspondent aux pages du dépôt central et ce qu'il doit modifier.
@@ -234,7 +233,7 @@ Créez une [automatisation personnalisée](/fr/automations/create) avec un décl
 
   </Step>
   <Step title="Choisir un mode de mise à jour">
-    Commencez avec **Modify and wait for review**, qui ouvre une pull request et désigne les auteurs de la modification source comme relecteurs. Passez à **Update and merge changes** une fois les résultats fiables. Si vous utilisez la protection de branche, consultez [Configurer la fusion automatique](/fr/guides/configure-automerge).
+    Laissez d'abord **Update and merge changes** désactivé. L'agent ouvre alors une pull request et désigne les auteurs de la modification source comme relecteurs. Lorsque les pull requests de l'agent n'ont plus besoin de corrections, activez **Update and merge changes**. Si votre branche de déploiement est soumise à une protection de branche, consultez [Configurer la fusion automatique](/fr/guides/configure-automerge).
   </Step>
   <Step title="Tester l'automatisation">
     Enregistrez-la et [exécutez-la manuellement](/fr/automations/manage#run-an-automation-manually), puis consultez l'[historique des exécutions](/fr/automations/manage#view-run-history) et affinez les instructions.
@@ -259,17 +258,17 @@ Chaque exécution qui met à jour le dépôt central consomme des crédits, et l
   ## Étape 3 : Utiliser le graphe de connaissances via MCP
 </div>
 
-Chaque projet dispose d'un [serveur MCP de recherche](/fr/ai/model-context-protocol) hébergé au chemin `/mcp` de l'URL de votre site. Avec l'authentification, utilisez `/authed/mcp` et [activez d'abord le MCP authentifié](/fr/ai/model-context-protocol#enable-authenticated-mcp).
+Chaque projet dispose d'un [serveur MCP de recherche](/fr/ai/model-context-protocol) hébergé. Comme le graphe de connaissances exige une authentification, connectez vos agents au chemin `/authed/mcp` de l'URL de votre site. La première fois qu'un agent se connecte, vous vous identifiez avec les mêmes identifiants que pour le site, et l'agent ne lit que les pages auxquelles vos [groupes d'utilisateurs](/fr/deploy/authentication-setup) ont accès. Consultez [Activer le MCP authentifié](/fr/ai/model-context-protocol#enable-authenticated-mcp).
 
 <Tabs>
   <Tab title="Claude Code">
     ```bash
-    claude mcp add --transport http knowledge-graph https://docs.your-company.com/mcp
+    claude mcp add --transport http knowledge-graph https://docs.example.com/authed/mcp
     ```
   </Tab>
   <Tab title="Codex">
     ```bash
-    codex mcp add knowledge-graph --url https://docs.your-company.com/mcp
+    codex mcp add knowledge-graph --url https://docs.example.com/authed/mcp
     ```
   </Tab>
   <Tab title="Cursor">
@@ -279,7 +278,7 @@ Chaque projet dispose d'un [serveur MCP de recherche](/fr/ai/model-context-proto
     {
       "mcpServers": {
         "knowledge-graph": {
-          "url": "https://docs.your-company.com/mcp"
+          "url": "https://docs.example.com/authed/mcp"
         }
       }
     }
@@ -289,7 +288,9 @@ Chaque projet dispose d'un [serveur MCP de recherche](/fr/ai/model-context-proto
 
 Consultez [Utiliser votre serveur MCP](/fr/ai/model-context-protocol#use-your-mcp-server) pour les autres clients.
 
-Pour que les agents le consultent sans qu'on le leur demande, ajoutez une ligne au fichier `CLAUDE.md`, `AGENTS.md` ou aux règles Cursor de chaque dépôt source.
+Pour vérifier la connexion, demandez à votre agent comment exécuter l'un de vos dépôts en local. Vérifiez que l'agent effectue une recherche sur le serveur `knowledge-graph` et répond à partir de ses pages.
+
+Pour que les agents effectuent d'eux-mêmes des recherches dans le graphe de connaissances, ajoutez une ligne au fichier `CLAUDE.md`, `AGENTS.md` ou aux règles Cursor de chaque dépôt source.
 
 ```markdown AGENTS.md
 Before changing code that calls another service or repository, search the
@@ -532,8 +533,7 @@ export const KgTriggerSimulator = () => {
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, opacity: 0.65 }}>Mode de mise à jour</span>
-        <KgButton pressed={mode === "review"} onClick={() => setMode("review")}>Modify and wait for review</KgButton>
-        <KgButton pressed={mode === "merge"} onClick={() => setMode("merge")}>Update and merge changes</KgButton>
+        <KgButton pressed={mode === "merge"} onClick={() => setMode(mode === "merge" ? "review" : "merge")}>Update and merge changes : {mode === "merge" ? "activé" : "désactivé"}</KgButton>
       </div>
       <div aria-live="polite" style={{ borderRadius: 10, padding: 12, background: tone.bg, borderLeft: `3px solid ${tone.color}`, display: "grid", gap: 6 }}>
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
