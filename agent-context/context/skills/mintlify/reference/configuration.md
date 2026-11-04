@@ -85,6 +85,7 @@ The SKILL.md file lists common frontmatter fields. Here are the supported fields
 | `public` | boolean | Make this page public on a site with authentication. |
 | `asyncapi` | string | AsyncAPI channel reference for a WebSocket page. |
 | `rss` | boolean | Generate an RSS feed for a changelog page. |
+| `filterTagMatch` | string | Changelog tag filter matching: `any` (default, updates with at least one selected tag plus untagged updates) or `all` (only updates with every selected tag). |
 | `thumbnail` | object | Per-page social thumbnail override (see Thumbnails). |
 | `canonical`, `robots`, `og:*`, `twitter:*` | string | Page-level SEO meta tags; override `seo.metatags`. |
 
