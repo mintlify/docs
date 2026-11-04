@@ -35,14 +35,6 @@ https://mcp.mintlify.com
 
 It's a Streamable HTTP MCP server. It supports OAuth 2.0 with dynamic client registration and PKCE (`/.well-known/oauth-authorization-server`). The sign-in uses the person's Mintlify account; someone new to Mintlify creates their account in that sign-in.
 
-## Did the message come with a login code? Run it first
-
-The person may have copied their prompt from mintlify.com while signed in. Then it carries a command like `npx -y mint@latest login --code mlc_…`. Run that command before anything else, exactly as given. It signs this computer's `mint` CLI in as them and stores the login on this machine. They approved it already, by being signed in when they copied it, so there is no browser step and nothing to wait for.
-
-- **Still set this client up** (step 2) with `npx -y mint@latest agent setup --global`. It uses the stored login, so no agent asks for its own sign-in and there is no `/mcp` → **Authenticate** step. Say so in step 4 rather than presenting it as a required step.
-- The code works once, for 30 minutes. If the command says the code was used or expired, don't guess at another one: run `npx -y mint@latest login` (it prints one link for them to approve; see "The CLI" in step 2), or ask them to copy a fresh prompt from https://www.mintlify.com. The page makes a new code by itself.
-- Treat the code like a password. Don't write it to a file, a config, a commit or a message, and don't repeat it in your reply.
-
 ## Ask what they're building
 
 Before you configure anything, ask the person:
@@ -51,15 +43,29 @@ Before you configure anything, ask the person:
 
 ### A knowledge base: a Mintlify base
 
-A base is a private project for a team's internal knowledge: specs, runbooks, onboarding guides. It has no public site, no domain, and no GitHub setup. You read and write it through the MCP server once you're connected.
+A base is a private project for a team's internal knowledge: specs, runbooks, onboarding guides. It has no public site, no domain, and no GitHub setup. The person edits it in the Mintlify editor.
 
-1. **Sign in, and make sure a base exists.** Unless a login code already signed you in, run `npx -y mint@latest login --product base` and give the person the link it prints (see "The CLI" in step 2). Someone new to Mintlify signs up on that page, and their onboarding creates the base. Someone already in a Mintlify organization without a base adds one in the [dashboard](https://app.mintlify.com/): the project switcher → **New project** → **Base** → **Continue** → **Create project**.
+**New to Mintlify?** You create the base yourself with the CLI. The person needs no account until the last step, and you don't sign in. Don't run `mint login`, `mint new`, or plain `mint deploy`. From an empty directory, and running every `mint` command from it:
 
-   If they aren't sure whether they have one, connect first and check: `list_deployments` returns each project with a `projectType`, and a base is `"workspace"`.
-2. **Connect this client.** Follow steps 1 to 4 below. The `mint agent setup` shortcut uses the same login, so the base's tools need no second sign-in.
-3. **Write the first page.** Step 5.
+```bash
+npx -y mint@latest deploy --base --subdomain <name>
+```
 
-Don't run `mint deploy` for a base. It creates a public docs site that is deleted in 24 hours unless claimed, which is not what they asked for.
+It prints the editor link, when the base expires, and the next steps. Follow them in order:
+
+1. **Clone it.** Run the clone command it prints. The base already has starter pages; the clone lands in `./<name>`.
+2. **Write and push.** Write the pages the person asked for in the clone, add each one to the navigation in `docs.json`, and commit. Then publish:
+
+   ```bash
+   npx -y mint@latest deploy --base --push <name>
+   ```
+
+   It rebases onto the latest `main` and pushes. Don't run `git push` yourself. Repeat for more changes.
+3. **Claim it last.** A claimed base stops accepting pushes, so finish writing first. Ask for the email address that should own it, never invent one, and run `npx -y mint@latest deploy --base --email <email>`. Give them the claim link it prints. They sign in or create an account, and the page shows a code. When they read it back, run `npx -y mint@latest claim --code <code>`.
+
+Give them the editor link. The base is deleted 24 hours after it was created unless they claim it. To keep editing it from this client after the claim, connect it with steps 1 to 4 below.
+
+**Already in a Mintlify organization?** They add a base in the [dashboard](https://app.mintlify.com/): the project switcher → **New project** → **Base** → **Continue** → **Create project**. Then connect this client with steps 1 to 4 and write the first page (step 5). If they aren't sure whether they have one, connect first and check: `list_deployments` returns each project with a `projectType`, and a base is `"workspace"`.
 
 ### A public docs site
 
@@ -92,28 +98,28 @@ npx -y mint@latest claim --email <email>
 npx -y mint@latest claim --code <code>
 ```
 
-Give them the claim link the first command prints; run the second with the code they read back. Then ask which domain the docs should live on and add it. `add-domain` needs a signed-in CLI, so the person approves `mint login` first:
+Give them the claim link the first command prints; run the second with the code they read back. Then ask which domain the docs should live on. `add-domain` needs a signed-in CLI, and `mint login` waits for a browser sign-in or a pasted code, so the person runs both commands in their own terminal:
 
 ```bash
 npx -y mint@latest login
 npx -y mint@latest add-domain docs.example.com
 ```
 
-`add-domain` prints the DNS records the person adds at their DNS provider. To edit the site from this client afterwards, connect it with steps 1 to 4.
+`add-domain` prints the DNS records they add at their DNS provider. To edit the site from this client afterwards, connect it with steps 1 to 4.
 
 ## Can nobody sign in from here?
 
 MCP OAuth needs a person at the client: on Claude Code that is `/mcp` → **Authenticate**, typed by them, in an interactive session. A **non-interactive** run (`claude -p`, CI, a scheduled job, an SDK script) or a **cloud session** (Claude Code on the web, a routine) can't do that, so the server shows "needs authentication" and its tools never load.
 
-- **For a base**, the MCP server is the only way in. Relay the connector setup below to the person and stop.
-- **For a public docs site**, the `mint` CLI publishes with no account at all and works inside a session that is already running. Follow "A public docs site" above.
+- **For a new base or a public docs site**, the `mint` CLI creates and publishes it with no account at all and works inside a session that is already running. Follow "A knowledge base" or "A public docs site" above.
+- **For an existing base**, the MCP server is the only way in. Relay the connector setup below to the person and stop.
 
 ### Cloud sessions (Claude Code on the web, routines)
 
 The VM is fresh every session and reads none of the person's own machine: not `~/.claude.json`, not their plugins, not a shell profile. So `claude mcp add --scope user` sets up nothing that lasts. Don't try it. What makes Mintlify work here is set by the person, once, on claude.ai; relay one of these two and stop:
 
 - **The connector**, for a base or a docs site. claude.ai Settings → Connectors → Add custom connector, paste `https://mcp.mintlify.com`, approve the sign-in, and enable it for the session. Or hand them this link, which opens that dialog prefilled: [Connect to Claude](https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mintlify&connectorUrl=https%3A%2F%2Fmcp.mintlify.com). Connector traffic goes through Anthropic, so no network setting is needed. The tools appear in the next session.
-- **The CLI**, for a public docs site only. Open the cloud environment's settings and set **Network access** → Custom, with the hosts listed in https://www.mintlify.com/auth.md under Allowed domains, and "Also include default list of common package managers" checked so `npx` still reaches npm. Then, in a new session, follow "A public docs site" above.
+- **The CLI**, for a new base or a public docs site. Open the cloud environment's settings and set **Network access** → Custom, with the hosts listed in https://www.mintlify.com/auth.md under Allowed domains, and "Also include default list of common package managers" checked so `npx` still reaches npm. Then, in a new session, follow "A knowledge base" or "A public docs site" above.
 
 Before calling a sign-in broken, read Mintlify's public sign-in metadata. JSON that starts with `{"issuer"` means the network lets Mintlify through; a proxy page or a connection error means the network setting:
 
@@ -137,16 +143,15 @@ Work out which client you're running inside. If you can't tell, ask—a config w
 
 ### The shortcut: Claude Code, Codex, and Cursor at once
 
-On the user's own machine (a shell you can run commands in, Node.js 22.20+), one command configures Claude Code, Codex, and Cursor, whichever are installed here:
+On the user's own machine (a shell you can run commands in, Node.js 22.20+), one command installs the Mintlify skill and adds the `mintlify-admin` server for Claude Code, Codex, or Cursor. Name the agent you are:
 
 ```bash
-npx -y mint@latest agent setup --global
+npx -y mint@latest agent setup --global --agent claude-code
 ```
 
-- It signs this machine in once. If it isn't signed in yet, it prints a `https://app.mintlify.com/cli?code=…` link: run it in the background, give the user the link, and wait for it to exit (the same as `mint login` in "The CLI"). With a login code from the message, pass it: `agent setup --global --code mlc_…`.
-- Each agent's config gets one `mintlify-admin` entry that runs `mint mcp`, a local stdio server on that one login, so **no agent asks for its own sign-in** and there is no `/mcp` → **Authenticate** step. An existing `mintlify-admin` entry is replaced, never doubled. It also installs the Mintlify skill where each agent reads skills.
-- It prints what it changed per agent; relay that list. A config it can't parse is named: configure that one agent by hand below.
-- To configure only some agents, pass them: `--agent claude-code`, `--agent codex`, `--agent cursor`.
+- Always pass `--agent` (`claude-code`, `codex`, or `cursor`; repeat it for more). Without it, a run with no terminal configures every agent it finds on the machine.
+- Each agent's config gets one `mintlify-admin` entry pointing at `https://mcp.mintlify.com`. It doesn't sign in: each agent still does its own OAuth sign-in in step 4.
+- It prints the file it changed per agent and the sign-in step for each; relay both.
 - **If Claude Code blocks it in auto mode**, tell the user what the command does and let them decide.
 
 Use the per-client sections below when there's no shell on the user's machine, the user wants only this one client, or `agent setup` left a client alone.
@@ -285,16 +290,11 @@ Add it however that client adds a remote Streamable HTTP MCP server, with OAuth.
 
 ### The CLI—for CI, and for any agent with a shell
 
-```bash
-npx -y mint@latest login     # one link to approve; login stored locally
-npx -y mint@latest whoami    # signed in? prints the email and organization
-```
+The CLI creates and publishes new bases and public docs sites with no account and no sign-in: `mint deploy --base` or `mint deploy`, then a claim. If the person wants either, there is nothing to configure in this client; follow "A knowledge base" or "A public docs site" above.
 
-The CLI signs this machine in, publishes public docs sites from a terminal, a script, or on every git push, and runs `mint mcp`, the local MCP server `agent setup` points each agent at. If the person wants a public docs site, there is nothing to configure in this client; follow "A public docs site" above.
+This is also the way **you** publish when the MCP server isn't connected yet, or isn't authorized: it works inside a session that is already running, with no restart and no `/mcp`.
 
-This is also the way **you** publish a docs site when the MCP server isn't connected yet, or isn't authorized: it works inside a session that is already running, with no restart and no `/mcp`.
-
-**Run the login yourself; the person's only step is the Approve click.** It asks nothing in the terminal (no prompt, no password), so don't hand it to them as a command to type. It prints the code and the link, opens a browser where it can, and exits as soon as they approve on any device, their phone included. Someone new to Mintlify signs up on the same page. Because it waits up to 10 minutes, start it as a background task, give them the link in one line, and carry on when it exits (or when `mint whoami` answers). Don't make them come back to tell you they approved: the login exiting is the signal.
+**Don't run `mint login` yourself.** It opens a browser and then waits for a pasted authorization code, so it hangs in an agent's shell. Only `add-domain` needs it; the person runs both in their own terminal.
 
 **If Claude Code's auto mode blocks `npx -y mint@latest`, ask; don't work around it.** Don't retry on your own, and don't swap in another way to run it. Tell them in one line what it does ("Auto mode won't run the Mintlify CLI from npm on my own; reply _yes, run it_ and I'll publish the site") and, once they have, run the same command once. Write the docs before you ask, so nothing waits on the answer but the publish.
 
@@ -306,10 +306,10 @@ The restart ends your session, so check everything checkable now.
 
 ## Step 4—hand off across the restart
 
-New MCP configurations may need a fresh session to load. On Codex, start a new task and reload the client if needed; on other clients, restart or reload. **A public docs site does not have to wait for it**—ship it with the CLI above and let the restart be a separate errand. A base waits for the restart. Before they restart, tell them in one message:
+New MCP configurations may need a fresh session to load. On Codex, start a new task and reload the client if needed; on other clients, restart or reload. **A new base or public docs site does not have to wait for it**—ship it with the CLI above and let the restart be a separate errand. An existing base waits for the restart. Before they restart, tell them in one message:
 
 1. the file you changed, and how to undo it;
-2. that they need a new task on Codex, or a restart on other clients. If you used `mint agent setup`, that is all: the tools run on the stored login. If you added the remote server by hand, then—on Claude Code—they type `/mcp` themselves and pick **Authenticate** to do the browser approval (a slash command is user input; an agent can't send it). Someone new to Mintlify creates their account in that sign-in;
+2. that they need a new task on Codex, or a restart on other clients. Then they sign in: on Claude Code they type `/mcp` themselves and pick **Authenticate** (a slash command is user input; an agent can't send it), on Codex they run `codex mcp login mintlify-admin`, on Cursor they connect it in MCP settings. Someone new to Mintlify creates their account in that sign-in;
 3. that afterwards they should ask their agent to **run `list_deployments`** to confirm the connection. A base shows `projectType: "workspace"`.
 
 Three ways it goes wrong, and what each one means:
