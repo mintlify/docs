@@ -531,7 +531,7 @@ Display changelog entries and release notes.
 Props:
 - `label` (string, required): Date or version identifier.
 - `description` (string): Version or release name.
-- `tags` (string[]): Filterable tags.
+- `tags` (string[]): Filterable tags. By default, selecting several tags shows updates with at least one of them, plus untagged updates. Set `filterTagMatch: "all"` in the page frontmatter to show only updates with every selected tag and hide untagged updates while a filter is active.
 - `rss` (object): Custom RSS entry with `title`, `description`, and `date` (overrides the Git-derived publication date).
 
 ## Visibility
