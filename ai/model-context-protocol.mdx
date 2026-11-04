@@ -233,74 +233,26 @@ Allowed domains apply to both your search MCP server and the [admin MCP](/ai/min
 
 #### How the OAuth token exchange works
 
-When a user connects an MCP client to `/authed/mcp`, the client and Mintlify complete an OAuth 2.1 authorization code flow with PKCE. MCP clients run this flow automatically, so your users only see the sign-in step. If your whole site requires authentication, the same flow runs on `/mcp` with endpoints under `/mcp/oauth/*`.
+When a user connects an MCP client to `/authed/mcp`, the client runs an OAuth authorization code flow with PKCE. MCP clients handle these steps automatically, so your users only see the sign-in step.
 
 ```mermaid
 sequenceDiagram
-    autonumber
     actor User
     participant Client as MCP client
     participant Docs as Your docs site
-    participant IdP as Your auth provider
 
-    Client->>Docs: POST /authed/mcp (no token)
-    Docs-->>Client: 401 with WWW-Authenticate resource_metadata URL
-    Client->>Docs: GET /.well-known/oauth-protected-resource/authed/mcp
-    Docs-->>Client: Authorization server URL
-    Client->>Docs: GET /.well-known/oauth-authorization-server/authed/mcp
-    Docs-->>Client: Authorize, token, and register endpoints
-    Client->>Docs: POST /authed/mcp/oauth/register
-    Docs-->>Client: client_id
-    Client->>Client: Generate code_verifier and S256 code_challenge
-    Client->>User: Open browser to authorize URL
-    User->>Docs: GET /authed/mcp/oauth/authorize (client_id, redirect_uri, code_challenge, state)
-    Docs->>Docs: Check redirect_uri against allowed domains
-    Docs-->>User: Redirect to /authed/mcp/oauth/callback
-    opt User is not signed in to your docs
-        Docs-->>User: Redirect to /login
-        User->>IdP: Sign in
-        IdP-->>Docs: Signed-in docs session
-    end
-    Docs-->>User: Redirect to redirect_uri with code and state
-    User->>Client: Deliver code and state
-    Client->>Docs: POST /authed/mcp/oauth/token (grant_type=authorization_code, code, code_verifier, redirect_uri, client_id)
-    Docs->>Docs: Verify code, redirect_uri, client_id, and PKCE
+    Client->>Docs: Connect to /authed/mcp
+    Docs-->>Client: 401, sign-in required
+    Client->>User: Open browser to /authed/mcp/oauth/authorize
+    User->>Docs: Sign in to your docs
+    Docs-->>Client: Redirect with authorization code
+    Client->>Docs: POST /authed/mcp/oauth/token with code and code_verifier
     Docs-->>Client: access_token and refresh_token
-    Client->>Docs: POST /authed/mcp with Authorization: Bearer access_token
+    Client->>Docs: Call /authed/mcp with Bearer access_token
     Docs-->>Client: Content scoped to the user's groups
 ```
 
-Mintlify enforces these limits during the exchange:
-
-- The authorization request must use `response_type=code` and `code_challenge_method=S256`.
-- The authorization code is single use and expires after five minutes.
-- The `redirect_uri`, `client_id`, and `code_verifier` sent to the token endpoint must match the authorization request.
-- The access token carries the `mcp:search` scope and the user's groups. It expires after 10 minutes, or sooner if the user's docs session expires first.
-
-#### Refresh access tokens
-
-When an access token expires, the MCP client exchanges its refresh token for a new token pair. Mintlify rotates refresh tokens, so each refresh returns a new refresh token and the client must use the newest one.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Client as MCP client
-    participant Docs as Your docs site
-
-    Client->>Docs: POST /authed/mcp with expired access_token
-    Docs-->>Client: 401
-    Client->>Docs: POST /authed/mcp/oauth/token (grant_type=refresh_token, refresh_token)
-    alt Refresh token is current
-        Docs-->>Client: New access_token and new refresh_token
-        Client->>Docs: Retry POST /authed/mcp with new access_token
-    else Refresh token was already used or is expired
-        Docs->>Docs: Revoke every token from this sign-in if the token was reused
-        Docs-->>Client: 400 invalid_grant
-        Client->>Client: Start the authorization flow again
-    end
-```
-
-Each refresh token expires 30 days after Mintlify issues it. If a client presents a refresh token that it already exchanged, Mintlify treats it as a possible token leak and revokes every refresh token issued from that sign-in. A short grace period lets concurrent requests from the same client refresh without triggering revocation.
+When the access token expires, the client sends its refresh token to the same token endpoint to get a new token pair.
 
 ### Client credentials
 
@@ -385,26 +337,18 @@ Client credentials authenticate against the `/authed/mcp` endpoint. By default, 
 
 #### Client credentials token exchange
 
-The client credentials grant skips the browser and the authorization code. Your integration sends its client ID and secret directly to the token endpoint.
+The client credentials flow skips the browser. Your integration exchanges its client ID and secret for tokens directly.
 
 ```mermaid
 sequenceDiagram
-    autonumber
     participant App as Your integration
     participant Docs as Your docs site
 
-    App->>Docs: POST /authed/mcp/oauth/token (grant_type=client_credentials, client_id, client_secret)
-    Docs->>Docs: Verify the secret and that the credential is enabled
+    App->>Docs: POST /authed/mcp/oauth/token with client_id and client_secret
     Docs-->>App: access_token and refresh_token
-    App->>Docs: POST /authed/mcp with Authorization: Bearer access_token
-    Docs->>Docs: Confirm the credential still exists
+    App->>Docs: Call /authed/mcp with Bearer access_token
     Docs-->>App: Content scoped to the credential's groups
-    Note over App,Docs: When the access token expires
-    App->>Docs: POST /authed/mcp/oauth/token (grant_type=refresh_token, refresh_token)
-    Docs-->>App: New access_token and new refresh_token
 ```
-
-Mintlify checks the credential on every MCP request and every refresh. After you delete a credential, its access tokens stop working and its refresh tokens are revoked. You can also request a new token with `grant_type=client_credentials` at any time instead of refreshing.
 
 #### Manage client credentials
 
