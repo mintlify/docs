@@ -24,11 +24,8 @@ You don't need existing docs or a migration. Setup takes three steps:
 - A Mintlify project connected to a Git repository. This hub repository holds the knowledge graph and can start empty. See the [Quickstart](/quickstart).
 - The [Mintlify GitHub App](/deploy/github) installed on the hub repository and on every source repository you want to document.
 - An [Enterprise plan](https://mintlify.com/pricing?ref=knowledge-graph) for [custom automations](/automations/create).
+- [Authentication](/deploy/authentication-setup) on the project, so only your team can read the knowledge graph and connect to its MCP server. Without authentication, anyone can read pages that describe your internal code.
 - The [Mintlify agent](/agent/index), or a coding agent such as [Claude Code](/guides/claude-code), [Codex](/guides/codex), or [Cursor](/guides/cursor).
-
-<Tip>
-  To keep the knowledge graph private, set up [authentication](/deploy/authentication-setup). The search MCP server then requires each user to sign in.
-</Tip>
 
 ## Plan the structure
 
@@ -59,7 +56,13 @@ Put every repository in one hub project, so agents query one MCP server and page
 }
 ```
 
-Each repository section should cover what an agent needs before it changes code: what the repository does and who owns it, the endpoints or events it exposes, what it calls and what calls it, its key data models, and how to run and test it.
+Each repository section should cover what an agent needs before it changes code:
+
+- What the repository does and who owns it
+- The endpoints or events it exposes
+- What it calls and what calls it
+- Its key data models
+- How to run and test it
 
 <KgHubExplorer />
 
@@ -74,9 +77,6 @@ Have an agent read your source code and write the first pages into the hub repos
     The [Mintlify agent](/agent/index) reads any repository with the Mintlify GitHub App installed, so you don't clone anything.
 
     <Steps>
-      <Step title="Connect your source repositories">
-        Install the [Mintlify GitHub App](https://github.com/apps/mintlify/installations/new) on each source repository you want to document. See [Connect repositories as context](/agent/index#connect-repositories-as-context).
-      </Step>
       <Step title="Generate documentation for one repository">
         Open the agent in your [dashboard](https://app.mintlify.com) or [Slack](/agent/slack) and name the source repository, the target folder, and the pages to write.
 
@@ -132,11 +132,10 @@ Have an agent read your source code and write the first pages into the hub repos
         git clone https://github.com/your-org/api-gateway.git
         ```
 
-        From the hub repository, run [`mint agent setup`](/cli/commands#mint-agent-setup) to install the Mintlify skill and connect the [admin MCP server](/ai/mintlify-mcp).
+        Run [`mint agent setup`](/cli/commands#mint-agent-setup) with `--global` to install the Mintlify skill and connect the [admin MCP server](/ai/mintlify-mcp) for your user account. Without `--global`, the command configures only the hub repository, and an agent you start in the parent directory doesn't load that configuration.
 
         ```bash
-        cd docs-hub
-        mint agent setup
+        mint agent setup --global
         ```
       </Step>
       <Step title="Generate documentation for one repository">
@@ -205,7 +204,7 @@ Create a [custom automation](/automations/create) with a code change trigger so 
     4. Click **Add repo** for each source repository you documented in step 1. One automation can listen to up to 50 repositories.
   </Step>
   <Step title="Filter the trigger">
-    Under **Show advanced options** on each repository card, set **Listening to changes in** to source paths such as `src/**`, and use **Excluding PRs from** to skip bots. See [Filter code change triggers](/automations/manage#filter-code-change-triggers).
+    On each repository card, click **Show advanced options**. Set **Listening to changes in** to source paths such as `src/**`, and add bot accounts to **Exclude author**. See [Filter code change triggers](/automations/manage#filter-code-change-triggers).
   </Step>
   <Step title="Write the instructions">
     Tell the agent how repositories map to hub pages and what to change.
@@ -226,7 +225,7 @@ Create a [custom automation](/automations/create) with a code change trigger so 
 
   </Step>
   <Step title="Choose an update mode">
-    Start with **Modify and wait for review**, which opens a pull request and assigns the source change's authors as reviewers. Switch to **Update and merge changes** once results are consistent. With branch protection, see [Configure automerge](/guides/configure-automerge).
+    Leave **Update and merge changes** off at first. The agent then opens a pull request and assigns the source change's authors as reviewers. When the agent's pull requests stop needing edits, turn on **Update and merge changes**. If your deploy branch has branch protection, see [Configure automerge](/guides/configure-automerge).
   </Step>
   <Step title="Test the automation">
     Save and [run it manually](/automations/manage#run-an-automation-manually), then check the [run history](/automations/manage#view-run-history) and refine the instructions.
@@ -249,17 +248,17 @@ Each run that updates the hub uses credits, and runs that change nothing are fre
 
 ## Step 3: Use the knowledge graph through MCP
 
-Every project has a hosted [search MCP server](/ai/model-context-protocol) at the `/mcp` path of your site URL. With authentication, use `/authed/mcp` and [enable authenticated MCP](/ai/model-context-protocol#enable-authenticated-mcp) first.
+Every project has a hosted [search MCP server](/ai/model-context-protocol). Because the knowledge graph requires authentication, connect your agents to the `/authed/mcp` path of your site URL. The first time an agent connects, you sign in with the same credentials you use for the site, and the agent reads only the pages that your [user groups](/deploy/authentication-setup) can access. See [Enable authenticated MCP](/ai/model-context-protocol#enable-authenticated-mcp).
 
 <Tabs>
   <Tab title="Claude Code">
     ```bash
-    claude mcp add --transport http knowledge-graph https://docs.your-company.com/mcp
+    claude mcp add --transport http knowledge-graph https://docs.example.com/authed/mcp
     ```
   </Tab>
   <Tab title="Codex">
     ```bash
-    codex mcp add knowledge-graph --url https://docs.your-company.com/mcp
+    codex mcp add knowledge-graph --url https://docs.example.com/authed/mcp
     ```
   </Tab>
   <Tab title="Cursor">
@@ -269,7 +268,7 @@ Every project has a hosted [search MCP server](/ai/model-context-protocol) at th
     {
       "mcpServers": {
         "knowledge-graph": {
-          "url": "https://docs.your-company.com/mcp"
+          "url": "https://docs.example.com/authed/mcp"
         }
       }
     }
@@ -279,7 +278,9 @@ Every project has a hosted [search MCP server](/ai/model-context-protocol) at th
 
 See [Use your MCP server](/ai/model-context-protocol#use-your-mcp-server) for other clients.
 
-To make agents check it without being asked, add a line to the `CLAUDE.md`, `AGENTS.md`, or Cursor rules file in each source repository.
+To check the connection, ask your agent how to run one of your repositories locally. Confirm that the agent searches the `knowledge-graph` server and answers from its pages.
+
+To have agents search the knowledge graph on their own, add a line to the `CLAUDE.md`, `AGENTS.md`, or Cursor rules file in each source repository.
 
 ```markdown AGENTS.md
 Before changing code that calls another service or repository, search the
@@ -291,7 +292,7 @@ Here's how an agent uses the MCP tools to answer questions about your code:
 
 <KgMcpReplay />
 
-When an agent finds a wrong page, it can report it with the feedback tool. Reports appear in your [feedback](/optimize/feedback) dashboard.
+When an agent finds an incorrect page, it can report the page with the feedback tool. Reports appear in your [feedback](/optimize/feedback) dashboard.
 
 ## Next steps
 
@@ -520,8 +521,7 @@ export const KgTriggerSimulator = () => {
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, opacity: 0.65 }}>Update mode</span>
-        <KgButton pressed={mode === "review"} onClick={() => setMode("review")}>Modify and wait for review</KgButton>
-        <KgButton pressed={mode === "merge"} onClick={() => setMode("merge")}>Update and merge changes</KgButton>
+        <KgButton pressed={mode === "merge"} onClick={() => setMode(mode === "merge" ? "review" : "merge")}>Update and merge changes: {mode === "merge" ? "On" : "Off"}</KgButton>
       </div>
       <div aria-live="polite" style={{ borderRadius: 10, padding: 12, background: tone.bg, borderLeft: `3px solid ${tone.color}`, display: "grid", gap: 6 }}>
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
