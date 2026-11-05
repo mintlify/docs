@@ -34,7 +34,7 @@ docs.example.com/sdks
 
 在部署期间，Mintlify 会读取每个仓库并将已配置的源合并到一个站点中。每个源会显示在其配置的 URL 路径下。
 
-其中一个仓库作为项目的**基础源**。其 `docs.json` 是根 `docs.json`，控制站点级配置，包括主题、颜色、Logo、站点名称、顶层导航、集成、SEO 以及其他顶层字段。其他每个源在其配置的 URL 路径下贡献各自的导航和内容，以及基础源未定义的任何[变量](#variables-across-sources)。你配置的第一个仓库默认就是基础源，你可以随时[更改作为基础的源](#change-the-base-source)。
+其中一个仓库作为项目的**基础源**。其 `docs.json` 是根 `docs.json`，控制站点级配置，包括主题、颜色、Logo、站点名称、顶层导航、集成、SEO 以及其他顶层字段。其他每个源在其配置的 URL 路径下贡献各自的导航和内容、[重定向](#redirects-across-sources)和 [`.mintignore` 模式](#exclude-files-across-sources)，以及基础源未定义的任何[变量](#variables-across-sources)。你配置的第一个仓库默认就是基础源，你可以随时[更改作为基础的源](#change-the-base-source)。
 
 <Note>
   多仓库项目不同于[monorepo 配置](/zh/deploy/monorepo)。当你将所有内容与源代码一起存放在单个仓库的子目录中时，请使用 monorepo 配置。当你将内容分散存放在不同的仓库中时，请使用多仓库项目。
@@ -125,6 +125,14 @@ docs.example.com/sdks
   更改基础源会用新基础仓库 `docs.json` 中的值替换站点级设置，例如主题、颜色、Logo、站点名称和顶层导航。其他源的 URL 路径和内容不受影响。
 </Warning>
 
+<div id="reorder-repository-sources">
+  ## 调整仓库源顺序
+</div>
+
+Git 设置页面上仓库源的顺序决定了它们的产品部分在合并导航中的顺序。当两个非基础源定义了相同的[变量](#variables-across-sources)或[重定向](#redirects-across-sources)时，该顺序也决定 Mintlify 使用哪个源。
+
+要更改顺序，请在 [Git 设置](https://app.mintlify.com/settings/project/git-settings)页面上将仓库卡片拖动到新位置。Mintlify 会保存新顺序，并将合并站点的部署加入队列。
+
 <div id="example-repository-layout">
   ## 示例仓库布局
 </div>
@@ -198,6 +206,35 @@ Mintlify 会将每个源仓库的 `docs.json` 中定义的 [`variables`](/zh/org
 
 - 基础源的值始终优先。
 - 如果两个非基础源以不同的值定义相同的键，且基础源未定义该键，则 Mintlify 使用最先配置的源的值，并在部署中记录一条警告，提示更新非基础源中冲突的名称。
+
+<div id="redirects-across-sources">
+  ## 跨源的重定向
+</div>
+
+Mintlify 会将每个源仓库的 `docs.json` 中定义的 [`redirects`](/zh/create/redirects) 合并为部署站点的单一列表。
+
+在非基础源中编写重定向时，路径应相对于该源自身的页面。Mintlify 会为每条重定向的 `source` 和 `destination` 加上该源的 URL 路径前缀。外部 `destination` URL 保持不变。例如，在 URL 路径为 `api` 的源中，以下重定向会将 `/api/old-auth` 重定向到 `/api/reference/authentication`：
+
+```json
+{
+  "redirects": [
+    {
+      "source": "/old-auth",
+      "destination": "/reference/authentication"
+    }
+  ]
+}
+```
+
+基础源中的重定向按原样生效。
+
+如果加上前缀后有多条重定向的 `source` 相同，Mintlify 会保留第一条并丢弃其余的。基础源的重定向排在最前面，其后按你配置的顺序排列其他源的重定向。Mintlify 会为每条被丢弃的重定向在部署中记录一条警告。
+
+<div id="exclude-files-across-sources">
+  ## 跨源排除文件
+</div>
+
+每个仓库源都可以在其文档根目录中拥有自己的 [`.mintignore`](/zh/organize/mintignore) 文件。非基础源的 `.mintignore` 中的模式只会排除该源中的文件，且 Mintlify 会相对于该源的文档根目录进行匹配。如果基础源的模式与非基础源的模式冲突，以基础源的模式为准。
 
 <div id="reference-navigation-from-another-source">
   ## 从其他源引用导航
