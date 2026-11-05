@@ -531,12 +531,12 @@ Display changelog entries and release notes.
 Props:
 - `label` (string, required): Date or version identifier.
 - `description` (string): Version or release name.
-- `tags` (string[]): Filterable tags.
+- `tags` (string[]): Filterable tags. By default, selecting several tags shows updates with at least one of them, plus untagged updates. Set `filterTagMatch: "all"` in the page frontmatter to show only updates with every selected tag and hide untagged updates while a filter is active.
 - `rss` (object): Custom RSS entry with `title`, `description`, and `date` (overrides the Git-derived publication date).
 
 ## Visibility
 
-Show different content to humans (web UI), AI agents (Markdown output), or readers based on sign-in state and groups. Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt` and to `<Visibility>` inside snippets and custom components. Markdown output converts built-in components (callouts become alerts, cards and accordions become blockquotes, steps become numbered titles), and never includes custom component source or imported data, so `Visibility` isn't needed to keep code out of Markdown. Interactive custom components (calculators, filterable galleries, charts) keep only their children plus a headline (`title`, `label`, `name`, or `path`, linked with `href`) and `description` or `alt` as body text, so wrap them in `for="humans"` and give agents a static form, such as a table or `Card`, in `for="agents"`.
+Show different content to humans (web UI), AI agents (Markdown output), or readers based on sign-in state and groups. Content marked `for="humans"` renders on the site but is excluded from `.md` URLs; content marked `for="agents"` is hidden on the site but included in Markdown output. The same rules apply to `llms-full.txt` and to `<Visibility>` inside snippets and custom components. Markdown output converts built-in components (callouts become alerts, cards, accordions and tabs become blockquotes that open with a `[card]`, `[accordion]` or `[tab]` marker and the title, steps become numbered titles), and never includes custom component source or imported data, so `Visibility` isn't needed to keep code out of Markdown. Interactive custom components (calculators, filterable galleries, charts) keep only their children plus a headline (`title`, `label`, `name`, or `path`, linked with `href`) and `description` or `alt` as body text, so wrap them in `for="humans"` and give agents a static form, such as a table or `Card`, in `for="agents"`.
 
 ```mdx
 <Visibility for="humans">

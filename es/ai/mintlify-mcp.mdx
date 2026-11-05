@@ -76,6 +76,20 @@ Conecta tus herramientas al Admin MCP desde [tu panel](https://app.mintlify.com/
   </Tab>
 </Tabs>
 
+<div id="limit-a-connection-to-search-and-read-tools">
+  ### Limitar una conexión a herramientas de búsqueda y lectura
+</div>
+
+Para conectar una herramienta de IA que solo necesita consultar tu contenido, envía el encabezado `x-mintlify-toolset: knowledge` cuando agregues el Admin MCP. La conexión entonces solo muestra estas herramientas: `search`, `read`, `read_comments`, `read_page_history`, `list_nodes`, `list_branches` y `list_deployments`. Las herramientas de IA en esa conexión no pueden editar contenido, publicar ni cambiar la configuración.
+
+El Admin MCP también le da a la herramienta de IA instrucciones más breves centradas en buscar y leer páginas.
+
+Por ejemplo, con Claude Code:
+
+```bash
+claude mcp add --transport http mintlify-knowledge https://mcp.mintlify.com --header "x-mintlify-toolset: knowledge"
+```
+
 <div id="how-editing-works">
   ## Cómo funciona la edición
 </div>
@@ -209,11 +223,21 @@ Para revocar una credencial, haz clic en el icono de eliminar junto a ella.
   ### Contenido
 </div>
 
-- **`read`**: Obtén el MDX completo de cualquier página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa una ruta de página, como `guides/setup`, o el último segmento de una URL del editor, que es el ID de la página con un título opcional delante. Cuando uses un ID de página de una URL del editor, pasa la rama de esa URL como `branch`. La respuesta incluye un `filePath` que puedes pasar como `path` a `edit_page` y `write_page`. Para leer una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` obtenido de `list_nodes` con `visibility: "private"`. Las lecturas privadas no necesitan `branch` y requieren una sesión OAuth. El Admin MCP rechaza los tokens de cliente y de máquina a máquina para el acceso a páginas privadas.
-- **`search`**: Encuentra líneas que coincidan con una subcadena o expresión regular en todas las páginas. Busca en `branch`, o en tu rama de despliegue cuando lo omites.
+- **`read`**: Obtén el MDX completo de cualquier página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa una ruta de página, como `guides/setup`, o el último segmento de una URL del editor, que es el ID de la página con un título opcional delante. Cuando uses un ID de página de una URL del editor, pasa la rama de esa URL como `branch`. La respuesta incluye un `filePath` que puedes pasar como `path` a `edit_page` y `write_page`, y una `version` del contenido que devolvió. Pasa `forEdit: true` para leer la página en vivo en lugar de su copia guardada. Usa `forEdit: true` antes de sobrescribir la página con `write_page`. Para leer una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` obtenido de `list_nodes` con `visibility: "private"`. Las lecturas privadas no necesitan `branch` y requieren una sesión OAuth. El Admin MCP rechaza los tokens de cliente y de máquina a máquina para el acceso a páginas privadas.
+- **`search`**: Busca en las páginas de `branch` por significado y por texto exacto, o en tu rama de despliegue cuando lo omites. Pasa una pregunta, un tema, un nombre o una frase exacta como `query`. De forma predeterminada, `search` devuelve primero las páginas más relevantes como `results`. Cada resultado incluye la `path` y el `title` de la página, y `snippets` con las líneas coincidentes. Cuando `search` confía en el primer resultado, ese resultado también incluye el `content` completo de la página, hasta 16 KB. Los siguientes resultados incluyen la `section` alrededor de su mejor coincidencia. Pasa `limit` para devolver hasta 20 páginas (6 por defecto). Para listar todas las páginas que contienen una frase, por ejemplo antes de un cambio de nombre, pasa `mode: "all"` (`limit` por defecto de 100, máximo 500). Pasar `regex: true` trata `query` como una expresión regular y siempre usa `mode: "all"`.
 - **`edit_page`**: Aplica una edición dirigida a una página. Pasa `path` en los mismos formatos que en `read`. Pasa `oldString` y `newString` para un solo reemplazo, o pasa una lista `edits` de hasta 100 reemplazos para cambiar varias partes de una página en una sola llamada. Mintlify aplica las ediciones en orden, cada una sobre el resultado de la anterior. Si alguna edición falla, no se aplica ninguna. Al igual que `write_page`, `edit_page` devuelve `notRendered` para el marcado que añade la edición y que el editor descarta. No informa del marcado que ya estaba en la página. Para editar una [página privada](/es/editor/pages#private-pages), pasa su ID de nodo `private-page-<uuid>` como `path`. Las ediciones privadas requieren una sesión OAuth con rol de editor o superior en la página y no necesitan `branch`.
-- **`write_page`**: Sobrescribe el contenido MDX completo de una página. Pasa `path` en los mismos formatos que en `read`. También acepta un ID de nodo `private-page-<uuid>` para sobrescribir una página privada bajo los mismos requisitos de OAuth y rol que `edit_page`. Usa `create_node` para crear una nueva página privada. Si el contenido incluye marcado que el editor de Mintlify descarta, como etiquetas `<script>`, bloques `<style>`, controladores de eventos como `onClick` o expresiones de JavaScript, la respuesta incluye un campo `notRendered`. Cada entrada indica el `element` descartado, su `line`, `why` el editor lo descarta y qué usar `instead`, como clases de Tailwind, objetos `style={{}}` en línea con valores literales o componentes de Mintlify como acordeones y pestañas.
-- **`read_page_history`**: Enumera el [historial de versiones](/es/editor/pages#version-history) guardado de una página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa `path` en los mismos formatos que en `read`, incluido un ID de nodo `private-page-<uuid>`. Devuelve `versions`, de la más reciente a la más antigua, y un `nextCursor`. Cada versión tiene un `versionId`, `createdAt` y `authors`, cada uno con un `name` y un `type` de `user`, `git` o `system`. Pasa `limit` para devolver de 1 a 50 versiones por llamada (20 por defecto), y vuelve a pasar `nextCursor` como `cursor` para enumerar versiones más antiguas. Pasa un `versionId` para obtener el MDX completo de esa versión como `content`. La herramienta es de solo lectura. Para restaurar una versión anterior, pasa su `content` a `write_page`. Los errores incluyen `page_not_found`, `version_not_found` e `invalid_cursor`.
+- **`write_page`**: Sobrescribe el contenido MDX completo de una página. Pasa `path` en los mismos formatos que en `read`. Antes de sobrescribir una página, llama a `read` con `forEdit: true` y pasa la `version` devuelta a `write_page` como `baseVersion`. Si la página cambió desde esa lectura, Mintlify rechaza la escritura, no cambia nada y devuelve `page_changed`. Vuelve a leer la página y aplica de nuevo tu cambio. Si omites `baseVersion` en una página que tiene contenido, `write_page` devuelve `base_version_required`. Una página que solo tiene frontmatter no necesita `baseVersion`. También acepta un ID de nodo `private-page-<uuid>` para sobrescribir una página privada bajo los mismos requisitos de OAuth y rol que `edit_page`. Usa `create_node` para crear una nueva página privada. Si el contenido incluye marcado que el editor de Mintlify descarta, como etiquetas `<script>`, bloques `<style>`, controladores de eventos como `onClick` o expresiones de JavaScript, la respuesta incluye un campo `notRendered`. Cada entrada indica el `element` descartado, su `line`, `why` el editor lo descarta y qué usar `instead`, como clases de Tailwind, objetos `style={{}}` en línea con valores literales o componentes de Mintlify como acordeones y pestañas.
+- **`read_page_history`**: Enumera el [historial de versiones](/es/editor/pages#version-history) guardado de una página en `branch`, o en tu rama de despliegue cuando lo omites. Pasa `path` en los mismos formatos que en `read`, incluido un ID de nodo `private-page-<uuid>`. Devuelve `versions`, de la más reciente a la más antigua, y un `nextCursor`. Cada versión tiene un `versionId`, `createdAt` y `authors`, cada uno con un `name` y un `type` de `user`, `git` o `system`. Pasa `limit` para devolver de 1 a 50 versiones por llamada (20 por defecto), y vuelve a pasar `nextCursor` como `cursor` para enumerar versiones más antiguas. Pasa un `versionId` para obtener el MDX completo de esa versión como `content`. La herramienta es de solo lectura. Para restaurar una versión anterior, llama a `read` en la página con `forEdit: true` y luego pasa el `content` de la versión anterior a `write_page` con la `version` de esa lectura como `baseVersion`. Si esa versión contiene [datos en línea](#inline-data) que ya no están en la página, `write_page` no puede restaurarlos. En su lugar, restaura esa versión desde el [historial de versiones](/es/editor/pages#version-history) en el editor. Los errores incluyen `page_not_found`, `version_not_found` e `invalid_cursor`.
+
+<div id="inline-data">
+  #### Datos en línea
+</div>
+
+Las páginas pueden incrustar imágenes y otros archivos como URL de datos en base64. Para mantener las respuestas pequeñas, `read`, `search`, `diff`, `read_page_history` y `read_comments` reemplazan cada carga útil en base64 de 1000 caracteres o más por un marcador de posición como `[elided 48210 chars #1234567890]`.
+
+Mantén estos marcadores de posición sin cambios cuando vuelvas a pasar el contenido. `edit_page`, `write_page`, `create_node` y `suggest_edit` reemplazan cada marcador de posición por los datos originales del contenido actual de la página de destino.
+
+Si un marcador de posición no coincide con datos de la página de destino, Mintlify rechaza la escritura, no cambia nada y devuelve `inline_data_unresolved`. Copia los marcadores de posición solo de un `read` de la misma página. Si Mintlify no puede leer la página para restaurar los marcadores de posición, devuelve `inline_data_source_unreadable` y no cambia nada. Vuelve a intentar la llamada.
 
 <div id="uploads">
   ### Cargas
@@ -267,6 +291,16 @@ Si una llamada a `create_node`, `update_node`, `move_node` o `delete_node` deja 
 
 - **`update_config`**: Cambia los ajustes de nivel superior de `docs.json`, como el tema, los colores, el logotipo, la barra de navegación, el pie de página, las redirecciones, las integraciones y el SEO. No puede cambiar `navigation`; usa las herramientas de navegación en su lugar. Mintlify rechaza por completo una configuración no válida.
 
+<div id="mintlify-skill">
+  ### Skill de Mintlify
+</div>
+
+- **`read_skill`**: Lee la guía de Mintlify para escribir documentación, que abarca páginas, componentes, widgets, navegación y `docs.json`. Es la misma skill de Mintlify que usa el [agente](/es/agent). Llámala sin `path` para obtener `SKILL.md`, el índice de la skill, y una lista `files` con sus archivos de referencia. Pasa un archivo de esa lista como `path`, como `reference/widgets.md`, para leerlo. La herramienta es de solo lectura y no necesita `subdomain` ni `branch`. Si el archivo no existe, devuelve `skill_file_not_found` con la lista `files`.
+
+La respuesta del índice también incluye una lista `skills` con las [skills del agente](/es/editor/agent#skills) de tu organización y las tuyas que estén activadas, cada una con `name`, `description` y `path`. Pasa el `path` de una skill, como `org/release-notes/SKILL.md`, para leer sus instrucciones. La respuesta enumera los archivos de referencia de la skill en `files`, y puedes pasar cualquiera de ellos como `path`. Las rutas de las skills personales empiezan por `me/` y solo aparecen en sesiones OAuth.
+
+El Admin MCP indica a las herramientas de IA que llamen a `read_skill` antes de escribir, reestructurar o dar estilo a las páginas, y que sigan cualquier skill de la organización o personal cuya descripción se ajuste a la tarea.
+
 <div id="project-management">
   ### Gestión de proyectos
 </div>
@@ -296,10 +330,10 @@ Herramientas de escritura:
 - **`update_deployment_settings`**: Cambia un ajuste del dashboard, como `noindex`, `base_path`, `name`, `disable_ai_chat`, `search_settings`, `privacy`, `custom_scripts` o un complemento. Usa `update_config` para los ajustes de `docs.json`.
 - **`manage_custom_domain`**: Agrega o elimina un dominio personalizado, aprovisiona su hostname o vuelve a lanzar la validación del hostname.
 - **`manage_git_source`**: Agrega, actualiza, elimina o reordena los repositorios de Git desde los que se compila un proyecto, o establece la fuente base.
-- **`manage_access_auth`**: Configura o elimina la [autenticación](/es/deploy/authentication-setup) del sitio, agrega o elimina contraseñas, configura la autenticación de usuarios finales o cambia cuál está activa.
+- **`manage_access_auth`**: Configura o elimina la [autenticación](/es/deploy/authentication-setup) del sitio, agrega o elimina contraseñas, configura la autenticación de usuarios finales o cambia cuál está activa. El cambio solo conserva una configuración JWT. Si la configuración activa usa cualquier otro tipo, el cambio falla con un error `409` y deja tu sitio sin cambios. Para cambiar a un tipo diferente, configura la nueva autenticación directamente. Cuando una acción activa la autenticación del sitio, incluido un cambio desde la autenticación de usuarios finales, Mintlify elimina las vistas previas existentes que no tienen inicio de sesión de la organización ni protección con contraseña. Establece `previewDeployments` en `delete_unauthenticated` (predeterminado), `delete_all` o `keep` para elegir qué sucede con las [vistas previas existentes](/es/deploy/preview-deployments#existing-previews-when-you-turn-on-authentication).
 - **`manage_workflow`**: Crea, actualiza, habilita o deshabilita, elimina o ejecuta una automatización.
 - **`manage_workflow_prs`**: Fusiona o cierra una pull request abierta por una ejecución de [automatización](/es/automations). Para fusionar una pull request de una rama que editó la herramienta de IA, usa `publish` con `merge: true` en su lugar.
-- **`manage_members_sharing`**: Lista o elimina miembros de la organización, actualiza sus roles o gestiona los permisos y traslados de páginas privadas en bases.
+- **`manage_members_sharing`**: Lista, invita o elimina miembros de la organización, actualiza sus roles o gestiona los permisos y traslados de páginas privadas en bases. Una sola llamada invita hasta 250 personas y omite a quien ya sea miembro o tenga una invitación pendiente.
 
 Las herramientas de escritura devuelven el estado actualizado del proyecto en `state`, para que la herramienta de IA pueda confirmar el cambio sin una segunda llamada. Cada acción comprueba los ámbitos otorgados a la conexión y tu rol en el dashboard. Una acción para la que no tienes autorización devuelve un error como `insufficient_scope`.
 
@@ -361,12 +395,12 @@ Desconecta el Admin MCP cuando ya no quieras que una herramienta de IA edite tu 
 
 - **Revocar la autorización de OAuth**: En tu panel de Mintlify, ve a la [configuración de MCP](https://app.mintlify.com/products/mcp) y revoca la entrada de la herramienta de IA que conectaste. Revocar invalida el token de acceso de la herramienta en un plazo de 30 segundos. Después, las llamadas a herramientas fallan y la herramienta debe completar un nuevo inicio de sesión de OAuth en la próxima llamada.
 - **Eliminar una credencial**: Para revocar el acceso de una aplicación o gateway de IA que usa una [credencial](#credentials), ve a la página [Credentials](https://app.mintlify.com/products/mcp/admin-credentials) de tu configuración de MCP y elimínala.
-- **Eliminar el conector en el cliente**:
-  - Claude: **Settings → Connectors**, luego elimina la entrada del Admin MCP.
-  - Claude Code: `claude mcp remove mintlify`.
+- **Eliminar el conector en el cliente**: La entrada del Admin MCP tiene la URL `https://mcp.mintlify.com`. Su nombre depende de cómo la agregaste, por ejemplo `mintlify-admin` o `mintlify`.
+  - Claude: **Settings → Connectors**, luego elimina la entrada de Mintlify.
+  - Claude Code: ejecuta `claude mcp list` para encontrar el nombre de la entrada y luego ejecuta `claude mcp remove <name>`.
   - ChatGPT: **Settings → Connectors**, luego elimina la entrada de Mintlify.
-  - Cursor: elimina la entrada `mintlify` de `mcp.json` y recarga.
-  - Codex: elimina el bloque `[mcp_servers.mintlify]` de `~/.codex/config.toml`.
+  - Cursor: desinstala el plugin de Mintlify, o elimina la entrada de `mcp.json` y recarga.
+  - Codex: elimina el bloque `[mcp_servers.<name>]` de la entrada en `~/.codex/config.toml`, o en `.codex/config.toml` de tu proyecto.
 
 Revocar la autorización de OAuth no afecta a las pull requests que el MCP ya haya abierto. Cierra o revierte esas PRs en tu proveedor de Git si quieres deshacer los cambios pendientes.
 
@@ -380,4 +414,8 @@ Revocar la autorización de OAuth no afecta a las pull requests que el MCP ya ha
 
 <Accordion title="La conexión sigue fallando después de reinstalar el conector">
   Cierra sesión en el [panel](https://app.mintlify.com), vuelve a iniciar sesión y luego conecta de nuevo tu herramienta de IA. Esto reemplaza una sesión del panel que comenzó antes de la actualización del inicio de sesión.
+</Accordion>
+
+<Accordion title="Las herramientas del Admin MCP aparecen duplicadas">
+  Tu herramienta de IA tiene más de una entrada para `https://mcp.mintlify.com`. Esto puede ocurrir cuando conectas el Admin MCP de más de una forma, por ejemplo al agregarlo manualmente y luego ejecutar [`mint agent setup`](/es/cli/commands#mint-agent-setup), o al instalar el plugin de Cursor y ejecutar la configuración. Conserva una entrada y elimina las demás. Consulta [Desconectar o revocar el acceso](#disconnect-or-revoke-access) para ver los pasos de cada herramienta.
 </Accordion>

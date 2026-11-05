@@ -1,0 +1,675 @@
+---
+title: "将 Mintlify 用作代码库的知识图谱"
+sidebarTitle: "代码库知识图谱"
+description: "使用 agent 为你的仓库生成文档，借助自动化保持其最新，并通过 MCP 让 AI agent 访问这些文档。"
+keywords: ["知识图谱", "代码库文档", "内部文档", "MCP", "自动化", "编码 agent", "多仓库", "agent 上下文"]
+---
+
+代码库知识图谱是一个描述你代码的 Mintlify 项目：每个仓库做什么、对外暴露什么，以及各仓库之间如何相互依赖。Agent 在修改代码之前会通过 MCP 查询它。
+
+你不需要已有的文档，也不需要迁移。设置只需三步：
+
+1. 使用 Mintlify agent 或你自己的编码 agent [生成初始知识图谱](#step-1-generate-the-initial-knowledge-graph)。
+2. [设置自动化](#step-2-keep-the-knowledge-graph-current)以保持其最新。
+3. [通过 MCP 使用知识图谱](#step-3-use-the-knowledge-graph-through-mcp)。
+
+<KgPipeline />
+
+<Note>
+  本页示例中的仓库、pull request 和回答均为示例数据。
+</Note>
+
+<div id="prerequisites">
+  ## 先决条件
+</div>
+
+- 一个已连接到 Git 仓库的 Mintlify 项目。这个中心（hub）仓库用于存放知识图谱，初始时可以为空。请参见[快速开始](/zh/quickstart)。
+- 在中心仓库以及你想要编写文档的每个源仓库上安装 [Mintlify GitHub 应用](/zh/deploy/github)。
+- 使用[自定义自动化](/zh/automations/create)需要 [Enterprise 计划](https://mintlify.com/pricing?ref=knowledge-graph)。
+- 在项目上设置[身份验证](/zh/deploy/authentication-setup)，确保只有你的团队可以读取知识图谱并连接其 MCP 服务器。如果没有身份验证，任何人都可以读取描述你内部代码的页面。
+- [Mintlify agent](/zh/agent/index)，或 [Claude Code](/zh/guides/claude-code)、[Codex](/zh/guides/codex)、[Cursor](/zh/guides/cursor) 等编码 agent。
+
+<div id="plan-the-structure">
+  ## 规划结构
+</div>
+
+将所有仓库放在同一个中心项目中，这样 agent 只需查询一个 MCP 服务器，页面也可以跨仓库互相链接。为每个仓库设置单独的分组，并另设一个概览部分。
+
+```json docs.json
+{
+  "navigation": {
+    "groups": [
+      {
+        "group": "Overview",
+        "pages": ["index", "architecture", "glossary"]
+      },
+      {
+        "group": "Web app",
+        "pages": ["repos/web-app/index", "repos/web-app/local-development", "repos/web-app/routing"]
+      },
+      {
+        "group": "API service",
+        "pages": ["repos/api-service/index", "repos/api-service/endpoints", "repos/api-service/data-model"]
+      },
+      {
+        "group": "API gateway",
+        "pages": ["repos/api-gateway/index", "repos/api-gateway/auth"]
+      }
+    ]
+  }
+}
+```
+
+每个仓库部分都应涵盖 agent 在修改代码前需要了解的内容：
+
+- 该仓库做什么、由谁负责
+- 它对外暴露的端点或事件
+- 它调用了什么，以及被什么调用
+- 它的关键数据模型
+- 如何运行和测试它
+
+<KgHubExplorer />
+
+先从几个有代表性的仓库开始，例如一个前端、一个后端和一个共享服务，然后再添加其余仓库。
+
+<div id="step-1-generate-the-initial-knowledge-graph">
+  ## 第 1 步：生成初始知识图谱
+</div>
+
+让 agent 阅读你的源代码，并将第一批页面写入中心仓库。你可以使用 Mintlify agent，也可以克隆仓库并运行你自己的编码 agent。
+
+<Tabs>
+  <Tab title="Mintlify agent">
+    [Mintlify agent](/zh/agent/index) 可以读取任何已安装 Mintlify GitHub 应用的仓库，因此你无需克隆任何内容。
+
+    <Steps>
+      <Step title="为一个仓库生成文档">
+        在你的[控制台](https://app.mintlify.com)或 [Slack](/zh/agent/slack) 中打开 agent，并指明源仓库、目标文件夹以及要编写的页面。
+
+        ```text Example prompt
+        Read the source code in the your-org/api-service repository and write
+        documentation for it in repos/api-service/.
+
+        Create these pages:
+        - index.mdx: what the service does, who owns it, and how it fits into the
+          rest of the system
+        - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
+          response shape, based on the route definitions
+        - data-model.mdx: the main models and database tables
+        - local-development.mdx: how to install, run, and test the service
+
+        For each page, list the other repositories this service calls or is called
+        by, and link to their pages under repos/.
+
+        Only document what you can confirm from the code. If something is unclear,
+        leave a TODO comment instead of guessing.
+
+        Add the new pages to docs.json in a group named "API service".
+        ```
+
+        Agent 会在中心仓库中打开一个 pull request。审查它，并修正 agent 弄错的任何内容。
+      </Step>
+      <Step title="对每个仓库重复此操作">
+        对你的其他仓库重复此操作，然后让 agent 编写概览页面。
+
+        ```text Example prompt
+        Read every page under repos/ and write architecture.mdx. Describe how the
+        repositories depend on each other, which services call which, and how a
+        request moves through the system. Link to the repository pages for details.
+        ```
+      </Step>
+      <Step title="合并 pull request">
+        Pull request 合并后，Mintlify 会部署知识图谱，并为搜索和 MCP 建立索引。
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="克隆并推送">
+    在本地克隆上运行 Claude Code、Codex 或 Cursor，然后将页面推送到中心仓库。
+
+    <Steps>
+      <Step title="设置你的编码 agent">
+        将中心仓库和源仓库克隆到同一个父目录中。
+
+        ```bash
+        mkdir knowledge-graph && cd knowledge-graph
+        git clone https://github.com/your-org/docs-hub.git
+        git clone https://github.com/your-org/web-app.git
+        git clone https://github.com/your-org/api-service.git
+        git clone https://github.com/your-org/api-gateway.git
+        ```
+
+        使用 `--global` 运行 [`mint agent setup`](/zh/cli/commands#mint-agent-setup)，为你的用户账户安装 Mintlify skill 并连接[管理 MCP 服务器](/zh/ai/mintlify-mcp)。如果不加 `--global`，该命令只会配置中心仓库，而你在父目录中启动的 agent 不会加载该配置。
+
+        ```bash
+        mint agent setup --global
+        ```
+      </Step>
+      <Step title="为一个仓库生成文档">
+        在父目录中启动你的 agent，并指明源仓库、目标文件夹以及要编写的页面。
+
+        ```text Example prompt
+        Read the source code in ../api-service and write documentation for it in
+        docs-hub/repos/api-service/.
+
+        Create these pages:
+        - index.mdx: what the service does, who owns it, and how it fits into the
+          rest of the system
+        - endpoints.mdx: every HTTP endpoint with method, path, parameters, and
+          response shape, based on the route definitions
+        - data-model.mdx: the main models and database tables
+        - local-development.mdx: how to install, run, and test the service
+
+        For each page, list the other repositories this service calls or is called
+        by, and link to their pages under docs-hub/repos/.
+
+        Only document what you can confirm from the code. If something is unclear,
+        leave a TODO comment instead of guessing.
+
+        Add the new pages to docs-hub/docs.json in a group named "API service".
+        ```
+
+        审查输出内容，修正 agent 弄错的任何地方，然后在中心仓库中运行 `mint dev` 预览页面。
+      </Step>
+      <Step title="对每个仓库重复此操作">
+        对你的其他仓库重复此操作，然后让 agent 编写概览页面。
+
+        ```text Example prompt
+        Read every page under docs-hub/repos/ and write docs-hub/architecture.mdx.
+        Describe how the repositories depend on each other, which services call
+        which, and how a request moves through the system. Link to the repository
+        pages for details.
+        ```
+      </Step>
+      <Step title="推送到中心仓库">
+        提交页面，将其推送到中心仓库，并打开一个 pull request。合并后，Mintlify 会部署知识图谱，并为搜索和 MCP 建立索引。
+
+        ```bash
+        git checkout -b initial-knowledge-graph
+        git add repos architecture.mdx docs.json
+        git commit -m "Add initial knowledge graph"
+        git push -u origin initial-knowledge-graph
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+<Tip>
+  将效果良好的提示词保存为中心仓库中的[自定义 skill](/zh/ai/skillmd#custom-skill-files) 或 `AGENTS.md` 文件。之后任何添加新仓库的人都会得到相同的页面结构。
+</Tip>
+
+<div id="step-2-keep-the-knowledge-graph-current">
+  ## 第 2 步：保持知识图谱最新
+</div>
+
+创建一个使用代码变更触发器的[自定义自动化](/zh/automations/create)，这样每当源仓库中有 pull request 合并时，agent 就会更新中心项目。
+
+<Steps>
+  <Step title="创建自动化">
+    1. 打开你的 [Automations](https://app.mintlify.com/settings/project/automations) 设置。
+    2. 点击 **New automation**。
+    3. 选择 **Code change** 触发器。
+    4. 为你在第 1 步中编写了文档的每个源仓库点击 **Add repo**。一个自动化最多可以监听 50 个仓库。
+  </Step>
+  <Step title="筛选触发器">
+    在每个仓库卡片上点击 **Show advanced options**。将 **Listening to changes in** 设置为源代码路径（例如 `src/**`），并将机器人账户添加到 **Exclude author**。请参见[筛选代码变更触发器](/zh/automations/manage#filter-code-change-triggers)。
+  </Step>
+  <Step title="编写指令">
+    告诉 agent 各仓库如何对应到中心页面，以及需要更改什么。
+
+    ```text Example instructions
+    1. Read the merged pull request diff from the trigger repository.
+    2. Find the matching folder under /repos/ in this project. The folder name
+       matches the repository name.
+    3. Identify changes to endpoints, events, data models, dependencies on
+       other repositories, or setup steps.
+    4. Update the affected pages in that folder. If the change affects how
+       repositories depend on each other, also update /architecture.mdx.
+    5. If the pull request doesn't change anything the documentation covers,
+       make no changes.
+    6. Open a pull request that lists the pages you changed and links to the
+       source pull request.
+    ```
+
+  </Step>
+  <Step title="选择更新模式">
+    一开始请保持 **Update and merge changes** 关闭。此时 agent 会打开一个 pull request，并将源变更的作者指派为审查者。当 agent 的 pull request 不再需要修改时，再开启 **Update and merge changes**。如果你的部署分支启用了分支保护，请参见[配置自动合并](/zh/guides/configure-automerge)。
+  </Step>
+  <Step title="测试自动化">
+    保存并[手动运行](/zh/automations/manage#run-an-automation-manually)，然后查看[运行历史](/zh/automations/manage#view-run-history)并完善指令。
+  </Step>
+</Steps>
+
+此模拟器使用的自动化监听三个示例仓库中的 `src/**`，并排除 `dependabot[bot]`。
+
+<KgTriggerSimulator />
+
+之后若要添加仓库，请按第 1 步生成其页面，然后将其添加到触发器中。
+
+每次更新了中心项目的运行都会消耗积分，未做任何更改的运行则免费。对于繁忙的仓库，计划触发器可以将多次合并批量合并为一次运行。请参见[控制积分用量](/zh/guides/use-automations#control-credit-usage)。
+
+<KgCreditEstimator />
+
+<Note>
+  该估算假设每次合并都会更改已有文档覆盖的代码，因此实际用量可能更低。
+</Note>
+
+<div id="step-3-use-the-knowledge-graph-through-mcp">
+  ## 第 3 步：通过 MCP 使用知识图谱
+</div>
+
+每个项目都有一个托管的[搜索 MCP 服务器](/zh/ai/model-context-protocol)。由于知识图谱需要身份验证，请将你的 agent 连接到站点 URL 的 `/authed/mcp` 路径。Agent 首次连接时，你需要使用访问站点时的同一套凭据登录，agent 只会读取你的[用户组](/zh/deploy/authentication-setup)有权访问的页面。请参见[启用经过身份验证的 MCP](/zh/ai/model-context-protocol#enable-authenticated-mcp)。
+
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http knowledge-graph https://docs.example.com/authed/mcp
+    ```
+  </Tab>
+  <Tab title="Codex">
+    ```bash
+    codex mcp add knowledge-graph --url https://docs.example.com/authed/mcp
+    ```
+  </Tab>
+  <Tab title="Cursor">
+    将服务器添加到项目中的 `.cursor/mcp.json`，或添加到 `~/.cursor/mcp.json` 以用于所有项目。
+
+    ```json .cursor/mcp.json
+    {
+      "mcpServers": {
+        "knowledge-graph": {
+          "url": "https://docs.example.com/authed/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+有关其他客户端，请参见[使用你的 MCP 服务器](/zh/ai/model-context-protocol#use-your-mcp-server)。
+
+若要检查连接，请让你的 agent 说明如何在本地运行你的某个仓库。确认 agent 会搜索 `knowledge-graph` 服务器，并根据其中的页面作答。
+
+若要让 agent 自行搜索知识图谱，请在每个源仓库的 `CLAUDE.md`、`AGENTS.md` 或 Cursor 规则文件中添加一行说明。
+
+```markdown AGENTS.md
+Before changing code that calls another service or repository, search the
+knowledge-graph MCP server for that service. Use its documented endpoints,
+data models, and conventions instead of guessing.
+```
+
+以下展示了 agent 如何使用 MCP 工具来回答有关你代码的问题：
+
+<KgMcpReplay />
+
+当 agent 发现错误的页面时，可以使用反馈工具进行报告。报告会显示在你的[反馈](/zh/optimize/feedback)控制台中。
+
+<div id="next-steps">
+  ## 后续步骤
+</div>
+
+<CardGroup cols={2}>
+  <Card title="自动化" icon="bot" href="/zh/automations">
+    了解触发器类型、更新模式和使用限制。
+  </Card>
+  <Card title="搜索 MCP 服务器" icon="plug" href="/zh/ai/model-context-protocol">
+    为你的 MCP 服务器配置索引、身份验证和客户端凭据。
+  </Card>
+  <Card title="Skills" icon="sparkles" href="/zh/ai/skillmd">
+    通过 skill 文件教会 agent 如何使用你的知识图谱。
+  </Card>
+  <Card title="身份验证" icon="lock" href="/zh/deploy/authentication-setup">
+    将知识图谱的访问权限限制在你的团队内。
+  </Card>
+</CardGroup>
+
+export const KgTheme = {
+  accent: "#26BD6C",
+  accentSoft: "rgba(38,189,108,.12)",
+  border: "rgba(127,127,127,.25)",
+  surface: "rgba(127,127,127,.06)",
+  warn: "#D97706",
+  warnSoft: "rgba(217,119,6,.12)",
+};
+
+export const KgFrame = ({ children, title, caption }) => (
+  <div className="not-prose" style={{ border: `1px solid ${KgTheme.border}`, borderRadius: 14, padding: 16, display: "grid", gap: 14, width: "100%", fontSize: 14, color: "inherit" }}>
+    {title ? (
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontWeight: 600 }}>{title}</div>
+        {caption ? <div style={{ fontSize: 12, opacity: 0.65 }}>{caption}</div> : null}
+      </div>
+    ) : null}
+    {children}
+  </div>
+);
+
+export const KgButton = ({ children, onClick, disabled, pressed, label }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-label={label}
+    aria-pressed={pressed}
+    style={{
+      padding: "6px 12px", borderRadius: 8, font: "inherit", fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.45 : 1, color: "inherit",
+      border: `1px solid ${pressed ? KgTheme.accent : "rgba(127,127,127,.35)"}`,
+      background: pressed ? KgTheme.accentSoft : "transparent",
+    }}
+  >
+    {children}
+  </button>
+);
+
+export const KgPipeline = () => {
+  const stages = [
+    { name: "源仓库", tag: "你的代码", detail: "你的应用、服务和库仓库。其中的内容不会被移动或更改。Agent 和自动化只会读取它们。" },
+    { name: "Agent", tag: "第 1 步", detail: "Mintlify agent，或在本地克隆上运行的 Claude Code、Codex 或 Cursor，会读取每个源仓库，并将其页面的第一个版本写入中心仓库。你会在合并前审查该 pull request。" },
+    { name: "中心项目", tag: "Mintlify", detail: "一个 Mintlify 项目存放所有仓库的页面，每个仓库对应一个分组，另有一个概览部分。每次合并都会部署站点，并为搜索和 MCP 建立索引。" },
+    { name: "自动化", tag: "第 2 步", detail: "当源仓库中有 pull request 合并时，代码变更自动化会运行 agent。它会更新受影响的页面，并在中心项目中打开 pull request，或直接合并。" },
+    { name: "搜索 MCP 服务器", tag: "第 3 步", detail: "Mintlify 在 /mcp 托管一个 MCP 服务器，启用了身份验证的站点则为 /authed/mcp。它提供用于搜索知识图谱、读取页面和提交反馈的工具。" },
+    { name: "你的 agent", tag: "使用方", detail: "连接到 MCP 服务器的编码 agent 会在修改代码前查找服务、端点和约定，并报告有误的页面。" },
+  ];
+  const [active, setActive] = useState(0);
+  const loopActive = active === 3;
+  return (
+    <KgFrame title="代码库知识图谱的工作原理" caption={`第 ${active + 1} 阶段，共 ${stages.length} 个阶段`}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+        {stages.map((stage, i) => {
+          const isActive = i === active;
+          return (
+            <button
+              key={stage.name}
+              type="button"
+              onClick={() => { setActive(i); }}
+              aria-current={isActive ? "step" : undefined}
+              style={{
+                textAlign: "left", padding: 10, borderRadius: 10, font: "inherit", color: "inherit", cursor: "pointer", minWidth: 0,
+                border: isActive ? `2px solid ${KgTheme.accent}` : `1px solid ${KgTheme.border}`,
+                background: isActive ? KgTheme.accentSoft : i < active ? KgTheme.surface : "transparent",
+                opacity: i > active ? 0.6 : 1, transition: "background .25s, opacity .25s",
+              }}
+            >
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".04em", opacity: 0.7 }}>{stage.tag}</div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{stage.name}</div>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, opacity: loopActive ? 1 : 0.55, transition: "opacity .25s" }}>
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style={{ flexShrink: 0 }}>
+          <path d="M3 9a6 6 0 0 1 10.5-4M15 9a6 6 0 0 1-10.5 4" fill="none" stroke={loopActive ? KgTheme.accent : "currentColor"} strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M13.8 1.8v3.4h-3.4M4.2 16.2v-3.4h3.4" fill="none" stroke={loopActive ? KgTheme.accent : "currentColor"} strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        <span>每次合并 pull request 时，自动化都会循环运行，使中心项目与源仓库保持同步。</span>
+      </div>
+      <p style={{ margin: 0, lineHeight: 1.55, minHeight: 66 }}>{stages[active].detail}</p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <KgButton onClick={() => { setActive(active - 1); }} disabled={active === 0}>上一步</KgButton>
+        <KgButton onClick={() => { setActive(active + 1); }} disabled={active === stages.length - 1}>下一步</KgButton>
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgHubExplorer = () => {
+  const repos = {
+    overview: { label: "概览", x: 260, y: 40, pages: ["index", "architecture", "glossary"], purpose: "说明各仓库如何协同工作。Agent 最后根据各仓库页面编写它。", calls: [], calledBy: [] },
+    web: { label: "web-app", x: 90, y: 160, pages: ["repos/web-app/index", "repos/web-app/local-development", "repos/web-app/routing"], purpose: "面向客户的前端。它通过网关发送所有 API 请求。", calls: ["gateway"], calledBy: [] },
+    gateway: { label: "api-gateway", x: 260, y: 160, pages: ["repos/api-gateway/index", "repos/api-gateway/auth"], purpose: "对请求进行身份验证，并将其路由到后端服务。", calls: ["api"], calledBy: ["web"] },
+    api: { label: "api-service", x: 430, y: 160, pages: ["repos/api-service/index", "repos/api-service/endpoints", "repos/api-service/data-model"], purpose: "负责订单和账户，并通过 HTTP 对外提供。", calls: [], calledBy: ["gateway"] },
+  };
+  const edges = [["web", "gateway"], ["gateway", "api"]];
+  const [selected, setSelected] = useState("gateway");
+  const [hover, setHover] = useState(null);
+  const focus = hover || selected;
+  const repo = repos[focus];
+  const related = (key) => key === focus || repos[focus].calls.includes(key) || repos[focus].calledBy.includes(key) || focus === "overview";
+  const names = (keys) => (keys.length ? keys.map((k) => repos[k].label).join(", ") : "无");
+  return (
+    <KgFrame title="示例中心项目结构" caption="点击或悬停在节点上">
+      <svg viewBox="0 0 520 210" style={{ width: "100%", display: "block" }} onMouseLeave={() => setHover(null)} role="group" aria-label="中心项目中的仓库及其依赖关系">
+        <defs>
+          <marker id="kg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#8A8A8A" />
+          </marker>
+        </defs>
+        {["web", "gateway", "api"].map((key) => (
+          <line key={`o-${key}`} x1={260} y1={58} x2={repos[key].x} y2={140} stroke="currentColor" strokeOpacity={focus === "overview" ? 0.45 : 0.15} strokeDasharray="3 4" />
+        ))}
+        {edges.map(([from, to]) => {
+          const lit = focus === from || focus === to;
+          return <line key={`${from}-${to}`} x1={repos[from].x + 62} y1={160} x2={repos[to].x - 64} y2={160} stroke={lit ? KgTheme.accent : "currentColor"} strokeOpacity={lit ? 1 : 0.35} strokeWidth={lit ? 2 : 1.4} markerEnd="url(#kg-arrow)" style={{ color: lit ? KgTheme.accent : "currentColor" }} />;
+        })}
+        {Object.entries(repos).map(([key, r]) => {
+          const isFocus = key === focus;
+          return (
+            <g key={key} onMouseEnter={() => setHover(key)} onClick={() => setSelected(key)} style={{ cursor: "pointer" }} tabIndex={0} role="button" aria-label={r.label} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(key); } }}>
+              <rect x={r.x - 62} y={r.y - 18} width={124} height={36} rx={9} fill={isFocus ? KgTheme.accentSoft : "rgba(127,127,127,.08)"} stroke={isFocus ? KgTheme.accent : "currentColor"} strokeOpacity={isFocus ? 1 : 0.3} strokeWidth={isFocus ? 2 : 1} opacity={related(key) ? 1 : 0.45} />
+              <text x={r.x} y={r.y + 4} textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor" opacity={related(key) ? 1 : 0.5} style={{ fontFamily: key === "overview" ? "inherit" : "ui-monospace, monospace" }}>{r.label}</text>
+            </g>
+          );
+        })}
+        <text x={260} y={204} textAnchor="middle" fontSize="10" fill="currentColor" opacity="0.55">箭头从调用方指向被调用方</text>
+      </svg>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, padding: 12, borderRadius: 10, background: KgTheme.surface }}>
+        <div style={{ minWidth: 0, display: "grid", gap: 6 }}>
+          <div style={{ fontWeight: 600 }}>{repo.label}</div>
+          <div style={{ lineHeight: 1.5, opacity: 0.85 }}>{repo.purpose}</div>
+          {focus !== "overview" ? (
+            <div style={{ fontSize: 13, display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 12px" }}>
+              <span style={{ opacity: 0.6 }}>调用</span><span>{names(repo.calls)}</span>
+              <span style={{ opacity: 0.6 }}>被调用方</span><span>{names(repo.calledBy)}</span>
+            </div>
+          ) : null}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 6 }}>docs.json 中的页面</div>
+          <div style={{ display: "grid", gap: 4 }}>
+            {repo.pages.map((page) => (
+              <code key={page} style={{ fontSize: 12, padding: "3px 8px", borderRadius: 6, border: `1px solid ${KgTheme.border}`, overflowWrap: "anywhere" }}>{page}</code>
+            ))}
+          </div>
+        </div>
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgTriggerSimulator = () => {
+  const prs = [
+    { id: "pagination", repo: "api-service", title: "为 GET /orders 添加分页", author: "maria", files: ["src/routes/orders.ts", "tests/orders.spec.ts"], documented: true, pages: ["repos/api-service/endpoints.mdx"] },
+    { id: "rename", repo: "api-service", title: "将 customer_id 重命名为 account_id", author: "dev-lee", files: ["src/models/order.ts", "src/routes/orders.ts"], documented: true, pages: ["repos/api-service/data-model.mdx", "repos/api-service/endpoints.mdx", "repos/api-gateway/auth.mdx", "architecture.mdx"] },
+    { id: "tests", repo: "web-app", title: "修复不稳定的结账测试", author: "sam", files: ["tests/checkout.spec.ts"], documented: false, pages: [] },
+    { id: "bump", repo: "api-gateway", title: "将 express 从 4.19.2 升级到 4.21.0", author: "dependabot[bot]", files: ["package.json", "package-lock.json"], documented: false, pages: [] },
+    { id: "styles", repo: "web-app", title: "重构按钮样式", author: "sam", files: ["src/components/Button.tsx"], documented: false, pages: [] },
+  ];
+  const [prId, setPrId] = useState("rename");
+  const [mode, setMode] = useState("review");
+  const pr = prs.find((p) => p.id === prId);
+  const pathMatch = pr.files.some((f) => f.startsWith("src/"));
+  const authorExcluded = pr.author === "dependabot[bot]";
+  const checks = [
+    { label: "在触发仓库中合并", pass: true, note: `${pr.repo} 是该自动化的仓库之一。` },
+    { label: "涉及 src/**", pass: pathMatch, note: pathMatch ? `已更改：${pr.files.filter((f) => f.startsWith("src/")).join(", ")}` : "没有已更改的文件匹配 src/**，因此自动化不会运行。" },
+    { label: "作者未被排除", pass: !authorExcluded, note: authorExcluded ? "来自 dependabot[bot] 的 pull request 已被排除。" : `${pr.author} 不在排除列表中。` },
+  ];
+  const firstFail = checks.findIndex((c) => !c.pass);
+  const runs = firstFail === -1;
+  const updates = runs && pr.documented;
+  let outcome;
+  if (!runs) outcome = { tone: "skip", head: "未运行", body: "自动化不会启动，因此不产生任何费用。" };
+  else if (!updates) outcome = { tone: "skip", head: "运行后未发现需要更新的内容", body: "Agent 读取 diff 后，发现文档中描述的行为没有变化，因此不做任何更改。没有更新的运行不产生费用。" };
+  else outcome = { tone: "ok", head: mode === "review" ? "已在中心项目中打开 pull request" : "更改已合并到中心项目", body: mode === "review" ? `Agent 更新了 ${pr.pages.length} ${pr.pages.length === 1 ? "个页面" : "个页面"}并打开一个 pull request。由于 ${pr.author} 编写了源变更，因此被指派为审查者。` : `Agent 更新了 ${pr.pages.length} ${pr.pages.length === 1 ? "个页面" : "个页面"}，并在无需审查的情况下将其合并到部署分支。` };
+  const tone = outcome.tone === "ok" ? { color: KgTheme.accent, bg: KgTheme.accentSoft } : { color: KgTheme.warn, bg: KgTheme.warnSoft };
+  return (
+    <KgFrame title="代码变更触发器模拟器" caption="示例 pull request">
+      <div style={{ display: "grid", gap: 6 }}>
+        <div style={{ fontSize: 12, opacity: 0.65 }}>已合并的 pull request</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 6 }}>
+          {prs.map((p) => (
+            <button key={p.id} type="button" onClick={() => setPrId(p.id)} aria-pressed={p.id === prId} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, font: "inherit", color: "inherit", cursor: "pointer", minWidth: 0, border: p.id === prId ? `2px solid ${KgTheme.accent}` : `1px solid ${KgTheme.border}`, background: p.id === prId ? KgTheme.accentSoft : "transparent" }}>
+              <div style={{ fontSize: 12, opacity: 0.7, fontFamily: "ui-monospace, monospace" }}>{p.repo} · {p.author}</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{p.title}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 6 }}>
+        {checks.map((c, i) => {
+          const reached = firstFail === -1 || i <= firstFail;
+          const color = !reached ? "currentColor" : c.pass ? KgTheme.accent : KgTheme.warn;
+          return (
+            <div key={c.label} style={{ display: "flex", gap: 10, alignItems: "flex-start", opacity: reached ? 1 : 0.4, transition: "opacity .25s" }}>
+              <span aria-hidden="true" style={{ width: 20, height: 20, borderRadius: 10, flexShrink: 0, display: "grid", placeItems: "center", fontSize: 12, fontWeight: 700, color: "#fff", background: reached ? color : "rgba(127,127,127,.35)" }}>{!reached ? "·" : c.pass ? "✓" : "✕"}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{c.label}<span style={{ position: "absolute", left: -9999 }}>{!reached ? "（未检查）" : c.pass ? "（通过）" : "（在此停止）"}</span></div>
+                {reached ? <div style={{ fontSize: 12, opacity: 0.75, overflowWrap: "anywhere" }}>{c.note}</div> : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, opacity: 0.65 }}>更新模式</span>
+        <KgButton pressed={mode === "merge"} onClick={() => setMode(mode === "merge" ? "review" : "merge")}>Update and merge changes: {mode === "merge" ? "On" : "Off"}</KgButton>
+      </div>
+      <div aria-live="polite" style={{ borderRadius: 10, padding: 12, background: tone.bg, borderLeft: `3px solid ${tone.color}`, display: "grid", gap: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontWeight: 600 }}>{outcome.head}</span>
+          <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{updates ? "250 积分" : "0 积分"}</span>
+        </div>
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>{outcome.body}</div>
+        {updates ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {pr.pages.map((page) => <code key={page} style={{ fontSize: 12, padding: "2px 7px", borderRadius: 6, border: `1px solid ${KgTheme.border}` }}>{page}</code>)}
+          </div>
+        ) : null}
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgCreditEstimator = () => {
+  const schedules = [
+    { id: "daily", label: "每天", runs: 7 },
+    { id: "twice", label: "每周两次", runs: 2 },
+    { id: "weekly", label: "每周", runs: 1 },
+  ];
+  const [merges, setMerges] = useState(40);
+  const [scheduleId, setScheduleId] = useState("daily");
+  const schedule = schedules.find((s) => s.id === scheduleId);
+  const perRun = 250;
+  const pushRuns = merges;
+  const scheduledRuns = Math.min(merges, schedule.runs);
+  const push = pushRuns * perRun;
+  const scheduled = scheduledRuns * perRun;
+  const max = Math.max(push, scheduled, perRun);
+  const fmt = (n) => n.toLocaleString("en-US");
+  const bars = [
+    { label: "代码变更触发器", runs: pushRuns, credits: push, note: "每个已合并的 pull request 运行一次" },
+    { label: `${schedule.label}计划`, runs: scheduledRuns, credits: scheduled, note: `每周最多运行 ${schedule.runs} ${schedule.runs === 1 ? "次" : "次"}，每次批量处理自上次运行以来的所有合并` },
+  ];
+  return (
+    <KgFrame title="每周积分估算" caption="每次更新文档的运行消耗 250 积分">
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+          <span style={{ fontWeight: 600 }}>每周合并的、更改了已有文档覆盖代码的 pull request 数量</span>
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{merges}</span>
+        </span>
+        <input type="range" min={0} max={150} step={1} value={merges} onChange={(e) => setMerges(Number(e.target.value))} style={{ width: "100%", accentColor: KgTheme.accent }} />
+      </label>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, opacity: 0.65 }}>用于比较的计划</span>
+        {schedules.map((s) => <KgButton key={s.id} pressed={s.id === scheduleId} onClick={() => setScheduleId(s.id)}>{s.label}</KgButton>)}
+      </div>
+      <div style={{ display: "grid", gap: 12 }}>
+        {bars.map((b) => (
+          <div key={b.label} style={{ display: "grid", gap: 4 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
+              <span style={{ fontWeight: 600 }}>{b.label}</span>
+              <span style={{ fontVariantNumeric: "tabular-nums" }}>{fmt(b.credits)} 积分 · {b.runs} {b.runs === 1 ? "次运行" : "次运行"}</span>
+            </div>
+            <div style={{ height: 12, borderRadius: 6, background: KgTheme.surface, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(b.credits / max) * 100}%`, minWidth: b.credits ? 4 : 0, borderRadius: 6, background: KgTheme.accent, transition: "width .3s ease" }} />
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.65 }}>{b.note}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 13, padding: 10, borderRadius: 8, background: KgTheme.surface }}>
+        {merges === 0 ? "没有合并时，两种方式都不会运行，因此都不产生费用。" : push === scheduled ? "在此数量下，两种方式的费用相同。代码变更触发器能更快地更新文档。" : `${schedule.label.toLowerCase()}计划每周少用 ${fmt(push - scheduled)} 积分。代价是文档可能比代码滞后最多${schedule.runs === 7 ? "一天" : schedule.runs === 2 ? "半周" : "一周"}。`}
+      </div>
+    </KgFrame>
+  );
+};
+
+export const KgMcpReplay = () => {
+  const scenarios = [
+    {
+      id: "rename",
+      question: "如果我重命名 customer_id，需要在其他仓库中更改什么？",
+      steps: [
+        { tool: "search", input: "customer_id", output: "repos/api-service/data-model · repos/api-gateway/auth · architecture" },
+        { tool: "query docs filesystem", input: "cat repos/api-service/data-model.mdx", output: "orders.customer_id 是指向 accounts.id 的外键。它由 GET /orders 和 GET /orders/{id} 返回。" },
+        { tool: "query docs filesystem", input: "grep -r customer_id repos/api-gateway", output: "repos/api-gateway/auth.mdx：网关会将 token 中的 customer_id 复制到 X-Customer-Id 请求头中。" },
+        { tool: "answer", input: "", output: "更新 api-gateway 中网关的请求头映射，以及 api-service 中的 GET /orders 响应。web-app 通过网关读取该字段，因此也请检查其订单视图。" },
+      ],
+    },
+    {
+      id: "local",
+      question: "如何在本地运行 API 服务？",
+      steps: [
+        { tool: "search", input: "run api-service locally", output: "repos/api-service/local-development" },
+        { tool: "query docs filesystem", input: "cat repos/api-service/local-development.mdx", output: "将 .env.example 复制为 .env，使用 docker compose up db 启动 Postgres，然后运行 npm run dev，监听端口 4000。" },
+        { tool: "answer", input: "", output: "将 .env.example 复制为 .env，运行 docker compose up db，然后运行 npm run dev。服务监听端口 4000。" },
+      ],
+    },
+    {
+      id: "stale",
+      question: "网关会向后端服务发送哪些请求头？",
+      steps: [
+        { tool: "search", input: "gateway headers backend", output: "repos/api-gateway/auth" },
+        { tool: "query docs filesystem", input: "cat repos/api-gateway/auth.mdx", output: "网关会发送 X-Customer-Id 和 X-Request-Id。" },
+        { tool: "submit feedback", input: "repos/api-gateway/auth：页面未提及 X-Trace-Id，而网关代码会在每个请求上设置它", output: "已记录。它会显示在项目的反馈控制台中。" },
+        { tool: "answer", input: "", output: "它会发送 X-Customer-Id、X-Request-Id 和 X-Trace-Id。我已报告 auth 页面缺少 X-Trace-Id。" },
+      ],
+    },
+  ];
+  const toolColor = { search: "#3B82F6", "query docs filesystem": "#8B5CF6", "submit feedback": KgTheme.warn, answer: KgTheme.accent };
+  const [scenarioId, setScenarioId] = useState("rename");
+  const [shown, setShown] = useState(1);
+  const scenario = scenarios.find((s) => s.id === scenarioId);
+  const pick = (id) => { setScenarioId(id); setShown(1); };
+  const done = shown >= scenario.steps.length;
+  return (
+    <KgFrame title="MCP 工具调用回放" caption={`第 ${shown} 步，共 ${scenario.steps.length} 步`}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {scenarios.map((s) => <KgButton key={s.id} pressed={s.id === scenarioId} onClick={() => pick(s.id)}>{s.question}</KgButton>)}
+      </div>
+      <div style={{ display: "grid", gap: 8, padding: 12, borderRadius: 10, background: KgTheme.surface }}>
+        <div style={{ justifySelf: "end", maxWidth: "85%", padding: "8px 12px", borderRadius: 12, background: "rgba(127,127,127,.14)", fontSize: 13 }}>{scenario.question}</div>
+        {scenario.steps.slice(0, shown).map((step, i) => {
+          const color = toolColor[step.tool];
+          if (step.tool === "answer") {
+            return <div key={i} style={{ maxWidth: "90%", padding: "8px 12px", borderRadius: 12, border: `1px solid ${KgTheme.accent}`, background: KgTheme.accentSoft, fontSize: 13, lineHeight: 1.5 }}>{step.output}</div>;
+          }
+          return (
+            <div key={i} style={{ display: "grid", gap: 4, padding: "8px 10px", borderRadius: 9, border: `1px solid ${KgTheme.border}`, borderLeft: `3px solid ${color}`, minWidth: 0 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline", minWidth: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", color }}>{step.tool}</span>
+                <code style={{ fontSize: 12, opacity: 0.85, overflowWrap: "anywhere" }}>{step.input}</code>
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.75, overflowWrap: "anywhere" }}>{step.output}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <KgButton onClick={() => { setShown(Math.max(1, shown - 1)); }} disabled={shown <= 1}>上一步</KgButton>
+        <KgButton onClick={() => { setShown(shown + 1); }} disabled={done}>下一步</KgButton>
+      </div>
+    </KgFrame>
+  );
+};

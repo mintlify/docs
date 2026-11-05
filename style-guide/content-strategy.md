@@ -5,6 +5,19 @@
 - Document what readers need to succeed, and nothing more. Too much content hides what people are looking for.
 - For AI agents, exhaustive reference can be helpful for information that isn't in their training data. For example, provide all flags and settings options for commands and operations an agent can perform. But for content only relevant to agents, consider making it a hidden page.
 
+### Leave out what readers won't act on
+
+A fact can be true and still not belong on the page. Before you add a fact, consider what a reader would do differently after reading it. If the answer is nothing, cut it.
+
+Facts that usually fail this test:
+
+- How a feature works internally, when the reader only needs the result.
+- Details of the UI the reader can see for themselves.
+- Warnings about mistakes the steps don't lead the reader to make.
+- Facts another page already covers. Link to that page instead.
+
+If a fact matters only to some readers, such as readers with an unusual setup, put it where those readers run into it, such as a troubleshooting section or a note callout.
+
 ## Before you write
 
 - Search for existing content first. Add content to relevant pages rather than creating new ones, unless the new page serves a distinct task.
@@ -28,6 +41,10 @@
 
 - Lead with context: what something is and why you'd use it, then how.
 - Prerequisites go at the start of procedural pages.
+  - Make each prerequisite something the reader can check before they start. Write "The admin role in your organization," not "The permissions these steps require."
+  - Require the least access that works. Don't require an admin role if an editor can complete the task.
+- When you say the reader can do something, link to the steps or include them. Write "You can [add a custom domain](/customize/custom-domain)," not "You can also use a custom domain."
+- Link to sections instead of pointing at them. Write "See [Overages](#overages)," not "See the section above."
 - Offer one opinionated path. Only show alternatives when readers genuinely choose between them.
 - Include a verification step or expected result for major procedures.
 
@@ -39,6 +56,43 @@
 - List the HTTP status codes the endpoint returns and what each means.
 - Include pagination details when they apply.
 - Include rate limits if you can confirm them. Don't guess or leave a placeholder.
+
+### Endpoint summaries
+
+The `summary` field is the endpoint's page title and sidebar label unless the page's frontmatter sets a `title`. When both exist, keep them the same.
+
+- Start with a verb in sentence case: "Get agent job," "Create agent job," "Trigger automation."
+- Use "Get" to read one resource, "List" to read a collection, and "Create," "Update," or "Delete" for those operations. For other actions, use the specific verb, such as "Trigger," "Send," or "Search."
+- Name the resource without articles: "Get assistant conversation thread," not "Get an assistant conversation thread."
+- When more than one version of an endpoint is in the navigation, add the version in parentheses to the older ones only: "Create agent job (v1)."
+
+### Endpoint descriptions
+
+- Start the first sentence with a present-tense, third-person verb that matches the summary: "Creates," "Retrieves," "Lists," "Updates," "Deletes," "Triggers." Don't start with "This endpoint" or an imperative like "Get" or "Queue."
+- Describe what the endpoint does and what it returns in one or two sentences, then add details the reader needs to call it, such as polling behavior or required setup.
+- End with the authentication requirement: "Authenticate with an admin API key."
+
+### Status codes
+
+- Only document status codes that you've confirmed in the server code.
+- Each response needs a description that says when the endpoint returns it. A bare status code or "A successful response" isn't enough.
+- Every authenticated endpoint documents `401`. Every endpoint that accepts parameters or a request body documents `400`.
+- Use the standard descriptions in the following table by default. When the endpoint has specific causes, such as a resource that exists but isn't active, list those causes instead.
+
+| Code | Standard description |
+| --- | --- |
+| `200` | The request succeeded. |
+| `201` | The resource was created. |
+| `202` | The request was accepted and queued for processing. |
+| `400` | The request is invalid. The response body describes the error. |
+| `401` | The API key is missing or invalid. |
+| `402` | Your plan or credits don't cover this request. |
+| `403` | Your API key or plan doesn't have access to this resource. |
+| `404` | The resource doesn't exist or doesn't belong to this project. |
+| `409` | The request conflicts with the current state of the resource. |
+| `429` | You exceeded the rate limit. Wait, then retry the request. |
+| `500` | An unexpected server error occurred. Retry the request. If the error continues, contact support. |
+| `503` | The service is temporarily unavailable. Retry the request. |
 
 ## Two workflows: editor (web or desktop app) and CLI
 

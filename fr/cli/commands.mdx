@@ -40,6 +40,7 @@ mint dev [flags]
 | `--disable-openapi` | Ignorer le traitement des fichiers OpenAPI pour améliorer les performances. |
 | `--disable-prefetch` | Désactiver le préchargement de la navigation dans la prévisualisation locale. Utile pour les très grands sites où le préchargement en arrière-plan ralentit le chargement des pages. |
 | `--local-schema` | Autoriser les fichiers OpenAPI hébergés localement servis via HTTP. |
+| `--classic` | Prévisualiser avec le client Mintlify classique au lieu du client par défaut. |
 
 ---
 
@@ -434,6 +435,14 @@ La commande ajoute un serveur MCP nommé `mintlify-admin` avec l'URL `https://mc
 | Codex | `.codex/config.toml` | `~/.codex/config.toml`, ou `config.toml` dans `CODEX_HOME` lorsque cette variable est définie |
 | Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` |
 
+Si votre configuration Codex définit `mcp_servers` comme une table inline, la configuration ne peut pas y ajouter d'entrée et s'arrête avec une erreur. Ajoutez vous-même une entrée `mintlify-admin` avec `url = "https://mcp.mintlify.com"` à la table inline.
+
+Si `CLAUDE_CONFIG_DIR` est défini, la configuration `--global` pour Claude Code s'arrête avec une erreur. Ajoutez plutôt le serveur avec la CLI Claude Code :
+
+```bash
+claude mcp add --scope user --transport http mintlify-admin https://mcp.mintlify.com
+```
+
 La configuration conserve votre configuration existante et ignore un agent qui possède déjà une entrée `mintlify-admin` correspondante. Si une entrée `mintlify-admin` a une configuration différente, ou si un fichier de configuration ne peut pas être analysé, la configuration s'arrête avant d'installer les compétences. Renommez ou supprimez l'entrée en conflit, puis exécutez à nouveau la commande.
 
 Relancer la commande actualise les compétences installées et remplace toutes les modifications locales que vous y avez apportées.
@@ -453,6 +462,54 @@ mint agent setup --agent claude-code codex cursor
 
 # Configurer Codex pour votre compte utilisateur
 mint agent setup --agent codex --global
+```
+
+---
+
+<div id="mint-instructions">
+  ## `mint instructions`
+</div>
+
+Affiche des instructions étape par étape pour une tâche dans Mintlify, rédigées pour les agents de codage IA. Chaque sujet couvre une tâche courante, comme publier un nouveau site ou ajouter un domaine personnalisé. Il liste les étapes, les règles que les agents appliquent souvent mal et la manière de vérifier le résultat. Votre agent peut exécuter la commande avant de commencer une tâche au lieu de s'appuyer sur ses données d'entraînement.
+
+La CLI récupère chaque sujet depuis la documentation Mintlify en ligne, de sorte que les instructions restent à jour sans mise à jour de la CLI.
+
+```bash
+mint instructions [topic] [subtopic]
+```
+
+Sans sujet, la commande liste les sujets disponibles et quand utiliser chacun d'eux. Avec un sujet, elle affiche les instructions de ce sujet en Markdown. Commencez par `overview`.
+
+| Sujet | Sous-sujets |
+| --- | --- |
+| `overview` | |
+| `new-site` | |
+| `write` | `components` |
+| `configure` | `navigation`, `settings`, `customization` |
+| `api-docs` | `sdk` |
+| `publish` | `domain`, `repo`, `analytics`, `assistant` |
+| `access` | `team` |
+| `automate` | |
+| `migrate` | |
+| `troubleshoot` | |
+
+La commande nécessite une connexion Internet. Si un sujet n'existe pas, la commande se termine avec une erreur. Exécutez `mint instructions` pour voir les sujets valides.
+
+Si votre CLI installée ne reconnaît pas la commande, exécutez `mint update` ou utilisez `npx mint@latest instructions`.
+
+<div id="examples">
+  ### Exemples
+</div>
+
+```bash
+# Lister les sujets
+mint instructions
+
+# Lire la vue d'ensemble
+mint instructions overview
+
+# Instructions pour un domaine personnalisé
+mint instructions publish domain
 ```
 
 ---
@@ -497,7 +554,11 @@ mint broken-links [flags]
 
 La commande analyse les liens des fichiers `.mdx` et `.md` et exclut les fichiers correspondant aux motifs [.mintignore](/fr/organize/mintignore). Les liens contenus dans les fichiers de spécification OpenAPI (`.yaml`, `.yml`, `.json`) ne sont pas vérifiés. Les liens pointant vers des fichiers ignorés sont signalés comme cassés.
 
-Les liens relatifs (`./`, `../`) et les liens d'ancre (`#`) à l'intérieur d'un snippet sont vérifiés sur chaque page qui affiche le snippet. La commande signale un de ces liens uniquement s'il est cassé sur au moins une de ces pages. Avec `--check-anchors`, les titres à l'intérieur d'un snippet comptent comme des ancres sur les pages qui l'affichent.
+La commande vérifie les liens et images Markdown, y compris les liens de style référence comme `[text][id]`. Elle vérifie aussi le `href` des composants `<a>` et `<Card>` ainsi que le `src` des balises `<img>` et `<source>`, qu'ils soient écrits sous forme de chaîne simple ou de valeur fixe entre accolades, comme `href={"/quickstart"}`. Les valeurs calculées à partir de variables ne sont pas vérifiées.
+
+Les liens sans `/` initial, comme `quickstart` ou `../quickstart`, sont résolus à partir du répertoire de la page qui les contient, de la même manière qu'un navigateur les résout. Pour créer un lien depuis la racine de votre site, commencez le chemin par `/`.
+
+Pour les liens sans `/` initial et les liens d'ancre (`#`) à l'intérieur d'un snippet, la commande vérifie chaque page qui affiche le snippet. La commande signale un de ces liens uniquement s'il est cassé sur au moins une de ces pages. Avec `--check-anchors`, les titres à l'intérieur d'un snippet comptent comme des ancres sur les pages qui l'affichent.
 
 | Flag | Description |
 | --- | --- |
@@ -553,7 +614,7 @@ mint validate [flags]
 
 `mint validate` exécute un ensemble de règles sur vos pages, snippets, navigation et spécifications OpenAPI, puis lance une compilation stricte. Les résultats s'affichent regroupés par fichier, avec la ligne, la colonne et le nom de la règle pour chacun lorsqu'ils sont disponibles.
 
-Les règles `duplicate-h1`, `unknown-component`, `katex` et `foreign-syntax` signalent des avertissements : leurs résultats ne font donc pas échouer l'exécution. Les autres règles signalent des erreurs.
+Les règles `duplicate-h1`, `katex` et `foreign-syntax` signalent des avertissements : leurs résultats ne font donc pas échouer l'exécution. Les autres règles signalent des erreurs.
 
 La compilation stricte ne s'exécute que si aucune règle ne signale d'erreur et qu'au moins une règle sélectionnée a besoin de la compilation. Si une règle signale une erreur, la commande ignore la compilation et vous demande de corriger d'abord les erreurs. Les avertissements que la compilation ne peut pas attribuer à une règle font échouer l'exécution en tant qu'erreurs `build-failed`.
 
@@ -563,6 +624,8 @@ La compilation stricte ne s'exécute que si aucune règle ne signale d'erreur et
 | `void-tags` | `content` | Signale les éléments vides HTML, comme `<br>`, `<img>`, `<source>` et `<input>`, qui ne sont pas auto-fermants. MDX ne peut pas les analyser à moins que vous ne les écriviez sous forme auto-fermante, par exemple `<br />` ou `<source />`. `--fix` peut les fermer automatiquement pour vous. |
 | `duplicate-h1` | `content` | Signale une page dont le premier titre est un H1 qui répète le `title` du frontmatter. Ignore les pages dont `mode` est défini sur `custom` ou `frame`. `--fix` supprime le titre, sauf s'il possède un `{#id}` personnalisé ou si des liens de votre site pointent vers son ancre. Dans ce cas, supprimez-le manuellement et mettez à jour les liens. |
 | `unknown-component` | `content` | Signale les composants JSX d'une page qui ne sont ni intégrés, ni importés, ni exportés sur cette page. `--fix` ajoute un import lorsqu'un fichier correspondant, comme `snippets/<Name>.jsx` ou `snippets/<Name>.tsx`, existe. |
+| `undefined-variable` | `content` | Signale les espaces réservés `{{variableName}}` dans les pages et les snippets que l'objet `variables` de `docs.json` ne définit pas. Ignore le code. |
+| `missing-snippet` | `content` | Signale les balises `<Snippet file="...">` dont le fichier de snippet n'existe pas, après que Mintlify a remplacé les variables de `docs.json` dans le chemin. |
 | `katex` | `content` | Signale les formules mathématiques en ligne ou en bloc que KaTeX ne peut pas afficher. Ignore les montants monétaires comme `$5`. |
 | `foreign-syntax` | `content` | Signale la syntaxe d'autres frameworks de documentation que Mintlify n'affiche pas, comme les admonitions `:::`, les balises Liquid, les shortcodes Hugo et les `[[wiki links]]`. Chaque résultat indique l'équivalent Mintlify. S'exécute sur les fichiers que MDX ne peut pas analyser et ignore le code. |
 | `missing-file` | `content` | Signale les fichiers importés qui n'existent pas. Nécessite la compilation. |
@@ -688,6 +751,7 @@ mint export [flags]
 | `--disable-openapi` | Ignorer le traitement OpenAPI. |
 | `--base-path` | Préfixe de chemin sous lequel servir l'exportation. Par exemple, `--base-path /docs`. |
 | `--client-version` | Version du client Mintlify utilisée pour compiler l'exportation, téléchargée depuis `releases.mintlify.com`. Par défaut, la dernière version compatible avec votre version de la CLI. |
+| `--classic` | Exporter avec le client Mintlify classique au lieu du client par défaut. La structure de l'archive et les règles d'hébergement diffèrent. Consultez [Export hors ligne](/fr/deploy/export#host-the-export-on-your-own-server). |
 
 Consultez [Export hors ligne](/fr/deploy/export) pour plus de détails.
 
@@ -784,6 +848,44 @@ Une fois terminé, la commande affiche le nombre de fichiers MDX reformatés et 
 
 ---
 
+<div id="mint-migrate">
+  ## `mint migrate`
+</div>
+
+Affichez des instructions détaillées pour migrer un site de documentation existant vers Mintlify, ou transmettez ces instructions à un agent d'IA pour qu'il effectue la migration.
+
+```bash
+mint migrate [flags]
+```
+
+| Flag | Description |
+| --- | --- |
+| `--from` | Ajoute à la vue d'ensemble les instructions pour une plateforme source spécifique. Accepte `confluence`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
+| `--topic` | Affiche les instructions détaillées d'une étape du workflow de migration au lieu de la vue d'ensemble. Accepte `discovery` (inventorier les pages sources), `conversion` (convertir les pages en MDX), `navigation` (créer la navigation et les redirections de `docs.json`), `api` (migrer une référence d'API), `changelog` (migrer un changelog) ou `verify` (vérifier la migration terminée). |
+| `--agent` | Lance un agent de programmation dans le répertoire actuel pour qu'il exécute la migration. Accepte `claude`, `codex`, `cursor` ou `gemini`. Combinez-le avec `--from` pour inclure un guide de plateforme. |
+| `--claude` | Alias de `--agent claude`. |
+
+Sans flag, la commande affiche une vue d'ensemble du workflow de migration, suivie des sujets et des plateformes sources disponibles. Les instructions sont rédigées pour les agents de programmation : vous pouvez donc les coller dans votre agent ou laisser votre agent exécuter `mint migrate` lui-même.
+
+Avec `--agent`, la CLI lance l'outil en ligne de commande de l'agent spécifié avec un prompt lui demandant d'exécuter `mint migrate` et de suivre les instructions affichées. La CLI de l'agent doit déjà être installée. Si la CLI Mintlify ne trouve pas la CLI de l'agent, `mint migrate` se termine avec une erreur qui inclut la commande d'installation.
+
+<div id="examples">
+  ### Exemples
+</div>
+
+```bash
+# Afficher la vue d'ensemble de la migration
+mint migrate
+
+# Afficher la vue d'ensemble et le guide GitBook
+mint migrate --from gitbook
+
+# Migrer un site Docusaurus avec Claude Code
+mint migrate --agent claude --from docusaurus
+```
+
+---
+
 <div id="mint-new">
   ## `mint new`
 </div>
@@ -844,7 +946,7 @@ Ces commandes sont disponibles mais ne sont pas encore fonctionnelles. Les exéc
   ## Télémétrie
 </div>
 
-La CLI collecte des données de télémétrie d'utilisation pour aider à améliorer Mintlify. Les données de télémétrie incluent le nom de la commande, la version de la CLI, le système d'exploitation, l'architecture et la version de Node.js. Elles indiquent également si la CLI s'exécute dans un environnement de CI, si elle s'exécute dans un terminal interactif, s'il s'agit de la première exécution de la CLI sur votre machine et si vous êtes connecté. Si la CLI détecte qu'un agent de codage IA l'exécute, la télémétrie inclut également le nom de cet agent. Si vous êtes connecté, les événements de télémétrie incluent également l'adresse e-mail de votre compte. L'utilisation sans connexion reste anonyme, et la déconnexion supprime votre adresse e-mail enregistrée. Mintlify ne collecte **pas** de contenu de projet ni de chemins de fichiers.
+La CLI collecte des données de télémétrie d'utilisation pour aider à améliorer Mintlify. Les données de télémétrie incluent le nom de la commande, la version de la CLI, le système d'exploitation, l'architecture et la version de Node.js. Elles indiquent également si la CLI s'exécute dans un environnement de CI, si elle s'exécute dans un terminal interactif, s'il s'agit de la première exécution de la CLI sur votre machine et si vous êtes connecté. Si la CLI détecte qu'un agent de codage IA l'exécute, la télémétrie inclut également le nom de cet agent. Chaque événement inclut également un identifiant de session qui regroupe les événements d'une même session de travail. La CLI le stocke dans `~/.config/mintlify/telemetry-session.json` et le remplace après 30 minutes d'inactivité. Si vous êtes connecté, les événements de télémétrie incluent également l'adresse e-mail de votre compte. L'utilisation sans connexion reste anonyme, et la déconnexion supprime votre adresse e-mail enregistrée. Mintlify ne collecte **pas** de contenu de projet ni de chemins de fichiers.
 
 Par défaut, la CLI collecte les données de télémétrie. Vous pouvez vous désinscrire à tout moment en utilisant le flag `--telemetry` :
 

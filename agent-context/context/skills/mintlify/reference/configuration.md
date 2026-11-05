@@ -85,6 +85,7 @@ The SKILL.md file lists common frontmatter fields. Here are the supported fields
 | `public` | boolean | Make this page public on a site with authentication. |
 | `asyncapi` | string | AsyncAPI channel reference for a WebSocket page. |
 | `rss` | boolean | Generate an RSS feed for a changelog page. |
+| `filterTagMatch` | string | Changelog tag filter matching: `any` (default, updates with at least one selected tag plus untagged updates) or `all` (only updates with every selected tag). |
 | `thumbnail` | object | Per-page social thumbnail override (see Thumbnails). |
 | `canonical`, `robots`, `og:*`, `twitter:*` | string | Page-level SEO meta tags; override `seo.metatags`. |
 
@@ -436,7 +437,7 @@ Under `seo`, `trailingSlash: true` emits trailing-slash URLs in canonicals, the 
 ```
 
 - `instructions`: String or array, appended to every page served as Markdown to AI agents.
-- `schema`: Include the full OpenAPI or AsyncAPI spec in API pages served as Markdown. Default: `true`.
+- `schema`: Include the full OpenAPI or AsyncAPI spec in API pages served as Markdown. Default: `true`. GraphQL reference pages always include their schema details (arguments, return types, fields) in Markdown; `schema` does not affect them.
 
 ## Search
 
@@ -639,7 +640,7 @@ Or omit the page from `docs.json` navigation entirely. The two approaches differ
 
 ## .mintignore
 
-Exclude files completely from the published docs. Place `.mintignore` in the docs root. Uses `.gitignore` syntax.
+Exclude files completely from the published docs. Place `.mintignore` in the docs root. Uses `.gitignore` syntax. In a multi-repo project, each source's `.mintignore` excludes only that source's files.
 
 ```
 drafts/

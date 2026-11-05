@@ -9,19 +9,21 @@ metadata:
 
 Reference for working on Mintlify projects. This file covers essentials that apply to every task. For detailed reference on specific topics, read the files listed in the reference index below.
 
+The Mintlify CLI also prints current guidance on completing specific tasks in Mintlify, fetched from the live documentation. Run `mint instructions` to list topics, then `mint instructions <topic>` to fetch instructions. If the command is unknown, run `npx mint@latest instructions`. When it differs from this file, follow `mint instructions`.
+
 ## Reference index
 
 Read these **only when your task requires them**. Each links to a Mintlify documentation page or, for agent workflow guidance, the source file on GitHub.
 
 | Reference | When to read |
 |------|-------------|
-| [Components](https://mintlify.com/docs/components) | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, MDX, panels, prompts, colors, tiles, updates, views). Also covers table column widths. |
-| [Global settings](https://mintlify.com/docs/organize/settings) | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
-| [Navigation](https://mintlify.com/docs/organize/navigation) | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
-| [API playground](https://mintlify.com/docs/api-playground/overview) | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
-| [CLI commands](https://mintlify.com/docs/cli/commands) | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
+| [Components](https://mintlify.com/docs/components.md) | Adding or modifying components (callouts, cards, steps, tabs, accordions, code groups, fields, frames, icons, tooltips, badges, trees, mermaid, MDX, panels, prompts, colors, tiles, updates, views). Also covers table column widths. |
+| [Global settings](https://mintlify.com/docs/organize/settings.md) | Changing docs.json settings (theme, colors, logo, fonts, appearance, navbar, footer, banner, redirects, SEO, integrations, API config). Also covers snippets, hidden pages, .mintignore, custom CSS/JS, and the complete frontmatter fields table. |
+| [Navigation](https://mintlify.com/docs/organize/navigation.md) | Modifying site navigation structure (groups, tabs, anchors, dropdowns, products, versions, languages, OpenAPI, and SDK references in nav). |
+| [API playground](https://mintlify.com/docs/api-playground/overview.md) | Setting up API documentation (OpenAPI, AsyncAPI, MDX manual API pages, extensions, playground config). |
+| [CLI commands](https://mintlify.com/docs/cli/commands.md) | Running common CLI commands (dev, validate, add-domain, analytics, score, broken-links, a11y, format, and config) and their key flags. |
 | [Product context](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/product-context.md) | Before substantial content work (new site, broad restructure, first-time section setup) — check for and maintain `.mintlify/product-brief.md`. |
-| [Custom scripts](https://mintlify.com/docs/customize/custom-scripts) | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
+| [Custom scripts](https://mintlify.com/docs/customize/custom-scripts.md) | Customizing appearance or browser behavior with CSS, JavaScript, React snippets, selectors, or CSS variables. |
 | [Writing pages](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/writing.md) | Before creating a page or writing more than a sentence or two: the no-invention rule, page creation and editing steps, quality bar, audience, titles and descriptions, links. |
 | [Publishing and review](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/publishing-and-review.md) | Publishing, branches and pull requests, "is this live" questions, undoing changes, and reviewing a page with suggestions and comments. |
 | [Project settings](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/project-settings.md) | Reading or changing dashboard settings (domains, git sources, auth, members, workflows, search, add-ons), settings no tool covers, and analytics questions. |
@@ -32,7 +34,7 @@ Read these **only when your task requires them**. Each links to a Mintlify docum
 
 If the user wants a new docs site, wants to publish docs, or has no `docs.json` yet, run this workflow yourself. Ask the user only for information or approvals you cannot supply. Recommend CLI onboarding. If the user prefers to onboard in the browser, or you cannot run terminal commands, send them to [mintlify.com/start](https://mintlify.com/start).
 
-1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`. If it's installed, run `mint update`.
+1. Check `node --version` (v20.17.0 or newer). Run `mint --version`; if missing, install with `npm i -g mint`. If it's installed, run `mint update`. Then run `mint instructions new-site` for current setup guidance.
 2. Run `mint status`. If it shows an organization, use that account and follow **Existing account**. If the user has an account but isn't logged in, run `mint login`. If the user has no account, follow **No account**. Don't run `mint signup` yourself: from an agent or any non-interactive shell, it only prints https://mintlify.com/auth.md and creates no account.
 
 **Existing account:**
@@ -48,8 +50,10 @@ If the user wants a new docs site, wants to publish docs, or has no `docs.json` 
 3. Prepare the docs in a directory with a `docs.json`: the user's existing Markdown docs, or `mint new <directory> --name <name> --theme <theme>` in a new, empty directory. Run `mint dev --no-open` as a background process to preview, then run `mint validate` and `mint broken-links` and fix issues you caused.
 4. From that directory, run `mint deploy --subdomain <subdomain>` and follow the Git commands it prints: clone the hosted repository into a separate directory, copy `docs.json`, pages, and assets to its root, commit, and push to `main`. Never print, commit, or save the write token in a remote URL.
 5. Verify that `https://<subdomain>.mintlify.site` loads before you report the URL.
-6. The site expires unless someone claims it. Ask the user which email should own it (never invent one) and run `mint claim --email <email>`. Have the user open the link, sign in or create an account, and read back the code, then run `mint claim --code <code>`. Run both commands from the `mint deploy` directory.
+6. Unless someone claims it, the site expires 24 hours after `mint deploy` creates it and Mintlify deletes it. The `Expires` line in the `mint deploy` output shows the exact time. Ask the user which email should own it (never invent one) and run `mint claim --email <email>`. Have the user open the link, sign in or create an account, and read back the code, then run `mint claim --code <code>`. Run both commands from the `mint deploy` directory.
 7. If the docs live in a GitHub repository and the user wants a deploy on every push, run `mint deploy --github --subdomain <subdomain>` before claiming and commit the `.github/workflows/mintlify.yml` it writes. It needs a GitHub `origin` remote and a signed-in GitHub CLI, and only works for unclaimed sites.
+
+Before publishing in either flow, offer to connect the user's coding agent to the project. If they agree and Node.js is v22.20 or newer, run `mint agent setup --agent <agent>` from the project directory, where `<agent>` is `claude-code`, `codex`, or `cursor`. It installs Mintlify skills and adds the admin MCP to the agent's project configuration. Pass `--agent`, because without an interactive terminal the command configures every agent it detects. The user then completes OAuth sign-in in the agent. See [CLI commands](https://mintlify.com/docs/cli/commands.md).
 
 The user only needs the browser for OAuth approval, connecting GitHub, and claiming a site.
 
@@ -66,7 +70,7 @@ When you have no local checkout and no CLI (for example, editing through the Min
 
 ### Migrating from another platform
 
-For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>` (for example `docusaurus`), using the Mintlify Search MCP server to read it. For any other platform, follow `https://mintlify.com/docs/migration/manual`. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in [Site building](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/site-building.md).
+The CLI prints migration instructions for agents: `mint migrate` shows the workflow and lists the topics and source platforms it covers. Run `mint migrate --from <platform>` for a platform's guide and `mint migrate --topic <name>` for one topic. For Docusaurus, GitBook, ReadMe, Fern, or Document360, follow the matching guide at `https://mintlify.com/docs/migration/<platform>.md` (for example `docusaurus.md`), using the Mintlify Search MCP server to read it. For any other platform, follow `https://mintlify.com/docs/migration/manual.md`. The scraper only handles simple public sites. Complex sites migrate from source files. Porting rules are in [Site building](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/site-building.md).
 
 ## MCP servers
 
@@ -93,15 +97,16 @@ Key tools:
 - **`create_branch`** — Start a new branch off the deploy branch with a `title` that also names its pull request. Returns `branchName` and a branch-level `editorUrl` to preview changes live. On a branch, Mintlify commits edits automatically about 15 seconds after the last change, and the first commit opens a pull request.
 - **`list_branches`** — List existing branches; pass any of them as `branch`. Branches that don't exist are refused.
 - **`list_deployments`** — Discover which project(s) this connection can access.
-- **`read`** / **`search`**: Fetch a page's MDX or search across pages. `read`, `edit_page` and `write_page` take a page path (such as `guides/setup`) or the last segment of an editor URL, which is the page ID with an optional title in front of it. With a page ID from an editor URL, pass that URL's branch as `branch`. `read` returns a `filePath` to pass as `path` to `edit_page` and `write_page`.
-- **`edit_page`** / **`write_page`**: Apply targeted edits or overwrite a page. Change frontmatter with `update_node`, not `edit_page`. `edit_page` takes `oldString` and `newString` for one replacement, or an `edits` list of up to 100 replacements applied in order; if any edit fails, none apply. Both return `notRendered` for markup the editor drops (such as `<script>`, `<style>`, event handlers or JavaScript expressions), with what to use `instead`.
-- **`read_page_history`**: List a page's saved versions on `branch` (newest first, paginate with `cursor`), or pass `versionId` to read that version's MDX. Read-only; to restore a version, pass its `content` to `write_page`.
+- **`read`** / **`search`**: Fetch a page's MDX or search across pages. `search` returns the most relevant pages with matching `snippets`, plus the full `content` of a confident top result, so `read` a page only when the results are not enough; pass `mode: "all"` (or `regex: true`) to list every page containing a phrase. `read`, `edit_page` and `write_page` take a page path (such as `guides/setup`) or the last segment of an editor URL, which is the page ID with an optional title in front of it. With a page ID from an editor URL, pass that URL's branch as `branch`. `read` returns a `filePath` to pass as `path` to `edit_page` and `write_page`, and a `version`; pass `forEdit: true` to read the live page instead of its saved copy.
+- **`edit_page`** / **`write_page`**: Apply targeted edits or overwrite a page. Change frontmatter with `update_node`, not `edit_page`. `edit_page` takes `oldString` and `newString` for one replacement, or an `edits` list of up to 100 replacements applied in order; if any edit fails, none apply. Before `write_page`, `read` the page with `forEdit: true` and pass its `version` as `baseVersion` (required unless the page has no body); if the page changed since, the write is refused with `page_changed`, so read it again. Both return `notRendered` for markup the editor drops (such as `<script>`, `<style>`, event handlers or JavaScript expressions), with what to use `instead`.
+- **Inline data**: `read`, `search`, `diff`, `read_page_history` and `read_comments` show base64 data URLs of 1,000 characters or more as `[elided N chars #hash]` placeholders. Keep placeholders unchanged and copy them only from a `read` of the same page: `edit_page`, `write_page`, `create_node` and `suggest_edit` restore them from that page and return `inline_data_unresolved` without changing anything when a placeholder matches no data there.
+- **`read_page_history`**: List a page's saved versions on `branch` (newest first, paginate with `cursor`), or pass `versionId` to read that version's MDX. Read-only; to restore a version, `read` the page with `forEdit: true`, then pass the version's `content` to `write_page` with that read's `version` as `baseVersion`.
 - **`read_comments`** / **`add_comment`** / **`suggest_edit`** / **`reply_to_comment`** / **`resolve_comment`**: Read open editor comment threads on a page, start a thread on exact text, propose a tracked-changes suggestion (`oldString` to `newString`; an empty `newString` suggests a deletion; an optional `comment` explains why and is posted as the agent's reply in the suggestion thread) that someone accepts or rejects in the editor, reply as the agent, or resolve threads. Adding, suggesting, replying and resolving require an OAuth session and act on the threads of `branch`; they work on the deploy branch even when edits to it require a pull request.
 - **`read_inbox`**: List the connected user's dashboard inbox on a project (comments and mentions, suggested edits, private pages and folders shared with the user), newest activity first and open items by default. Narrow with `state`, `section`, `filter`, `dateFrom` and `dateTo`; pass `nextCursor` as `cursor` for older items. For an item whose `target.thread` is unresolved and not on a private page, call `read_comments` on `target.thread.filePath` and `reply_to_comment`, both on `target.thread.branch`. Read-only; requires an OAuth session.
 - **`list_nodes`** / **`create_node`** / **`update_node`** / **`move_node`** / **`delete_node`**: Manage the navigation tree. If a `create_node`, `update_node`, `move_node`, or `delete_node` call leaves the navigation invalid (for example, a page at the root next to tabs), the response includes a `navigationErrors` field. Fix these errors before `publish`, because Mintlify can drop invalid nodes from the published navigation. If a page already exists at the `path` on `branch`, `create_node` writes the new content into it, keeps its navigation position, and returns `updated: true`.
 - **`update_config`** — Change top-level `docs.json` fields (theme, colors, logo, navbar, footer, redirects, integrations, SEO). It can't set `navigation`; use the node tools. An invalid config is rejected whole.
 - **`upload_file`** / **`finalize_file_upload`**: Upload a local file. To add an image to `branch`, call `upload_file` with the destination `path` (for example, `images/dashboard.png`), `contentType`, and exact `size` in bytes. `PUT` the file bytes to the returned `uploadUrl` with the returned `headers`, then call `finalize_file_upload` with the `uploadId` and the same `path`. Use the returned `src` in MDX or in the `docs.json` `logo` or `favicon` fields. Uploading to an existing `path` replaces the image. Only logo and favicon uploads may be SVG: for a `docs.json` `logo` or `favicon`, pass `purpose: "logo"` to both tools. Page images can't be SVG. Images publish with your other edits on `publish`. To write a large page from a local file, call `upload_file` with a `.md` or `.mdx` `path` and `contentType: "text/markdown"` (no `branch` needed), `PUT` the file, then pass the `uploadId` in place of `content` to `write_page` or as `data.uploadId` to `create_node` within 10 minutes; skip `finalize_file_upload`. Each `uploadId` works once.
-- **Project management tools** — Read with `get_deployment_settings`, `get_analytics_report`, `get_analytics_schema`, `query_analytics`, `get_workflows`, and `list_repos_and_prs`. Write with `update_deployment_settings`, `manage_custom_domain`, `manage_git_source`, `manage_access_auth`, `manage_workflow`, `manage_workflow_prs`, and `manage_members_sharing`. Pass `subdomain` (required on org-wide connections; read tools also accept `subdomains`, up to 25) and a `request` object whose `action` (or `report`) selects the operation. Writes apply immediately to the live project and return the updated `state`, so confirm the intended change first.
+- **Project management tools**: Read with `get_deployment_settings`, `get_analytics_report`, `get_analytics_schema`, `query_analytics`, `get_workflows`, and `list_repos_and_prs`. Write with `update_deployment_settings`, `manage_custom_domain`, `manage_git_source`, `manage_access_auth`, `manage_workflow`, `manage_workflow_prs`, and `manage_members_sharing`. Pass `subdomain` (required for writes on org-wide connections; reads default to the connection's only project when omitted; read tools also accept `subdomains`, up to 25) and a `request` object whose `action` (or `report`) selects the operation. Writes apply immediately to the live project and return the updated `state`, so confirm the intended change first.
 
 - **`diff`** — See all changes on `branch` relative to the deploy branch.
 - **`status`** — List unpublished edited files, `docs.json` keys and nav changes on `branch`. On the deploy branch, lists only your changes.
@@ -115,13 +120,13 @@ Keep each branch focused on one change. Smaller branches produce easier-to-revie
 
 ## Before you start
 
-Mintlify changes often, so don't rely on what you remember about it. When a detail isn't in this skill, check the current documentation with the Mintlify Search MCP server or at `https://mintlify.com/docs`.
+Mintlify changes often, so don't rely on what you remember about it. When a detail isn't in this skill, check the current documentation with the Mintlify Search MCP server or at `https://mintlify.com/docs`. Every docs page has a Markdown version at its URL plus `.md` (for example `https://mintlify.com/docs/organize/navigation.md`), and `https://mintlify.com/docs/llms.txt` lists them all; fetch those instead of the HTML pages.
 
 Before substantial content work, read [Product context](https://raw.githubusercontent.com/mintlify/docs/main/agent-context/context/skills/mintlify/reference/product-context.md) and check for `.mintlify/product-brief.md`.
 
 Read the project's `docs.json` file first. It defines the site's navigation, theme, colors, and configuration.
 
-For appearance or browser behavior changes, read [Custom scripts](https://mintlify.com/docs/customize/custom-scripts).
+For appearance or browser behavior changes, read [Custom scripts](https://mintlify.com/docs/customize/custom-scripts.md).
 
 Search for existing content before creating new pages. You may need to update an existing page, add a section, or link to existing content rather than duplicating.
 
@@ -193,11 +198,11 @@ keywords: ["relevant", "search", "terms"]
 | `api` | string | API endpoint for interactive playground (e.g., `"POST /users"`). |
 | `openapi` | string | OpenAPI endpoint reference (e.g., `"GET /endpoint"`). |
 
-For the complete list including `searchable`, `boost`, `deprecated`, `related`, `groups`, and more, read [Pages](https://mintlify.com/docs/organize/pages).
+For the complete list including `searchable`, `boost`, `deprecated`, `related`, `groups`, and more, read [Pages](https://mintlify.com/docs/organize/pages.md).
 
 ## Quick component reference
 
-Below are the most commonly used components. For full props and all 26 components, read [Components](https://mintlify.com/docs/components).
+Below are the most commonly used components. For full props and all 26 components, read [Components](https://mintlify.com/docs/components.md).
 
 ### Callouts
 
@@ -280,7 +285,7 @@ Use `<Columns>` to arrange cards (or other content) in a grid. `cols` accepts 1-
 
 ## CLI commands
 
-Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`. Read [CLI commands](https://mintlify.com/docs/cli/commands) for full flags and subcommands.
+Install with `npm i -g mint`. Key commands: `mint dev` (local preview), `mint validate`, `mint broken-links`, `mint a11y`, `mint score`, `mint analytics` (traffic, search, feedback, and assistant conversations; Pro and Enterprise plans), `mint new`, `mint signup`, `mint instructions` (current guidance for completing specific tasks). Read [CLI commands](https://mintlify.com/docs/cli/commands.md) for full flags and subcommands.
 
 After you edit pages, run `mint validate --no-build --format json` for a fast check and `mint validate --fix` to apply automatic fixes. Run a full `mint validate` before you push.
 

@@ -40,6 +40,7 @@ mint dev [flags]
 | `--disable-openapi` | 跳过 OpenAPI 文件处理以提高性能。 |
 | `--disable-prefetch` | 在本地预览中禁用导航预加载。适用于后台预加载会拖慢页面加载的超大型站点。 |
 | `--local-schema` | 允许通过 HTTP 提供的本地托管 OpenAPI 文件。 |
+| `--classic` | 使用经典版 Mintlify 客户端而非默认客户端进行预览。 |
 
 ---
 
@@ -434,6 +435,14 @@ mint agent setup [flags]
 | Codex | `.codex/config.toml` | `~/.codex/config.toml`，或在设置了 `CODEX_HOME` 时使用其中的 `config.toml` |
 | Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` |
 
+如果你的 Codex 配置将 `mcp_servers` 定义为内联表，设置无法向其中添加条目，并会报错停止。请自行在该内联表中添加一个带有 `url = "https://mcp.mintlify.com"` 的 `mintlify-admin` 条目。
+
+如果设置了 `CLAUDE_CONFIG_DIR`，针对 Claude Code 的 `--global` 设置会报错停止。请改用 Claude Code CLI 添加该服务器：
+
+```bash
+claude mcp add --scope user --transport http mintlify-admin https://mcp.mintlify.com
+```
+
 设置过程会保留你现有的配置，并跳过已存在匹配的 `mintlify-admin` 条目的代理。如果某个 `mintlify-admin` 条目的配置不同，或者某个配置文件无法解析，设置会在安装技能之前停止。请重命名或删除冲突的条目，然后再次运行该命令。
 
 重新运行该命令会刷新已安装的技能，并覆盖你对它们所做的任何本地修改。
@@ -453,6 +462,54 @@ mint agent setup --agent claude-code codex cursor
 
 # 为你的用户账户设置 Codex
 mint agent setup --agent codex --global
+```
+
+---
+
+<div id="mint-instructions">
+  ## `mint instructions`
+</div>
+
+输出在 Mintlify 中完成某项任务的分步指导，专为 AI 编程 Agent 编写。每个主题涵盖一项常见工作，例如发布新站点或添加自定义域名。它会列出步骤、Agent 常犯错误的规则，以及如何验证结果。你的 Agent 可以在开始任务前运行该命令，而不是依赖其训练数据。
+
+CLI 会从在线的 Mintlify 文档中获取每个主题，因此无需更新 CLI，指导内容也能保持最新。
+
+```bash
+mint instructions [topic] [subtopic]
+```
+
+不带主题时，该命令会列出可用主题以及各自的适用场景。带主题时，它会以 Markdown 格式输出该主题的指导内容。请从 `overview` 开始。
+
+| 主题 | 子主题 |
+| --- | --- |
+| `overview` | |
+| `new-site` | |
+| `write` | `components` |
+| `configure` | `navigation`, `settings`, `customization` |
+| `api-docs` | `sdk` |
+| `publish` | `domain`, `repo`, `analytics`, `assistant` |
+| `access` | `team` |
+| `automate` | |
+| `migrate` | |
+| `troubleshoot` | |
+
+该命令需要联网。如果主题不存在，命令会以错误退出。运行 `mint instructions` 查看有效主题。
+
+如果你安装的 CLI 无法识别该命令，请运行 `mint update` 或使用 `npx mint@latest instructions`。
+
+<div id="examples">
+  ### 示例
+</div>
+
+```bash
+# 列出主题
+mint instructions
+
+# 阅读概述
+mint instructions overview
+
+# 自定义域名指导
+mint instructions publish domain
 ```
 
 ---
@@ -497,7 +554,11 @@ mint broken-links [flags]
 
 该命令会扫描 `.mdx` 和 `.md` 文件中的链接，并排除匹配 [.mintignore](/zh/organize/mintignore) 模式的文件。OpenAPI 规范文件（`.yaml`、`.yml`、`.json`）中的链接不会被检查。指向被忽略文件的链接会被报告为断链。
 
-代码片段中的相对链接（`./`、`../`）和锚点链接（`#`）会针对每个渲染该代码片段的页面进行检查。只有当此类链接在其中至少一个页面上失效时，该命令才会报告它。使用 `--check-anchors` 时，代码片段中的标题会被视为渲染该代码片段的页面上的锚点。
+该命令会检查 Markdown 链接和图片，包括 `[text][id]` 这类引用式链接。它还会检查 `<a>` 和 `<Card>` 组件的 `href`，以及 `<img>` 和 `<source>` 标签的 `src`，无论它们是写成普通字符串，还是写成花括号中的固定值（例如 `href={"/quickstart"}`）。由变量计算得出的值不会被检查。
+
+不以 `/` 开头的链接（例如 `quickstart` 或 `../quickstart`）会从包含它们的页面所在目录进行解析，与浏览器的解析方式相同。若要从站点根目录进行链接，请以 `/` 作为路径开头。
+
+对于代码片段中不以 `/` 开头的链接和锚点链接（`#`），该命令会检查每个渲染该代码片段的页面。只有当此类链接在其中至少一个页面上失效时，该命令才会报告它。使用 `--check-anchors` 时，代码片段中的标题会被视为渲染该代码片段的页面上的锚点。
 
 | 选项 | 描述 |
 | --- | --- |
@@ -553,7 +614,7 @@ mint validate [flags]
 
 `mint validate` 会针对你的页面、代码片段、导航和 OpenAPI 规范运行一组规则，然后执行严格构建。检查结果按文件分组输出，并在可用时显示每条结果的行号、列号和规则名称。
 
-`duplicate-h1`、`unknown-component`、`katex` 和 `foreign-syntax` 规则报告的是警告，因此它们的结果不会导致运行失败。其他规则报告的是错误。
+`duplicate-h1`、`katex` 和 `foreign-syntax` 规则报告的是警告，因此它们的结果不会导致运行失败。其他规则报告的是错误。
 
 只有在没有任何规则报告错误，且至少有一条所选规则需要构建时，才会执行严格构建。如果某条规则报告了错误，该命令会跳过构建，并提示你先修复错误。构建无法归因于某条规则的警告会以 `build-failed` 错误的形式导致运行失败。
 
@@ -563,6 +624,8 @@ mint validate [flags]
 | `void-tags` | `content` | 报告未自闭合的 HTML 空元素，例如 `<br>`、`<img>`、`<source>` 和 `<input>`。除非将它们写成自闭合形式（例如 `<br />` 或 `<source />`），否则 MDX 无法解析它们。`--fix` 可以自动为你将其自闭合。 |
 | `duplicate-h1` | `content` | 报告第一个标题是与 frontmatter 中 `title` 重复的 H1 的页面。跳过 `mode` 设置为 `custom` 或 `frame` 的页面。`--fix` 会删除该标题，除非它带有自定义 `{#id}`，或站点中有链接指向其锚点。在这种情况下，请手动删除并更新相关链接。 |
 | `unknown-component` | `content` | 报告页面中既非内置、也未在该页面导入或导出的 JSX 组件。当存在匹配的文件（例如 `snippets/<Name>.jsx` 或 `snippets/<Name>.tsx`）时，`--fix` 会添加导入语句。 |
+| `undefined-variable` | `content` | 报告页面和代码片段中 `docs.json` 的 `variables` 对象未定义的 `{{variableName}}` 占位符。跳过代码。 |
+| `missing-snippet` | `content` | 报告在 Mintlify 替换路径中的 `docs.json` 变量后，片段文件仍不存在的 `<Snippet file="...">` 标签。 |
 | `katex` | `content` | 报告 KaTeX 无法渲染的行内或块级数学公式。忽略 `$5` 之类的货币金额。 |
 | `foreign-syntax` | `content` | 报告 Mintlify 不渲染的其他文档框架语法，例如 `:::` 提示块、Liquid 标签、Hugo shortcodes 和 `[[wiki links]]`。每条结果都会注明对应的 Mintlify 替代写法。会在 MDX 无法解析的文件上运行，并跳过代码。 |
 | `missing-file` | `content` | 报告不存在的导入文件。需要构建。 |
@@ -688,6 +751,7 @@ mint export [flags]
 | `--disable-openapi` | 跳过 OpenAPI 处理。 |
 | `--base-path` | 提供导出内容所使用的路径前缀。例如 `--base-path /docs`。 |
 | `--client-version` | 用于构建导出内容的 Mintlify 客户端版本，从 `releases.mintlify.com` 下载。默认为与你的 CLI 版本兼容的最新版本。 |
+| `--classic` | 使用经典版 Mintlify 客户端而非默认客户端进行导出。归档文件的结构和托管规则有所不同。参见[离线导出](/zh/deploy/export#host-the-export-on-your-own-server)。 |
 
 有关详细信息，请参阅[离线导出](/zh/deploy/export)。
 
@@ -784,6 +848,44 @@ mint format
 
 ---
 
+<div id="mint-migrate">
+  ## `mint migrate`
+</div>
+
+打印将现有文档站点迁移到 Mintlify 的分步说明，或将这些说明交给 AI 代理来完成迁移。
+
+```bash
+mint migrate [flags]
+```
+
+| 选项 | 描述 |
+| --- | --- |
+| `--from` | 在概览中添加特定源平台的说明。可选值为 `confluence`、`docsify`、`document360`、`docus`、`docusaurus`、`fern`、`fumadocs`、`gitbook`、`github-wiki`、`jekyll`、`mdbook`、`mkdocs`、`nextra`、`notion`、`nuxt`、`pdf`、`readme`、`redocly`、`starlight`、`vitepress`、`vuepress`。 |
+| `--topic` | 打印迁移工作流中某一步骤的详细说明，而不是概览。可选值为 `discovery`（盘点源页面）、`conversion`（将页面转换为 MDX）、`navigation`（构建 `docs.json` 导航和重定向）、`api`（迁移 API 参考）、`changelog`（迁移更新日志）或 `verify`（检查已完成的迁移）。 |
+| `--agent` | 在当前目录中启动一个编码代理来执行迁移。可选值为 `claude`、`codex`、`cursor` 或 `gemini`。与 `--from` 结合使用可包含平台指南。 |
+| `--claude` | `--agent claude` 的别名。 |
+
+不带选项时，该命令会打印迁移工作流的概览，随后列出可用的主题和源平台。这些说明是为编码代理编写的，因此你可以将其粘贴到你的代理中，或让代理自行运行 `mint migrate`。
+
+使用 `--agent` 时，CLI 会启动指定代理的命令行工具，并附带一个提示词，让其运行 `mint migrate` 并按照打印出的说明操作。你必须事先安装该代理的 CLI。如果 Mintlify CLI 找不到代理的 CLI，`mint migrate` 会以错误退出，错误信息中包含安装命令。
+
+<div id="examples">
+  ### 示例
+</div>
+
+```bash
+# 打印迁移概览
+mint migrate
+
+# 打印概览以及 GitBook 指南
+mint migrate --from gitbook
+
+# 使用 Claude Code 迁移 Docusaurus 站点
+mint migrate --agent claude --from docusaurus
+```
+
+---
+
 <div id="mint-new">
   ## `mint new`
 </div>
@@ -844,7 +946,7 @@ mint version
   ## 遥测
 </div>
 
-CLI 收集使用遥测数据以帮助改进 Mintlify。遥测数据包括命令名称、CLI 版本、操作系统、架构和 Node.js 版本。遥测数据还会记录 CLI 是否在 CI 环境中运行、是否在交互式终端中运行、是否是 CLI 首次在你的机器上运行，以及你是否已登录。如果 CLI 检测到有 AI 编码代理在运行它，遥测数据还会包含该代理的名称。如果你已登录，遥测事件还会包含你的账户电子邮件地址。未登录时的使用保持匿名，退出登录会删除已存储的电子邮件。Mintlify **不会**收集项目内容或文件路径。
+CLI 收集使用遥测数据以帮助改进 Mintlify。遥测数据包括命令名称、CLI 版本、操作系统、架构和 Node.js 版本。遥测数据还会记录 CLI 是否在 CI 环境中运行、是否在交互式终端中运行、是否是 CLI 首次在你的机器上运行，以及你是否已登录。如果 CLI 检测到有 AI 编码代理在运行它，遥测数据还会包含该代理的名称。每个事件还包含一个会话标识符，用于将同一工作会话中的事件归为一组。CLI 将其存储在 `~/.config/mintlify/telemetry-session.json` 中，并在闲置 30 分钟后更换。如果你已登录，遥测事件还会包含你的账户电子邮件地址。未登录时的使用保持匿名，退出登录会删除已存储的电子邮件。Mintlify **不会**收集项目内容或文件路径。
 
 默认情况下，CLI 会收集遥测数据。你可以随时使用 `--telemetry` 选项退出：
 

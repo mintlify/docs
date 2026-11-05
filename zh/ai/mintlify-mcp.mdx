@@ -76,6 +76,20 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
   </Tab>
 </Tabs>
 
+<div id="limit-a-connection-to-search-and-read-tools">
+  ### 将连接限制为搜索和读取工具
+</div>
+
+如果要连接的 AI 工具只需要在你的内容中查找信息，请在添加管理员 MCP 时发送 `x-mintlify-toolset: knowledge` 请求头。之后，该连接只会列出以下工具：`search`、`read`、`read_comments`、`read_page_history`、`list_nodes`、`list_branches` 和 `list_deployments`。该连接上的 AI 工具无法编辑内容、发布或更改设置。
+
+管理员 MCP 还会为 AI 工具提供更简短的说明，专注于搜索和读取页面。
+
+例如，使用 Claude Code 时：
+
+```bash
+claude mcp add --transport http mintlify-knowledge https://mcp.mintlify.com --header "x-mintlify-toolset: knowledge"
+```
+
 <div id="how-editing-works">
   ## 编辑的工作方式
 </div>
@@ -209,11 +223,21 @@ Claude、ChatGPT 和 Cursor 等常用 MCP 客户端始终可以完成 OAuth 登�
   ### 内容
 </div>
 
-- **`read`**: 获取 `branch` 上任意页面的完整 MDX；省略 `branch` 时，则获取部署 branch 上的页面。可以传入页面路径（例如 `guides/setup`），或编辑器 URL 的最后一段，即页面 ID，其前面可能带有标题。使用编辑器 URL 中的页面 ID 时，请将该 URL 中的 branch 作为 `branch` 传入。响应中包含 `filePath`，你可以将其作为 `path` 传给 `edit_page` 和 `write_page`。要读取[私有页面](/zh/editor/pages#private-pages)，请传入通过 `list_nodes` 加 `visibility: "private"` 获取的 `private-page-<uuid>` 节点 ID。私有读取无需 `branch`，但需要 OAuth 会话。管理员 MCP 会拒绝使用客户端令牌和机器到机器令牌访问私有页面。
-- **`search`**: 在所有页面中查找匹配子字符串或正则表达式的行。搜索 `branch`；省略时搜索部署 branch。
+- **`read`**: 获取 `branch` 上任意页面的完整 MDX；省略 `branch` 时，则获取部署 branch 上的页面。可以传入页面路径（例如 `guides/setup`），或编辑器 URL 的最后一段，即页面 ID，其前面可能带有标题。使用编辑器 URL 中的页面 ID 时，请将该 URL 中的 branch 作为 `branch` 传入。响应中包含 `filePath`，你可以将其作为 `path` 传给 `edit_page` 和 `write_page`；响应中还包含所返回内容的 `version`。传入 `forEdit: true` 可读取实时页面，而不是其已保存的副本。在使用 `write_page` 覆盖页面之前，请使用 `forEdit: true`。要读取[私有页面](/zh/editor/pages#private-pages)，请传入通过 `list_nodes` 加 `visibility: "private"` 获取的 `private-page-<uuid>` 节点 ID。私有读取无需 `branch`，但需要 OAuth 会话。管理员 MCP 会拒绝使用客户端令牌和机器到机器令牌访问私有页面。
+- **`search`**: 按语义和精确措辞搜索 `branch` 上的页面；省略时搜索部署 branch。将问题、主题、名称或精确短语作为 `query` 传入。默认情况下，`search` 会以 `results` 的形式优先返回最相关的页面。每个结果包含页面的 `path` 和 `title`，以及包含匹配行的 `snippets`。当 `search` 对排名第一的结果有把握时，该结果还会包含页面的完整 `content`，最多 16 KB。其后的结果会包含其最佳匹配周围的 `section`。传入 `limit` 可返回最多 20 个页面（默认 6 个）。如需列出包含某个短语的所有页面（例如在重命名之前），请传入 `mode: "all"`（默认 `limit` 为 100，最大 500）。传入 `regex: true` 会将 `query` 视为正则表达式，并始终使用 `mode: "all"`。
 - **`edit_page`**: 对页面进行有针对性的编辑。`path` 的传入形式与 `read` 相同。传入 `oldString` 和 `newString` 进行单次替换，或传入最多包含 100 个替换的 `edits` 列表，在一次调用中修改页面的多个部分。Mintlify 按顺序应用这些编辑，每个编辑都基于上一个编辑的结果。如果任一编辑失败，则所有编辑都不会应用。与 `write_page` 一样，`edit_page` 会针对编辑新增且被编辑器丢弃的标记返回 `notRendered`。它不会报告页面上原本已有的标记。要编辑[私有页面](/zh/editor/pages#private-pages)，请将其 `private-page-<uuid>` 节点 ID 作为 `path` 传入。私有编辑需要在该页面拥有 editor 或更高角色的 OAuth 会话，且无需 `branch`。
-- **`write_page`**: 覆盖页面的完整 MDX 内容。`path` 的传入形式与 `read` 相同。也可接受 `private-page-<uuid>` 节点 ID 以覆盖私有页面，其 OAuth 与角色要求与 `edit_page` 相同。要创建新的私有页面，请使用 `create_node`。如果内容包含会被 Mintlify 编辑器丢弃的标记，例如 `<script>` 标签、`<style>` 块、`onClick` 等事件处理器或 JavaScript 表达式，响应中会包含 `notRendered` 字段。每个条目会列出被丢弃的 `element`、其所在的 `line`、编辑器丢弃它的原因 `why`，以及应改用的 `instead` 方案，例如 Tailwind 类、使用字面量值的内联 `style={{}}` 对象，或手风琴和标签页等 Mintlify 组件。
-- **`read_page_history`**: 列出页面在 `branch` 上保存的[版本历史](/zh/editor/pages#version-history)；省略时使用你的部署 branch。`path` 的传入形式与 `read` 相同，包括 `private-page-<uuid>` 节点 ID。返回按从新到旧排序的 `versions` 以及 `nextCursor`。每个版本包含 `versionId`、`createdAt` 和 `authors`，每位作者都有 `name` 以及取值为 `user`、`git` 或 `system` 的 `type`。传入 `limit` 可每次调用返回 1 到 50 个版本（默认 20 个），将 `nextCursor` 作为 `cursor` 传回即可列出更早的版本。传入 `versionId` 可获取该版本的完整 MDX，结果位于 `content` 中。该工具为只读。要恢复早期版本，请将其 `content` 传给 `write_page`。错误包括 `page_not_found`、`version_not_found` 和 `invalid_cursor`。
+- **`write_page`**: 覆盖页面的完整 MDX 内容。`path` 的传入形式与 `read` 相同。覆盖页面之前，请先调用带 `forEdit: true` 的 `read`，并将返回的 `version` 作为 `baseVersion` 传给 `write_page`。如果页面在那次读取之后发生了变化，Mintlify 会拒绝写入，不做任何更改，并返回 `page_changed`。请重新读取页面并再次应用你的更改。如果在有内容的页面上省略 `baseVersion`，`write_page` 会返回 `base_version_required`。仅包含 frontmatter 的页面不需要 `baseVersion`。也可接受 `private-page-<uuid>` 节点 ID 以覆盖私有页面，其 OAuth 与角色要求与 `edit_page` 相同。要创建新的私有页面，请使用 `create_node`。如果内容包含会被 Mintlify 编辑器丢弃的标记，例如 `<script>` 标签、`<style>` 块、`onClick` 等事件处理器或 JavaScript 表达式，响应中会包含 `notRendered` 字段。每个条目会列出被丢弃的 `element`、其所在的 `line`、编辑器丢弃它的原因 `why`，以及应改用的 `instead` 方案，例如 Tailwind 类、使用字面量值的内联 `style={{}}` 对象，或手风琴和标签页等 Mintlify 组件。
+- **`read_page_history`**: 列出页面在 `branch` 上保存的[版本历史](/zh/editor/pages#version-history)；省略时使用你的部署 branch。`path` 的传入形式与 `read` 相同，包括 `private-page-<uuid>` 节点 ID。返回按从新到旧排序的 `versions` 以及 `nextCursor`。每个版本包含 `versionId`、`createdAt` 和 `authors`，每位作者都有 `name` 以及取值为 `user`、`git` 或 `system` 的 `type`。传入 `limit` 可每次调用返回 1 到 50 个版本（默认 20 个），将 `nextCursor` 作为 `cursor` 传回即可列出更早的版本。传入 `versionId` 可获取该版本的完整 MDX，结果位于 `content` 中。该工具为只读。要恢复早期版本，请先对该页面调用带 `forEdit: true` 的 `read`，然后将早期版本的 `content` 传给 `write_page`，并将那次读取返回的 `version` 作为 `baseVersion` 传入。如果该版本包含页面上已不存在的[内联数据](#inline-data)，`write_page` 无法恢复这些数据。请改为在编辑器中通过[版本历史](/zh/editor/pages#version-history)恢复该版本。错误包括 `page_not_found`、`version_not_found` 和 `invalid_cursor`。
+
+<div id="inline-data">
+  #### 内联数据
+</div>
+
+页面可以将图片和其他文件嵌入为 base64 data URL。为了让响应保持精简，`read`、`search`、`diff`、`read_page_history` 和 `read_comments` 会将每个长度达到 1,000 个字符及以上的 base64 内容替换为占位符，例如 `[elided 48210 chars #1234567890]`。
+
+将内容传回时，请保持这些占位符不变。`edit_page`、`write_page`、`create_node` 和 `suggest_edit` 会使用目标页面当前内容中的原始数据替换每个占位符。
+
+如果某个占位符与目标页面上的数据不匹配，Mintlify 会拒绝写入，不做任何更改，并返回 `inline_data_unresolved`。请仅从同一页面的 `read` 结果中复制占位符。如果 Mintlify 无法读取页面来恢复占位符，它会返回 `inline_data_source_unreadable`，且不做任何更改。请重试该调用。
 
 <div id="uploads">
   ### 上传
@@ -267,6 +291,16 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 
 - **`update_config`**: 更改 `docs.json` 的顶层设置，例如主题、颜色、logo、导航栏、页脚、重定向、集成和 SEO。它无法更改 `navigation`，请改用导航工具。Mintlify 会整体拒绝无效的配置。
 
+<div id="mintlify-skill">
+  ### Mintlify skill
+</div>
+
+- **`read_skill`**: 读取 Mintlify 的文档编写指南，内容涵盖页面、组件、widget、导航和 `docs.json`。它与 [agent](/zh/agent) 使用的 Mintlify skill 相同。不传 `path` 调用时，会返回 skill 的索引 `SKILL.md` 以及其参考文件的 `files` 列表。从该列表中选取一个文件作为 `path` 传入（例如 `reference/widgets.md`）即可读取该文件。该工具为只读，不需要 `subdomain` 或 `branch`。如果文件不存在，则返回 `skill_file_not_found` 以及 `files` 列表。
+
+索引响应还包含一个 `skills` 列表，列出你的组织和你本人已启用的 [agent skills](/zh/editor/agent#skills)，每项都包含 `name`、`description` 和 `path`。传入某个 skill 的 `path`（例如 `org/release-notes/SKILL.md`）即可读取其说明。响应会在 `files` 中列出该 skill 的参考文件，你可以将其中任意一个作为 `path` 传入。个人 skill 的路径以 `me/` 开头，且仅在 OAuth 会话中显示。
+
+管理员 MCP 会指示 AI 工具在编写、重构页面或设置页面样式之前先调用 `read_skill`，并遵循任何描述与当前任务相符的组织或个人 skill。
+
 <div id="project-management">
   ### 项目管理
 </div>
@@ -296,10 +330,10 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 - **`update_deployment_settings`**: 更改一项仪表板设置，例如 `noindex`、`base_path`、`name`、`disable_ai_chat`、`search_settings`、`privacy`、`custom_scripts` 或某个附加功能。`docs.json` 设置请使用 `update_config`。
 - **`manage_custom_domain`**: 添加或移除自定义域名、配置其主机名，或重新触发主机名验证。
 - **`manage_git_source`**: 添加、更新、移除或重新排序项目构建所用的 Git 仓库，或设置基础源。
-- **`manage_access_auth`**: 配置或移除站点[认证](/zh/deploy/authentication-setup)、添加或删除密码、配置终端用户认证，或切换当前启用的认证方式。
+- **`manage_access_auth`**: 配置或移除站点[认证](/zh/deploy/authentication-setup)、添加或删除密码、配置终端用户认证，或切换当前启用的认证方式。切换时仅会保留 JWT 配置。如果当前启用的配置使用其他任何类型，切换会以 `409` 错误失败，且不会更改你的站点。要更改为其他类型，请直接配置新的认证方式。当某个操作启用站点认证时（包括从终端用户认证切换过来），Mintlify 会删除既没有组织登录也没有密码保护的现有预览。将 `previewDeployments` 设置为 `delete_unauthenticated`（默认）、`delete_all` 或 `keep`，以选择如何处理[现有预览](/zh/deploy/preview-deployments#existing-previews-when-you-turn-on-authentication)。
 - **`manage_workflow`**: 创建、更新、启用或禁用、删除或触发自动化。
 - **`manage_workflow_prs`**: 合并或关闭由[自动化](/zh/automations)运行创建的拉取请求。要合并 AI 工具编辑过的 branch 的拉取请求，请改用带 `merge: true` 的 `publish`。
-- **`manage_members_sharing`**: 列出或移除组织成员、更新其角色，或在 Base 中管理私有页面的授权和移动。
+- **`manage_members_sharing`**: 列出、邀请或移除组织成员、更新其角色，或在 Base 中管理私有页面的授权和移动。单次调用最多可邀请 250 人，并会跳过已是成员或已有待处理邀请的人员。
 
 写入工具会在 `state` 下返回项目更新后的状态，因此 AI 工具无需再次调用即可确认更改。每个操作都会检查连接被授予的作用域以及你在仪表板中的角色。未获授权的操作会返回 `insufficient_scope` 等错误。
 
@@ -361,12 +395,12 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 
 - **撤销 OAuth 授权**：在你的 Mintlify 控制台中，前往 [MCP 设置](https://app.mintlify.com/products/mcp)，然后撤销你所连接的 AI 工具对应的条目。撤销会在 30 秒内使该工具的访问令牌失效。此后工具调用会失败，工具在下次调用时必须完成新的 OAuth 登录。
 - **删除凭据**：要撤销使用[凭据](#credentials)的 AI 应用或网关的访问权限，请前往 MCP 设置中的 [Credentials](https://app.mintlify.com/products/mcp/admin-credentials) 页面并将其删除。
-- **在客户端中移除连接器**：
-  - Claude：**Settings → Connectors**，然后移除管理员 MCP 条目。
-  - Claude Code：`claude mcp remove mintlify`。
+- **在客户端中移除连接器**：管理员 MCP 条目的 URL 为 `https://mcp.mintlify.com`。其名称取决于你添加它的方式，例如 `mintlify-admin` 或 `mintlify`。
+  - Claude：**Settings → Connectors**，然后移除 Mintlify 条目。
+  - Claude Code：运行 `claude mcp list` 查找该条目的名称，然后运行 `claude mcp remove <name>`。
   - ChatGPT：**Settings → Connectors**，然后移除 Mintlify 条目。
-  - Cursor：从 `mcp.json` 中删除 `mintlify` 条目并重新加载。
-  - Codex：从 `~/.codex/config.toml` 中删除 `[mcp_servers.mintlify]` 代码块。
+  - Cursor：卸载 Mintlify 插件，或从 `mcp.json` 中删除该条目并重新加载。
+  - Codex：从 `~/.codex/config.toml` 或项目中的 `.codex/config.toml` 中删除该条目的 `[mcp_servers.<name>]` 代码块。
 
 撤销 OAuth 授权不会影响 MCP 已经打开的拉取请求。若要撤销待处理的更改，请在你的 Git 提供方中关闭或还原这些 PR。
 
@@ -380,4 +414,8 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 
 <Accordion title="重新安装连接器后连接仍然失败">
   退出[控制台](https://app.mintlify.com)，重新登录，然后再次连接你的 AI 工具。这会替换在登录系统更新之前开始的控制台会话。
+</Accordion>
+
+<Accordion title="管理员 MCP 工具出现两次">
+  你的 AI 工具中有多个指向 `https://mcp.mintlify.com` 的条目。当你通过多种方式连接管理员 MCP 时就可能出现这种情况，例如先手动添加，然后又运行了 [`mint agent setup`](/zh/cli/commands#mint-agent-setup)，或者安装了 Cursor 插件后又运行了 setup。保留一个条目并移除其他条目。各工具的具体步骤请参阅[断开或撤销访问权限](#disconnect-or-revoke-access)。
 </Accordion>
