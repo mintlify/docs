@@ -362,11 +362,13 @@ Global content variables substituted at build time using `{{variableName}}` synt
 }
 ```
 
-Keys can contain letters, digits, `_`, `-`, and `.`. Values are plain strings; HTML tags in values are stripped. Use in any `.mdx` file:
+Keys can contain letters, digits, `_`, `-`, and `.`. Keys are case-sensitive: a placeholder must match a key exactly. Values are plain strings; HTML tags in values are stripped. Use in any `.mdx` file:
 
 ```mdx
 The current API version is {{apiVersion}}.
 ```
+
+An undefined placeholder does not fail the build: it renders as literal text on the published site. Run `mint validate` to find undefined variables before publishing.
 
 ## Redirects
 
