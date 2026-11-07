@@ -109,6 +109,13 @@ For OpenAPI 3.1 and 3.2 specs, describe a file upload field as a string schema w
 - `contentEncoding` of `base64` or `base64url` sends the file as base64; other values use binary handling. A `contentEncoding` without a binary `contentMediaType` stays a text field.
 - The legacy `format: "binary"` and `format: "base64"` fields remain supported.
 
+### Conditional requirements
+
+OpenAPI 3.1 schemas can require a property only in some cases with `if`/`then`/`else`, `dependentRequired`, and `dependentSchemas`. Endpoint pages label each affected field with a "required" pill followed by its condition, for example "required if `method` = `card`", "required unless `method` = `card`" (from `else`), or "required if `tax_id` is set" (from `dependentRequired`).
+
+- Conditions are summarized when `if` tests sibling properties with `const`, `enum`, `type`, or presence (`required`). Anything more complex shows a generic "conditionally required" pill.
+- A property test in `if` also passes when the property is missing, so the tested property must be required (in the object's `required` or the `if` schema's `required`) to get a specific label. Otherwise the field shows "conditionally required".
+
 ## OpenAPI extensions
 
 - `x-hidden`: Creates page but hides from navigation.
