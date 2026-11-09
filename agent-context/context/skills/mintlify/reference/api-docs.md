@@ -9,7 +9,7 @@ Spec requirements:
 - `$ref` supports internal references only. External references are not supported.
 - Include a `servers` field with the API base URL. Without it, the playground falls back to simple mode because it can't send requests.
 - Define `components.securitySchemes` and `security` to get auth inputs in the playground.
-- Scopes listed in an operation's `security` requirement render in a Scopes section on the endpoint page and under the selected auth input in the playground, for every security option. OAuth2 scope descriptions come from `flows.*.scopes`; OpenAPI 3.1 role lists on `apiKey` and `http` requirements render the same way. Don't copy scopes into descriptions.
+- Scopes listed in an operation's `security` requirement render in a Scopes section on the endpoint page and under the selected auth input in the playground, for every security option. OAuth2 scope descriptions come from `flows.*.scopes`, and OpenAPI 3.1 role lists on `apiKey` and `http` requirements render the same way.
 
 Add an `openapi` field to a navigation element (tab, group, anchor, and so on) to generate endpoint pages there. With no `pages`, every endpoint in the spec gets a page:
 
