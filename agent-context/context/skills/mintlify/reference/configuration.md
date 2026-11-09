@@ -362,11 +362,13 @@ Global content variables substituted at build time using `{{variableName}}` synt
 }
 ```
 
-Keys can contain letters, digits, `_`, `-`, and `.`. Values are plain strings; HTML tags in values are stripped. Use in any `.mdx` file:
+Keys can contain letters, digits, `_`, `-`, and `.`. Keys are case-sensitive: a placeholder must match a key exactly. Values are plain strings; HTML tags in values are stripped. Use in any `.mdx` file:
 
 ```mdx
 The current API version is {{apiVersion}}.
 ```
+
+An undefined placeholder does not fail the build: it renders as literal text on the published site. Run `mint validate` to find undefined variables before publishing.
 
 ## Redirects
 
@@ -478,9 +480,9 @@ Under `seo`, `trailingSlash: true` emits trailing-slash URLs in canonicals, the 
 }
 ```
 
-- `preset`: Layout. `"classic"` (logo top left), `"headline"` (title at the top, logo bottom right), or `"minimal"` (centered text above a logo panel). Default: `"classic"`, or the original layout when `background` is set without a preset. With a preset, the eyebrow always uses a monospace font.
+- `preset`: Layout. `"classic"` (logo top left), `"headline"` (title at the top, logo bottom right), or `"minimal"` (centered text above a logo panel). Default: unset, which renders the original layout (not a preset). With a preset, the eyebrow always uses a monospace font.
 - `appearance`: `"light"` or `"dark"`. Default: the site color scheme.
-- `surface`: Background style for preset thumbnails, including the default `classic`. `"brand"` (default) tints the background and glow with the primary color hue, or uses `background.color` if set. `"neutral"` uses the site background color with no glow.
+- `surface`: Background style for preset thumbnails; only applies when `preset` is set. `"brand"` (default) tints the background and glow with the primary color hue, or uses `background.color` if set. `"neutral"` uses the site background color with no glow.
 - `background`: Image path or absolute URL. On preset thumbnails, it replaces the `surface` background and glow.
 - `fonts.family` (required with `fonts`): Google Fonts family name, or the name of a self-hosted font. `fonts.source`: URL or path to a self-hosted font file. `fonts.format`: `"woff"`, `"ttf"`, or `"otf"`; required with `source` (`woff2` is not supported). If the font fails to load, thumbnails use the default font.
 - `eyebrow.source`: Navigation level whose name appears above the title: `"group"` (default), `"tab"`, `"dropdown"`, `"anchor"`, `"language"`, `"product"`, `"version"`, `"item"`, or `"none"` to hide it. Falls back to the group name when the page is not inside that level.
