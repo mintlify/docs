@@ -21,10 +21,10 @@ Users can use the widget to get help with your product without leaving your appl
 
 ## Prerequisites
 
-- The Mintlify assistant enabled
+- The assistant enabled for your project
 - Your domain name, which appears at the end of your dashboard URL. For example, if your dashboard URL is `https://app.mintlify.com/org-name/domain-name`, your domain name is `domain-name`
 - An [assistant API key](https://app.mintlify.com/settings/organization/api-keys)
-- Node.js v18 or higher and npm installed
+- A Next.js app that uses the App Router
 - Basic React knowledge
 
 ### Get your assistant API key
@@ -34,69 +34,172 @@ Users can use the widget to get help with your product without leaving your appl
 3. Copy the assistant API key (starts with `mint_dsc_`) and save it securely.
 
 <Note>
-  Your assistant API key controls access to your assistant quota. This tutorial keeps the key server-side using a backend proxy so it never reaches the client bundle.
+  Your assistant API key controls access to your assistant quota. This tutorial keeps the key server-side using a backend proxy so the key never reaches the client bundle.
 </Note>
 
-## Set up the example
+## Build the widget
 
-Clone the [example repository](https://github.com/mintlify/assistant-embed-example) and customize it for your needs.
+The widget uses the [AI SDK](https://ai-sdk.dev) `useChat` hook to call the [assistant message endpoint](/api/assistant/create-assistant-message-v2) through a route in your app.
 
 <Steps>
-<Step title="Clone the repository">
+<Step title="Install dependencies">
 
 ```bash
-git clone https://github.com/mintlify/assistant-embed-example.git
-cd assistant-embed-example
+npm i ai@^6 @ai-sdk/react@^3 react-markdown
 ```
 
 </Step>
-<Step title="Choose your development tool">
-The repository includes Next.js and Vite examples. Choose the tool you prefer to use.
+<Step title="Store your API key">
 
-<CodeGroup>
-```bash title="Next.js"
-cd nextjs
-npm install
-```
+Store your assistant API key as a server-side environment variable. Don't use the `NEXT_PUBLIC_` prefix, which bundles the value into your client code.
 
-```bash title="Vite"
-cd vite
-npm install
-```
-</CodeGroup>
-</Step>
-<Step title="Configure your project">
-
-Open `src/config.js` and update with your Mintlify project details.
-
-```js src/config.js
-export const ASSISTANT_CONFIG = {
-  domain: 'your-domain',
-  docsURL: 'https://yourdocs.mintlify.site',
-};
-```
-
-Replace:
-- `your-domain` with your Mintlify project domain found at the end of your dashboard URL.
-- `https://yourdocs.mintlify.site` with your actual documentation URL.
-
-</Step>
-<Step title="Set up your API key">
-
-Store your assistant API key as a server-side environment variable. Avoid the `VITE_` prefix, which bundles the value into your client code:
-
-```bash .env
+```bash .env.local
 MINTLIFY_TOKEN=mint_dsc_your_token_here
 ```
 
 Replace `mint_dsc_your_token_here` with your assistant API key.
 
-Then add a backend route (for example, `/api/assistant`) to proxy requests to the Mintlify API:
+</Step>
+<Step title="Add a proxy route">
 
-1. Accept the user's message from the widget.
-2. Attach the `Authorization: Bearer $MINTLIFY_TOKEN` header and forward the request to `https://api.mintlify.com/discovery/v1/assistant/{domain}/message`.
-3. Stream the upstream response back to the client unchanged, so token streaming and `X-Thread-Id` / `X-Thread-Key` headers reach the widget.
-4. Point the widget's `api` option at your backend route instead of the Mintlify API directly.
+Create a route that adds your API key to each request and forwards it to the Mintlify API. The route streams the response back unchanged and passes through the thread headers.
+
+```js app/api/assistant/route.js
+const DOMAIN = 'your-domain';
+
+export async function POST(request) {
+  const upstream = await fetch(
+    `https://api.mintlify.com/discovery/v2/assistant/${DOMAIN}/message`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.MINTLIFY_TOKEN}`,
+      },
+      body: await request.text(),
+    }
+  );
+
+  const headers = new Headers();
+  for (const name of ['content-type', 'x-thread-id', 'x-thread-key', 'x-message-id']) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+
+  return new Response(upstream.body, { status: upstream.status, headers });
+}
+```
+
+Replace `your-domain` with your domain name.
+
+</Step>
+<Step title="Create the widget component">
+
+```jsx components/AssistantWidget.jsx
+'use client';
+
+import { useState } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import ReactMarkdown from 'react-markdown';
+
+export function AssistantWidget() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState('');
+
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/assistant',
+      body: { fp: 'anonymous' },
+    }),
+  });
+
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    sendMessage({ text: input });
+    setInput('');
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ position: 'fixed', bottom: 16, right: 16 }}
+      >
+        {isOpen ? 'Close' : 'Ask'}
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 64,
+            right: 16,
+            width: 384,
+            height: 500,
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            {messages.map((message) => (
+              <div key={message.id}>
+                <strong>{message.role === 'user' ? 'You' : 'Assistant'}</strong>
+                <ReactMarkdown>
+                  {message.parts
+                    .filter((part) => part.type === 'text')
+                    .map((part) => part.text)
+                    .join('')}
+                </ReactMarkdown>
+              </div>
+            ))}
+            {isLoading && <p>Loading...</p>}
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, padding: 16 }}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question..."
+              style={{ flex: 1 }}
+            />
+            <button type="submit" disabled={isLoading || !input.trim()}>
+              Send
+            </button>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
+```
+
+The `fp` field identifies the user. Use `anonymous` or your own user ID.
+
+</Step>
+<Step title="Add the widget to your layout">
+
+Render the widget in your root layout so it appears on every page.
+
+```jsx app/layout.jsx
+import { AssistantWidget } from '../components/AssistantWidget';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <AssistantWidget />
+      </body>
+    </html>
+  );
+}
+```
 
 </Step>
 <Step title="Start the development server">
@@ -114,18 +217,19 @@ Open your application in a browser and click the **Ask** button to open the assi
 
 ### Source citations
 
-Extract and display sources from assistant responses:
+The assistant searches your documentation before it answers. Each search appears in the message as a `tool-search` part, and its `output.results` array lists the pages it found. Extract them to show sources under each answer:
 
 ```jsx
-const extractSources = (parts) => {
-  return parts
-    ?.filter(p => p.type === 'tool-invocation' && p.toolInvocation?.toolName === 'search')
-    .flatMap(p => p.toolInvocation?.result || [])
-    .map(source => ({
-      url: source.url || source.path,
+const DOCS_URL = 'https://docs.example.com';
+
+const extractSources = (parts) =>
+  parts
+    .filter((part) => part.type === 'tool-search' && part.state === 'output-available')
+    .flatMap((part) => part.output?.results ?? [])
+    .map((source) => ({
+      url: `${DOCS_URL}/${source.path.replace(/^\//, '')}`,
       title: source.metadata?.title || source.path,
-    })) || [];
-};
+    }));
 
 // In your message rendering:
 {messages.map((message) => {
@@ -134,11 +238,11 @@ const extractSources = (parts) => {
     <div key={message.id}>
       {/* message content */}
       {sources.length > 0 && (
-        <div className="mt-2 text-xs">
-          <p className="font-semibold">Sources:</p>
-          {sources.map((s, i) => (
-            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="text-blue-600">
-              {s.title}
+        <div>
+          <p>Sources:</p>
+          {sources.map((source) => (
+            <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">
+              {source.title}
             </a>
           ))}
         </div>
@@ -147,6 +251,8 @@ const extractSources = (parts) => {
   );
 })}
 ```
+
+Replace `https://docs.example.com` with the URL of your documentation site.
 
 ### Track conversation threads
 
@@ -163,74 +269,44 @@ You must capture and persist both values on the first response. On every subsequ
   You must store the `X-Thread-Key` header immediately. The server only returns it when you create a new thread. You cannot retrieve it later.
 </Warning>
 
+The transport reads its `body` function before each request, so the next request includes the saved values:
+
 ```jsx
-import { useState, useEffect } from 'react';
-
-export function AssistantWidget({ domain, docsURL }) {
-  const [threadId, setThreadId] = useState(null);
-  const [threadKey, setThreadKey] = useState(null);
-
-  useEffect(() => {
-    // Retrieve saved thread ID and key from localStorage
-    const savedId = localStorage.getItem('assistant-thread-id');
-    const savedKey = localStorage.getItem('assistant-thread-key');
-    if (savedId && savedKey) {
-      setThreadId(savedId);
-      setThreadKey(savedKey);
-    }
-  }, []);
-
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+const { messages, sendMessage, status } = useChat({
+  transport: new DefaultChatTransport({
     api: '/api/assistant',
-    body: {
+    body: () => ({
       fp: 'anonymous',
-      retrievalPageSize: 5,
-      ...(threadId && { threadId }),
-      ...(threadKey && { threadKey }),
-    },
-    streamProtocol: 'data',
-    sendExtraMessageFields: true,
+      threadId: localStorage.getItem('assistant-thread-id'),
+      threadKey: localStorage.getItem('assistant-thread-key'),
+    }),
     fetch: async (url, options) => {
       const response = await fetch(url, options);
-      const newThreadId = response.headers.get('x-thread-id');
-      const newThreadKey = response.headers.get('x-thread-key');
-      if (newThreadId) {
-        setThreadId(newThreadId);
-        localStorage.setItem('assistant-thread-id', newThreadId);
-      }
-      if (newThreadKey) {
-        setThreadKey(newThreadKey);
-        localStorage.setItem('assistant-thread-key', newThreadKey);
-      }
+      const threadId = response.headers.get('x-thread-id');
+      const threadKey = response.headers.get('x-thread-key');
+      if (threadId) localStorage.setItem('assistant-thread-id', threadId);
+      if (threadKey) localStorage.setItem('assistant-thread-key', threadKey);
       return response;
     },
-  });
-
-  // ... rest of component
-}
+  }),
+});
 ```
 
-### Add keyboard shortcuts
+### Add a keyboard shortcut
 
-Allow users to open the widget and submit messages with keyboard shortcuts:
+Allow users to open and close the widget with a keyboard shortcut:
 
 ```jsx
 useEffect(() => {
   const handleKeyDown = (e) => {
     // Cmd/Ctrl + Shift + I to toggle widget
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'I') {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'i') {
       e.preventDefault();
       setIsOpen((prev) => !prev);
-    }
-
-    // Enter (when widget is focused) to submit
-    if (e.key === 'Enter' && !e.shiftKey && document.activeElement.id === 'assistant-input') {
-      e.preventDefault();
-      handleSubmit();
     }
   };
 
   window.addEventListener('keydown', handleKeyDown);
   return () => window.removeEventListener('keydown', handleKeyDown);
-}, [handleSubmit]);
+}, []);
 ```

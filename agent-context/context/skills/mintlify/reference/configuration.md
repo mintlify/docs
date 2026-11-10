@@ -486,7 +486,7 @@ Under `seo`, `trailingSlash: true` emits trailing-slash URLs in canonicals, the 
 - `appearance`: `"light"` or `"dark"`. Default: the site color scheme.
 - `surface`: Background style for preset thumbnails; only applies when `preset` is set. `"brand"` (default) tints the background and glow with the primary color hue, or uses `background.color` if set. `"neutral"` uses the site background color with no glow.
 - `background`: Image path or absolute URL. On preset thumbnails, it replaces the `surface` background and glow.
-- `fonts.family` (required with `fonts`): Google Fonts family name, or the name of a self-hosted font. `fonts.source`: URL or path to a self-hosted font file. `fonts.format`: `"woff"`, `"ttf"`, or `"otf"`; required with `source` (`woff2` is not supported). If the font fails to load, thumbnails use the default font.
+- `fonts.family` (required for a single font; omit when you use `fonts.heading` and `fonts.body`): Google Fonts family name, or the name of a self-hosted font. `fonts.source`: URL or path to a self-hosted font file. `fonts.format`: `"woff"`, `"ttf"`, or `"otf"`; required with `source` (`woff2` is not supported). If the font fails to load, thumbnails use the default font.
 - `eyebrow.source`: Navigation level whose name appears above the title: `"group"` (default), `"tab"`, `"dropdown"`, `"anchor"`, `"language"`, `"product"`, `"version"`, `"item"`, or `"none"` to hide it. Falls back to the group name when the page is not inside that level.
 - `eyebrow.style`: `"plain"`, `"bar"`, or `"pill"` on preset thumbnails. Default: `"bar"` for `classic`, `"pill"` for `headline`, `"plain"` for `minimal`.
 - `eyebrow.color`: Hex color on preset thumbnails. Default: derived from theme colors.
