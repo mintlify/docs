@@ -441,7 +441,7 @@ Under `seo`, `trailingSlash: true` emits trailing-slash URLs in canonicals, the 
 ```
 
 - `instructions`: String or array, appended to every page served as Markdown to AI agents.
-- `schema`: Include the full OpenAPI or AsyncAPI spec in API pages served as Markdown. Default: `true`. GraphQL reference pages always include their schema details (arguments, return types, fields) in Markdown; `schema` does not affect them.
+- `schema`: Include the full OpenAPI or AsyncAPI spec in API pages served as Markdown. Default: `true`. GraphQL reference pages always include their schema details (arguments, return types, fields) in Markdown, and query and mutation pages also include an `Examples` section (operation, required variables, sample response); `schema` does not affect them.
 
 ## Search
 
