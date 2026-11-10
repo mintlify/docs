@@ -102,9 +102,10 @@ Query documentation analytics from the terminal. Requires `mint login` and a Pro
 
 ## Configuration
 
-- `mint config set <key> <value>`: Persist a config value. Valid keys: `subdomain`, `dateFrom` and `dateTo` (defaults for `mint analytics`), and `autoUpdate` (`false` turns off background updates).
+- `mint config set <key> <value>` — Persist a config value. Valid keys: `subdomain`, plus `dateFrom` and `dateTo` (defaults for `mint analytics`).
 - `mint config get <key>` — Read a stored config value.
 - `mint config clear <key>` — Remove a stored config value.
+- `mint config set autoUpdate false` — Turn off automatic updates.
 
 ## Coding agent setup
 
@@ -120,8 +121,8 @@ Query documentation analytics from the terminal. Requires `mint login` and a Pro
 
 ## Maintenance
 
-- `mint update`: Update the CLI and the local preview client to the latest versions.
-- Auto-update: when a command runs, a globally installed CLI checks for a newer version and installs it in the background after the command exits. Local project installs and `npx`/`pnpm dlx` runs only print a notice to run `mint update`. No check runs when `CI` is set. Turn off background installs with `mint config set autoUpdate false` or `MINTLIFY_DISABLE_AUTOUPDATE=1`.
+- `mint update` — Update the CLI and the local preview client to the latest versions.
+- Automatic updates — Global installs update in the background after a command finishes. Local installs and `npx` runs only print a reminder to run `mint update`.
 - `mint version` — Show installed CLI and client versions.
 
 ## Telemetry
