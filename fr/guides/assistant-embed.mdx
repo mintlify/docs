@@ -1,5 +1,5 @@
 ---
-title: "Tutoriel : Créer un assistant de documentation in‑app"
+title: "Tutoriel : Créer un assistant de documentation in‑app"
 sidebarTitle: "Créer un assistant in‑app"
 description: "Créez et intégrez un assistant de documentation in-app qui répond aux questions avec des informations citées depuis votre site Mintlify."
 keywords: ["assistant embed", "in-app chat", "widget", "chatbot"]
@@ -9,95 +9,205 @@ keywords: ["assistant embed", "in-app chat", "widget", "chatbot"]
   ## Ce que vous allez créer
 </div>
 
-Un widget réutilisable qui intègre l’[assistant](/fr/assistant/index) directement dans votre application. Le widget propose :
+Un widget réutilisable qui intègre l'[assistant](/fr/assistant/index) directement dans votre application. Le widget fournit :
 
-* Un bouton flottant qui ouvre un panneau de conversation lorsqu’on clique dessus
-* Des réponses diffusées en temps réel, basées sur les informations de votre documentation
+* Un bouton flottant qui ouvre un panneau de chat lorsqu'on clique dessus
+* Des réponses diffusées en temps réel, fondées sur les informations de votre documentation
 * Un rendu des messages avec prise en charge de Markdown
 
-Les utilisateurs peuvent utiliser le widget pour obtenir de l’aide sur votre produit sans quitter votre application.
+Les utilisateurs peuvent utiliser le widget pour obtenir de l'aide sur votre produit sans quitter votre application.
 
 <Frame>
-  <img src="/images/assistant/assistant-embed-demo.gif" alt="Démonstration du widget Assistant qui s’ouvre, l’utilisateur tape « How do I get started? », puis l’Assistant répond." />
+  <img src="/images/assistant/assistant-embed-demo.gif" alt="Démonstration du widget de l'assistant qui s'ouvre, l'utilisateur saisit How do I get started? puis l'assistant répond." />
 </Frame>
 
 <div id="prerequisites">
   ## Prérequis
 </div>
 
-* L'assistant Mintlify activé
-* Votre nom de domaine, qui apparaît à la fin de l’URL de votre Dashboard. Par exemple, si l’URL de votre Dashboard est `https://app.mintlify.com/org-name/domain-name`, votre nom de domaine est `domain-name`
-* Une [API key de l’Assistant](https://dashboard.mintlify.com/settings/organization/api-keys)
-* Node.js v18 ou version ultérieure et npm installés
-* Connaissances de base de React
+* L'assistant activé pour votre projet
+* Votre nom de domaine, qui apparaît à la fin de l'URL de votre dashboard. Par exemple, si l'URL de votre dashboard est `https://app.mintlify.com/org-name/domain-name`, votre nom de domaine est `domain-name`
+* Une [clé d'API de l'assistant](https://app.mintlify.com/settings/organization/api-keys)
+* Une application Next.js qui utilise l'App Router
+* Des connaissances de base en React
 
 <div id="get-your-assistant-api-key">
-  ### Récupérer votre clé d’API Assistant
+  ### Obtenir votre clé d'API de l'assistant
 </div>
 
-1. Accédez à la page [API keys](https://dashboard.mintlify.com/settings/organization/api-keys) de votre Dashboard.
+1. Accédez à la page [API keys](https://app.mintlify.com/settings/organization/api-keys) de votre dashboard.
 2. Cliquez sur **Create Assistant API Key**.
-3. Copiez la clé d’API Assistant (commence par `mint_dsc_`) et conservez-la en lieu sûr.
+3. Copiez la clé d'API de l'assistant (elle commence par `mint_dsc_`) et conservez-la en lieu sûr.
 
 <Note>
-  La clé d’API Assistant est un jeton public que vous pouvez utiliser dans le code frontend. Les appels effectués avec ce jeton sont décomptés de l’allocation de messages de votre offre et peuvent entraîner des dépassements.
+  Votre clé d'API de l'assistant contrôle l'accès au quota de votre assistant. Ce tutoriel conserve la clé côté serveur grâce à un proxy backend, afin qu'elle n'atteigne jamais le bundle client.
 </Note>
 
-<div id="set-up-the-example">
-  ## Configurer l’exemple
+<div id="build-the-widget">
+  ## Créer le widget
 </div>
 
-Clonez le [référentiel d’exemple](https://github.com/mintlify/assistant-embed-example) et personnalisez-le selon vos besoins.
+Le widget utilise le hook `useChat` de l'[AI SDK](https://ai-sdk.dev) pour appeler l'[endpoint de message de l'assistant](/fr/api/assistant/create-assistant-message-v2) via une route de votre application.
 
 <Steps>
-<Step title="Cloner le référentiel">
+<Step title="Installer les dépendances">
 
 ```bash
-git clone https://github.com/mintlify/assistant-embed-example.git
-cd assistant-embed-example
+npm i ai@^6 @ai-sdk/react@^3 react-markdown
 ```
 
 </Step>
-<Step title="Choisir votre outil de développement">
-Le référentiel inclut des exemples Next.js et Vite. Choisissez l’outil que vous préférez utiliser.
+<Step title="Stocker votre clé d'API">
 
-<CodeGroup>
-```bash title="Next.js"
-cd nextjs
-npm install
+Stockez votre clé d'API de l'assistant dans une variable d'environnement côté serveur. N'utilisez pas le préfixe `NEXT_PUBLIC_`, qui intègre la valeur à votre code client.
+
+```bash .env.local
+MINTLIFY_TOKEN=mint_dsc_your_token_here
 ```
 
-```bash title="Vite"
-cd vite
-npm install
-```
-</CodeGroup>
-</Step>
-<Step title="Configurer votre projet">
-
-Ouvrez `src/config.js` et mettez-le à jour avec les détails de votre projet Mintlify.
-
-```js src/config.js
-export const ASSISTANT_CONFIG = {
-  domain: 'your-domain',
-  docsURL: 'https://yourdocs.mintlify.site',
-};
-```
-
-Remplacez:
-- `your-domain` par le domain de votre projet Mintlify, visible à la fin de l’URL de votre dashboard.
-- `https://yourdocs.mintlify.site` par l’URL réelle de votre documentation.
+Remplacez `mint_dsc_your_token_here` par votre clé d'API de l'assistant.
 
 </Step>
-<Step title="Ajouter votre jeton d’API">
+<Step title="Ajouter une route proxy">
 
-Créez un fichier `.env` à la racine du projet.
+Créez une route qui ajoute votre clé d'API à chaque requête et la transmet à l'API Mintlify. La route renvoie la réponse en streaming sans la modifier et transmet les en-têtes du fil de conversation.
 
-```bash .env
-VITE_MINTLIFY_TOKEN=mint_dsc_your_token_here
+```js app/api/assistant/route.js
+const DOMAIN = 'your-domain';
+
+export async function POST(request) {
+  const upstream = await fetch(
+    `https://api.mintlify.com/discovery/v2/assistant/${DOMAIN}/message`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.MINTLIFY_TOKEN}`,
+      },
+      body: await request.text(),
+    }
+  );
+
+  const headers = new Headers();
+  for (const name of ['content-type', 'x-thread-id', 'x-thread-key', 'x-message-id']) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+
+  return new Response(upstream.body, { status: upstream.status, headers });
+}
 ```
 
-Remplacez `mint_dsc_your_token_here` par votre assistant API key.
+Remplacez `your-domain` par votre nom de domaine.
+
+</Step>
+<Step title="Créer le composant du widget">
+
+```jsx components/AssistantWidget.jsx
+'use client';
+
+import { useState } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
+import ReactMarkdown from 'react-markdown';
+
+export function AssistantWidget() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState('');
+
+  const { messages, sendMessage, status } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/assistant',
+      body: { fp: 'anonymous' },
+    }),
+  });
+
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    sendMessage({ text: input });
+    setInput('');
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ position: 'fixed', bottom: 16, right: 16 }}
+      >
+        {isOpen ? 'Close' : 'Ask'}
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 64,
+            right: 16,
+            width: 384,
+            height: 500,
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'white',
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            {messages.map((message) => (
+              <div key={message.id}>
+                <strong>{message.role === 'user' ? 'You' : 'Assistant'}</strong>
+                <ReactMarkdown>
+                  {message.parts
+                    .filter((part) => part.type === 'text')
+                    .map((part) => part.text)
+                    .join('')}
+                </ReactMarkdown>
+              </div>
+            ))}
+            {isLoading && <p>Loading...</p>}
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, padding: 16 }}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question..."
+              style={{ flex: 1 }}
+            />
+            <button type="submit" disabled={isLoading || !input.trim()}>
+              Send
+            </button>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
+```
+
+Le champ `fp` identifie l'utilisateur. Utilisez `anonymous` ou votre propre identifiant utilisateur.
+
+</Step>
+<Step title="Ajouter le widget à votre layout">
+
+Affichez le widget dans votre layout racine pour qu'il apparaisse sur chaque page.
+
+```jsx app/layout.jsx
+import { AssistantWidget } from '../components/AssistantWidget';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <AssistantWidget />
+      </body>
+    </html>
+  );
+}
+```
 
 </Step>
 <Step title="Démarrer le serveur de développement">
@@ -106,7 +216,7 @@ Remplacez `mint_dsc_your_token_here` par votre assistant API key.
 npm run dev
 ```
 
-Ouvrez votre application dans un navigateur et cliquez le bouton **Ask** pour ouvrir le widget de l’assistant.
+Ouvrez votre application dans un navigateur et cliquez sur le bouton **Ask** pour ouvrir le widget de l'assistant.
 
 </Step>
 </Steps>
@@ -116,34 +226,35 @@ Ouvrez votre application dans un navigateur et cliquez le bouton **Ask** pour ou
 </div>
 
 <div id="source-citations">
-  ### Citations de sources
+  ### Citations des sources
 </div>
 
-Extraire et afficher les sources à partir des réponses de l’Assistant :
+L'assistant effectue une recherche dans votre documentation avant de répondre. Chaque recherche apparaît dans le message sous forme de partie `tool-search`, et son tableau `output.results` répertorie les pages trouvées. Extrayez-les pour afficher les sources sous chaque réponse :
 
 ```jsx
-const extractSources = (parts) => {
-  return parts
-    ?.filter(p => p.type === 'tool-invocation' && p.toolInvocation?.toolName === 'search')
-    .flatMap(p => p.toolInvocation?.result || [])
-    .map(source => ({
-      url: source.url || source.path,
-      title: source.metadata?.title || source.path,
-    })) || [];
-};
+const DOCS_URL = 'https://docs.example.com';
 
-// In your message rendering:
+const extractSources = (parts) =>
+  parts
+    .filter((part) => part.type === 'tool-search' && part.state === 'output-available')
+    .flatMap((part) => part.output?.results ?? [])
+    .map((source) => ({
+      url: `${DOCS_URL}/${source.path.replace(/^\//, '')}`,
+      title: source.metadata?.title || source.path,
+    }));
+
+// Dans le rendu de vos messages :
 {messages.map((message) => {
   const sources = message.role === 'assistant' ? extractSources(message.parts) : [];
   return (
     <div key={message.id}>
       {/* contenu du message */}
       {sources.length > 0 && (
-        <div className="mt-2 text-xs">
-          <p className="font-semibold">Sources :</p>
-          {sources.map((s, i) => (
-            <a key={i} href={s.url} target="_blank" rel="noopener noreferrer" className="text-blue-600">
-              {s.title}
+        <div>
+          <p>Sources:</p>
+          {sources.map((source) => (
+            <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">
+              {source.title}
             </a>
           ))}
         </div>
@@ -153,97 +264,65 @@ const extractSources = (parts) => {
 })}
 ```
 
+Remplacez `https://docs.example.com` par l'URL de votre site de documentation.
+
 <div id="track-conversation-thread-ids">
   ### Suivre les fils de conversation
 </div>
 
-Stockez les identifiants de fil et les clés de fil pour conserver l'historique des conversations entre les sessions.
+Stockez les identifiants et les clés des fils de conversation pour conserver l'historique entre les sessions.
 
 Lorsqu'un utilisateur crée un nouveau fil de conversation, le serveur renvoie deux valeurs dans les en-têtes de la réponse :
 
-- `X-Thread-Id` : L'identifiant du fil
-- `X-Thread-Key` : Une clé secrète pour le fil (renvoyée une seule fois, lorsque vous créez le fil)
+* `X-Thread-Id` : l'identifiant du fil
+* `X-Thread-Key` : une clé secrète pour le fil (renvoyée une seule fois, lors de la création du fil)
 
-Vous devez capturer et persister les deux valeurs dès la première réponse. Pour chaque message suivant, incluez à la fois `threadId` et `threadKey` dans le corps de la requête. Si vous envoyez un `threadId` sans le `threadKey` correspondant, le serveur renvoie une erreur `404`.
+Vous devez capturer et conserver ces deux valeurs dès la première réponse. Pour chaque message suivant, incluez `threadId` et `threadKey` dans le corps de la requête. Si vous envoyez un `threadId` sans le `threadKey` correspondant, le serveur renvoie une erreur `404`.
 
 <Warning>
-  Vous devez stocker l'en-tête `X-Thread-Key` immédiatement. Le serveur ne le renvoie que lorsque vous créez un nouveau fil. Vous ne pouvez pas le récupérer ultérieurement.
+  Vous devez stocker l'en-tête `X-Thread-Key` immédiatement. Le serveur ne le renvoie que lors de la création d'un nouveau fil. Vous ne pourrez pas le récupérer plus tard.
 </Warning>
 
+Le transport lit sa fonction `body` avant chaque requête, de sorte que la requête suivante inclut les valeurs enregistrées :
+
 ```jsx
-import { useState, useEffect } from 'react';
-
-export function AssistantWidget({ domain, docsURL }) {
-  const [threadId, setThreadId] = useState(null);
-  const [threadKey, setThreadKey] = useState(null);
-
-  useEffect(() => {
-    // Récupérer l'ID et la clé de fil enregistrés depuis localStorage
-    const savedId = localStorage.getItem('assistant-thread-id');
-    const savedKey = localStorage.getItem('assistant-thread-key');
-    if (savedId && savedKey) {
-      setThreadId(savedId);
-      setThreadKey(savedKey);
-    }
-  }, []);
-
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: `https://api.mintlify.com/discovery/v1/assistant/${domain}/message`,
-    headers: {
-      'Authorization': `Bearer ${import.meta.env.VITE_MINTLIFY_TOKEN}`,
-    },
-    body: {
+const { messages, sendMessage, status } = useChat({
+  transport: new DefaultChatTransport({
+    api: '/api/assistant',
+    body: () => ({
       fp: 'anonymous',
-      retrievalPageSize: 5,
-      ...(threadId && { threadId }),
-      ...(threadKey && { threadKey }),
-    },
-    streamProtocol: 'data',
-    sendExtraMessageFields: true,
+      threadId: localStorage.getItem('assistant-thread-id'),
+      threadKey: localStorage.getItem('assistant-thread-key'),
+    }),
     fetch: async (url, options) => {
       const response = await fetch(url, options);
-      const newThreadId = response.headers.get('x-thread-id');
-      const newThreadKey = response.headers.get('x-thread-key');
-      if (newThreadId) {
-        setThreadId(newThreadId);
-        localStorage.setItem('assistant-thread-id', newThreadId);
-      }
-      if (newThreadKey) {
-        setThreadKey(newThreadKey);
-        localStorage.setItem('assistant-thread-key', newThreadKey);
-      }
+      const threadId = response.headers.get('x-thread-id');
+      const threadKey = response.headers.get('x-thread-key');
+      if (threadId) localStorage.setItem('assistant-thread-id', threadId);
+      if (threadKey) localStorage.setItem('assistant-thread-key', threadKey);
       return response;
     },
-  });
-
-  // ... reste du composant
-}
+  }),
+});
 ```
 
-
 <div id="add-keyboard-shortcuts">
-  ### Ajouter des raccourcis clavier
+  ### Ajouter un raccourci clavier
 </div>
 
-Permettez aux utilisateurs d’ouvrir le widget et d’envoyer des messages à l’aide de raccourcis clavier :
+Permettez aux utilisateurs d'ouvrir et de fermer le widget avec un raccourci clavier :
 
 ```jsx
 useEffect(() => {
   const handleKeyDown = (e) => {
-    // Cmd/Ctrl + Shift + I pour afficher/masquer le widget
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'I') {
+    // Cmd/Ctrl + Shift + I pour afficher ou masquer le widget
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'i') {
       e.preventDefault();
       setIsOpen((prev) => !prev);
-    }
-
-    // Entrée (lorsque le widget a le focus) pour envoyer
-    if (e.key === 'Enter' && !e.shiftKey && document.activeElement.id === 'assistant-input') {
-      e.preventDefault();
-      handleSubmit();
     }
   };
 
   window.addEventListener('keydown', handleKeyDown);
   return () => window.removeEventListener('keydown', handleKeyDown);
-}, [handleSubmit]);
+}, []);
 ```
