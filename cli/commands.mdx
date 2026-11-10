@@ -100,9 +100,11 @@ mint deploy [flags]
 | `--org-name` | Organization display name. |
 | `--directory` | Documentation directory for the site. Defaults to the current directory. |
 | `--new` | Create another site instead of reusing the site for this directory. |
-| `--email` | Email address to create a claim link for. Can't be combined with `--github`. |
+| `--email` | Also print a claim link, prefilled with this Mintlify account email. Can't be combined with `--github` or `--push`. |
 | `--github` | Trust the current GitHub repository to deploy the site and write `.github/workflows/mintlify.yml`. |
 | `--force` | With `--github`, overwrite an existing workflow file that has different contents. |
+| `--base` | Create a [base](/base/index), which you edit in the Mintlify editor, instead of a docs site. Can't be combined with `--github`. |
+| `--push` | With `--base`, rebase the clone in the given directory onto `main` and push it to the base. For example, `--push ./my-base`. |
 
 Run the command again from the same directory to get a fresh write token for the same site. In GitHub Actions, `mint deploy` pushes the checked-out commit to a site that trusts the repository. The workflow needs the `id-token: write` permission.
 
@@ -117,6 +119,9 @@ mint deploy --email you@example.com
 
 # Deploy from GitHub Actions on every push to the default branch
 mint deploy --github --subdomain my-docs
+
+# Create a base
+mint deploy --base --subdomain my-base
 ```
 
 ---
@@ -131,20 +136,20 @@ mint claim [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--email` | Email address to create a claim link for. |
-| `--code` | Code from the claim page that finishes the claim. |
+| `--email` | Email of the claimer's Mintlify account, if known, to prefill the sign-in. Optional. |
+| `--code` | Code from an older claim link that showed one. Finishes that claim. |
 | `--directory` | Documentation directory used for `mint deploy`. Defaults to the current directory. |
 
-Run `mint claim --email` to get a claim link. After the site owner opens the link and signs in, run `mint claim --code` with the code from the claim page. `--email` and `--code` can't be combined.
+Run `mint claim` to get a claim link. The site owner opens it, signs in with any account, and clicks **Confirm**; the site moves into a new organization in their account. `--email` and `--code` can't be combined.
 
 ### Examples
 
 ```bash
 # Get a claim link
-mint claim --email you@example.com
+mint claim
 
-# Finish the claim
-mint claim --code ABCDEFGH
+# Prefill the sign-in with a known email
+mint claim --email you@example.com
 ```
 
 ---
@@ -157,7 +162,7 @@ Authenticate with your Mintlify account.
 mint login
 ```
 
-Opens a browser window to complete authentication. If the browser does not open, the CLI displays a URL to open manually and a prompt to paste the authorization code. Credentials save in `~/.config/mintlify/config.json`.
+Opens a browser window to complete authentication. If the browser does not open, the CLI displays a URL to open manually and a prompt to paste the authorization code. The CLI stores your credentials in your operating system's credential store, such as Keychain on macOS.
 
 If you have more than one project, the CLI prompts you to select a default after you sign in. You can change the default project later with `mint config set subdomain <subdomain>`.
 
@@ -379,7 +384,7 @@ mint agent setup [flags]
 | `--global`, `-g` | Set up agents for your user account instead of the current project. Defaults to `false`. |
 
 <Note>
-  `mint agent setup` requires Node.js 22.20 or later and npm.
+  `mint agent setup` requires Node.js 22.20 or later and npm. The CLI doesn't run on Node.js 25.
 </Note>
 
 Without an interactive terminal, the command configures the agents it detects. If it detects none, pass `--agent`.
@@ -486,6 +491,7 @@ mint config <subcommand> <key> [value]
 | `subdomain` | Default documentation subdomain. | `mint dev`, `mint analytics`, `mint add-domain`, `mint score` |
 | `dateFrom` | Default start date for analytics queries. | `mint analytics` |
 | `dateTo` | Default end date for analytics queries. | `mint analytics` |
+| `autoUpdate` | Set to `false` to turn off [automatic updates](/cli/install#automatic-updates). | All commands |
 
 ---
 
@@ -787,7 +793,7 @@ mint migrate [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--from` | Add the instructions for a specific source platform to the overview. Accepts `confluence`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
+| `--from` | Add the instructions for a specific source platform to the overview. Accepts `confluence`, `custom`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
 | `--topic` | Print the detailed instructions for one step of the migration workflow instead of the overview. Accepts `discovery` (inventory the source pages), `conversion` (convert pages to MDX), `navigation` (build `docs.json` navigation and redirects), `api` (migrate an API reference), `changelog` (migrate a changelog), or `verify` (check the finished migration). |
 | `--agent` | Start a coding agent in the current directory and have it run the migration. Accepts `claude`, `codex`, `cursor`, or `gemini`. Combine with `--from` to include a platform guide. |
 | `--claude` | Alias for `--agent claude`. |
@@ -824,13 +830,13 @@ mint new [directory] [flags]
 | `--name` | Project name. The CLI prompts for this if not provided in interactive mode. |
 | `--theme` | Project [theme](/customize/themes). The CLI prompts for this if not provided in interactive mode. |
 | `--template` | Pre-defined template. The CLI prompts for this if not provided in interactive mode. |
-| `--force` | Overwrite the directory without prompting. |
+| `--force` | In non-interactive mode, overwrite a directory that isn't empty. Without this flag, `mint new` doesn't create anything in a directory that isn't empty. |
 
 ---
 
 ## `mint update`
 
-Update the CLI to the latest version.
+Update the CLI and the local preview client to the latest versions.
 
 ```bash
 mint update
@@ -844,6 +850,31 @@ Display the current CLI and client versions.
 
 ```bash
 mint version
+```
+
+---
+
+## `mint feedback`
+
+Send feedback to the Mintlify team. You don't need to sign in. Never include API keys, tokens, passwords, or other secrets in the message.
+
+```bash
+mint feedback <message> --category <category> --client-id <id>
+```
+
+| Argument | Description |
+| --- | --- |
+| `message` | The feedback to send. |
+
+| Flag | Description |
+| --- | --- |
+| `--category` | Required. One of `bug`, `docs`, or `idea`. |
+| `--client-id` | Required. An ID for this report, so the Mintlify team can tell retries of the same report apart. |
+
+### Examples
+
+```bash
+mint feedback "mint dev crashes on a missing image" --category bug --client-id 7f3a
 ```
 
 ---

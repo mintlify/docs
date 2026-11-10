@@ -109,3 +109,55 @@ delivery_address:
     </Tabs>
   </div>
 </ParamField>
+
+<div id="conditional-requirements">
+  ## 条件必填
+</div>
+
+在 OpenAPI 3.1 中，你可以使用 `if`、`then`、`else`、`dependentRequired` 和 `dependentSchemas` 关键字，让某个属性仅在特定情况下为必填。Mintlify 会读取这些关键字，并在端点页面上为每个受影响的字段添加 **必填** 标签，后面跟着其条件。
+
+例如，下面的 schema 要求卡支付时提供卡号，其他支付方式时提供账号，并且只要请求包含税号，就必须提供公司名称：
+
+```yaml
+Payment:
+  type: object
+  required:
+    - method
+  properties:
+    method:
+      type: string
+      enum: [card, bank_transfer]
+    card_number:
+      type: string
+    account_number:
+      type: string
+    tax_id:
+      type: string
+    company_name:
+      type: string
+  if:
+    properties:
+      method:
+        const: card
+  then:
+    required:
+      - card_number
+  else:
+    required:
+      - account_number
+  dependentRequired:
+    tax_id:
+      - company_name
+```
+
+端点页面会为这些字段添加以下标签：
+
+- `card_number`：当 `method` = `card` 时必填
+- `account_number`：除非 `method` = `card`，否则必填
+- `company_name`：设置了 `tax_id` 时必填
+
+对于使用 `const` 或 `enum` 检查同级属性是否为特定值、或使用 `required` 检查其是否存在的条件，Mintlify 会进行概括。当条件过于复杂而无法概括时，该字段会改为显示 **条件必填** 标签。
+
+<Tip>
+  当属性缺失时，`if` 中的属性检查同样会通过。要获得具体的标签，请将被检查的属性设为必填，可以放在对象的 `required` 列表中，也可以放在 `if` schema 的 `required` 列表中。否则，该字段会显示 **条件必填** 标签。
+</Tip>

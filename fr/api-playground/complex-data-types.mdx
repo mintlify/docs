@@ -108,3 +108,55 @@ delivery_address:
     </Tabs>
   </div>
 </ParamField>
+
+<div id="conditional-requirements">
+  ## Exigences conditionnelles
+</div>
+
+Dans OpenAPI 3.1, vous pouvez rendre une propriété obligatoire uniquement dans certains cas avec les mots-clés `if`, `then`, `else`, `dependentRequired` et `dependentSchemas`. Mintlify lit ces mots-clés et marque chaque champ concerné sur la page de l’endpoint avec un badge **requis** suivi de sa condition.
+
+Par exemple, ce schéma exige un numéro de carte pour les paiements par carte, un numéro de compte pour tout autre moyen de paiement, et un nom d’entreprise chaque fois que la requête inclut un identifiant fiscal :
+
+```yaml
+Payment:
+  type: object
+  required:
+    - method
+  properties:
+    method:
+      type: string
+      enum: [card, bank_transfer]
+    card_number:
+      type: string
+    account_number:
+      type: string
+    tax_id:
+      type: string
+    company_name:
+      type: string
+  if:
+    properties:
+      method:
+        const: card
+  then:
+    required:
+      - card_number
+  else:
+    required:
+      - account_number
+  dependentRequired:
+    tax_id:
+      - company_name
+```
+
+La page de l’endpoint marque ces champs ainsi :
+
+- `card_number` : requis si `method` = `card`
+- `account_number` : requis sauf si `method` = `card`
+- `company_name` : requis si `tax_id` est défini
+
+Mintlify résume les conditions qui testent des propriétés sœurs pour des valeurs précises avec `const` ou `enum`, ou pour leur présence avec `required`. Lorsqu’une condition est trop complexe pour être résumée, le champ affiche à la place un badge **requis sous condition**.
+
+<Tip>
+  Un test de propriété dans `if` réussit aussi lorsque la propriété est absente. Pour obtenir un libellé précis, rendez la propriété testée obligatoire, soit dans la liste `required` de l’objet, soit dans la liste `required` du schéma `if`. Sinon, le champ affiche le badge **requis sous condition**.
+</Tip>
