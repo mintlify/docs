@@ -22,6 +22,7 @@ Add an `openapi` field to a navigation element (tab, group, anchor, and so on) t
 ```
 
 - The value can be a path, a URL, an array of specs, or an object: `{ "source": "openapi.json", "directory": "api-reference" }`. `directory` sets where generated pages live (default `api-reference`).
+- The object form also accepts `slug`: `{ "source": "openapi.json", "directory": "api-reference", "slug": "operationId" }`. `slug` sets which operation field generates endpoint page URLs: `"summary"` (default) or `"operationId"`.
 - To mix endpoints with other pages, set `openapi` on the element and list endpoints in `pages` as `METHOD /path`. Child elements inherit the parent's spec unless they set their own.
 - To pull an endpoint from a specific spec without a default, use `"/path/to/spec.json POST /users"` as the page entry.
 - `api.openapi` in `docs.json` accepts the same values.
