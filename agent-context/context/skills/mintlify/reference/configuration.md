@@ -539,9 +539,12 @@ The `api` key configures OpenAPI and AsyncAPI sources, the API playground, code 
   "plausible": { "domain": "xxx", "server": "optional" },
   "hightouch": { "writeKey": "xxx", "apiHost": "optional" },
   "clearbit": { "publicApiKey": "xxx" },
+  "koala": { "publicApiKey": "xxx" },
   "intercom": { "appId": "xxx" },
   "frontchat": { "snippetId": "xxx" },
   "telemetry": { "enabled": true },
+  "onetrust": { "domainScript": "xxx" },
+  "transcend": { "bundleId": "xxx" },
   "cookies": { "key": "consent_key", "value": "accepted" }
 }
 ```
