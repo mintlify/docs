@@ -22,7 +22,7 @@ Add an `openapi` field to a navigation element (tab, group, anchor, and so on) t
 ```
 
 - The value can be a path, a URL, an array of specs, or an object: `{ "source": "openapi.json", "directory": "api-reference" }`. `directory` sets where generated pages live (default `api-reference`).
-- The object form also accepts `slug`, which sets the last URL segment of each generated endpoint page. `"summary"` (default) kebab-cases the operation `summary`. `"operationId"` kebab-cases the `operationId`, so `getHTTPStatusCode` becomes `get-http-status-code`, and falls back to the `summary` for operations without one. `directory` and tag folders don't change, page titles still come from the `summary`, and nested groups inherit `slug` along with the spec. Changing `slug` on a live site changes endpoint URLs, so add redirects from the old paths.
+- The object form also accepts `slug`: `{ "source": "openapi.json", "directory": "api-reference", "slug": "operationId" }`. `slug` sets the last URL segment of each generated endpoint page: `"summary"` (default) kebab-cases the operation `summary`, and `"operationId"` kebab-cases the `operationId` (falling back to the `summary` when an operation has none). Changing `slug` on a live site changes endpoint URLs, so add redirects from the old paths.
 - To mix endpoints with other pages, set `openapi` on the element and list endpoints in `pages` as `METHOD /path`. Child elements inherit the parent's spec unless they set their own.
 - To pull an endpoint from a specific spec without a default, use `"/path/to/spec.json POST /users"` as the page entry.
 - `api.openapi` in `docs.json` accepts the same values.
