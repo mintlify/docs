@@ -542,6 +542,8 @@ The `api` key configures OpenAPI and AsyncAPI sources, the API playground, code 
   "intercom": { "appId": "xxx" },
   "frontchat": { "snippetId": "xxx" },
   "telemetry": { "enabled": true },
+  "onetrust": { "domainScript": "xxx" },
+  "transcend": { "bundleId": "xxx" },
   "cookies": { "key": "consent_key", "value": "accepted" }
 }
 ```
