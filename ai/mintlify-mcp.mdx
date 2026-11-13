@@ -161,11 +161,15 @@ To get your changes published, ask the AI tool to request a review. The AI tool 
 
 Call `create_branch` with a `title` when your project requires a pull request, or when you want one anyway. Mintlify starts a new branch off your deploy branch, names it `<your-name>/<title-slug>` the same way the dashboard editor names branches, and seeds it from your published content. The pull request opens with this title. For example, `create_branch { subdomain: "acme", title: "Add tips page" }`.
 
+To start from another existing branch instead, such as a feature branch for a large update, pass its name as `from`. For example, `create_branch { subdomain: "acme", title: "Add tips page", from: "docs-refresh" }`. Mintlify refuses `from` branches that don't exist and creates nothing.
+
+If your repository is on GitHub, GitLab, or Azure Repos, a branch you start from a branch other than your deploy branch becomes a [sub-branch](/editor/publish#sub-branches), and its pull request targets the `from` branch instead of your deploy branch.
+
 `create_branch` returns the `branchName`, the `baseBranch` and `baseSha` it started from, a `note`, and an `editorUrl` you can open to follow along in the dashboard editor. Pass the `branchName` as `branch` in every later call.
 
 To work on an existing branch, pass its name as `branch`. Call `list_branches` to discover branches in a project's repository. Mintlify refuses calls on branches that don't exist.
 
-On a branch, Mintlify commits your edits automatically, about 15 seconds after the last change. This includes page content, navigation changes, and `docs.json` updates. The first commit opens a pull request against your deploy branch. The pull request opens as a draft if [Create draft pull requests by default](/editor/settings#create-draft-pull-requests-by-default) is on. Nothing reaches your deploy branch until someone merges the pull request.
+On a branch, Mintlify commits your edits automatically, about 15 seconds after the last change. This includes page content, navigation changes, and `docs.json` updates. The first commit opens a pull request against your deploy branch, or against the `from` branch for a sub-branch. The pull request opens as a draft if [Create draft pull requests by default](/editor/settings#create-draft-pull-requests-by-default) is on. Nothing reaches your deploy branch until someone merges the changes into it.
 
 `discard` on a branch other than your deploy branch deletes the branch and closes its pull request, even if the branch has commits. This matches deleting a branch in the dashboard editor. `discard` only deletes branches you created in Mintlify. For any other branch, it refuses and changes nothing.
 
@@ -320,7 +324,7 @@ These tools appear only when your project [requires review before publishing](/e
 ### Branches and publishing
 
 - **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name, projectType}`. `projectType` is `site` for a docs site or `workspace` for a base. Call this to discover which `subdomain` to pass.
-- **`create_branch`**: Start a new branch off your deploy branch with a `title` that also names its pull request. Returns the `branchName` to pass as `branch`. See [Work on a branch](#work-on-a-branch). You don't need it to [edit the deploy branch directly](#edit-the-deploy-branch-directly).
+- **`create_branch`**: Start a new branch off your deploy branch, or off the existing branch you pass as `from`, with a `title` that also names its pull request. Returns the `branchName` to pass as `branch`. See [Work on a branch](#work-on-a-branch). You don't need it to [edit the deploy branch directly](#edit-the-deploy-branch-directly).
 - **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Pass any of them as `branch`.
 - **`status`**: List the edited files, changed `docs.json` keys, and pending navigation diff on `branch`, or on your deploy branch when you omit it. On the deploy branch, lists only your changes.
 - **`diff`**: List all changes between `branch` and your deploy branch. Each changed file and `docs.json` entry includes `authors` and `byYou`. `authors` lists the members whose unpublished edits the entry contains. `byYou` is `true` when the entry includes your own edits. Use `byYou` to tell your changes apart from a colleague's on a shared branch.
@@ -380,6 +384,16 @@ Revoking the OAuth grant doesn't affect pull requests the MCP has already opened
 
 <Accordion title="Connection still fails after reinstalling the connector">
   Sign out of the [dashboard](https://app.mintlify.com), sign back in, then connect your AI tool again. This replaces a dashboard session that started before the login update.
+</Accordion>
+
+<Accordion title="Sign-in opens this troubleshooting section instead of your AI tool">
+  Your AI tool's saved connection and your dashboard session use different versions of Mintlify's login system, so Mintlify can't finish the sign-in. Follow the steps in **Connection fails with a stale registration error**. If sign-in still opens this section, follow **Connection still fails after reinstalling the connector**.
+</Accordion>
+
+<Accordion title="Tool calls return insufficient_scope">
+  The connection doesn't have permission for that action. Your [dashboard role](/dashboard/roles) limits what a connection can do when you connect, and Mintlify checks your current role again on every call. Viewers can only use read tools, so edit tools such as `edit_page` return `insufficient_scope`.
+
+  If an admin gives you a role that can edit, remove the Mintlify connector from your AI tool and add it again. The new connection can include write access. See [Disconnect or revoke access](#disconnect-or-revoke-access) for the steps for each tool.
 </Accordion>
 
 <Accordion title="Admin MCP tools appear twice">

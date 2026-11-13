@@ -181,11 +181,15 @@ Mintlify 会在每次编辑时检查这些条件，并将你的 branch 保护规
 
 当你的项目要求拉取请求，或者你本身就想要一个拉取请求时，请调用 `create_branch` 并传入 `title`。Mintlify 会从部署 branch 创建一个新的 branch，按照与控制台编辑器相同的方式将其命名为 `<your-name>/<title-slug>`，并基于你已发布的内容进行初始化。拉取请求会以此标题打开。例如 `create_branch { subdomain: "acme", title: "Add tips page" }`。
 
+如果要改为从另一个现有 branch 开始（例如用于大型更新的功能 branch），请将其名称作为 `from` 传入。例如 `create_branch { subdomain: "acme", title: "Add tips page", from: "docs-refresh" }`。如果 `from` branch 不存在，Mintlify 会拒绝请求，且不会创建任何内容。
+
+如果你的仓库位于 GitHub、GitLab 或 Azure Repos 上，从部署 branch 以外的 branch 开始创建的 branch 会成为[子分支](/zh/editor/publish#sub-branches)，其拉取请求以 `from` branch 而不是部署 branch 为目标。
+
 `create_branch` 返回 `branchName`、起始的 `baseBranch` 和 `baseSha`、一个 `note`，以及一个可在控制台编辑器中实时跟进的 `editorUrl`。在之后的每次调用中，将 `branchName` 作为 `branch` 传入。
 
 要在现有 branch 上工作，请将其名称作为 `branch` 传入。调用 `list_branches` 可发现项目仓库中的 branch。Mintlify 会拒绝针对不存在的 branch 的调用。
 
-在 branch 上，Mintlify 会在最后一次更改约 15 秒后自动提交你的编辑，包括页面内容、导航更改和 `docs.json` 更新。首次提交会打开一个针对部署 branch 的拉取请求。如果启用了[默认创建草稿 pull request](/zh/editor/settings#create-draft-pull-requests-by-default)，拉取请求会以草稿形式打开。在有人合并该拉取请求之前，任何更改都不会进入你的部署 branch。
+在 branch 上，Mintlify 会在最后一次更改约 15 秒后自动提交你的编辑，包括页面内容、导航更改和 `docs.json` 更新。首次提交会打开一个针对部署 branch 的拉取请求；对于子分支，则针对 `from` branch。如果启用了[默认创建草稿 pull request](/zh/editor/settings#create-draft-pull-requests-by-default)，拉取请求会以草稿形式打开。在有人将这些更改合并到你的部署 branch 之前，任何更改都不会进入其中。
 
 在部署 branch 以外的 branch 上，`discard` 会删除该 branch 并关闭其拉取请求，即使该 branch 已有提交。这与在控制台编辑器中删除 branch 的效果相同。`discard` 只会删除你在 Mintlify 中创建的 branch。对于其他 branch，它会拒绝操作且不做任何更改。
 
@@ -368,7 +372,7 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 </div>
 
 - **`list_deployments`**: 列出你的连接可以访问的项目，返回每个 `{subdomain, name, projectType}`。`projectType` 为 `site` 表示文档站点，为 `workspace` 表示 Base。调用此项以了解要传递的 `subdomain`。
-- **`create_branch`**: 从部署 branch 创建一个新的 branch，并传入同时用作其拉取请求标题的 `title`。返回要作为 `branch` 传入的 `branchName`。参见[在 branch 上工作](#work-on-a-branch)。[直接编辑部署 branch](#edit-the-deploy-branch-directly) 时不需要它。
+- **`create_branch`**: 从部署 branch 或你作为 `from` 传入的现有 branch 创建一个新的 branch，并传入同时用作其拉取请求标题的 `title`。返回要作为 `branch` 传入的 `branchName`。参见[在 branch 上工作](#work-on-a-branch)。[直接编辑部署 branch](#edit-the-deploy-branch-directly) 时不需要它。
 - **`list_branches`**: 列出某个项目仓库可用的 Git branch，可选用 `query` 进行筛选。返回 branch 名称、总数以及部署 branch。其中任意一个都可以作为 `branch` 传入。
 - **`status`**: 列出 `branch`（省略时为部署 branch）上已编辑的文件、已更改的 `docs.json` 键和待处理的导航差异。在部署 branch 上，只列出你的更改。
 - **`diff`**: 列出 `branch` 与你的部署 branch 之间的所有更改。每个已更改的文件和 `docs.json` 条目都包含 `authors` 和 `byYou`。`authors` 列出该条目中包含其未发布编辑的成员。当该条目包含你自己的编辑时，`byYou` 为 `true`。在共享 branch 上，可使用 `byYou` 区分你的更改和同事的更改。
@@ -436,6 +440,16 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 
 <Accordion title="重新安装连接器后连接仍然失败">
   退出[控制台](https://app.mintlify.com)，重新登录，然后再次连接你的 AI 工具。这会替换在登录系统更新之前开始的控制台会话。
+</Accordion>
+
+<Accordion title="登录时打开的是此故障排除部分，而不是你的 AI 工具">
+  你的 AI 工具保存的连接与你的控制台会话使用的是不同版本的 Mintlify 登录系统，因此 Mintlify 无法完成登录。请按照 **连接失败并提示注册已过期错误** 中的步骤操作。如果登录后仍然打开此部分，请按照 **重新安装连接器后连接仍然失败** 中的步骤操作。
+</Accordion>
+
+<Accordion title="工具调用返回 insufficient_scope">
+  该连接没有执行此操作的权限。你的[控制台角色](/zh/dashboard/roles)会在你连接时限制连接可以执行的操作，并且 Mintlify 会在每次调用时重新检查你当前的角色。查看者只能使用读取工具，因此 `edit_page` 等编辑工具会返回 `insufficient_scope`。
+
+  如果管理员为你分配了可以编辑的角色，请从你的 AI 工具中移除 Mintlify 连接器，然后重新添加。新的连接可以包含写入权限。各工具的具体步骤请参阅[断开或撤销访问权限](#disconnect-or-revoke-access)。
 </Accordion>
 
 <Accordion title="管理员 MCP 工具出现两次">
