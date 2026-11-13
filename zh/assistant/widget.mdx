@@ -1,343 +1,146 @@
 ---
-title: "嵌入 AI 助手小组件"
+title: "使用 API 构建助手小组件"
 sidebarTitle: "小组件"
-description: "安装并配置 Mintlify 小组件,在任意网站或 Web 应用中嵌入基于你的内容训练的 AI 助手。"
-keywords: ["assistant", "chat", "embed"]
-tag: "New"
+description: "基于助手 API 构建你自己的助手小组件，在任意网站、Web 应用或控制台中根据你的内容回答问题。"
+keywords: ["assistant", "chat", "embed", "widget", "assistant API"]
 ---
 
-import { AssistantWidgetPlayground } from "/snippets/assistant-widget-playground.jsx";
-
-export const WidgetCodeBlock = ({ children, ...props }) => (
-  <CodeBlock {...props}>{children}</CodeBlock>
-);
-
 <Info>
-  小组件需要 [Pro 或 Enterprise 套餐](https://mintlify.com/pricing?ref=assistant)。小组件与助手共用同一额度。
+  助手 API 需要 [Pro 或 Enterprise 套餐](https://mintlify.com/pricing?ref=assistant)。通过 API 产生的回答与文档站点上的助手消耗相同的[积分](/zh/credits)。
 </Info>
-
-[助手](/zh/assistant)可回答关于你 Mintlify 站点的问题。若要在其他站点或 Web 应用中嵌入相同能力,请使用小组件。小组件让你的用户可以在使用你产品的任何地方,访问基于你内容训练的 AI 聊天。可以将其嵌入到你的仪表盘、营销站点、支持门户或其他位置。
-
-通过一段托管脚本,即可将小组件添加到任何网站或 Web 应用。小组件自带触发器,并在封闭的 Shadow DOM 内渲染,可防止你的应用样式影响小组件。
-
-浏览器端唯一必需的选项是你的公共小组件 ID。可在浏览器配置中设置针对该嵌入的起始问题和支持邮箱。小组件会使用你助手设置中的[支持路由联系表单](/zh/assistant/support-routing#send-questions-by-email)。
-
-<div id="enable-the-widget">
-  ## 启用小组件
-</div>
-
-<Note>
-  你已无法在仪表板中配置小组件。如果你已经在使用小组件，它会继续在你已授权的站点上正常运行。
-
-  如果你需要帮助在新站点上设置小组件，请发送邮件至 [support@mintlify.com](mailto:support@mintlify.com)。
-</Note>
-
-<div id="install-and-configure">
-  ## 安装与配置
-</div>
-
-使用交互式面板配置小组件的展示方式、视觉选项和观察者钩子。每次更改选项时,安装代码块都会随之更新。
-
-<Info>
-  请将生成代码中的 `YOUR_WIDGET_ID` 替换为你的小组件 ID。
-</Info>
-
-将生成的代码添加到站点后,重新加载页面。确认触发器已显示,然后点击它并发送一个测试问题,以验证小组件是否已连接。
-
-<AssistantWidgetPlayground CodeBlockComponent={WidgetCodeBlock}>
 
 <Warning>
-  Module 脚本会延迟加载并按文档顺序执行。当你使用 HTML 安装小组件时,请将托管加载器保持在初始化代码块之前,否则小组件将无法挂载。
+  托管的 Mintlify 小组件已弃用。要将助手添加到其他站点或应用，请基于助手 API 构建你自己的界面。
 </Warning>
 
-<div id="open-on-initialization">
-  ## 初始化时自动打开
+[AI 助手](/zh/assistant)会在你的 Mintlify 站点上回答问题。要将同样的回答带到你的控制台、营销网站、支持门户或其他任何地方，请构建一个调用助手 API 的小组件。你可以控制小组件的外观和行为，助手会基于与文档站点相同的内容进行回答。
+
+小组件由三部分组成：
+
+- **你的界面**：你的站点或应用中的聊天界面，例如点击后打开面板的悬浮按钮。
+- **服务器路由**：后端上的一个路由，它会为每个请求添加你的助手 API 密钥并将其转发给 Mintlify。
+- **助手 API**：[创建助手消息](/zh/api/assistant/create-assistant-message-v2)端点，它以 [AI SDK](https://ai-sdk.dev) UI 消息格式流式返回回答。
+
+完整的 Next.js 示例请参阅[构建应用内助手](/zh/guides/assistant-embed)。
+
+<div id="get-an-assistant-api-key">
+  ## 获取助手 API 密钥
 </div>
 
-将 `defaultOpen` 设为 `true`,可在首次挂载后立即打开小组件:
+1. 在控制台中前往 [API keys](https://app.mintlify.com/settings/organization/api-keys) 页面。
+2. 点击 **Create Assistant API Key**。
+3. 复制以 `mint_dsc_` 开头的密钥，并将其保存为服务器端环境变量。
 
-```js
-await window.MintlifyAssistant.init({
-  id: "YOUR_WIDGET_ID",
-  defaultOpen: true,
-});
-```
+<Warning>
+  请将助手 API 密钥保存在服务器上。任何从你的客户端代码中复制该密钥的人都可以使用你的助手积分并读取项目中的受保护页面。
+</Warning>
 
-`defaultOpen` 默认为 `false`,且仅在首次初始化时生效。若访客关闭小组件后,再次以相同的小组件 ID 和 API 端点调用 `init()` 并不会重新打开它。初始化之后请使用 `open()` 和 `close()` 来控制它。
+你还需要域名，它显示在控制台 URL 的末尾。例如，如果你的控制台 URL 是 `https://app.mintlify.com/org-name/domain-name`，则你的域名是 `domain-name`。
 
-<div id="use-a-custom-trigger">
-  ## 使用自定义触发器
+<div id="add-a-server-route">
+  ## 添加服务器路由
 </div>
 
-在调用其他方法前请先等待 `init()` 完成。你可以保留内置触发器,也可以从应用中任意按钮打开已配置的展示形式。
+创建一个路由，为每个请求添加 API 密钥并将其转发给助手 API。原样流式返回响应，并透传线程相关的标头。
 
 ```js
-await window.MintlifyAssistant.init({
-  id: "YOUR_WIDGET_ID",
-  supportEmail: "hi@mintlify.com",
-  starterQuestions: [
-    "How do I get started with Mintlify?",
-    "How do I customize my docs?",
-    "How do I deploy my docs?",
-  ],
-});
+const DOMAIN = "your-domain";
 
-document.querySelector("#help-button").addEventListener("click", () => {
-  void window.MintlifyAssistant.open({
-    source: "help-button",
-    focus: true,
-  });
-});
+export async function POST(request) {
+  const upstream = await fetch(
+    `https://api.mintlify.com/discovery/v2/assistant/${DOMAIN}/message`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.MINTLIFY_ASSISTANT_KEY}`,
+      },
+      body: await request.text(),
+    }
+  );
+
+  const headers = new Headers();
+  for (const name of ["content-type", "x-thread-id", "x-thread-key", "x-message-id"]) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+
+  return new Response(upstream.body, { status: upstream.status, headers });
+}
 ```
 
-若要打开小组件并立即发送问题,请调用 `ask()`:
+将 `your-domain` 替换为你的域名。此示例使用标准的 `Request` 和 `Response` API，可在 Next.js 路由处理程序和大多数服务器端 JavaScript 运行时中使用。请根据你的后端框架按需调整。
 
-```js
-await window.MintlifyAssistant.ask("How do I authenticate?", {
-  source: "authentication-guide",
-  open: true,
-  focus: true,
-});
-```
+由于是你的服务器调用 Mintlify，你站点的内容安全策略（CSP）只需允许对你自己路由的请求。
 
-事件元数据和请求中会包含 `source` 值,便于你区分内置交互与自定义入口。
-
-<div id="update-a-mounted-widget">
-  ## 更新已挂载的小组件
+<div id="connect-your-interface">
+  ## 连接你的界面
 </div>
 
-使用 `update()` 可在不清除当前会话的情况下更改外观、文案、支持邮箱、起始问题或钩子。只有传入的字段会被更改。
+助手 API 兼容 AI SDK v5 及更高版本。在 React 中，使用 `useChat` hook，并将其 transport 指向你的服务器路由：
 
-```js
-await window.MintlifyAssistant.update({
-  appearance: {
-    theme: "dark",
-    accent: "#7c3aed",
-  },
-  labels: {
-    title: "Docs copilot",
-    trigger: "Ask docs",
-  },
-  supportEmail: "support@example.com",
-  starterQuestions: [
-    "How do I get started?",
-    "How do I manage my account?",
-  ],
+```jsx
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+
+const { messages, sendMessage, status } = useChat({
+  transport: new DefaultChatTransport({
+    api: "/api/assistant",
+    body: { fp: "anonymous" },
+  }),
 });
 ```
 
-传入 `null` 可将某个字段或分组恢复为默认值、移除支持邮箱,或将起始问题列表恢复为空:
+调用 `sendMessage({ text: question })` 提问，并渲染 `messages` 中每条消息的文本部分。`fp` 字段用于标识用户。请使用 `anonymous` 或你自己的用户 ID。
 
-```js
-await window.MintlifyAssistant.update({
-  appearance: {
-    accent: null,
-  },
-  supportEmail: null,
-  starterQuestions: null,
-  hooks: null,
-});
-```
+如果你不使用 React，任何能够读取流式响应的 AI SDK UI 集成或 HTTP 客户端都可以使用。完整的请求和响应格式请参阅[创建助手消息](/zh/api/assistant/create-assistant-message-v2)。
 
-更改 `identity` 会开启新的会话。更改小组件 ID 或 API 端点则需要先调用 `destroy()`,再执行新的 `init()`。
+<div id="customize-the-widget">
+  ## 自定义小组件
+</div>
 
-你可以在初始化时提供 `supportEmail` 和 `starterQuestions`,也可以稍后通过 `update()` 更改。这些值仅作用于当前嵌入,不会继承自你的 Mintlify 仪表板。
+你的界面控制访问者看到的一切，例如触发器、主题、标签、入门问题和支持链接。使用请求字段和响应数据来控制助手的回答内容。
 
 <div id="scope-retrieval-by-language-or-version">
-  ## 按语言或版本限定检索范围
+  ### 按语言或版本限定检索范围
 </div>
 
-当你的文档按语言或[版本](/zh/organize/navigation#versions)组织时,使用 `filter` 来限定助手检索的范围。省略某个字段即可对该字段的所有取值进行检索。
+当你按语言或[版本](/zh/organize/navigation#versions)组织内容时，可在请求体中传入 `filter` 来限制助手检索的内容。省略某个字段即可在该字段的所有值中搜索。
 
 ```js
-await window.MintlifyAssistant.init({
-  id: "YOUR_WIDGET_ID",
+body: {
+  fp: "anonymous",
   filter: {
     language: "en",
     version: "v2",
   },
-});
+},
 ```
 
-`language` 必须是[受支持的语言代码](/zh/organize/settings-reference#navigation-global-languages),例如 `en`、`es`、`fr` 或 `zh-Hans`。`version` 与你在仪表板中配置的版本名称一致。
+`language` 必须是[受支持的语言代码](/zh/organize/settings-reference#navigation-global-languages)，例如 `en`、`es`、`fr` 或 `zh-Hans`。`version` 对应控制台中配置的版本名称。
 
-当访客在你的应用中切换语言或版本时,可通过 `update()` 在运行时更改筛选条件:
+`filter` 还接受 `groups`，用于限制对[受保护内容](/zh/deploy/authentication-setup)的检索。Mintlify 不会验证用户的组成员身份，因此你的服务器必须为每个用户选择组。
 
-```js
-await window.MintlifyAssistant.update({
-  filter: {
-    language: "fr",
-    version: null,
-  },
-});
-```
-
-对某个字段传入 `null` 可清除该筛选条件,传入 `filter: null` 可同时清除两个筛选条件。
-
-<div id="configuration-reference">
-  ## 配置参考
+<div id="add-page-context">
+  ### 添加页面上下文
 </div>
 
-<div id="assistantconfig">
-  ### `AssistantConfig`
+传入 `currentPath`，即访问者当前查看页面的路径，助手可据此给出更相关的回答。传入 `context` 可随问题附带代码片段或选中的文本。
+
+<div id="show-sources">
+  ### 显示来源
 </div>
 
-将该对象传入 `init()`。
+助手会在回答前搜索你的内容。每次搜索都会以 `tool-search` 部分的形式出现在消息中，其 `output.results` 数组列出了找到的页面。可使用这些结果在每个回答下方链接来源。示例请参阅[来源引用](/zh/guides/assistant-embed#source-citations)。
 
-| Option             | Type                                            | Description                                                                  |
-| ------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------- |
-| `id`               | string                                          | Mintlify 提供的公共小组件 ID。                                            |
-| `endpoint`         | string                                          | 覆盖托管的小组件 API 端点。                                                  |
-| `identity`         | string                                          | 签名的终端用户身份令牌。匿名访客可省略。                                     |
-| `nonce`            | string                                          | 复制到小组件所创建资源上的 CSP nonce。                                       |
-| `defaultOpen`      | boolean                                         | 在首次初始化时打开小组件。默认为 `false`。                                   |
-| `appearance`       | [`AssistantAppearance`](#assistantappearance)   | 视觉和展示相关的覆盖设置。                                                   |
-| `labels`           | [`AssistantLabels`](#assistantlabels)           | 面向客户的文案覆盖设置。                                                     |
-| `supportEmail`     | string                                          | 设置该嵌入在小组件工具栏中显示的支持邮箱。                                   |
-| `starterQuestions` | string[]                                        | 为该嵌入设置最多 **三** 条空状态提示。                                       |
-| `filter`           | [`AssistantFilter`](#assistantfilter)           | 将检索限定到指定的文档语言和版本。                                           |
-| `hooks`            | [`AssistantHooks`](#assistanthooks)             | 事件和错误观察者。                                                           |
-| `analytics`        | [`AssistantAnalyticsConfig`](#assistantanalyticsconfig) | 内部小组件分析设置。                                                    |
-
-<div id="assistantappearance">
-  ### `AssistantAppearance`
+<div id="continue-conversations">
+  ### 继续对话
 </div>
 
-| Option                     | Values                                                         | Description                                                                                             |
-| -------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `variant`                  | `widget`, `modal`, `panel`                                     | 控制助手以锚定弹层、居中对话框还是响应式侧边面板的形式打开。                                            |
-| `theme`                    | `light`, `dark`, `system`                                      | 设置小组件的配色方案。默认为 `system`。                                                                 |
-| `accent`                   | CSS color                                                      | 设置主要控件的颜色。                                                                                    |
-| `radius`                   | CSS border radius                                              | 设置面板圆角,例如 `18px`。                                                                             |
-| `font`                     | CSS font family                                                | 使用你的应用已加载的字体。默认使用内置的 Inter。                                                        |
-| `fontSize`                 | `12` 到 `20` 之间的数字，或 `null`                             | 以像素为单位设置消息和输入框的文字大小，其他文字按比例缩放。`null` 恢复默认值：桌面端为 14px，宽度小于 768px 的屏幕为 16px。 |
-| `side`                     | `top`, `bottom`, `left`, `right`, `inline-start`, `inline-end` | 将内置触发器定位到屏幕边缘。                                                                            |
-| `align`                    | `start`, `center`, `end`                                       | 让触发器沿所选边缘对齐。                                                                                |
-| `dismissOnInteractOutside` | boolean                                                        | 控制在助手外部的指针或焦点交互是否将其关闭。                                                            |
-| `logo`                     | URL or `{ light, dark }`                                       | 替换默认的 Mintlify 标识。                                                                              |
-| `zIndex`                   | number                                                         | 更改小组件宿主的堆叠顺序。                                                                              |
+新对话的第一个响应会返回 `X-Thread-Id` 和 `X-Thread-Key` 标头。请保存这两个值，并在之后每个后续请求的请求体中包含 `threadId` 和 `threadKey`，以继续同一对话。服务器只会返回一次线程密钥，因此请立即保存。示例请参阅[跟踪会话线程](/zh/guides/assistant-embed#track-conversation-thread-ids)。
 
-不支持任意 CSS 和中性色板覆盖。封闭的 Shadow DOM 可同时保护你的应用与小组件,防止跨站样式回归。
-
-<div id="assistantfilter">
-  ### `AssistantFilter`
+<div id="add-search">
+  ### 添加搜索
 </div>
 
-| Option     | Type             | Description                                                                                                                       |
-| ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `language` | string or `null` | 将检索限定到[受支持的语言代码](/zh/organize/settings-reference#navigation-global-languages),例如 `en`。省略以在所有语言中检索。       |
-| `version`  | string or `null` | 将检索限定到指定的文档版本,例如 `v2`。省略以在所有版本中检索。                                                                    |
-
-<div id="assistantanalyticsconfig">
-  ### `AssistantAnalyticsConfig`
-</div>
-
-| Option             | Type    | Description                                                                                                             |
-| ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `capturePathname`  | boolean | 在内部小组件分析事件中包含嵌入页面的当前路径。默认值为 `true`。设置为 `false` 可选择停用。                              |
-
-<div id="assistantlabels">
-  ### `AssistantLabels`
-</div>
-
-| Option        | Values            | Description                                                         |
-| ------------- | ----------------- | ------------------------------------------------------------------- |
-| `title`       | string or `null`  | 设置面板标题。默认为 `Assistant`。                                  |
-| `trigger`     | string or `null`  | 设置紧凑型小组件和面板触发器的文字。                                |
-| `placeholder` | string or `null`  | 设置输入框和模态触发器的占位提示。                                  |
-| `disclaimer`  | string, `false`, or `null` | 设置空状态免责声明。传入 `false` 可将其隐藏。              |
-| `suggestions` | string or `null`  | 设置起始问题上方的标题。默认为 `Suggestions`。                      |
-
-<div id="assistanthooks">
-  ### `AssistantHooks`
-</div>
-
-```js
-hooks: {
-  event(event) {
-    console.log(event.type, event.actor, event.source);
-  },
-  error(error) {
-    console.error(error.code, error.retryable, error.status);
-  },
-}
-```
-
-`event` 钩子会接收 `init`、`open`、`close`、`ask`、`update`、`reset`、`navigate` 和 `destroy` 的生命周期与交互元数据。事件不包含问题文本、身份、会话或 CAPTCHA 令牌。
-
-`error` 钩子会接收稳定的 `code`、一个 `retryable` 布尔值以及可选的 HTTP `status`。任一钩子抛出的异常都不会中断小组件。
-
-<div id="assistantopenoptions">
-  ### `AssistantOpenOptions`
-</div>
-
-将该可选对象传入 `open()`。
-
-| Option   | Type    | Description                                                          |
-| -------- | ------- | -------------------------------------------------------------------- |
-| `source` | string  | 由客户定义的归因信息,会包含在事件和请求中。                         |
-| `focus`  | boolean | 打开后聚焦输入框。默认为 `true`。                                    |
-
-<div id="assistantaskoptions">
-  ### `AssistantAskOptions`
-</div>
-
-将该可选对象作为问题字符串之后的参数传入 `ask()`。
-
-| Option   | Type    | Description                                                          |
-| -------- | ------- | -------------------------------------------------------------------- |
-| `source` | string  | 由客户定义的归因信息,会包含在事件和请求中。                         |
-| `open`   | boolean | 在发送前打开面板。默认为 `true`。                                    |
-| `focus`  | boolean | 打开时聚焦输入框。默认为 `true`。                                    |
-
-<div id="assistantupdate">
-  ### `AssistantUpdate`
-</div>
-
-将该对象传入 `update()`。所有字段均为可选,`null` 表示恢复默认值。
-
-| Option             | Type                                                    | Description                                                       |
-| ------------------ | ------------------------------------------------------- | ----------------------------------------------------------------- |
-| `identity`         | string or `null`                                        | 更改签名身份并开启新的会话。                                      |
-| `appearance`       | [`AssistantAppearance`](#assistantappearance) or `null` | 深度合并外观设置。                                                |
-| `labels`           | [`AssistantLabels`](#assistantlabels) or `null`         | 深度合并面向客户的文案。                                          |
-| `supportEmail`     | string or `null`                                        | 更改支持邮箱。传入 `null` 可移除。                                |
-| `starterQuestions` | string[] or `null`                                      | 更改最多三条提示。传入 `null` 可恢复为空列表。                    |
-| `filter`           | [`AssistantFilter`](#assistantfilter) or `null`         | 深度合并检索筛选条件。传入 `null` 可清除所有筛选条件。            |
-| `hooks`            | [`AssistantHooks`](#assistanthooks) or `null`           | 深度合并事件和错误观察者。                                        |
-
-<div id="browser-api">
-  ## 浏览器 API
-</div>
-
-| Method                   | Parameter types                                             | Description                                                                        |
-| ------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `init(config)`           | [`AssistantConfig`](#assistantconfig)                        | 加载并挂载小组件。这是所有其他方法的就绪 Promise。                                 |
-| `open(options)`          | [`AssistantOpenOptions`](#assistantopenoptions)              | 打开已配置的展示形式。                                                             |
-| `close()`                | 无                                                          | 关闭小组件。                                                                       |
-| `ask(question, options)` | string, [`AssistantAskOptions`](#assistantaskoptions)         | 按需打开小组件并发送一个问题。                                                     |
-| `update(config)`         | [`AssistantUpdate`](#assistantupdate)                        | 深度合并可变的身份、外观、文案和观察者设置。                                       |
-| `reset()`                | 无                                                          | 开启一次全新的会话。                                                               |
-| `destroy()`              | 无                                                          | 移除小组件并释放其浏览器资源。                                                     |
-
-会话快照始终保留在小组件内部。每个方法都会 resolve 为 `void`。
-
-<div id="content-security-policy">
-  ## 内容安全策略
-</div>
-
-如果你的站点使用了内容安全策略(CSP),请为所启用的小组件功能允许以下来源:
-
-| Directive                                    | Source                              | Required for                |
-| -------------------------------------------- | ----------------------------------- | --------------------------- |
-| `script-src`                                 | `https://widget.mintlify.com`       | 小组件加载器与运行时        |
-| `connect-src`                                | `https://widget.mintlify.com`       | 小组件版本清单              |
-| `connect-src`                                | `https://api.mintlify.com`          | 配置、消息和反馈            |
-| `connect-src`                                | `https://ph.mintlify.com`           | 小组件内部分析              |
-| `font-src`                                   | `https://widget.mintlify.com`       | 可选的内置 Inter 字体       |
-| `script-src`                                 | `https://js.hcaptcha.com`           | hCaptcha 机器人防护         |
-| `connect-src` and `frame-src`                | `https://*.hcaptcha.com`            | hCaptcha 机器人防护         |
-
-即使采用严格的 `script-src` 策略,也必须同时授权加载器和初始化脚本。严格的 `style-src` 策略必须授权你传入 `init()` 的 nonce,小组件会将其复制到注入的样式表上。向 `init()` 传入 `nonce` 时,仅会将其传播到小组件在初始化之后创建的资源。
-
-</AssistantWidgetPlayground>
+要在访问者输入时显示匹配的页面，请在服务器路由中使用同一 API 密钥调用[搜索文档](/zh/api/assistant/search)端点。搜索请求不消耗积分。
