@@ -221,6 +221,7 @@ Generate pages from an SDL schema by adding `graphql` to a tab or group in `navi
 - By default, Mintlify generates **Queries**, **Mutations**, and **Types** (object, input, enum, interface, union) sections.
 - To curate pages, list selectors in `pages` of the tab or group that declares `graphql` (or its nested groups): `QUERY <field>`, `MUTATION <field>`, `TYPE <name>`. Kinds must be uppercase. Dotted paths (`MUTATION cart.createCart`) select namespaced operations; `TYPE` does not accept dotted paths. The sidebar labels a nested operation with its last segment (`createCart`); the page URL keeps the full path (`.../cart/createCart`).
 - If any page is a selector, the full generated sections are skipped. Regular page paths still work alongside selectors. An unmatched selector fails the build.
+- Page URLs use names as written (`.../types/Cart`). When names differ only by case (`StoreFrontConfigType`, `StorefrontConfigType`), the one that sorts first keeps that URL and each other gets a kebab-case URL (`.../types/storefront-config-type`, with a short hash suffix when the kebab-case name is one word or not unique), and the build logs a warning.
 
 ## API settings
 
