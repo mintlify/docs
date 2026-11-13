@@ -42,7 +42,7 @@ import AdminMcpCodex from "/snippets/zh/admin-mcp-codex.mdx";
 
 在连接管理员 MCP 之前，请确认以下事项：
 
-- **Mintlify 账户**：你需要一个 Mintlify 账户，并具有对你想要编辑的项目的访问权限。OAuth 会话会继承你的控制台权限，因此仅限管理员的操作 (例如对受保护设置执行 `update_config`) 需要该项目上的管理员角色。
+- **Mintlify 账户**：你需要一个 Mintlify 账户，并具有对你想要编辑的项目的访问权限。OAuth 会话会继承你的控制台权限。查看者只能使用读取工具，而仅限管理员的操作 (例如对受保护设置执行 `update_config`) 需要该项目上的管理员角色。
 - **Git 提供方访问权限**：为该项目安装的 GitHub、GitLab 或 Bitbucket 连接必须对部署 branch 所在的仓库具有写入权限。`publish` 会通过与常规部署相同的集成打开 PR。
 - **MCP 客户端**：一款支持 MCP 的 AI 工具，例如 Claude、Claude Code、ChatGPT、Cursor 或 Codex。
 
@@ -349,7 +349,7 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
 - **`manage_workflow_prs`**: 合并或关闭由[自动化](/zh/automations)运行创建的拉取请求。要合并 AI 工具编辑过的 branch 的拉取请求，请改用带 `merge: true` 的 `publish`。
 - **`manage_members_sharing`**: 列出、邀请或移除组织成员、更新其角色，或在 Base 中管理私有页面的授权和移动。单次调用最多可邀请 250 人，并会跳过已是成员或已有待处理邀请的人员。
 
-写入工具会在 `state` 下返回项目更新后的状态，因此 AI 工具无需再次调用即可确认更改。每个操作都会检查连接被授予的作用域以及你在仪表板中的角色。未获授权的操作会返回 `insufficient_scope` 等错误。
+写入工具会在 `state` 下返回项目更新后的状态，因此 AI 工具无需再次调用即可确认更改。每个操作都会检查连接被授予的作用域以及你在仪表板中的角色。未获授权的操作会返回 `insufficient_scope` 等错误。如需解决，请参阅[工具调用返回 insufficient_scope](#insufficient-scope)。
 
 <Warning>
   项目管理写入会立即应用到线上项目。它们不会创建 branch，也不会打开拉取请求。在提示 AI 工具更新自动化、设置、域名、认证或成员之前，请先确认预期的更改。
@@ -434,22 +434,25 @@ curl -X PUT --upload-file ./dashboard.png -H 'Content-Type: image/png' '<uploadU
   ## 故障排除
 </div>
 
-<Accordion title="连接失败并提示注册已过期错误">
-  你的 AI 工具正在使用 Mintlify 更新登录系统之前保存的连接。请重新安装 Mintlify 连接器：先从你的 AI 工具中将其移除，然后重新添加。各工具的具体步骤请参阅[断开或撤销访问权限](#disconnect-or-revoke-access)。
+<Accordion title="登录时打开的是此故障排除部分，而不是你的 AI 工具">
+  由于你的 Mintlify 连接器是在 Mintlify 更新登录系统之前添加的，或者你的控制台会话是在此之前开始的，Mintlify 无法完成登录。
+
+  1. [重新安装连接器](#stale-registration-error)：先从你的 AI 工具中将其移除，然后重新添加。
+  2. 如果登录后仍然打开此部分，请[退出控制台并重新登录](#fails-after-reinstalling)，然后再次连接你的 AI 工具。
 </Accordion>
 
-<Accordion title="重新安装连接器后连接仍然失败">
+<Accordion title="连接失败并提示注册已过期错误" id="stale-registration-error">
+  你的 AI 工具中的 Mintlify 连接器是在 Mintlify 更新登录系统之前添加的。请重新安装连接器：先从你的 AI 工具中将其移除，然后重新添加。各工具的具体步骤请参阅[断开或撤销访问权限](#disconnect-or-revoke-access)。
+</Accordion>
+
+<Accordion title="重新安装连接器后连接仍然失败" id="fails-after-reinstalling">
   退出[控制台](https://app.mintlify.com)，重新登录，然后再次连接你的 AI 工具。这会替换在登录系统更新之前开始的控制台会话。
 </Accordion>
 
-<Accordion title="登录时打开的是此故障排除部分，而不是你的 AI 工具">
-  你的 AI 工具保存的连接与你的控制台会话使用的是不同版本的 Mintlify 登录系统，因此 Mintlify 无法完成登录。请按照 **连接失败并提示注册已过期错误** 中的步骤操作。如果登录后仍然打开此部分，请按照 **重新安装连接器后连接仍然失败** 中的步骤操作。
-</Accordion>
+<Accordion title="工具调用返回 insufficient_scope" id="insufficient-scope">
+  你的连接没有执行此操作的权限。你连接时的[控制台角色](/zh/dashboard/roles)决定了连接可以执行的操作。Mintlify 还会在每次调用时检查你当前的角色。查看者只能使用读取工具，因此 `edit_page` 等编辑工具会返回 `insufficient_scope`。
 
-<Accordion title="工具调用返回 insufficient_scope">
-  该连接没有执行此操作的权限。你的[控制台角色](/zh/dashboard/roles)会在你连接时限制连接可以执行的操作，并且 Mintlify 会在每次调用时重新检查你当前的角色。查看者只能使用读取工具，因此 `edit_page` 等编辑工具会返回 `insufficient_scope`。
-
-  如果管理员为你分配了可以编辑的角色，请从你的 AI 工具中移除 Mintlify 连接器，然后重新添加。新的连接可以包含写入权限。各工具的具体步骤请参阅[断开或撤销访问权限](#disconnect-or-revoke-access)。
+  如果管理员为你分配了可以编辑的角色，请从你的 AI 工具中移除 Mintlify 连接器，然后重新添加。新的连接会包含你当前角色允许的写入权限。各工具的具体步骤请参阅[断开或撤销访问权限](#disconnect-or-revoke-access)。
 </Accordion>
 
 <Accordion title="管理员 MCP 工具出现两次">

@@ -42,7 +42,7 @@ L'Admin MCP est un service Mintlify hébergé à l'adresse `https://mcp.mintlify
 
 Avant de connecter l'Admin MCP, confirmez ce qui suit :
 
-- **Compte Mintlify** : Vous avez besoin d'un compte Mintlify avec accès au projet que vous souhaitez modifier. La session OAuth hérite de vos autorisations du tableau de bord, donc les actions réservées aux administrateurs (telles que `update_config` sur les paramètres protégés) nécessitent un rôle d'administrateur sur le projet.
+- **Compte Mintlify** : Vous avez besoin d'un compte Mintlify avec accès au projet que vous souhaitez modifier. La session OAuth hérite de vos autorisations du tableau de bord. Les lecteurs ne peuvent utiliser que les outils de lecture, et les actions réservées aux administrateurs (telles que `update_config` sur les paramètres protégés) nécessitent un rôle d'administrateur sur le projet.
 - **Accès au fournisseur Git** : La connexion GitHub, GitLab ou Bitbucket du projet doit avoir un accès en écriture au dépôt de la branche de déploiement. `publish` ouvre des PR via la même intégration que celle utilisée pour les déploiements normaux.
 - **Client MCP** : Un outil d'IA compatible MCP tel que Claude, Claude Code, ChatGPT, Cursor ou Codex.
 
@@ -349,7 +349,7 @@ Outils d'écriture :
 - **`manage_workflow_prs`**: Fusionne ou ferme une pull request ouverte par une exécution d'[automatisation](/fr/automations). Pour fusionner une pull request d'une branche modifiée par l'outil d'IA, utilisez plutôt `publish` avec `merge: true`.
 - **`manage_members_sharing`**: Liste, invite ou retire des membres de l'organisation, met à jour leurs rôles ou gère les autorisations et déplacements des pages privées dans les bases. Un seul appel invite jusqu'à 250 personnes et ignore celles qui sont déjà membres ou ont une invitation en attente.
 
-Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afin que l'outil d'IA puisse confirmer la modification sans second appel. Chaque action vérifie les scopes accordés à la connexion et votre rôle dans le dashboard. Une action pour laquelle vous n'êtes pas autorisé renvoie une erreur comme `insufficient_scope`.
+Les outils d'écriture renvoient l'état mis à jour du projet dans `state`, afin que l'outil d'IA puisse confirmer la modification sans second appel. Chaque action vérifie les scopes accordés à la connexion et votre rôle dans le dashboard. Une action pour laquelle vous n'êtes pas autorisé renvoie une erreur comme `insufficient_scope`. Pour la corriger, consultez [Les appels d'outils renvoient insufficient_scope](#insufficient-scope).
 
 <Warning>
   Les écritures de gestion de projet s'appliquent immédiatement au projet en ligne. Elles ne créent pas de branche et n'ouvrent pas de pull request. Confirmez la modification prévue avant de demander à un outil d'IA de mettre à jour des automatisations, des paramètres, des domaines, l'authentification ou des membres.
@@ -434,22 +434,25 @@ La révocation de l'autorisation OAuth n'affecte pas les pull requests que le MC
   ## Dépannage
 </div>
 
-<Accordion title="La connexion échoue avec une erreur d'enregistrement obsolète">
-  Votre outil d'IA utilise une connexion enregistrée avant que Mintlify ne mette à jour son système de connexion. Réinstallez le connecteur Mintlify : supprimez-le de votre outil d'IA, puis ajoutez-le à nouveau. Consultez [Se déconnecter ou révoquer l'accès](#disconnect-or-revoke-access) pour connaître les étapes propres à chaque outil.
+<Accordion title="La connexion ouvre cette section de dépannage au lieu de votre outil d'IA">
+  Mintlify ne peut pas finaliser la connexion, car votre connecteur Mintlify a été ajouté, ou votre session du tableau de bord a démarré, avant que Mintlify ne mette à jour son système de connexion.
+
+  1. [Réinstallez le connecteur](#stale-registration-error) : supprimez-le de votre outil d'IA, puis ajoutez-le à nouveau.
+  2. Si la connexion ouvre toujours cette section, [déconnectez-vous du tableau de bord et reconnectez-vous](#fails-after-reinstalling), puis connectez à nouveau votre outil d'IA.
 </Accordion>
 
-<Accordion title="La connexion échoue toujours après la réinstallation du connecteur">
+<Accordion title="La connexion échoue avec une erreur d'enregistrement obsolète" id="stale-registration-error">
+  Le connecteur Mintlify de votre outil d'IA a été ajouté avant que Mintlify ne mette à jour son système de connexion. Réinstallez le connecteur : supprimez-le de votre outil d'IA, puis ajoutez-le à nouveau. Consultez [Se déconnecter ou révoquer l'accès](#disconnect-or-revoke-access) pour connaître les étapes propres à chaque outil.
+</Accordion>
+
+<Accordion title="La connexion échoue toujours après la réinstallation du connecteur" id="fails-after-reinstalling">
   Déconnectez-vous du [tableau de bord](https://app.mintlify.com), reconnectez-vous, puis connectez à nouveau votre outil d'IA. Cela remplace une session du tableau de bord ouverte avant la mise à jour du système de connexion.
 </Accordion>
 
-<Accordion title="La connexion ouvre cette section de dépannage au lieu de votre outil d'IA">
-  La connexion enregistrée de votre outil d'IA et votre session du tableau de bord utilisent des versions différentes du système de connexion de Mintlify, si bien que Mintlify ne peut pas finaliser la connexion. Suivez les étapes de **La connexion échoue avec une erreur d'enregistrement obsolète**. Si la connexion ouvre toujours cette section, suivez **La connexion échoue toujours après la réinstallation du connecteur**.
-</Accordion>
+<Accordion title="Les appels d'outils renvoient insufficient_scope" id="insufficient-scope">
+  Votre connexion n'a pas l'autorisation d'effectuer cette action. Votre [rôle dans le tableau de bord](/fr/dashboard/roles) au moment où vous vous connectez définit ce que la connexion peut faire. Mintlify vérifie aussi votre rôle actuel à chaque appel. Les lecteurs ne peuvent utiliser que les outils de lecture, donc les outils de modification comme `edit_page` renvoient `insufficient_scope`.
 
-<Accordion title="Les appels d'outils renvoient insufficient_scope">
-  La connexion n'a pas l'autorisation d'effectuer cette action. Votre [rôle dans le tableau de bord](/fr/dashboard/roles) limite ce qu'une connexion peut faire au moment où vous vous connectez, et Mintlify vérifie à nouveau votre rôle actuel à chaque appel. Les lecteurs ne peuvent utiliser que les outils de lecture, donc les outils de modification comme `edit_page` renvoient `insufficient_scope`.
-
-  Si un administrateur vous attribue un rôle qui peut modifier, supprimez le connecteur Mintlify de votre outil d'IA, puis ajoutez-le à nouveau. La nouvelle connexion peut inclure l'accès en écriture. Consultez [Se déconnecter ou révoquer l'accès](#disconnect-or-revoke-access) pour connaître les étapes propres à chaque outil.
+  Si un administrateur vous attribue un rôle qui peut modifier, supprimez le connecteur Mintlify de votre outil d'IA, puis ajoutez-le à nouveau. La nouvelle connexion inclut l'accès en écriture autorisé par votre rôle actuel. Consultez [Se déconnecter ou révoquer l'accès](#disconnect-or-revoke-access) pour connaître les étapes propres à chaque outil.
 </Accordion>
 
 <Accordion title="Les outils de l'Admin MCP apparaissent en double">
