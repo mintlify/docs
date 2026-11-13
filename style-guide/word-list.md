@@ -26,6 +26,7 @@ In general, Mintlify product names are lowercase if they are terms commonly used
 | agent | Agent | Use "Mintlify agent" to distinguish it from other agents, such as coding agents. Use "AI agent" for the general category. |
 | automations | workflows | Automations were previously called workflows |
 | project | deployment | Projects were previously called deployments |
+| site, knowledge base | docs project, Docs, base, Base | The two project types. Lowercase in running text. "Base" was the previous name for knowledge bases; mention it only in the changelog. Code values keep the old names, such as `projectType: "workspace"`. |
 | preview deployment | preview, preview link | |
 | Starter, Pro, Enterprise | Growth, Hobby, free plan | Current plan names. |
 | sign in, sign in to | log in, login (as a verb), sign into | |
