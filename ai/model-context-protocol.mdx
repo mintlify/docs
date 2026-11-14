@@ -233,6 +233,29 @@ Mintlify enables your hosted MCP server automatically when your site has [authen
 
 Allowed domains apply to both your search MCP server and the [admin MCP](/ai/mintlify-mcp).
 
+#### How the OAuth token exchange works
+
+When a user connects an MCP client to `/authed/mcp`, the client runs an OAuth authorization code flow with PKCE. MCP clients handle these steps automatically, so your users only see the sign-in step.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as MCP client
+    participant Docs as Your docs site
+
+    Client->>Docs: Connect to /authed/mcp
+    Docs-->>Client: 401, sign-in required
+    Client->>User: Open browser to /authed/mcp/oauth/authorize
+    User->>Docs: Sign in to your docs
+    Docs-->>Client: Redirect with authorization code
+    Client->>Docs: POST /authed/mcp/oauth/token with code and code_verifier
+    Docs-->>Client: access_token and refresh_token
+    Client->>Docs: Call /authed/mcp with Bearer access_token
+    Docs-->>Client: Content scoped to the user's groups
+```
+
+When the access token expires, the client sends its refresh token to the same token endpoint to get a new token pair.
+
 ### Client credentials
 
 Client credentials let you connect to your authenticated MCP server programmatically without a browser-based login. Use client credentials for server-side integrations, CI/CD pipelines, automated workflows, and any environment where a user cannot complete an interactive OAuth flow.
@@ -313,6 +336,21 @@ Client credentials authenticate against the `/authed/mcp` endpoint. By default, 
     </CodeGroup>
   </Step>
 </Steps>
+
+#### Client credentials token exchange
+
+The client credentials flow skips the browser. Your integration exchanges its client ID and secret for tokens directly.
+
+```mermaid
+sequenceDiagram
+    participant App as Your integration
+    participant Docs as Your docs site
+
+    App->>Docs: POST /authed/mcp/oauth/token with client_id and client_secret
+    Docs-->>App: access_token and refresh_token
+    App->>Docs: Call /authed/mcp with Bearer access_token
+    Docs-->>App: Content scoped to the credential's groups
+```
 
 #### Manage client credentials
 
