@@ -43,7 +43,7 @@ Add an `openapi` field to a navigation element (tab, group, anchor, and so on) t
 In OpenAPI 3.2 documents, tags can declare `parent`, `kind`, and `summary`, which Mintlify uses to build nested navigation groups for auto-populated pages. OpenAPI 3.0 and 3.1 documents keep one flat group per tag, based on each operation's first tag.
 
 - `parent`: Nests the tag's group inside the parent tag's group.
-- `summary`: Sets the group label. If the tag also has `x-group`, `x-group` wins.
+- `summary`: Sets the group label. If the tag also has `x-group` or `x-displayName`, the extension wins (`x-group` first).
 - `kind`: `nav` or unset creates a navigation group. `badge` shows the tag's `summary` (or `name`) as a sidebar pill next to the endpoint and creates no group. Any other value (such as `audience`) creates neither.
 
 ```yaml
