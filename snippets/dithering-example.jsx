@@ -26,11 +26,14 @@ export const DitheringExample = () => {
   const [shape, setShape] = useState("sphere");
   const [size, setSize] = useState(3);
   const [paused, setPaused] = useState(false);
+  // Hold the shader still until the reduced-motion check runs after mount.
+  const [motionChecked, setMotionChecked] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setPaused(true);
     }
+    setMotionChecked(true);
   }, []);
 
   return (
@@ -38,7 +41,7 @@ export const DitheringExample = () => {
       <Dithering
         width="100%"
         height={320}
-        speed={paused ? 0 : 0.4}
+        speed={paused || !motionChecked ? 0 : 0.4}
         scale={0.6}
         maxPixelCount={2000000}
         colorBack={palette.back}
