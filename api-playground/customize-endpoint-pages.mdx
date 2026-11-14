@@ -1,0 +1,185 @@
+---
+title: "Customize endpoint pages"
+description: "Change the metadata, content, and parameter display of generated OpenAPI endpoint pages with the x-mint extension, or create MDX pages for individual endpoints and schemas."
+keywords: ["x-mint", "x-mint metadata", "x-mint content", "parameter pills", "openapi frontmatter", "openapi-schema", "data models", "endpoint MDX pages"]
+---
+
+Generated endpoint pages take their title, description, parameters, and responses from your OpenAPI specification. To change what a page shows, either:
+
+- Add the `x-mint` extension to the operation in your specification. Your pages stay generated, and the changes live with your specification.
+- Create an MDX page for the endpoint. Use this for a few pages that need custom layouts, or to try out changes on one page.
+
+To change a page's URL, see [Endpoint URLs and titles](/api-playground/endpoint-urls).
+
+## Override page metadata
+
+Add `x-mint.metadata` to an operation to override the page's frontmatter. You can use any field that's valid in [MDX frontmatter](/organize/pages) except `openapi`.
+
+```json {7-14}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "description": "Retrieve a list of users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "sidebarTitle": "List users",
+            "description": "Fetch paginated user data with filtering options",
+            "og:title": "Display a list of users"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Use `x-mint.metadata` to set per-endpoint [playground display](/api-playground/configure-playground#choose-a-display-mode), [access groups](/api-playground/configure-playground#show-the-playground-only-to-signed-in-readers), or a sidebar `tag` pill.
+
+## Add content to a page
+
+Add Markdown and MDX content before the generated API documentation with `x-mint.content`. The content supports all Mintlify components.
+
+```json {6-8}
+{
+  "paths": {
+    "/users": {
+      "post": {
+        "summary": "Create user",
+        "x-mint": {
+          "content": "## Prerequisites\n\nThis endpoint requires admin privileges and has rate limiting.\n\n<Note>User emails must be unique across the system.</Note>"
+        }
+      }
+    }
+  }
+}
+```
+
+## Collapse playground fields
+
+To start nested object fields collapsed in the playground, set `x-mint.playground.expand` to `false` on an operation. The Authorization, Headers, Query, Path, and Body sections and the top-level body object stay expanded, so readers expand only the nested fields they need. By default, object fields are expanded.
+
+```json {6-10}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "x-mint": {
+          "playground": {
+            "expand": false
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+To control how optional fields display across all endpoints, use [`api.optional`](/organize/settings-api) in your `docs.json`.
+
+## Add parameter pills
+
+Label parameters with custom pills using `x-mint.pre` and `x-mint.post` on any schema. Pills in `pre` appear before the parameter name, and pills in `post` appear after it, next to built-in pills like `required`, `read-only`, and `write-only`. Each string in the array becomes its own pill.
+
+```json {7-10}
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "x-mint": {
+              "pre": ["PII"],
+              "post": ["indexed", "unique"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+To show a field from your specification as a pill on every parameter that has it, list the field's key in `api.params.post` in your `docs.json`:
+
+```json docs.json
+{
+  "api": {
+    "params": {
+      "post": ["nullable", "x-internal"]
+    }
+  }
+}
+```
+
+With this configuration, a property like `{ "type": "string", "nullable": true, "x-internal": "admin" }` shows `nullable` and `admin` pills next to its name. Post pills appear in this order: built-in pills, then `api.params.post` pills, then per-property `x-mint.post` pills.
+
+## Create MDX pages for endpoints
+
+Create an MDX page for an endpoint when you want full control over a page but still want generated parameters and responses. Set the `openapi` frontmatter field to the operation the page documents.
+
+<CodeGroup>
+
+```mdx Example
+---
+title: "Get users"
+description: "Returns all plants from the system that the user has access to"
+openapi: "/path/to/openapi-1.json GET /users"
+deprecated: true
+version: "1.0"
+---
+```
+
+```mdx Format
+---
+title: "title of the page"
+description: "description of the page"
+openapi: openapi-file-path method path
+deprecated: boolean (not required)
+version: "version-string" (not required)
+---
+```
+
+</CodeGroup>
+
+The `openapi` value must be a single string that references one endpoint. If you set it to a list of endpoints or another non-string value, the deployment fails. The method and path must exactly match your OpenAPI specification.
+
+Add the page to your navigation like any other page. Don't also list the same operation, such as `"GET /users"`, in your navigation.
+
+<Warning>
+  **Always include the specification's file path when you have more than one OpenAPI specification in your repository.**
+
+  Mintlify uploads every OpenAPI specification in your docs repository, even if `docs.json` doesn't reference it. If an MDX page uses `openapi: "METHOD /path"` without a file path, Mintlify searches every uploaded specification for a matching operation. If more than one specification contains the same method and path, the first match in alphabetical filename order wins.
+
+  To avoid the wrong match, include the file path in the frontmatter, generate the pages from `docs.json` instead, or delete specifications you no longer need.
+</Warning>
+
+To create MDX files for every endpoint in a specification, use the Mintlify [scraper](https://www.npmjs.com/package/@mintlify/scraping). Add `-o` to choose the output folder. Without it, files go in the current directory.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o <folder-name>
+```
+
+To move existing MDX endpoint pages back to generated pages, see [Migrate MDX API pages to OpenAPI](/guides/migrating-from-mdx).
+
+## Create pages for data models
+
+Create a page for a schema in your specification's `components.schemas` with the `openapi-schema` frontmatter field.
+
+```mdx
+---
+openapi-schema: OrderItem
+---
+```
+
+If schemas in more than one specification share a name, include the file path:
+
+```mdx
+---
+openapi-schema: en-schema.json OrderItem
+---
+```

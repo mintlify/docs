@@ -1,31 +1,38 @@
 ---
-title: "Troubleshooting"
-description: "Troubleshoot common issues with API playground configuration, including OpenAPI validation errors, missing endpoints, and auth problems."
-keywords: ["API troubleshooting", "invalid OpenAPI", "configuration issues"]
+title: "Troubleshoot API pages"
+sidebarTitle: "Troubleshooting"
+description: "Fix OpenAPI build errors, blank or missing endpoint pages, and API playground requests that fail."
+keywords: ["API troubleshooting", "invalid OpenAPI", "Failed to fetch OpenAPI file", "blank API page", "missing endpoints", "playground requests fail"]
 boost: 3
 ---
 
-If your API pages aren't displaying correctly, check these common configuration issues.
+If your API pages don't build or display correctly, run `mint validate` locally first. It checks your specifications, pages, and navigation, and often shows a more specific error than the deployment does. Then check these common issues.
 
 <AccordionGroup>
+  <Accordion title="My build fails with &quot;Failed to fetch OpenAPI file for anchor or tab&quot;">
+    This error means Mintlify could not download the OpenAPI document at the URL in your `docs.json` `openapi` field during the build. Common causes include:
+
+    - The host is unreachable or resolves only from a private network.
+    - The URL requires authentication (a token, session cookie, or IP allowlist).
+    - The certificate is invalid or the domain has a DNS issue.
+    - The origin returned a transient 5xx or timed out.
+    - The spec was being republished at the moment the build ran, so the URL served a partial or empty response.
+
+    The same error can appear when a page references an endpoint that's no longer in the specification, or when the specification has validation errors. Run `mint validate` locally to see the underlying error.
+
+    Builds fetch the URL from the public internet without credentials, so confirm that the document downloads with `curl` from a machine outside your network. To fix the error, switch to one of these patterns:
+
+    - **Commit the spec into your docs repo.** This is the recommended pattern when the source URL is behind auth. Point the `openapi` field at the repo-relative path (for example, `"openapi": "openapi.json"`) and update the file in the same commit that changes your API.
+    - **Serve the spec from a stable public HTTPS URL.** Host it on a CDN or object storage bucket that does not require auth, has a valid TLS certificate, and returns the full document on every request.
+
+    For a full diagnostic walkthrough, including intermittent failures caused by CI publishing the spec after triggering the build, see [Build fails with "Failed to fetch OpenAPI file for anchor or tab"](/help-center/openapi-url-fetch-fails-during-build).
+  </Accordion>
   <Accordion title="All of my OpenAPI pages are completely blank">
-    This usually means that Mintlify cannot find your OpenAPI document or that the document is invalid.
+    Mintlify can't find your OpenAPI document, or the document is invalid.
 
-    Run `mint dev` locally to reveal some of these issues.
-
-    To verify your OpenAPI document passes validation:
-
-    1. Visit [this validator](https://editor.swagger.io/).
-    2. Switch to the **Validate text** tab.
-    3. Paste in your OpenAPI document.
-    4. Click **Validate it!**
-
-    If the text box that appears below has a green border, your document has passed validation.
-    Mintlify uses this exact validation package to validate OpenAPI documents. If your document passes
-    validation here, the problem likely lies elsewhere.
-
-    Additionally, Mintlify does not support OpenAPI 2.0. If your document uses this version of the specification,
-    you could encounter this issue. You can convert your document at [editor.swagger.io](https://editor.swagger.io/) (under Edit \> Convert to OpenAPI 3).
+    - Run `mint validate` to check the document.
+    - Check that the `openapi` path or URL in your `docs.json` points to the document.
+    - Check that the document uses OpenAPI 3.0 or later. Mintlify doesn't support OpenAPI 2.0. To convert a 2.0 document, open it in [Swagger Editor](https://editor.swagger.io/) and click **Edit** > **Convert to OpenAPI 3**.
   </Accordion>
   <Accordion title="One of my OpenAPI pages is completely blank">
     A misspelled `openapi` field in the page metadata usually causes this issue. Make sure
@@ -63,33 +70,15 @@ If your API pages aren't displaying correctly, check these common configuration 
     ---
     ```
   </Accordion>
-  <Accordion title="My build fails with &quot;Failed to fetch OpenAPI file for anchor or tab&quot;">
-    This error means Mintlify could not download the OpenAPI document at the URL in your `docs.json` `openapi` field during the build. Common causes include:
-
-    - The host is unreachable or resolves only from a private network.
-    - The URL requires authentication (a token, session cookie, or IP allowlist).
-    - The certificate is invalid or the domain has a DNS issue.
-    - The origin returned a transient 5xx or timed out.
-    - The spec was being republished at the moment the build ran, so the URL served a partial or empty response.
-
-    Builds fetch the URL from the public internet without credentials, so confirm that the document downloads with `curl` from a machine outside your network. To fix the error, switch to one of these patterns:
-
-    - **Commit the spec into your docs repo.** This is the recommended pattern when the source URL is behind auth. Point the `openapi` field at the repo-relative path (for example, `"openapi": "openapi.json"`) and update the file in the same commit that changes your API.
-    - **Serve the spec from a stable public HTTPS URL.** Host it on a CDN or object storage bucket that does not require auth, has a valid TLS certificate, and returns the full document on every request.
-
-    For a full diagnostic walkthrough, including intermittent failures caused by CI publishing the spec after triggering the build, see [Build fails with "Failed to fetch OpenAPI file for anchor or tab"](/help-center/openapi-url-fetch-fails-during-build).
-  </Accordion>
   <Accordion title="Requests from the API playground don't work">
     If you use a custom domain, your reverse proxy might cause this issue. By default, the API
     Playground starts requests with a `POST` request to the `/_mintlify/api/request` path on the docs
     site. If your reverse proxy allows only `GET` requests, all of these requests fail. Configure your
     reverse proxy to allow `POST` requests to the `/_mintlify/api/request` path.
 
-    Alternatively, if your reverse proxy prevents you from accepting `POST` requests, configure Mintlify
-    to send requests directly to your backend with the `api.playground.proxy` setting in the `docs.json`.
-    See the [settings documentation](/organize/settings-api) for details. When you use this configuration,
-    requests come directly from users' browsers rather than through your proxy. Configure Cross-Origin
-    Resource Sharing (CORS) on your server.
+    Alternatively, if your reverse proxy can't accept `POST` requests, set `api.playground.proxy` to `false`
+    to send requests directly from readers' browsers to your API. Your API must then allow cross-origin requests.
+    See [Send requests through the proxy](/api-playground/configure-playground#send-requests-through-the-proxy).
   </Accordion>
   <Accordion title="OpenAPI navigation entries are not generating pages">
     If you are using an OpenAPI navigation configuration, but the pages aren't generating, check these common issues:
@@ -110,34 +99,17 @@ If your API pages aren't displaying correctly, check these common configuration 
       }
       ```
 
-    2. **OpenAPI spec inheritance**: If using nested navigation, ensure child groups inherit the correct OpenAPI spec or specify their own.
+    2. **More than one specification in an array**: If `openapi` is an array, only the first specification generates pages. Put each specification on its own navigation element. See [Use multiple specifications](/api-playground/organize-endpoints#use-multiple-specifications).
 
-    3. **Validation issues**: Use `mint validate` to verify your OpenAPI document is valid.
+    3. **OpenAPI spec inheritance**: If using nested navigation, ensure child groups inherit the correct OpenAPI spec or specify their own.
+
+    4. **Validation issues**: Use `mint validate` to verify your OpenAPI document is valid.
   </Accordion>
   <Accordion title="Some OpenAPI operations appear in navigation but others don't">
 
     1. **Hidden operations**: Operations marked with `x-hidden: true` in your OpenAPI spec won't appear in auto-generated navigation.
     2. **Invalid operations**: Operations with validation errors in the OpenAPI spec may be skipped. Check your OpenAPI document for syntax errors.
     3. **Manual vs automatic inclusion**: If you reference any endpoints from an OpenAPI spec, only the explicitly referenced operations appear in navigation. No other pages are automatically added. This includes operations that are referenced in child navigation elements.
-  </Accordion>
-  <Accordion title="The Authorization field description is generic or unhelpful">
-    Mintlify auto-generates a description for the `Authorization` field in the API playground based on the security scheme type. Add a `description` to the security scheme in your OpenAPI specification to override the generated text.
-
-    ```json {7}
-    {
-      "components": {
-        "securitySchemes": {
-          "bearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "description": "Your API key from the [dashboard](https://example.com/dashboard). Send it as `Bearer <key>`."
-          }
-        }
-      }
-    }
-    ```
-
-    The `description` supports Markdown and replaces the auto-generated text on every endpoint that uses the security scheme.
   </Accordion>
   <Accordion title="Mixed navigation (OpenAPI and MDX pages) not working correctly">
     When combining OpenAPI operations with regular documentation pages in navigation:

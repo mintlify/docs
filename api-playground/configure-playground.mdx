@@ -1,0 +1,263 @@
+---
+title: "Configure the API playground"
+sidebarTitle: "Configure the playground"
+description: "Set the base URL and authentication the API playground uses to send requests, choose a display mode, restrict the playground to signed-in users, and set up the proxy."
+keywords: ["API playground", "servers", "base URL", "securitySchemes", "authentication", "OAuth", "scopes", "x-default", "proxy", "CORS", "Try it"]
+---
+
+The API playground sends real requests to your API from your endpoint pages. To work, it needs a base URL and, if your API requires it, an authentication method. Both come from your OpenAPI specification. Display and network settings come from the `api.playground` object in your `docs.json`.
+
+## Set the base URL
+
+Add a `servers` field to your OpenAPI specification with your API's base URL. The playground appends each endpoint's path, such as `/users/{id}`, to this URL.
+
+```json
+{
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ]
+}
+```
+
+If you list more than one server, readers pick one from a dropdown. If you don't list a server, the playground can't send requests and shows the endpoint in `simple` mode.
+
+If your API serves some endpoints from a different URL, [override the `servers` field](https://swagger.io/docs/specification/v3_0/api-host-and-base-path/#overriding-servers) for a path or operation. For more about the `servers` field, see [API server and base path](https://swagger.io/docs/specification/api-host-and-base-path/) in the OpenAPI documentation.
+
+## Add authentication
+
+Define how readers authenticate with the `securitySchemes` and `security` fields in your OpenAPI specification. The playground adds an input for each scheme so readers can enter credentials before they send a request.
+
+<Steps>
+  <Step title="Define your authentication method.">
+    Add a `securitySchemes` field. This example defines bearer authentication.
+
+    ```json
+    {
+      "components": {
+        "securitySchemes": {
+          "bearerAuth": {
+            "type": "http",
+            "scheme": "bearer"
+          }
+        }
+      }
+    }
+    ```
+  </Step>
+  <Step title="Apply authentication to your endpoints.">
+    Add a `security` field to require the scheme.
+
+    ```json
+    {
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+Common authentication types include:
+
+- [API keys](https://swagger.io/docs/specification/authentication/api-keys/): For header, query, or cookie-based keys.
+- [Bearer](https://swagger.io/docs/specification/authentication/bearer-authentication/): For JWT or OAuth tokens.
+- [Basic](https://swagger.io/docs/specification/authentication/basic-authentication/): For a username and password.
+
+If different endpoints require different authentication methods, override the `security` field for an operation. For more information, see [Authentication](https://swagger.io/docs/specification/authentication/) in the OpenAPI documentation.
+
+### Describe the authorization field
+
+The playground generates a description for the authorization field based on the security scheme type. To replace it with your own text, such as where readers find their key, add a `description` to the security scheme. The description supports Markdown and applies to every endpoint that uses the scheme.
+
+```json {7}
+{
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Your API key from the [dashboard](https://example.com/dashboard). Send it as `Bearer <key>`."
+      }
+    }
+  }
+}
+```
+
+### Prefill credentials
+
+Add the `x-default` extension to a security scheme to prefill its input in the playground, for example with a placeholder or a test credential. `x-default` works on `apiKey` and `http` bearer schemes.
+
+```json {7}
+{
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "x-default": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+<Warning>
+  Anyone who can open your endpoint pages can see an `x-default` value. Never use a production credential.
+</Warning>
+
+### Show required scopes
+
+If an operation's `security` field lists scopes, the endpoint page shows them in a **Scopes** section after the authorization section. The playground also lists them under the selected authorization option's input.
+
+```json
+{
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.example.com/oauth/token",
+            "scopes": {
+              "users:read": "Read user profiles"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/users": {
+      "get": {
+        "security": [
+          { "apiToken": [] },
+          { "oauth2": ["users:read"] }
+        ]
+      }
+    }
+  }
+}
+```
+
+The **Scopes** section lists the scopes from every option in the `security` field, so readers see them whichever authorization option they select. In this example, `users:read` appears even though `apiToken` is the first option.
+
+- Scope descriptions come from the `scopes` map in the OAuth 2.0 scheme's `flows`.
+- In OpenAPI 3.1, role lists on `apiKey` and `http` requirements, such as `{ "apiKey": ["admin"] }`, appear in the same section.
+- If more than one scheme requires scopes, a label next to each scope shows its scheme name.
+
+## Choose a display mode
+
+Set `api.playground.display` in your `docs.json` to control what appears on every endpoint page:
+
+- `interactive` (default): The full playground.
+- `simple`: A copyable endpoint with no playground.
+- `none`: No playground.
+- `auth`: The full playground for signed-in readers, and nothing for everyone else. See [Show the playground only to signed-in readers](#show-the-playground-only-to-signed-in-readers).
+
+```json docs.json
+{
+  "api": {
+    "playground": {
+      "display": "simple"
+    }
+  }
+}
+```
+
+To change the mode for one endpoint, set `playground` in the page's frontmatter, or in [`x-mint.metadata`](/api-playground/customize-endpoint-pages#override-page-metadata) for a generated page.
+
+```mdx
+---
+title: "Delete user"
+openapi: DELETE /users/{id}
+playground: none
+---
+```
+
+## Show the playground only to signed-in readers
+
+Use the `auth` display mode to keep your API reference public while letting only signed-in readers send requests. The `auth` mode requires [authentication](/deploy/authentication-setup) on your site.
+
+To limit the playground to specific user groups, add `groups` to the page frontmatter. If the page has no `groups`, every signed-in reader sees the playground.
+
+```mdx
+---
+title: "Create user"
+openapi: POST /users
+playground: auth
+groups: ["admin", "developer"]
+public: true
+---
+```
+
+In this example, anyone can read the page, but only signed-in readers in the `admin` or `developer` groups see the playground.
+
+For generated pages, set the same fields in `x-mint.metadata`:
+
+```json {6-10}
+{
+  "paths": {
+    "/admin/users": {
+      "post": {
+        "summary": "Create admin user",
+        "x-mint": {
+          "metadata": {
+            "playground": "auth",
+            "groups": ["admin"],
+            "public": true
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Send requests through the proxy
+
+By default, the playground sends requests through Mintlify's proxy, so your API doesn't need to accept cross-origin requests from your docs domain.
+
+Set `api.playground.proxy` to `false` to send requests directly from the reader's browser to your API. Do this if your API requires headers that the proxy can't forward, or if requests must come from the reader's browser, for example for cookie-based authentication. Your API must then allow cross-origin requests from your docs domain with [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
+
+To send cookies, authorization headers, and TLS client certificates with direct requests, also set `credentials` to `true`.
+
+```json docs.json
+{
+  "api": {
+    "playground": {
+      "proxy": false,
+      "credentials": true
+    }
+  }
+}
+```
+
+If you serve your docs through a reverse proxy on a custom domain, the reverse proxy must allow `POST` requests to the `/_mintlify/api/request` path. With Mintlify's proxy on, the playground sends each request as a `POST` to that path. If your reverse proxy can't allow `POST` requests, set `proxy` to `false`.
+
+## Prefill example values
+
+To fill request fields with the example values from your OpenAPI specification, set `api.examples.prefill` to `true` in your `docs.json`.
+
+```json docs.json
+{
+  "api": {
+    "examples": {
+      "prefill": true
+    }
+  }
+}
+```
+
+To prefill a field with a value that differs from its schema `default`, add `x-default` to the property. `x-default` on a property only takes effect when `prefill` is `true`. `x-default` on a [security scheme](#prefill-credentials) always takes effect.
+
+For the full list of playground settings, see [API settings](/organize/settings-api).
