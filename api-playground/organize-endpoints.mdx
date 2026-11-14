@@ -1,0 +1,226 @@
+---
+title: "Organize endpoints in navigation"
+sidebarTitle: "Organize endpoints"
+description: "Choose where generated OpenAPI endpoint pages appear in your navigation, group them by tag, combine multiple specs, and hide or exclude endpoints."
+keywords: ["OpenAPI navigation", "auto-populate", "tags", "x-group", "x-displayName", "nested groups", "multiple specs", "x-hidden", "x-excluded", "hide endpoints", "internal endpoints"]
+---
+
+Add an `openapi` field to any navigation element in your `docs.json`, such as a tab, anchor, or group, to generate endpoint pages from a specification. The `openapi` field accepts a path in your docs repository or the URL of a hosted specification.
+
+You can add endpoints in two ways:
+
+- **Generate a section from a whole specification.** Every endpoint gets a page, grouped by tag. Use this for most API references.
+- **List specific endpoints.** Only the endpoints you list get pages, in the order you list them, alongside your other pages.
+
+## Generate a section from a specification
+
+Add an `openapi` field to a navigation element with no `pages`. Every endpoint in the specification gets a page in that element.
+
+```json docs.json {5}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "openapi": "openapi.json"
+    }
+  ]
+}
+```
+
+Generated pages are grouped by each operation's first tag. Operations without tags go in a group named **API Reference**. For how pages get their titles and URLs, see [Endpoint URLs and titles](/api-playground/endpoint-urls).
+
+### Rename tag groups
+
+By default, a group's label is its tag `name`. To show a different label, add `x-group` to the tag. The URL still uses the tag `name`.
+
+```json {6}
+{
+  "tags": [
+    {
+      "name": "user-management",
+      "description": "Endpoints for managing users",
+      "x-group": "User Management"
+    }
+  ]
+}
+```
+
+If a tag has no `x-group`, Mintlify uses its `x-displayName` extension as the label, so specifications that already use `x-displayName` need no changes. If a tag has both, `x-group` wins.
+
+### Nest groups with tag hierarchies
+
+In OpenAPI 3.2 documents, tags can declare `parent`, `kind`, and `summary` fields. Mintlify uses them to build nested groups. OpenAPI 3.0 and 3.1 documents keep one flat group per tag.
+
+- `parent`: Nests the tag's group inside the parent tag's group.
+- `summary`: Sets the group label. If a tag also has `x-group` or `x-displayName`, the extension wins, with `x-group` first.
+- `kind`: Controls how Mintlify uses the tag.
+  - `nav` or no `kind`: Creates a navigation group.
+  - `badge`: Shows the tag's `summary`, or its `name` if there is no `summary`, as a pill next to the endpoint in the sidebar. Badge tags don't create groups.
+  - Any other value, such as `audience`: Creates neither a group nor a pill.
+
+```yaml
+openapi: 3.2.0
+tags:
+  - name: store
+    summary: Store
+    kind: nav
+  - name: plants
+    summary: Plants
+    parent: store
+    kind: nav
+  - name: care-guides
+    summary: Care guides
+    parent: store
+    kind: nav
+  - name: beta
+    summary: Beta
+    kind: badge
+paths:
+  /plants:
+    get:
+      summary: List plants
+      tags: [beta, plants]
+```
+
+In this example, the **List plants** endpoint appears under **Store** > **Plants** in the sidebar with a **Beta** pill.
+
+If an operation has several tags, Mintlify places it using the first tag with `kind: nav`. If there is none, Mintlify uses the first declared tag with no `kind`, and then the first tag that isn't declared in `tags`. To set a different pill for one endpoint, use `tag` in [`x-mint.metadata`](/api-playground/customize-endpoint-pages#override-page-metadata), which takes precedence over badge tags.
+
+Validation fails if two tags share a name, if a `parent` references a tag that doesn't exist, or if `parent` references form a cycle.
+
+## List specific endpoints
+
+To choose which endpoints get pages and where they go, set a default `openapi` on a navigation element and list endpoints in its `pages` as `METHOD /path`. You can mix endpoints with other pages.
+
+```json docs.json {4-9}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "openapi": "/path/to/openapi.json",
+      "pages": [
+        "api-overview",
+        "GET /users",
+        "POST /users",
+        "guides/authentication"
+      ]
+    }
+  ]
+}
+```
+
+If you list any endpoint from a specification, only the endpoints you list get pages, including those in child elements. Mintlify doesn't add the rest.
+
+Child navigation elements inherit their parent's specification unless they set their own `openapi`:
+
+```json docs.json {3,9}
+{
+  "group": "API reference",
+  "openapi": "/path/to/openapi-v1.json",
+  "pages": [
+    "overview",
+    "GET /users",
+    {
+      "group": "Orders",
+      "openapi": "/path/to/openapi-v2.json",
+      "pages": [
+        "GET /orders",
+        "POST /orders"
+      ]
+    }
+  ]
+}
+```
+
+To list an endpoint without a default specification, put the specification's path before the method:
+
+```json docs.json
+"navigation": {
+  "pages": [
+    "introduction",
+    "/path/to/users-openapi.json POST /users",
+    "/path/to/orders-openapi.json GET /orders"
+  ]
+}
+```
+
+Mintlify treats any `pages` entry that doesn't match an operation as a file path. HTTP methods must be uppercase.
+
+## Use multiple specifications
+
+To generate pages from more than one specification, put each specification on its own navigation element, and give each one its own `directory`. If you set `openapi` to an array, Mintlify generates pages only from the first specification in the array.
+
+```json docs.json {7-10,14-17}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "groups": [
+        {
+          "group": "Users API",
+          "openapi": {
+            "source": "/path/to/users-openapi.json",
+            "directory": "users-api-reference"
+          }
+        },
+        {
+          "group": "Admin API",
+          "openapi": {
+            "source": "/path/to/admin-openapi.json",
+            "directory": "admin-api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+`directory` sets the folder in the URL of each generated page. If two specifications share a `directory` and produce the same page URL, one page silently replaces the other. See [Endpoint URLs and titles](/api-playground/endpoint-urls).
+
+## Organize a large specification
+
+Mintlify doesn't read the `x-tagGroups` extension. For a specification with many tags, pick one approach:
+
+- **One specification per section.** Split the specification into one file per product area, or use [overlays](/api-playground/overlays) to remove the operations that don't belong in each section, then [give each its own section](#use-multiple-specifications).
+- **Tag hierarchies.** Upgrade to OpenAPI 3.2 and [nest tags](#nest-groups-with-tag-hierarchies) under parent tags.
+- **List endpoints.** [List each endpoint](#list-specific-endpoints) in your `docs.json` in the groups you want. This gives you full control, but you must add new endpoints to `docs.json` yourself.
+
+## Hide or exclude endpoints
+
+Add `x-hidden` or `x-excluded` to an operation or webhook to keep it out of your generated navigation:
+
+- `x-hidden: true`: The endpoint gets a page, but the page doesn't appear in the navigation. Anyone with the URL can open it. Use this for endpoints you link to from other pages or share with specific users.
+- `x-excluded: true`: The endpoint doesn't get a page. Use this for internal endpoints, or endpoints that aren't ready to document.
+
+```json {11,19}
+"paths": {
+  "/plants": {
+    "get": {
+      "description": "Returns all plants from the store",
+      "parameters": { /*...*/ },
+      "responses": { /*...*/ }
+    }
+  },
+  "/hidden_plants": {
+    "get": {
+      "x-hidden": true,
+      "description": "Returns all somewhat secret plants from the store",
+      "parameters": { /*...*/ },
+      "responses": { /*...*/ }
+    }
+  },
+  "/secret_plants": {
+    "get": {
+      "x-excluded": true,
+      "description": "Returns all top secret plants from the store",
+      "parameters": { /*...*/ },
+      "responses": { /*...*/ }
+    }
+  }
+}
+```
+
+`x-excluded` only removes the page. Your specification file stays as it is, and if visitors can [download your specification](/api-playground/openapi-setup#let-visitors-download-your-spec), excluded endpoints are in the download. To remove endpoints from the specification itself, use an [overlay](/api-playground/overlays).
+
+To restrict who can see endpoint pages, set `groups` in [`x-mint.metadata`](/api-playground/customize-endpoint-pages#override-page-metadata). See [Authentication](/deploy/authentication-setup).

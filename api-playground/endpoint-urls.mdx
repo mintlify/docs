@@ -1,0 +1,114 @@
+---
+title: "Endpoint URLs and titles"
+description: "Understand how Mintlify builds the URL and title of each generated OpenAPI endpoint page, and keep URLs stable when your spec changes."
+keywords: ["endpoint URL", "slug", "operationId", "x-mint href", "page title", "summary", "directory", "redirects", "stable URLs"]
+---
+
+Mintlify builds the URL and title of each generated endpoint page from your OpenAPI specification. If you edit a summary or a tag, the page's URL changes, and existing links to it break. This page explains how URLs and titles are built, and how to keep them stable.
+
+## How URLs are built
+
+A generated page's URL has three parts:
+
+```text
+/<directory>/<tag>/<slug>
+```
+
+For example, an operation tagged `users` with the summary `Get user` gets the URL `/api-reference/users/get-user`.
+
+- **Directory**: The `directory` you set on the `openapi` field in your `docs.json`. Defaults to `api-reference`.
+- **Tag**: The `name` of the operation's tag. Labels from `x-group`, `x-displayName`, or a 3.2 tag `summary` don't change the URL. If an operation has no tags, the URL has no tag part. For which tag Mintlify uses when an operation has several, see [Nest groups with tag hierarchies](/api-playground/organize-endpoints#nest-groups-with-tag-hierarchies). Parent tags in OpenAPI 3.2 don't add parts to the URL.
+- **Slug**: The operation's `summary`, converted for use in a URL. If the operation has no summary, Mintlify uses the HTTP method and path. For example, `GET /users/{id}/posts` becomes `get-users-posts`.
+
+To convert a summary or tag name, Mintlify replaces spaces with hyphens, removes `{`, `}`, `(`, `)`, `,`, `.`, `'`, and `/`, and lowercases the result. Other characters, such as `?`, `&`, `:`, and non-ASCII letters, stay in the URL. To get predictable URLs, use summaries and tag names made of letters, numbers, and spaces, or [use operation IDs](#use-operation-ids).
+
+The whole URL is lowercase, including the directory.
+
+### Duplicate URLs
+
+If two endpoints in the same group produce the same URL, Mintlify adds `-1`, `-2`, and so on to the later ones. In some cases, one page replaces the other instead, with no error:
+
+- Two specifications that share a `directory`, or the same specification used in two places in your navigation.
+- An endpoint with [`x-hidden`](/api-playground/organize-endpoints#hide-or-exclude-endpoints) that produces the same URL as another endpoint.
+
+Give every endpoint a unique summary within its tag, and give every specification its own `directory`.
+
+## Use operation IDs
+
+Set `slug` to `operationId` to build the slug from each operation's `operationId` instead of its summary. Then you can edit summaries without changing URLs.
+
+```json docs.json {5}
+{
+  "group": "Actions API",
+  "openapi": {
+    "source": "/path/to/openapi.json",
+    "slug": "operationId"
+  }
+}
+```
+
+Mintlify converts the ID to kebab case, so `getActions` becomes `get-actions` and `create_action` becomes `create-action`. Only ASCII letters and numbers are kept. Operations without an `operationId` use the summary. The directory and tag parts don't change.
+
+<Warning>
+  Changing `slug` on an existing site changes the URL of every generated endpoint page. Add [redirects](/create/redirects) from the previous URLs so existing links keep working.
+</Warning>
+
+## Set a URL for one endpoint
+
+Add `x-mint.href` to an operation to set its whole URL. The URL replaces the directory, tag, and slug.
+
+```json {6-8}
+{
+  "paths": {
+    "/legacy-endpoint": {
+      "get": {
+        "summary": "Legacy endpoint",
+        "x-mint": {
+          "href": "/deprecated-endpoints/legacy-endpoint"
+        }
+      }
+    }
+  }
+}
+```
+
+Mintlify lowercases the URL and drops anything after the last `.` in the final segment, so `/reference/v1.2` becomes `/reference/v1`. Don't use dots in the final segment.
+
+## How titles are set
+
+A generated page's title is the operation's `summary`. If there's no summary, Mintlify builds the title from the URL slug. To set a different title or sidebar label, use [`x-mint.metadata`](/api-playground/customize-endpoint-pages#override-page-metadata):
+
+```json {5-10}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "sidebarTitle": "List users"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Webhook pages always build their title from the URL slug, so capitalization and punctuation in the summary are lost. For example, the summary `New PR Opened` gives the title "New pr opened". Set `x-mint.metadata.title` to keep the summary's formatting.
+
+## Localized API references
+
+If you use the same specification in more than one [language](/organize/navigation#languages), every language links to the same pages unless each one has its own `directory`. To generate separate pages for each language, such as from a translated specification, set a different `directory` for each language.
+
+Translated summaries produce different slugs, so a page's URL differs between languages unless you [use operation IDs](#use-operation-ids).
+
+## Keep URLs stable
+
+To avoid breaking links when your specification changes:
+
+1. Set `slug` to `operationId`, and keep operation IDs stable.
+1. Keep tag names stable. Use `x-group` to change a group's label without changing URLs.
+1. Use `x-mint.href` for endpoints whose URL must never change.
+1. When a URL does change, add a [redirect](/create/redirects) from the old URL.
