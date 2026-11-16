@@ -50,6 +50,7 @@ Rules:
 | `import-error` | `content` | error | yes | no | Imports in pages and snippets that don't resolve. |
 | `missing-nav-page` | `nav` | error | yes | no | Pages in the navigation that have no file. |
 | `package-import` | `config` | error | yes | no | npm package imports that are undeclared or conflict. |
+| `graphql-url-collision` | `config` | warning | yes | no | GraphQL names that differ only by case and get a new page URL. |
 | `build-failed` | `config` | error | yes | no | The strict build failed for a reason no other rule reports. |
 | `openapi-spec` | `openapi` | error | no | no | Specs in `docs.json` or `mint.json` that don't parse or validate, with overlays applied. Remote specs are fetched even with `--no-build`. |
 | `openapi-build` | `openapi` | error | yes | no | OpenAPI pages the build couldn't generate. |
