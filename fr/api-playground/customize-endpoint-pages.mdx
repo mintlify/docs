@@ -1,0 +1,197 @@
+---
+title: "Personnaliser les pages d'endpoints"
+description: "Modifiez les métadonnées, le contenu et l'affichage des paramètres des pages d'endpoints générées depuis OpenAPI avec l'extension x-mint, ou créez des pages MDX pour des endpoints et des schémas individuels."
+keywords: ["x-mint", "x-mint metadata", "x-mint content", "pastilles de paramètres", "frontmatter openapi", "openapi-schema", "modèles de données", "pages MDX d'endpoints"]
+---
+
+Les pages d'endpoints générées tirent leur titre, leur description, leurs paramètres et leurs réponses de votre spécification OpenAPI. Pour modifier ce qu'affiche une page, vous pouvez :
+
+- Ajouter l'extension `x-mint` à l'opération dans votre spécification. Vos pages restent générées, et les modifications sont conservées avec votre spécification.
+- Créer une page MDX pour l'endpoint. Utilisez cette option pour quelques pages qui nécessitent une mise en page personnalisée, ou pour tester des modifications sur une page.
+
+Pour modifier l'URL d'une page, consultez [URL et titres des endpoints](/fr/api-playground/endpoint-urls).
+
+<div id="override-page-metadata">
+  ## Remplacer les métadonnées de la page
+</div>
+
+Ajoutez `x-mint.metadata` à une opération pour remplacer le frontmatter de la page. Vous pouvez utiliser n'importe quel champ valide dans le [frontmatter MDX](/fr/organize/pages), sauf `openapi`.
+
+```json {7-14}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "description": "Retrieve a list of users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "sidebarTitle": "List users",
+            "description": "Fetch paginated user data with filtering options",
+            "og:title": "Display a list of users"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Utilisez `x-mint.metadata` pour définir par endpoint l'[affichage du playground](/fr/api-playground/configure-playground#choose-a-display-mode), les [groupes d'accès](/fr/api-playground/configure-playground#show-the-playground-only-to-signed-in-readers) ou une pastille `tag` dans la barre latérale.
+
+<div id="add-content-to-a-page">
+  ## Ajouter du contenu à une page
+</div>
+
+Ajoutez du contenu Markdown et MDX avant la documentation d'API générée avec `x-mint.content`. Le contenu prend en charge tous les composants Mintlify.
+
+```json {6-8}
+{
+  "paths": {
+    "/users": {
+      "post": {
+        "summary": "Create user",
+        "x-mint": {
+          "content": "## Prerequisites\n\nThis endpoint requires admin privileges and has rate limiting.\n\n<Note>User emails must be unique across the system.</Note>"
+        }
+      }
+    }
+  }
+}
+```
+
+<div id="collapse-playground-fields">
+  ## Réduire les champs du playground
+</div>
+
+Pour que les champs d'objets imbriqués soient réduits par défaut dans le playground, définissez `x-mint.playground.expand` sur `false` sur une opération. Les sections Authorization, Headers, Query, Path et Body, ainsi que l'objet de corps de premier niveau, restent développés : les lecteurs ne développent que les champs imbriqués dont ils ont besoin. Par défaut, les champs d'objets sont développés.
+
+```json {6-10}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "x-mint": {
+          "playground": {
+            "expand": false
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Pour contrôler l'affichage des champs facultatifs sur tous les endpoints, utilisez [`api.optional`](/fr/organize/settings-api) dans votre `docs.json`.
+
+<div id="add-parameter-pills">
+  ## Ajouter des pastilles de paramètres
+</div>
+
+Étiquetez les paramètres avec des pastilles personnalisées à l'aide de `x-mint.pre` et `x-mint.post` sur n'importe quel schéma. Les pastilles de `pre` apparaissent avant le nom du paramètre, et celles de `post` après, à côté des pastilles intégrées comme `required`, `read-only` et `write-only`. Chaque chaîne du tableau devient sa propre pastille.
+
+```json {7-10}
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "x-mint": {
+              "pre": ["PII"],
+              "post": ["indexed", "unique"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Pour afficher un champ de votre spécification sous forme de pastille sur chaque paramètre qui le possède, listez la clé du champ dans `api.params.post` de votre `docs.json` :
+
+```json docs.json
+{
+  "api": {
+    "params": {
+      "post": ["nullable", "x-internal"]
+    }
+  }
+}
+```
+
+Avec cette configuration, une propriété comme `{ "type": "string", "nullable": true, "x-internal": "admin" }` affiche les pastilles `nullable` et `admin` à côté de son nom. Les pastilles post apparaissent dans cet ordre : pastilles intégrées, puis pastilles de `api.params.post`, puis pastilles `x-mint.post` propres à chaque propriété.
+
+<div id="create-mdx-pages-for-endpoints">
+  ## Créer des pages MDX pour les endpoints
+</div>
+
+Créez une page MDX pour un endpoint lorsque vous voulez un contrôle total sur une page tout en conservant les paramètres et réponses générés. Définissez le champ de frontmatter `openapi` sur l'opération que la page documente.
+
+<CodeGroup>
+
+```mdx Example
+---
+title: "Get users"
+description: "Returns all plants from the system that the user has access to"
+openapi: "/path/to/openapi-1.json GET /users"
+deprecated: true
+version: "1.0"
+---
+```
+
+```mdx Format
+---
+title: "title of the page"
+description: "description of the page"
+openapi: openapi-file-path method path
+deprecated: boolean (not required)
+version: "version-string" (not required)
+---
+```
+
+</CodeGroup>
+
+La valeur `openapi` doit être une chaîne unique qui référence un seul endpoint. Si vous la définissez comme une liste d'endpoints ou une autre valeur qui n'est pas une chaîne, le déploiement échoue. La méthode et le chemin doivent correspondre exactement à votre spécification OpenAPI.
+
+Ajoutez la page à votre navigation comme n'importe quelle autre page. Ne listez pas aussi la même opération, comme `"GET /users"`, dans votre navigation.
+
+<Warning>
+  **Incluez toujours le chemin du fichier de spécification lorsque votre dépôt contient plusieurs spécifications OpenAPI.**
+
+  Mintlify téléverse chaque spécification OpenAPI de votre dépôt de documentation, même si `docs.json` ne la référence pas. Si une page MDX utilise `openapi: "METHOD /path"` sans chemin de fichier, Mintlify recherche une opération correspondante dans toutes les spécifications téléversées. Si plusieurs spécifications contiennent la même méthode et le même chemin, la première correspondance dans l'ordre alphabétique des noms de fichiers l'emporte.
+
+  Pour éviter une mauvaise correspondance, incluez le chemin du fichier dans le frontmatter, générez plutôt les pages depuis `docs.json`, ou supprimez les spécifications dont vous n'avez plus besoin.
+</Warning>
+
+Pour créer des fichiers MDX pour chaque endpoint d'une spécification, utilisez le [scraper](https://www.npmjs.com/package/@mintlify/scraping) de Mintlify. Ajoutez `-o` pour choisir le dossier de sortie. Sans cette option, les fichiers sont créés dans le répertoire courant.
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o <folder-name>
+```
+
+Pour reconvertir des pages d'endpoints MDX existantes en pages générées, consultez [Migrer les pages d'API MDX vers OpenAPI](/fr/guides/migrating-from-mdx).
+
+<div id="create-pages-for-data-models">
+  ## Créer des pages pour les modèles de données
+</div>
+
+Créez une page pour un schéma de `components.schemas` de votre spécification avec le champ de frontmatter `openapi-schema`.
+
+```mdx
+---
+openapi-schema: OrderItem
+---
+```
+
+Si des schémas de plusieurs spécifications portent le même nom, incluez le chemin du fichier :
+
+```mdx
+---
+openapi-schema: en-schema.json OrderItem
+---
+```

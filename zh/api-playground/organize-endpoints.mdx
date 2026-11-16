@@ -1,0 +1,240 @@
+---
+title: "在导航中组织端点"
+sidebarTitle: "组织端点"
+description: "选择从 OpenAPI 生成的端点页面在导航中的位置，按 tag 分组，合并多个规范，以及隐藏或排除端点。"
+keywords: ["OpenAPI 导航", "自动生成", "tags", "x-group", "x-displayName", "嵌套分组", "多个规范", "x-hidden", "x-excluded", "隐藏端点", "内部端点"]
+---
+
+在 `docs.json` 中的任意导航元素（例如标签页、锚点或分组）上添加 `openapi` 字段，即可从规范生成端点页面。`openapi` 字段接受文档仓库中的路径或托管规范的 URL。
+
+你可以通过两种方式添加端点：
+
+- **从整个规范生成一个部分。** 每个端点都会获得一个页面，并按 tag 分组。大多数 API 参考都适合使用这种方式。
+- **列出特定端点。** 只有你列出的端点会获得页面，按你列出的顺序排列，并与其他页面放在一起。
+
+<div id="generate-a-section-from-a-specification">
+  ## 从规范生成一个部分
+</div>
+
+在没有 `pages` 的导航元素上添加 `openapi` 字段。规范中的每个端点都会在该元素中获得一个页面。
+
+```json docs.json {5}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "openapi": "openapi.json"
+    }
+  ]
+}
+```
+
+Mintlify 会按 tag 对生成的页面进行分组。如果某个操作有多个 tag，它会被放入第一个 tag 对应的分组。没有 tag 的操作会被放入名为 **API Reference** 的分组。有关页面如何获得标题和 URL，请参阅[端点 URL 和标题](/zh/api-playground/endpoint-urls)。
+
+<div id="rename-tag-groups">
+  ### 重命名 tag 分组
+</div>
+
+默认情况下，分组的标签是其 tag 的 `name`。要显示不同的标签，请为该 tag 添加 `x-group`。URL 仍使用 tag 的 `name`。
+
+```json {6}
+{
+  "tags": [
+    {
+      "name": "user-management",
+      "description": "Endpoints for managing users",
+      "x-group": "User Management"
+    }
+  ]
+}
+```
+
+如果某个 tag 没有 `x-group`，Mintlify 会使用其 `x-displayName` 扩展作为标签，因此已经使用 `x-displayName` 的规范无需修改。如果某个 tag 同时具有两者，以 `x-group` 为准。
+
+<div id="nest-groups-with-tag-hierarchies">
+  ### 使用 tag 层级嵌套分组
+</div>
+
+在 OpenAPI 3.2 文档中，tag 可以声明 `parent`、`kind` 和 `summary` 字段。Mintlify 会使用它们构建嵌套分组。OpenAPI 3.0 和 3.1 文档则为每个 tag 保留一个扁平分组。
+
+- `parent`：将该 tag 的分组嵌套在父 tag 的分组中。
+- `summary`：设置分组标签。如果 tag 还具有 `x-group` 或 `x-displayName`，以扩展为准，`x-group` 优先。
+- `kind`：控制 Mintlify 如何使用该 tag。
+  - `nav` 或没有 `kind`：创建一个导航分组。
+  - `badge`：在侧边栏中端点旁边以标记形式显示该 tag 的 `summary`（如果没有 `summary`，则显示其 `name`）。badge 类型的 tag 不会创建分组。
+  - 任何其他值（例如 `audience`）：既不创建分组，也不显示标记。
+
+```yaml
+openapi: 3.2.0
+tags:
+  - name: store
+    summary: Store
+    kind: nav
+  - name: plants
+    summary: Plants
+    parent: store
+    kind: nav
+  - name: care-guides
+    summary: Care guides
+    parent: store
+    kind: nav
+  - name: beta
+    summary: Beta
+    kind: badge
+paths:
+  /plants:
+    get:
+      summary: List plants
+      tags: [beta, plants]
+```
+
+在此示例中，**List plants** 端点会显示在侧边栏的 **Store** > **Plants** 下，并带有 **Beta** 标记。
+
+如果某个操作有多个 tag，Mintlify 会使用第一个 `kind: nav` 的 tag 来放置它。如果没有，Mintlify 会使用第一个已声明且没有 `kind` 的 tag，然后是第一个未在 `tags` 中声明的 tag。要为某个端点设置不同的标记，请在 [`x-mint.metadata`](/zh/api-playground/customize-endpoint-pages#override-page-metadata) 中使用 `tag`，它优先于 badge 类型的 tag。
+
+如果两个 tag 同名、`parent` 引用了不存在的 tag，或 `parent` 引用形成循环，验证将失败。
+
+<div id="list-specific-endpoints">
+  ## 列出特定端点
+</div>
+
+要选择哪些端点获得页面以及它们的位置，请在导航元素上设置默认 `openapi`，并在其 `pages` 中以 `METHOD /path` 的形式列出端点。你可以将端点与其他页面混合使用。
+
+```json docs.json {4-9}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "openapi": "/path/to/openapi.json",
+      "pages": [
+        "api-overview",
+        "GET /users",
+        "POST /users",
+        "guides/authentication"
+      ]
+    }
+  ]
+}
+```
+
+如果你列出了某个规范中的任意端点，只有你列出的端点（包括子元素中的端点）会获得页面。Mintlify 不会添加其余端点。
+
+子导航元素会继承其父元素的规范，除非它们设置了自己的 `openapi`：
+
+```json docs.json {3,9}
+{
+  "group": "API reference",
+  "openapi": "/path/to/openapi-v1.json",
+  "pages": [
+    "overview",
+    "GET /users",
+    {
+      "group": "Orders",
+      "openapi": "/path/to/openapi-v2.json",
+      "pages": [
+        "GET /orders",
+        "POST /orders"
+      ]
+    }
+  ]
+}
+```
+
+要在没有默认规范的情况下列出端点，请将规范的路径放在方法之前：
+
+```json docs.json
+"navigation": {
+  "pages": [
+    "introduction",
+    "/path/to/users-openapi.json POST /users",
+    "/path/to/orders-openapi.json GET /orders"
+  ]
+}
+```
+
+Mintlify 会将任何与操作不匹配的 `pages` 条目视为文件路径。HTTP 方法必须大写。
+
+<div id="use-multiple-specifications">
+  ## 使用多个规范
+</div>
+
+要从多个规范生成页面，请将每个规范放在各自的导航元素上，并为每个规范设置各自的 `directory`。如果你将 `openapi` 设置为数组，Mintlify 只会从数组中的第一个规范生成页面。
+
+```json docs.json {7-10,14-17}
+"navigation": {
+  "tabs": [
+    {
+      "tab": "API reference",
+      "groups": [
+        {
+          "group": "Users API",
+          "openapi": {
+            "source": "/path/to/users-openapi.json",
+            "directory": "users-api-reference"
+          }
+        },
+        {
+          "group": "Admin API",
+          "openapi": {
+            "source": "/path/to/admin-openapi.json",
+            "directory": "admin-api-reference"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+`directory` 设置每个生成页面 URL 中的文件夹。如果两个规范共享同一个 `directory` 并生成相同的页面 URL，其中一个页面会被另一个页面静默替换。请参阅[端点 URL 和标题](/zh/api-playground/endpoint-urls)。
+
+<div id="organize-a-large-specification">
+  ## 组织大型规范
+</div>
+
+Mintlify 不读取 `x-tagGroups` 扩展。对于包含许多 tag 的规范，请选择一种方式：
+
+- **每个部分一个规范。** 将规范按产品领域拆分为多个文件，或使用 [Overlay](/zh/api-playground/overlays) 移除不属于各部分的操作，然后[为每个规范设置各自的部分](#use-multiple-specifications)。
+- **tag 层级。** 升级到 OpenAPI 3.2，并将 tag [嵌套](#nest-groups-with-tag-hierarchies)在父 tag 之下。
+- **列出端点。** 在 `docs.json` 中将每个端点[列在](#list-specific-endpoints)你想要的分组中。这样你可以完全掌控，但必须自行将新端点添加到 `docs.json`。
+
+<div id="hide-or-exclude-endpoints">
+  ## 隐藏或排除端点
+</div>
+
+为操作或 webhook 添加 `x-hidden` 或 `x-excluded`，使其不出现在生成的导航中：
+
+- `x-hidden: true`：端点会获得页面，但该页面不会出现在导航中。任何拥有 URL 的人都可以打开它。适用于你从其他页面链接或与特定用户共享的端点。
+- `x-excluded: true`：端点不会获得页面。适用于内部端点，或尚未准备好编写文档的端点。
+
+```json {11,19}
+"paths": {
+  "/plants": {
+    "get": {
+      "description": "Returns all plants from the store",
+      "parameters": { /*...*/ },
+      "responses": { /*...*/ }
+    }
+  },
+  "/hidden_plants": {
+    "get": {
+      "x-hidden": true,
+      "description": "Returns all somewhat secret plants from the store",
+      "parameters": { /*...*/ },
+      "responses": { /*...*/ }
+    }
+  },
+  "/secret_plants": {
+    "get": {
+      "x-excluded": true,
+      "description": "Returns all top secret plants from the store",
+      "parameters": { /*...*/ },
+      "responses": { /*...*/ }
+    }
+  }
+}
+```
+
+`x-excluded` 只会移除页面。如果访问者可以[访问你的规范文件](/zh/api-playground/openapi-setup#control-access-to-your-specification)，被排除的端点仍然包含在其中。
+
+要仅向特定用户组显示端点，请为该操作添加 `x-mint.groups`。请参阅 [OpenAPI 内容过滤](/zh/create/personalization#openapi-content-filtering)。

@@ -1,0 +1,330 @@
+---
+title: "描述 schema 和响应"
+sidebarTitle: "Schema 和响应"
+description: "在 OpenAPI 规范中记录灵活的 schema、条件字段、文件上传、多个响应示例、流式响应、webhook 和回调。"
+keywords: ["oneOf", "anyOf", "allOf", "schema 组合", "条件必填", "响应示例", "文件上传", "multipart", "流式传输", "webhooks", "回调"]
+---
+
+端点页面和 API 试验台会渲染你的 OpenAPI 规范所描述的一切内容。本页介绍规范中会影响 Mintlify 显示请求和响应方式的部分：组合 schema、条件字段、文件上传、响应示例和内容类型、webhook 以及回调。
+
+<div id="combine-schemas">
+  ## 组合 schema
+</div>
+
+OpenAPI 提供了用于组合 schema 的关键字：
+
+- `allOf`：组合多个 schema，例如合并对象或扩展基础 schema。作用类似于 `and` 运算符。
+- `anyOf`：接受与任一给定 schema 匹配的数据。作用类似于 `or` 运算符。
+- `oneOf`：接受恰好与一个给定 schema 匹配的数据。作用类似于 `exclusive-or` 运算符。
+
+Mintlify 对 `oneOf` 和 `anyOf` 的处理方式相同，并且不支持 `not` 关键字。有关这些关键字的详细规范，请参阅 OpenAPI 文档中的 [oneOf, anyOf, allOf, not](https://swagger.io/docs/specification/data-models/oneof-anyof-allof-not/)。
+
+<div id="merge-objects-with-allof">
+  ### 使用 `allOf` 合并对象
+</div>
+
+当你使用 `allOf` 组合两个对象 schema 时，Mintlify 会将两者的属性合并到一个对象中。这在使用 OpenAPI 可复用的[组件](https://swagger.io/docs/specification/components/)时非常有用。
+
+```yaml
+org_with_users:
+  allOf:
+    - $ref: '#/components/schemas/Org'
+    - type: object
+      properties:
+        users:
+          type: array
+          description: An array containing all users in the organization
+# ...
+components:
+  schemas:
+    Org:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the organization
+```
+
+<ParamField body="org_with_users" type="object">
+  <Expandable>
+    <ParamField body="id" type="string">
+      组织的 ID
+    </ParamField>
+    <ParamField body="users" type="object[]">
+      包含组织中所有用户的数组
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<div id="offer-options-with-oneof-and-anyof">
+  ### 使用 `oneOf` 和 `anyOf` 提供选项
+</div>
+
+当你使用 `oneOf` 或 `anyOf` 时，各选项会显示在带标签页的容器中。在每个子 schema 中指定 `title` 字段来命名标签页。例如，你可以这样显示两种不同类型的收货地址：
+
+```yaml
+delivery_address:
+  oneOf:
+    - title: StreetAddress
+      type: object
+      properties:
+        address_line_1:
+          type: string
+          description: The street address of the recipient
+        # ...
+    - title: POBox
+      type: object
+      properties:
+        box_number:
+          type: string
+          description: The number of the PO Box
+        # ...
+```
+
+<ParamField body="delivery_address" type="object">
+  <div className="mt-4 rounded-xl border border-gray-100 px-4 pb-4 pt-2 dark:border-white/10">
+    <Tabs>
+      <Tab title="StreetAddress">
+        <ParamField body="address_line_1" type="string">
+          住所的街道地址
+        </ParamField>
+      </Tab>
+      <Tab title="POBox">
+        <ParamField body="box_number" type="string">
+          邮政信箱号码
+        </ParamField>
+      </Tab>
+    </Tabs>
+  </div>
+</ParamField>
+
+类型为 `any` 或 `undefined` 的字段与 `oneOf` schema 的渲染方式相同，会提供一个选择器，让用户在发送请求前选择具体的结构。
+
+<div id="conditional-requirements">
+  ## 条件必填
+</div>
+
+在 OpenAPI 3.1 中，你可以使用 `if`、`then`、`else`、`dependentRequired` 和 `dependentSchemas` 关键字，使某个属性仅在特定情况下必填。Mintlify 会读取这些关键字，并在端点页面上为每个受影响的字段标注 **required** 标记及其条件。
+
+例如，此 schema 要求银行卡支付提供卡号，其他所有支付方式提供账号，并且在请求包含税号时提供公司名称：
+
+```yaml
+Payment:
+  type: object
+  required:
+    - method
+  properties:
+    method:
+      type: string
+      enum: [card, bank_transfer]
+    card_number:
+      type: string
+    account_number:
+      type: string
+    tax_id:
+      type: string
+    company_name:
+      type: string
+  if:
+    properties:
+      method:
+        const: card
+  then:
+    required:
+      - card_number
+  else:
+    required:
+      - account_number
+  dependentRequired:
+    tax_id:
+      - company_name
+```
+
+端点页面会这样标注这些字段：
+
+- `card_number`：当 `method` = `card` 时必填
+- `account_number`：除非 `method` = `card`，否则必填
+- `company_name`：当设置了 `tax_id` 时必填
+
+对于使用 `const` 或 `enum` 测试同级属性特定值、或使用 `required` 测试其是否存在的条件，Mintlify 会进行概括。如果条件过于复杂而无法概括，该字段会改为显示 **conditionally required** 标记。
+
+<Tip>
+  当属性缺失时，`if` 中的属性测试也会通过。要获得具体的标注，请将被测试的属性设为必填，可以放在对象的 `required` 列表中，也可以放在 `if` schema 的 `required` 列表中。否则，该字段会显示 **conditionally required** 标记。
+</Tip>
+
+<div id="file-uploads">
+  ## 文件上传
+</div>
+
+对于 OpenAPI 3.1 和 3.2 规范，请将文件上传定义为带有二进制 `contentMediaType` 的 string schema。API 试验台会将该字段显示为文件输入框，并作为 `multipart/form-data` 请求的一部分发送。
+
+```json
+{
+  "paths": {
+    "/imports": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "contentMediaType": "application/octet-stream"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+你可以使用二进制媒体类型，例如 `application/octet-stream`、图片、音频、视频、PDF 和压缩包。试验台不会将 `application/json` 等结构化媒体类型视为文件上传。
+
+使用 `contentEncoding` 描述文件内容的编码方式。对于 base64 编码的文件，将 `contentEncoding` 设置为 `base64` 或 `base64url`，试验台会将该字段视为 base64 文件。对于其他值或未设置值的情况，试验台使用二进制文件处理方式。没有二进制 `contentMediaType` 的 `contentEncoding` 值仍然是文本字段。
+
+旧的 `format: "binary"` 和 `format: "base64"` 值仍然受支持。
+
+<div id="multiple-response-examples">
+  ## 多个响应示例
+</div>
+
+如果你的 API 会根据输入参数、用户上下文或请求的其他条件返回不同的响应，请使用响应上的 `examples` 属性逐一记录。
+
+```yaml
+responses:
+  "200":
+    description: Successful response
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/YourResponseSchema"
+        examples:
+          us:
+            summary: Response for United States
+            value:
+              countryCode: "US"
+              currencyCode: "USD"
+              taxRate: 0.0825
+          gb:
+            summary: Response for United Kingdom
+            value:
+              countryCode: "GB"
+              currencyCode: "GBP"
+              taxRate: 0.20
+```
+
+<div id="response-content-types">
+  ## 响应内容类型
+</div>
+
+试验台会根据你的 API 返回的 `Content-Type` header 渲染响应：
+
+- **图片**（`image/*`）：内联渲染。
+- **音频**（`audio/*`）：使用音频播放器渲染。
+- **视频**（`video/*`）：使用视频播放器渲染。
+- **所有其他响应**：显示在代码块中。
+
+要在响应示例中显示音频播放器，请将响应内容类型设置为 `audio/*`，并使用音频文件的 URL 作为示例值：
+
+```yaml
+responses:
+  "200":
+    description: Audio file generated successfully
+    content:
+      audio/mpeg:
+        schema:
+          type: string
+          format: binary
+        examples:
+          sample:
+            summary: Sample audio output
+            value: "https://example.com/sample-audio.mp3"
+```
+
+<div id="streaming-responses">
+  ### 流式响应
+</div>
+
+如果某个端点的响应声明了流式媒体类型，试验台会在响应到达时立即显示，而不是等待请求结束。流式媒体类型包括 `text/event-stream`、`application/jsonl`、`application/x-ndjson`、`application/json-seq` 和 `multipart/mixed`。请求体为 `multipart/form-data` 的请求不会以流式方式传输。
+
+在响应流式传输期间，响应面板会显示 **Streaming…**，发送按钮会变为 **Stop**。点击 **Stop** 即可结束请求。试验台会保留已收到的数据并显示 **Stream stopped**。
+
+试验台会以纯文本形式显示流式响应体，不进行 JSON 格式化。流也可能提前结束：
+
+- 试验台在读取 10 MB 后停止读取，并显示 **Stream truncated at 10 MB**。
+- 如果连接在流结束前关闭，试验台会显示 **Stream interrupted**。
+- 当试验台[代理](/zh/api-playground/configure-playground#send-requests-through-the-proxy)开启时，你的 API 必须在 30 秒内发送响应 header，并且代理会在五分钟后结束该流。
+
+<div id="webhooks">
+  ## Webhooks
+</div>
+
+Webhook 是你的 API 在事件发生时用于通知外部系统的 HTTP 回调。OpenAPI 3.1 及更高版本的文档支持 webhook。
+
+在 OpenAPI 文档中与 `paths` 字段并列添加 `webhooks` 字段。有关定义 webhook 的更多信息，请参阅 OpenAPI 规范中的 [Webhooks](https://spec.openapis.org/oas/v3.2.0#oas-webhooks)。
+
+要为 webhook 创建 MDX 页面，请在 `openapi` frontmatter 中使用 `webhook` 代替 HTTP 方法：
+
+```mdx
+---
+title: "Order updated webhook"
+description: "Triggered when an order is updated"
+openapi: "openapi.json webhook orderUpdated"
+---
+```
+
+webhook 名称必须与 OpenAPI 规范 `webhooks` 字段中的键完全一致。
+
+<div id="callbacks">
+  ## 回调
+</div>
+
+回调描述了你的 API 向调用方提供的 URL 发送的带外请求，例如与特定操作关联的事件通知。当某个操作定义了 `callbacks` 时，端点页面会在请求体和响应部分之间的可折叠区域中显示它们。每个回调都会显示其 HTTP 方法和表达式，并使用与父操作相同的请求体和响应布局。
+
+有关定义回调的更多信息，请参阅 OpenAPI 规范中的 [Callback object](https://spec.openapis.org/oas/v3.2.0#callback-object)。
+
+```yaml
+paths:
+  /subscribe:
+    post:
+      summary: Subscribe to events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callbackUrl:
+                  type: string
+                  format: uri
+      responses:
+        "201":
+          description: Subscription created
+      callbacks:
+        orderUpdated:
+          "{$request.body#/callbackUrl}":
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        orderId:
+                          type: string
+                        status:
+                          type: string
+              responses:
+                "200":
+                  description: Callback received
+```

@@ -1,0 +1,126 @@
+---
+title: "端点 URL 和标题"
+description: "了解 Mintlify 如何为每个从 OpenAPI 生成的端点页面构建 URL 和标题，并在规范变化时保持 URL 稳定。"
+keywords: ["端点 URL", "slug", "operationId", "x-mint href", "页面标题", "summary", "directory", "重定向", "稳定的 URL"]
+---
+
+Mintlify 会根据你的 OpenAPI 规范，为每个生成的端点页面构建 URL 和标题。如果你编辑了 summary 或 tag，页面的 URL 就会改变，指向它的现有链接也会失效。
+
+<div id="how-urls-are-built">
+  ## URL 的构建方式
+</div>
+
+生成页面的 URL 由三部分组成：
+
+```text
+/<directory>/<tag>/<slug>
+```
+
+例如，一个 tag 为 `users`、summary 为 `Get user` 的操作，其 URL 为 `/api-reference/users/get-user`。
+
+- **Directory**：你在 `docs.json` 的 `openapi` 字段上设置的 `directory`，使用小写形式。默认值为 `api-reference`。
+- **Tag**：操作所属 tag 的 `name`。来自 `x-group`、`x-displayName` 或 3.2 tag `summary` 的标签不会改变 URL。如果操作没有 tag，URL 就没有 tag 部分。关于操作有多个 tag 时 Mintlify 使用哪一个，请参阅[使用 tag 层级嵌套分组](/zh/api-playground/organize-endpoints#nest-groups-with-tag-hierarchies)。OpenAPI 3.2 中的父 tag 不会为 URL 增加部分。
+- **Slug**：操作的 `summary`，经过转换后用于 URL。如果操作没有 summary，Mintlify 会使用 HTTP 方法和路径。例如，`GET /users/{id}/posts` 会变为 `get-users-posts`。
+
+在转换 summary 或 tag 名称时，Mintlify 会将空格替换为连字符，删除 `{`、`}`、`(`、`)`、`,`、`.`、`'` 和 `/`，并将结果转换为小写。其他字符（例如 `?`、`&`、`:` 和非 ASCII 字母）会保留在 URL 中。要获得可预测的 URL，请使用由字母、数字和空格组成的 summary 和 tag 名称，或[使用操作 ID](#use-operation-ids)。
+
+<div id="duplicate-urls">
+  ### 重复的 URL
+</div>
+
+如果同一分组中的两个端点生成了相同的 URL，Mintlify 会为后面的端点添加 `-1`、`-2` 等后缀。在某些情况下，一个页面会直接替换另一个页面，而不会报错：
+
+- 两个规范共享同一个 `directory`，或同一个规范在导航中的两个位置使用。
+- 带有 [`x-hidden`](/zh/api-playground/organize-endpoints#hide-or-exclude-endpoints) 的端点与另一个端点生成了相同的 URL。
+
+请为每个端点在其 tag 内设置唯一的 summary，并为每个规范设置各自的 `directory`。
+
+<div id="use-operation-ids">
+  ## 使用操作 ID
+</div>
+
+将 `slug` 设置为 `operationId`，即可根据每个操作的 `operationId` 而不是 summary 来构建 slug。这样你就可以编辑 summary 而不改变 URL。
+
+```json docs.json {5}
+{
+  "group": "Actions API",
+  "openapi": {
+    "source": "/path/to/openapi.json",
+    "slug": "operationId"
+  }
+}
+```
+
+Mintlify 会将 ID 转换为 kebab case，因此 `getActions` 会变为 `get-actions`，`create_action` 会变为 `create-action`。Mintlify 会删除任何非 ASCII 字母或数字的字符。没有 `operationId` 的操作使用 summary。directory 和 tag 部分不会改变。
+
+<Warning>
+  在现有站点上更改 `slug` 会改变每个生成的端点页面的 URL。请从以前的 URL 添加[重定向](/zh/create/redirects)，以便现有链接继续有效。
+</Warning>
+
+<div id="set-a-url-for-one-endpoint">
+  ## 为单个端点设置 URL
+</div>
+
+为操作添加 `x-mint.href` 即可设置其完整 URL。该 URL 会替换 directory、tag 和 slug。
+
+```json {6-8}
+{
+  "paths": {
+    "/legacy-endpoint": {
+      "get": {
+        "summary": "Legacy endpoint",
+        "x-mint": {
+          "href": "/deprecated-endpoints/legacy-endpoint"
+        }
+      }
+    }
+  }
+}
+```
+
+Mintlify 会将 URL 转换为小写，并删除最后一段中最后一个 `.` 之后的所有内容，因此 `/reference/v1.2` 会变为 `/reference/v1`。请不要在最后一段中使用点号。
+
+<div id="how-titles-are-set">
+  ## 标题的设置方式
+</div>
+
+生成页面的标题是操作的 `summary`。如果没有 summary，Mintlify 会根据 URL slug 构建标题。要设置不同的标题或侧边栏标签，请使用 [`x-mint.metadata`](/zh/api-playground/customize-endpoint-pages#override-page-metadata)：
+
+```json {5-10}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "sidebarTitle": "List users"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Mintlify 会根据 URL slug 构建 webhook 页面的标题，因此标题会丢失 summary 中的大小写和标点。例如，summary `New PR Opened` 会生成标题 `New pr opened`。设置 `x-mint.metadata.title` 即可保留 summary 的格式。
+
+<div id="localized-api-references">
+  ## 本地化的 API 参考
+</div>
+
+如果你在多个[语言](/zh/organize/navigation#languages)中使用同一个规范，除非每种语言都有自己的 `directory`，否则所有语言都会链接到相同的页面。要为每种语言生成单独的页面（例如基于翻译后的规范），请为每种语言设置不同的 `directory`。
+
+翻译后的 summary 会生成不同的 slug，因此除非你[使用操作 ID](#use-operation-ids)，否则同一页面在不同语言中的 URL 会不同。
+
+<div id="keep-urls-stable">
+  ## 保持 URL 稳定
+</div>
+
+为避免在规范变化时破坏链接：
+
+- 将 `slug` 设置为 `operationId`，并保持操作 ID 稳定。
+- 保持 tag 名称稳定。使用 `x-group` 更改分组标签而不改变 URL。
+- 对于 URL 永远不能改变的端点，使用 `x-mint.href`。
+- 当 URL 确实发生变化时，从旧 URL 添加[重定向](/zh/create/redirects)。

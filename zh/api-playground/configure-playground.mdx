@@ -1,0 +1,281 @@
+---
+title: "配置 API 试验台"
+sidebarTitle: "配置试验台"
+description: "设置 API 试验台发送请求时使用的基础 URL 和身份验证，选择显示模式，将试验台限制为仅对已登录用户可用，并配置代理。"
+keywords: ["API 试验台", "servers", "基础 URL", "securitySchemes", "身份验证", "OAuth", "scopes", "x-default", "代理", "CORS", "Try it"]
+---
+
+API 试验台会从你的端点页面向你的 API 发送真实请求。要正常工作，它需要一个基础 URL，以及（如果你的 API 需要）一种身份验证方法。两者都来自你的 OpenAPI 规范。显示和网络设置来自 `docs.json` 中的 `api.playground` 对象。
+
+<div id="set-the-base-url">
+  ## 设置基础 URL
+</div>
+
+在 OpenAPI 规范中添加包含 API 基础 URL 的 `servers` 字段。试验台会将每个端点的路径（例如 `/users/{id}`）追加到此 URL 之后。
+
+```json
+{
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ]
+}
+```
+
+如果你列出了多个服务器，读者可以从下拉菜单中选择一个。如果你没有列出任何服务器，试验台将无法发送请求，并以 `simple` 模式显示端点。
+
+如果你的 API 从不同的 URL 提供某些端点，请为某个路径或操作[覆盖 `servers` 字段](https://swagger.io/docs/specification/v3_0/api-host-and-base-path/#overriding-servers)。有关 `servers` 字段的更多信息，请参阅 OpenAPI 文档中的 [API server and base path](https://swagger.io/docs/specification/api-host-and-base-path/)。
+
+<div id="add-authentication">
+  ## 添加身份验证
+</div>
+
+使用 OpenAPI 规范中的 `securitySchemes` 和 `security` 字段定义读者的身份验证方式。试验台会为每个方案添加一个输入框，以便读者在发送请求前输入凭据。
+
+<Steps>
+  <Step title="定义你的身份验证方法。">
+    添加 `securitySchemes` 字段。此示例定义了 bearer 身份验证。
+
+    ```json
+    {
+      "components": {
+        "securitySchemes": {
+          "bearerAuth": {
+            "type": "http",
+            "scheme": "bearer"
+          }
+        }
+      }
+    }
+    ```
+  </Step>
+  <Step title="将身份验证应用到你的端点。">
+    添加 `security` 字段以要求使用该方案。
+
+    ```json
+    {
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+常见的身份验证类型包括：
+
+- [API keys](https://swagger.io/docs/specification/authentication/api-keys/)：用于基于 header、query 或 cookie 的密钥。
+- [Bearer](https://swagger.io/docs/specification/authentication/bearer-authentication/)：用于 JWT 或 OAuth 令牌。
+- [Basic](https://swagger.io/docs/specification/authentication/basic-authentication/)：用于用户名和密码。
+
+如果不同的端点需要不同的身份验证方法，请为某个操作覆盖 `security` 字段。有关更多信息，请参阅 OpenAPI 文档中的 [Authentication](https://swagger.io/docs/specification/authentication/)。
+
+<div id="describe-the-authorization-field">
+  ### 描述授权字段
+</div>
+
+试验台会根据安全方案类型为授权字段生成描述。要将其替换为你自己的文本（例如说明读者在哪里找到密钥），请为安全方案添加 `description`。该描述支持 Markdown，并应用于使用该方案的每个端点。
+
+```json {7}
+{
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Your API key from the [dashboard](https://example.com/dashboard). Send it as `Bearer <key>`."
+      }
+    }
+  }
+}
+```
+
+<div id="prefill-credentials">
+  ### 预填凭据
+</div>
+
+为安全方案添加 `x-default` 扩展，即可在试验台中预填其输入框，例如使用占位符或测试凭据。`x-default` 适用于 `apiKey` 和 `http` bearer 方案。
+
+```json {7}
+{
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "x-default": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+<Warning>
+  任何能够打开你的端点页面的人都可以看到 `x-default` 的值。切勿使用生产环境凭据。
+</Warning>
+
+<div id="show-required-scopes">
+  ### 显示所需的 scopes
+</div>
+
+如果某个操作的 `security` 字段列出了 scopes，端点页面会在授权部分之后的 **Scopes** 部分中显示它们。试验台也会在所选授权选项的输入框下方列出它们。
+
+```json
+{
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.example.com/oauth/token",
+            "scopes": {
+              "users:read": "Read user profiles"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/users": {
+      "get": {
+        "security": [
+          { "apiToken": [] },
+          { "oauth2": ["users:read"] }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Scopes** 部分会列出 `security` 字段中每个选项的 scopes，因此无论读者选择哪个授权选项都能看到它们。在此示例中，即使 `apiToken` 是第一个选项，`users:read` 也会显示。
+
+- scope 描述来自 OAuth 2.0 方案 `flows` 中的 `scopes` 映射。
+- 在 OpenAPI 3.1 中，`apiKey` 和 `http` 要求上的角色列表（例如 `{ "apiKey": ["admin"] }`）也会出现在同一部分。
+- 如果有多个方案需要 scopes，每个 scope 旁边的标签会显示其方案名称。
+
+<div id="choose-a-display-mode">
+  ## 选择显示模式
+</div>
+
+在 `docs.json` 中设置 `api.playground.display`，控制每个端点页面上显示的内容：
+
+- `interactive`（默认）：完整的试验台。
+- `simple`：可复制的端点，不显示试验台。
+- `none`：不显示试验台。
+- `auth`：已登录的读者看到完整的试验台，其他人什么也看不到。请参阅[仅向已登录的读者显示试验台](#show-the-playground-only-to-signed-in-readers)。
+
+```json docs.json
+{
+  "api": {
+    "playground": {
+      "display": "simple"
+    }
+  }
+}
+```
+
+要更改某个端点的模式，请在页面的 frontmatter 中设置 `playground`，对于生成的页面则在 [`x-mint.metadata`](/zh/api-playground/customize-endpoint-pages#override-page-metadata) 中设置。
+
+```mdx
+---
+title: "Delete user"
+openapi: DELETE /users/{id}
+playground: none
+---
+```
+
+<div id="show-the-playground-only-to-signed-in-readers">
+  ## 仅向已登录的读者显示试验台
+</div>
+
+使用 `auth` 显示模式，可以在保持 API 参考公开的同时，只允许已登录的读者发送请求。`auth` 模式要求你的站点启用[身份验证](/zh/deploy/authentication-setup)。
+
+要将试验台限制为特定用户组，请在页面 frontmatter 中添加 `groups`。如果页面没有 `groups`，所有已登录的读者都能看到试验台。
+
+```mdx
+---
+title: "Create user"
+openapi: POST /users
+playground: auth
+groups: ["admin", "developer"]
+public: true
+---
+```
+
+在此示例中，任何人都可以阅读该页面，但只有属于 `admin` 或 `developer` 组的已登录读者才能看到试验台。
+
+对于生成的页面，请在 `x-mint.metadata` 中设置相同的字段：
+
+```json {6-10}
+{
+  "paths": {
+    "/admin/users": {
+      "post": {
+        "summary": "Create admin user",
+        "x-mint": {
+          "metadata": {
+            "playground": "auth",
+            "groups": ["admin"],
+            "public": true
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+<div id="send-requests-through-the-proxy">
+  ## 通过代理发送请求
+</div>
+
+默认情况下，试验台通过 Mintlify 的代理发送请求，因此你的 API 无需接受来自文档域名的跨源请求。
+
+将 `api.playground.proxy` 设置为 `false`，即可让请求直接从读者的浏览器发送到你的 API。如果你的 API 需要代理无法转发的 header，或者请求必须来自读者的浏览器（例如基于 cookie 的身份验证），请这样设置。此时你的 API 必须通过 [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) 允许来自文档域名的跨源请求。
+
+要在直接请求中发送 cookie、授权 header 和 TLS 客户端证书，还需将 `credentials` 设置为 `true`。
+
+```json docs.json
+{
+  "api": {
+    "playground": {
+      "proxy": false,
+      "credentials": true
+    }
+  }
+}
+```
+
+如果你通过自定义域名上的反向代理提供文档，反向代理必须允许对 `/_mintlify/api/request` 路径的 `POST` 请求。启用 Mintlify 代理时，试验台会将每个请求作为 `POST` 发送到该路径。如果你的反向代理无法允许 `POST` 请求，请将 `proxy` 设置为 `false`。
+
+<div id="prefill-example-values">
+  ## 预填示例值
+</div>
+
+要使用 OpenAPI 规范中的示例值填充请求字段，请在 `docs.json` 中将 `api.examples.prefill` 设置为 `true`。
+
+```json docs.json
+{
+  "api": {
+    "examples": {
+      "prefill": true
+    }
+  }
+}
+```
+
+要使用与 schema `default` 不同的值预填某个字段，请为该属性添加 `x-default`。属性上的 `x-default` 仅在 `prefill` 为 `true` 时生效。[安全方案](#prefill-credentials)上的 `x-default` 始终生效。
+
+有关试验台设置的完整列表，请参阅 [API 设置](/zh/organize/settings-api)。
