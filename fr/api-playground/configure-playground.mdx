@@ -1,0 +1,281 @@
+---
+title: "Configurer le playground d'API"
+sidebarTitle: "Configurer le playground"
+description: "Définissez l'URL de base et l'authentification que le playground d'API utilise pour envoyer des requêtes, choisissez un mode d'affichage, réservez le playground aux utilisateurs connectés et configurez le proxy."
+keywords: ["playground d'API", "servers", "URL de base", "securitySchemes", "authentification", "OAuth", "scopes", "x-default", "proxy", "CORS", "Try it"]
+---
+
+Le playground d'API envoie de vraies requêtes à votre API depuis vos pages d'endpoints. Pour fonctionner, il a besoin d'une URL de base et, si votre API l'exige, d'une méthode d'authentification. Les deux proviennent de votre spécification OpenAPI. Les paramètres d'affichage et de réseau proviennent de l'objet `api.playground` de votre `docs.json`.
+
+<div id="set-the-base-url">
+  ## Définir l'URL de base
+</div>
+
+Ajoutez un champ `servers` à votre spécification OpenAPI avec l'URL de base de votre API. Le playground ajoute le chemin de chaque endpoint, comme `/users/{id}`, à cette URL.
+
+```json
+{
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ]
+}
+```
+
+Si vous listez plusieurs serveurs, les lecteurs en choisissent un dans une liste déroulante. Si vous ne listez aucun serveur, le playground ne peut pas envoyer de requêtes et affiche l'endpoint en mode `simple`.
+
+Si votre API sert certains endpoints depuis une autre URL, [remplacez le champ `servers`](https://swagger.io/docs/specification/v3_0/api-host-and-base-path/#overriding-servers) pour un chemin ou une opération. Pour en savoir plus sur le champ `servers`, consultez [API server and base path](https://swagger.io/docs/specification/api-host-and-base-path/) dans la documentation OpenAPI.
+
+<div id="add-authentication">
+  ## Ajouter l'authentification
+</div>
+
+Définissez la manière dont les lecteurs s'authentifient avec les champs `securitySchemes` et `security` de votre spécification OpenAPI. Le playground ajoute un champ de saisie pour chaque schéma afin que les lecteurs puissent saisir leurs identifiants avant d'envoyer une requête.
+
+<Steps>
+  <Step title="Définissez votre méthode d'authentification.">
+    Ajoutez un champ `securitySchemes`. Cet exemple définit une authentification bearer.
+
+    ```json
+    {
+      "components": {
+        "securitySchemes": {
+          "bearerAuth": {
+            "type": "http",
+            "scheme": "bearer"
+          }
+        }
+      }
+    }
+    ```
+  </Step>
+  <Step title="Appliquez l'authentification à vos endpoints.">
+    Ajoutez un champ `security` pour exiger le schéma.
+
+    ```json
+    {
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+Les types d'authentification courants incluent :
+
+- [Clés d'API](https://swagger.io/docs/specification/authentication/api-keys/) : pour les clés transmises dans un en-tête, une requête ou un cookie.
+- [Bearer](https://swagger.io/docs/specification/authentication/bearer-authentication/) : pour les jetons JWT ou OAuth.
+- [Basic](https://swagger.io/docs/specification/authentication/basic-authentication/) : pour un nom d'utilisateur et un mot de passe.
+
+Si différents endpoints exigent des méthodes d'authentification différentes, remplacez le champ `security` pour une opération. Pour plus d'informations, consultez [Authentication](https://swagger.io/docs/specification/authentication/) dans la documentation OpenAPI.
+
+<div id="describe-the-authorization-field">
+  ### Décrire le champ d'autorisation
+</div>
+
+Le playground génère une description pour le champ d'autorisation en fonction du type de schéma de sécurité. Pour la remplacer par votre propre texte, par exemple pour indiquer où les lecteurs trouvent leur clé, ajoutez une `description` au schéma de sécurité. La description prend en charge Markdown et s'applique à chaque endpoint qui utilise le schéma.
+
+```json {7}
+{
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Your API key from the [dashboard](https://example.com/dashboard). Send it as `Bearer <key>`."
+      }
+    }
+  }
+}
+```
+
+<div id="prefill-credentials">
+  ### Préremplir les identifiants
+</div>
+
+Ajoutez l'extension `x-default` à un schéma de sécurité pour préremplir son champ dans le playground, par exemple avec un espace réservé ou un identifiant de test. `x-default` fonctionne sur les schémas `apiKey` et `http` bearer.
+
+```json {7}
+{
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "x-default": "your-api-key-here"
+      }
+    }
+  }
+}
+```
+
+<Warning>
+  Toute personne pouvant ouvrir vos pages d'endpoints peut voir une valeur `x-default`. N'utilisez jamais un identifiant de production.
+</Warning>
+
+<div id="show-required-scopes">
+  ### Afficher les scopes requis
+</div>
+
+Si le champ `security` d'une opération liste des scopes, la page de l'endpoint les affiche dans une section **Scopes** après la section d'autorisation. Le playground les liste aussi sous le champ de l'option d'autorisation sélectionnée.
+
+```json
+{
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      },
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://auth.example.com/oauth/token",
+            "scopes": {
+              "users:read": "Read user profiles"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/users": {
+      "get": {
+        "security": [
+          { "apiToken": [] },
+          { "oauth2": ["users:read"] }
+        ]
+      }
+    }
+  }
+}
+```
+
+La section **Scopes** liste les scopes de chaque option du champ `security`, afin que les lecteurs les voient quelle que soit l'option d'autorisation choisie. Dans cet exemple, `users:read` apparaît même si `apiToken` est la première option.
+
+- Les descriptions des scopes proviennent de la table `scopes` dans les `flows` du schéma OAuth 2.0.
+- Dans OpenAPI 3.1, les listes de rôles des exigences `apiKey` et `http`, comme `{ "apiKey": ["admin"] }`, apparaissent dans la même section.
+- Si plusieurs schémas exigent des scopes, une étiquette à côté de chaque scope indique le nom de son schéma.
+
+<div id="choose-a-display-mode">
+  ## Choisir un mode d'affichage
+</div>
+
+Définissez `api.playground.display` dans votre `docs.json` pour contrôler ce qui apparaît sur chaque page d'endpoint :
+
+- `interactive` (par défaut) : le playground complet.
+- `simple` : un endpoint copiable sans playground.
+- `none` : aucun playground.
+- `auth` : le playground complet pour les lecteurs connectés, et rien pour les autres. Consultez [Afficher le playground uniquement aux lecteurs connectés](#show-the-playground-only-to-signed-in-readers).
+
+```json docs.json
+{
+  "api": {
+    "playground": {
+      "display": "simple"
+    }
+  }
+}
+```
+
+Pour changer le mode d'un endpoint, définissez `playground` dans le frontmatter de la page, ou dans [`x-mint.metadata`](/fr/api-playground/customize-endpoint-pages#override-page-metadata) pour une page générée.
+
+```mdx
+---
+title: "Delete user"
+openapi: DELETE /users/{id}
+playground: none
+---
+```
+
+<div id="show-the-playground-only-to-signed-in-readers">
+  ## Afficher le playground uniquement aux lecteurs connectés
+</div>
+
+Utilisez le mode d'affichage `auth` pour garder votre référence d'API publique tout en ne permettant qu'aux lecteurs connectés d'envoyer des requêtes. Le mode `auth` nécessite une [authentification](/fr/deploy/authentication-setup) sur votre site.
+
+Pour limiter le playground à des groupes d'utilisateurs précis, ajoutez `groups` au frontmatter de la page. Si la page n'a pas de `groups`, tous les lecteurs connectés voient le playground.
+
+```mdx
+---
+title: "Create user"
+openapi: POST /users
+playground: auth
+groups: ["admin", "developer"]
+public: true
+---
+```
+
+Dans cet exemple, tout le monde peut lire la page, mais seuls les lecteurs connectés des groupes `admin` ou `developer` voient le playground.
+
+Pour les pages générées, définissez les mêmes champs dans `x-mint.metadata` :
+
+```json {6-10}
+{
+  "paths": {
+    "/admin/users": {
+      "post": {
+        "summary": "Create admin user",
+        "x-mint": {
+          "metadata": {
+            "playground": "auth",
+            "groups": ["admin"],
+            "public": true
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+<div id="send-requests-through-the-proxy">
+  ## Envoyer les requêtes via le proxy
+</div>
+
+Par défaut, le playground envoie les requêtes via le proxy de Mintlify, de sorte que votre API n'a pas besoin d'accepter les requêtes cross-origin provenant de votre domaine de documentation.
+
+Définissez `api.playground.proxy` sur `false` pour envoyer les requêtes directement depuis le navigateur du lecteur vers votre API. Faites-le si votre API exige des en-têtes que le proxy ne peut pas transmettre, ou si les requêtes doivent provenir du navigateur du lecteur, par exemple pour une authentification basée sur les cookies. Votre API doit alors autoriser les requêtes cross-origin depuis votre domaine de documentation avec [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
+
+Pour envoyer des cookies, des en-têtes d'autorisation et des certificats client TLS avec les requêtes directes, définissez aussi `credentials` sur `true`.
+
+```json docs.json
+{
+  "api": {
+    "playground": {
+      "proxy": false,
+      "credentials": true
+    }
+  }
+}
+```
+
+Si vous servez votre documentation via un reverse proxy sur un domaine personnalisé, le reverse proxy doit autoriser les requêtes `POST` vers le chemin `/_mintlify/api/request`. Lorsque le proxy de Mintlify est activé, le playground envoie chaque requête sous forme de `POST` vers ce chemin. Si votre reverse proxy ne peut pas autoriser les requêtes `POST`, définissez `proxy` sur `false`.
+
+<div id="prefill-example-values">
+  ## Préremplir des valeurs d'exemple
+</div>
+
+Pour remplir les champs de la requête avec les valeurs d'exemple de votre spécification OpenAPI, définissez `api.examples.prefill` sur `true` dans votre `docs.json`.
+
+```json docs.json
+{
+  "api": {
+    "examples": {
+      "prefill": true
+    }
+  }
+}
+```
+
+Pour préremplir un champ avec une valeur différente de son `default` dans le schéma, ajoutez `x-default` à la propriété. `x-default` sur une propriété ne prend effet que lorsque `prefill` vaut `true`. `x-default` sur un [schéma de sécurité](#prefill-credentials) prend toujours effet.
+
+Pour la liste complète des paramètres du playground, consultez [Paramètres d'API](/fr/organize/settings-api).
