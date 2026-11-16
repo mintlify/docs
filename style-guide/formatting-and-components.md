@@ -15,6 +15,7 @@ Google's defaults apply: [headings](https://developers.google.com/style/headings
 
 - Sentence case, no ending punctuation.
 - Start at H2. H1 is the page title.
+- Name what the section covers. Don't use headings that only label a part of the page, such as "Overview," "Introduction," "Summary," or "Conclusion."
 
 ## Text formatting
 
