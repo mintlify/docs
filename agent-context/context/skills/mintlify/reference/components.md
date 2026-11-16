@@ -6,7 +6,7 @@ Full syntax and props for all Mintlify components.
 
 All built-in components accept a `className` prop (string) except Banner, MDX, Visibility, RequestExample, ResponseExample, Color.Row, and Color.Item. Mintlify merges your classes with the component's own styles. Use Tailwind CSS v3 classes, including arbitrary values such as `w-[350px]`, or class names defined in a custom CSS file. Write class names out in full. Mintlify generates CSS only for class names found in the page source, so runtime-assembled names like `` bg-${color}-500 `` produce no CSS. On `<Tab>`, `className` styles the tab's content panel, not its label in the tab bar.
 
-Component `title` props (for example on Accordion, Step, and Tab) support inline Markdown formatting such as `**bold**`, `_italic_`, and `` `code` ``.
+Component `title` props (for example on Accordion, Step, and Tab) support inline Markdown formatting such as `**bold**`, `_italic_`, and `` `code` ``. Only Step titles render links; other titles show link text as plain text.
 
 ## Callouts
 
@@ -137,7 +137,7 @@ Steps props:
 - `titleSize` (string, default: "p"): Size of all step titles: `"p"`, `"h2"`, `"h3"`, or `"h4"`.
 
 Step props:
-- `title` (string, required): Step title. Supports inline Markdown.
+- `title` (string, required): Step title. Supports inline Markdown, including links such as `[quickstart](/quickstart)`.
 - `icon` (string): Icon name.
 - `iconType` (string): Font Awesome style.
 - `stepNumber` (number): Override automatic numbering.
