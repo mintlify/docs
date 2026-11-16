@@ -27,7 +27,7 @@ In general, Mintlify product names are lowercase if they are terms commonly used
 | automations | workflows | Automations were previously called workflows |
 | project | deployment | Projects were previously called deployments |
 | preview deployment | preview, preview link | |
-| Starter, Pro, Enterprise | Growth, Hobby, free plan | Current plan names. |
+| Free, Pro, Enterprise | Growth, Hobby | Current plan names. |
 | sign in, sign in to | log in, login (as a verb), sign into | |
 
 ## Technical terms
