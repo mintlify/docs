@@ -22,3 +22,5 @@ This guide is for people and agents writing or editing content in this repo. It 
 Open a PR that edits the relevant file. If a rule should be enforced, update or add the matching Vale rule in `.vale/styles/Mintlify/` in the same PR. Narrow a Vale rule rather than rewrite correct prose to satisfy a rule.
 
 Portions adapted from the Google developer documentation style guide are used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+Some AI-writing tells are based on patterns from [avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing).
