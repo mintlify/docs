@@ -1,0 +1,126 @@
+---
+title: "URLs y títulos de endpoints"
+description: "Descubre cómo Mintlify crea la URL y el título de cada página de endpoint generada desde OpenAPI, y mantén las URLs estables cuando cambie tu especificación."
+keywords: ["URL de endpoint", "slug", "operationId", "x-mint href", "título de página", "summary", "directory", "redirecciones", "URLs estables"]
+---
+
+Mintlify crea la URL y el título de cada página de endpoint generada a partir de tu especificación OpenAPI. Si editas un summary o un tag, la URL de la página cambia y los enlaces existentes a ella se rompen.
+
+<div id="how-urls-are-built">
+  ## Cómo se crean las URLs
+</div>
+
+La URL de una página generada tiene tres partes:
+
+```text
+/<directory>/<tag>/<slug>
+```
+
+Por ejemplo, una operación con el tag `users` y el summary `Get user` obtiene la URL `/api-reference/users/get-user`.
+
+- **Directory**: el `directory` que configuras en el campo `openapi` de tu `docs.json`, en minúsculas. El valor predeterminado es `api-reference`.
+- **Tag**: el `name` del tag de la operación. Las etiquetas de `x-group`, `x-displayName` o el `summary` de un tag 3.2 no cambian la URL. Si una operación no tiene tags, la URL no tiene la parte del tag. Para saber qué tag usa Mintlify cuando una operación tiene varios, consulta [Anidar grupos con jerarquías de tags](/es/api-playground/organize-endpoints#nest-groups-with-tag-hierarchies). Los tags padre de OpenAPI 3.2 no agregan partes a la URL.
+- **Slug**: el `summary` de la operación, convertido para usarse en una URL. Si la operación no tiene summary, Mintlify usa el método HTTP y la ruta. Por ejemplo, `GET /users/{id}/posts` se convierte en `get-users-posts`.
+
+Para convertir un summary o un nombre de tag, Mintlify reemplaza los espacios por guiones, elimina `{`, `}`, `(`, `)`, `,`, `.`, `'` y `/`, y convierte el resultado a minúsculas. Otros caracteres, como `?`, `&`, `:` y las letras que no son ASCII, permanecen en la URL. Para obtener URLs predecibles, usa summaries y nombres de tags formados por letras, números y espacios, o [usa IDs de operación](#use-operation-ids).
+
+<div id="duplicate-urls">
+  ### URLs duplicadas
+</div>
+
+Si dos endpoints del mismo grupo producen la misma URL, Mintlify agrega `-1`, `-2`, y así sucesivamente, a los posteriores. En algunos casos, una página reemplaza a la otra sin mostrar ningún error:
+
+- Dos especificaciones que comparten un `directory`, o la misma especificación usada en dos lugares de tu navegación.
+- Un endpoint con [`x-hidden`](/es/api-playground/organize-endpoints#hide-or-exclude-endpoints) que produce la misma URL que otro endpoint.
+
+Asigna a cada endpoint un summary único dentro de su tag y asigna a cada especificación su propio `directory`.
+
+<div id="use-operation-ids">
+  ## Usar IDs de operación
+</div>
+
+Configura `slug` como `operationId` para crear el slug a partir del `operationId` de cada operación en lugar de su summary. Así podrás editar los summaries sin cambiar las URLs.
+
+```json docs.json {5}
+{
+  "group": "Actions API",
+  "openapi": {
+    "source": "/path/to/openapi.json",
+    "slug": "operationId"
+  }
+}
+```
+
+Mintlify convierte el ID a kebab case, así que `getActions` se convierte en `get-actions` y `create_action` en `create-action`. Mintlify elimina cualquier carácter que no sea una letra o un número ASCII. Las operaciones sin `operationId` usan el summary. Las partes del directory y del tag no cambian.
+
+<Warning>
+  Cambiar `slug` en un sitio existente cambia la URL de todas las páginas de endpoints generadas. Agrega [redirecciones](/es/create/redirects) desde las URLs anteriores para que los enlaces existentes sigan funcionando.
+</Warning>
+
+<div id="set-a-url-for-one-endpoint">
+  ## Definir la URL de un endpoint
+</div>
+
+Agrega `x-mint.href` a una operación para definir su URL completa. La URL reemplaza el directory, el tag y el slug.
+
+```json {6-8}
+{
+  "paths": {
+    "/legacy-endpoint": {
+      "get": {
+        "summary": "Legacy endpoint",
+        "x-mint": {
+          "href": "/deprecated-endpoints/legacy-endpoint"
+        }
+      }
+    }
+  }
+}
+```
+
+Mintlify convierte la URL a minúsculas y elimina todo lo que va después del último `.` del segmento final, así que `/reference/v1.2` se convierte en `/reference/v1`. No uses puntos en el segmento final.
+
+<div id="how-titles-are-set">
+  ## Cómo se definen los títulos
+</div>
+
+El título de una página generada es el `summary` de la operación. Si no hay summary, Mintlify crea el título a partir del slug de la URL. Para definir un título o una etiqueta de barra lateral distintos, usa [`x-mint.metadata`](/es/api-playground/customize-endpoint-pages#override-page-metadata):
+
+```json {5-10}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "sidebarTitle": "List users"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Mintlify crea los títulos de las páginas de webhooks a partir del slug de la URL, por lo que el título pierde las mayúsculas y la puntuación del summary. Por ejemplo, el summary `New PR Opened` da el título `New pr opened`. Configura `x-mint.metadata.title` para conservar el formato del summary.
+
+<div id="localized-api-references">
+  ## Referencias de API localizadas
+</div>
+
+Si usas la misma especificación en más de un [idioma](/es/organize/navigation#languages), todos los idiomas enlazan a las mismas páginas, a menos que cada uno tenga su propio `directory`. Para generar páginas separadas para cada idioma, por ejemplo a partir de una especificación traducida, configura un `directory` distinto para cada idioma.
+
+Los summaries traducidos producen slugs distintos, por lo que la URL de una página difiere entre idiomas, a menos que [uses IDs de operación](#use-operation-ids).
+
+<div id="keep-urls-stable">
+  ## Mantener las URLs estables
+</div>
+
+Para evitar romper enlaces cuando cambie tu especificación:
+
+- Configura `slug` como `operationId` y mantén estables los IDs de operación.
+- Mantén estables los nombres de los tags. Usa `x-group` para cambiar la etiqueta de un grupo sin cambiar las URLs.
+- Usa `x-mint.href` para los endpoints cuya URL nunca debe cambiar.
+- Cuando una URL cambie, agrega una [redirección](/es/create/redirects) desde la URL anterior.
