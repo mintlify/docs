@@ -90,6 +90,26 @@ Verbs like create, send, return, sync, and apply need an object that says what's
 - Instead of: "`mint broken-links` checks every page and reports."
 - Write: "`mint broken-links` checks every page and reports each broken link it finds."
 
+### Use one term for one thing
+
+Once you name something, keep using that name on the page. Switching between synonyms, such as "project," "deployment," and "site" for the same thing, makes readers wonder whether they're different things. Use the terms in the [word list](word-list.md).
+
+### Use "is" and "has"
+
+Don't replace "is" or "has" with a fancier verb that adds no meaning, such as "serves as," "features," "boasts," or "represents."
+
+- Instead of: "The `navigation` field serves as the source of truth for your sidebar."
+- Write: "The `navigation` field defines your sidebar."
+
+### Describe the product as it is
+
+Docs describe how the product works now, not how it changed. Agents write right after they make an edit, so their drafts often narrate the change: "now supports," "no longer requires," "was added to replace." Readers who never saw the old behavior don't need it.
+
+- Instead of: "The CLI now supports custom ports, so you no longer need to stop other servers first."
+- Write: "Use `--port` to run the preview on a different port."
+
+The changelog and migration guides describe changes, so this rule doesn't apply to them.
+
 ## Phrases to cut
 
 Vale flags these as suggestions with `.vale/styles/Mintlify/CutPhrases.yml`. Keep the two lists in sync.
@@ -97,6 +117,9 @@ Vale flags these as suggestions with `.vale/styles/Mintlify/CutPhrases.yml`. Kee
 - Promotional: "rich," "breathtaking," "seamless," "powerful," "stands as a testament," "plays a vital role."
 - Editorializing: "it's important to note," "this article will," "in conclusion."
 - Filler transitions: "moreover," "furthermore," "additionally."
+- Hollow intensifiers: "genuinely," "truly," and "actually" when it only adds emphasis. Keep "actually" when it corrects something the reader expects.
+- Reader-steering openers: "notably," "importantly," "interestingly," "to summarize," "in summary." State the fact.
+- Stacked hedges: "could potentially," "may eventually." Keep one qualifier if the sentence needs it.
 - Vague attribution: "experts say," "industry reports suggest." Cite a source or cut it.
 - Undue emphasis on routine things.
 - Exclamation points and slang.
@@ -107,6 +130,9 @@ A lot of our first drafts come from agents, so reviewers should look for these s
 
 - Grouping things in threes when the content doesn't need it
 - Negative parallelisms: "It's not X, it's Y."
+- Negation chains and trailing negations: "No config, no setup, no waiting," or "The options come from the selected item, no guessing." Say what the thing does.
+- A first sentence that repeats the heading above it, such as "Speed matters" under "## Performance"
+- Filling a missing fact with a hedge, such as "typically," "usually," or "is designed to," when the writer didn't check what the product does. Verify the fact or cut the sentence.
 - Trailing "-ing" clauses that add no meaning: "..., ensuring a smooth experience."
 - Summarizing sentences at the end of a section that restate what the reader just read
 - Bolded lead-ins on every bullet
