@@ -12,11 +12,29 @@ Self-hosting runs Mintlify inside your own cloud account or data center, so your
 
 Every self-hosted deployment is a scoped engagement with your account team, not a self-serve install. This page describes what you provision, how the deployment runs, and the tradeoffs against cloud hosting so you can evaluate self-hosting before committing to it.
 
+## Choose between cloud and self-hosted
+
+Cloud hosting is the right fit for most teams, including teams with strict security requirements. It has every feature, it's ready the day you sign, and it runs on Mintlify's global edge network. Before you commit to self-hosting, check whether Mintlify's security documentation answers your security team's questions. Your account team can share the [trust center](https://security.mintlify.com), audit reports, and certifications, and can bring Mintlify's security team into the review.
+
+Self-hosting fits when a requirement can't be met any other way, for example a policy that all vendor software runs inside your own infrastructure. In exchange, you operate the infrastructure, onboarding takes longer, and some features are cloud-only. See [Features](#features) for what's available.
+
+## Deployment models
+
+| Model | Who operates it | Where it runs |
+| --- | --- | --- |
+| [Static export](/api/static-export/overview) | You serve the files | Any static host, including air-gapped networks. No platform to run |
+| Bring your own cloud | Mintlify, with access you grant | Your account on AWS, Azure, or Google Cloud |
+| Self-managed | Your team, with releases and support from Mintlify | Your Kubernetes cluster, in a cloud account or your own data center |
+| Managed on-premises | Mintlify and your team together, under a statement of work | Your data center or private cloud |
+
+The more access Mintlify has to the environment, the faster the deployment goes and the more features it can run. Bring your own cloud on AWS is the closest to the cloud-hosted product.
+
 ## Platform support
 
 | Platform | Method |
 | --- | --- |
 | <Icon icon="/images/logos/aws-mark.svg" className="mr-2 my-2" /> Amazon Web Services | AWS Cloud Development Kit (CDK) app |
+| <Icon icon="/images/logos/aws-mark.svg" className="mr-2 my-2" /> Amazon EKS | Helm chart. Recommended for the widest feature support |
 | <Icon icon="/images/logos/azure.svg" className="mr-2 my-2" /> Microsoft Azure | Helm chart on Azure Kubernetes Service (AKS) |
 | <Icon icon="/images/logos/gcp.svg" className="mr-2 my-2" /> Google Cloud | Helm chart on Google Kubernetes Engine (GKE) |
 | <Icon icon="/images/logos/oracle-mark.svg" className="mr-2 my-2" /> Oracle Cloud | Helm chart on Oracle Container Engine for Kubernetes (OKE) |
@@ -29,12 +47,14 @@ Authoring works the same way in both hosting models. Your team maintains content
 
 | Area | Cloud-hosted | Self-hosted |
 | --- | --- | --- |
-| Initial setup | Same day | One-time deployment engagement with your account team, typically a few weeks. |
+| Initial setup | Same day | One-time deployment engagement with your account team. Plan for two to three months. It can take a few weeks when access, approvals, and resources on your side are ready early |
 | Infrastructure | Mintlify operates everything | You operate the cluster, network, and data stores. Mintlify ships versioned releases with upgrade guides and supports the application tier |
 | Platform updates | Continuous, automatic | Versioned releases that you review and deploy on your own schedule |
 | Data boundary | Processed in Mintlify's cloud | Content, builds, analytics, and logs stay inside your network with no third-party egress |
-| AI features | On by default | Ship disabled until your security or AI governance team approves them. Can run against your own model endpoint, your own API key, or Mintlify cloud |
-| Integrations | Full catalog | Integrations that depend on Mintlify cloud services are unavailable |
+| AI features | On by default | Ship disabled until your security or AI governance team approves them. Run against a model you provide, such as Amazon Bedrock in your AWS account or your own API key |
+| Integrations | Full catalog | Google Drive and Google Docs, through an OAuth client you own. Other integrations are cloud-only |
+| Edge delivery | Mintlify's global edge network with caching and bot protection | Your own CDN and WAF. Page speed and agent readiness depend on how you configure them |
+| New features | Available as they ship | Arrive in later versioned releases. Some cloud features aren't available self-hosted |
 | Monitoring | Managed by Mintlify | You connect your own observability stack |
 
 Self-hosted deployments usually start narrow and expand. A common path is to start with public documentation, then add authenticated content, the web editor, and AI features as you complete security reviews.
@@ -55,9 +75,21 @@ Everything core to authoring, building, and serving documentation ships in a sel
 | Third-party analytics and support widgets | <Icon icon="circle-check" color="#16a34a" /> | Configured with your own keys, served from the docs site |
 | Static export | <Icon icon="circle-check" color="#16a34a" /> | Self-contained bundles for air-gapped serving |
 | Versioned releases and rollback | <Icon icon="circle-check" color="#16a34a" /> | Each release pins image versions. Roll back by redeploying the previous version |
-| AI assistant and agent | Optional | Ships disabled. Runs against your own model endpoint, your own API key, or Mintlify cloud |
+| Custom React components | <Icon icon="circle-check" color="#16a34a" /> | [React components](/customize/react-components) in your snippets. Client-side code only |
+| AI assistant and agent | Optional | Ships disabled. Runs against a model you provide |
+| [Automations](/automations) | Optional | Scheduled and manual runs against GitHub repositories. The agent runs in an isolated sandbox inside your cluster, on a model you provide |
+| Slack notifications | Optional | Send-only. Automations post to channels and DMs with a Slack bot token you provide |
+| [Integrations](/automations/integrations) | Optional | Google Drive and Google Docs, read-only unless you turn on writes |
 
-Only smaller surfaces that depend on Mintlify-operated services are cloud-only: the Slack app, third-party connectors for agent automations, and SDK generation integrations.
+Some features depend on services that Mintlify operates and are only available on cloud hosting:
+
+| Feature | Notes |
+| --- | --- |
+| [Autopilot](/autopilot) | Use [automations](/automations) with your own prompts instead |
+| [Third-party libraries](/customize/third-party-libraries) | npm packages aren't installed in self-hosted builds. Build components as snippets instead |
+| Slack agent | Mentioning the agent in Slack, interactive buttons, and automations triggered by Slack messages |
+| Other integrations | Integrations besides Google Drive and Google Docs |
+| SDK generation integrations | |
 
 ## Architecture
 
@@ -150,6 +182,7 @@ As a starting point, a production deployment runs on roughly 45 to 60 vCPU, 160 
   <Tab title="Kubernetes" icon="/images/logos/kubernetes.svg">
     Kubernetes deployments use the Mintlify enterprise Helm chart and run on any certified Kubernetes cluster. The same chart covers managed Kubernetes on any cloud and on-premises clusters:
 
+    - **AWS**: EKS, with Amazon Bedrock for AI features. Supports the widest set of features.
     - **Azure**: AKS, with Microsoft Entra ID for SSO and Azure managed data services.
     - **Google Cloud**: GKE, with Cloud SQL, Memorystore, and Cloud Storage.
     - **Oracle Cloud**: OKE, with OCI managed databases and OCI Object Storage.
