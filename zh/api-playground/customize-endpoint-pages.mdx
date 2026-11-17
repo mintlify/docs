@@ -1,0 +1,197 @@
+---
+title: "自定义端点页面"
+description: "使用 x-mint 扩展更改从 OpenAPI 生成的端点页面的元数据、内容和参数显示，或为单个端点和 schema 创建 MDX 页面。"
+keywords: ["x-mint", "x-mint metadata", "x-mint content", "参数标记", "openapi frontmatter", "openapi-schema", "数据模型", "端点 MDX 页面"]
+---
+
+生成的端点页面会从你的 OpenAPI 规范中获取标题、描述、参数和响应。要更改页面显示的内容，你可以：
+
+- 在规范中为该操作添加 `x-mint` 扩展。页面仍然是自动生成的，更改与规范保存在一起。
+- 为该端点创建 MDX 页面。适用于少数需要自定义布局的页面，或在单个页面上试验更改。
+
+要更改页面的 URL，请参阅[端点 URL 和标题](/zh/api-playground/endpoint-urls)。
+
+<div id="override-page-metadata">
+  ## 覆盖页面元数据
+</div>
+
+为操作添加 `x-mint.metadata` 即可覆盖页面的 frontmatter。你可以使用 [MDX frontmatter](/zh/organize/pages) 中除 `openapi` 以外的任何有效字段。
+
+```json {7-14}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "description": "Retrieve a list of users",
+        "x-mint": {
+          "metadata": {
+            "title": "List all users",
+            "sidebarTitle": "List users",
+            "description": "Fetch paginated user data with filtering options",
+            "og:title": "Display a list of users"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+使用 `x-mint.metadata` 为单个端点设置[试验台显示](/zh/api-playground/configure-playground#choose-a-display-mode)、[访问组](/zh/api-playground/configure-playground#show-the-playground-only-to-signed-in-readers)或侧边栏中的 `tag` 标记。
+
+<div id="add-content-to-a-page">
+  ## 向页面添加内容
+</div>
+
+使用 `x-mint.content` 在生成的 API 文档之前添加 Markdown 和 MDX 内容。该内容支持所有 Mintlify 组件。
+
+```json {6-8}
+{
+  "paths": {
+    "/users": {
+      "post": {
+        "summary": "Create user",
+        "x-mint": {
+          "content": "## Prerequisites\n\nThis endpoint requires admin privileges and has rate limiting.\n\n<Note>User emails must be unique across the system.</Note>"
+        }
+      }
+    }
+  }
+}
+```
+
+<div id="collapse-playground-fields">
+  ## 折叠试验台字段
+</div>
+
+要让试验台中的嵌套对象字段默认折叠，请在操作上将 `x-mint.playground.expand` 设置为 `false`。Authorization、Headers、Query、Path 和 Body 部分以及顶层请求体对象保持展开，读者只需展开他们需要的嵌套字段。默认情况下，对象字段是展开的。
+
+```json {6-10}
+{
+  "paths": {
+    "/users": {
+      "get": {
+        "summary": "Get users",
+        "x-mint": {
+          "playground": {
+            "expand": false
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+要控制所有端点中可选字段的显示方式，请在 `docs.json` 中使用 [`api.optional`](/zh/organize/settings-api)。
+
+<div id="add-parameter-pills">
+  ## 添加参数标记
+</div>
+
+在任意 schema 上使用 `x-mint.pre` 和 `x-mint.post` 为参数添加自定义标记。`pre` 中的标记显示在参数名称之前，`post` 中的标记显示在参数名称之后，与 `required`、`read-only` 和 `write-only` 等内置标记并列。数组中的每个字符串都会成为一个单独的标记。
+
+```json {7-10}
+{
+  "components": {
+    "schemas": {
+      "User": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "x-mint": {
+              "pre": ["PII"],
+              "post": ["indexed", "unique"]
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+要在每个具有某字段的参数上将该字段显示为标记，请在 `docs.json` 的 `api.params.post` 中列出该字段的键：
+
+```json docs.json
+{
+  "api": {
+    "params": {
+      "post": ["nullable", "x-internal"]
+    }
+  }
+}
+```
+
+使用此配置后，像 `{ "type": "string", "nullable": true, "x-internal": "admin" }` 这样的属性会在名称旁边显示 `nullable` 和 `admin` 标记。post 标记按以下顺序显示：内置标记，然后是 `api.params.post` 标记，最后是各属性的 `x-mint.post` 标记。
+
+<div id="create-mdx-pages-for-endpoints">
+  ## 为端点创建 MDX 页面
+</div>
+
+如果你希望完全掌控某个页面，同时仍使用自动生成的参数和响应，请为该端点创建 MDX 页面。将 frontmatter 字段 `openapi` 设置为该页面所记录的操作。
+
+<CodeGroup>
+
+```mdx Example
+---
+title: "Get users"
+description: "Returns all plants from the system that the user has access to"
+openapi: "/path/to/openapi-1.json GET /users"
+deprecated: true
+version: "1.0"
+---
+```
+
+```mdx Format
+---
+title: "title of the page"
+description: "description of the page"
+openapi: openapi-file-path method path
+deprecated: boolean (not required)
+version: "version-string" (not required)
+---
+```
+
+</CodeGroup>
+
+`openapi` 的值必须是引用单个端点的字符串。如果你将其设置为端点列表或其他非字符串值，部署将失败。方法和路径必须与你的 OpenAPI 规范完全匹配。
+
+像添加其他页面一样将该页面添加到导航中。不要在导航中再列出同一个操作（例如 `"GET /users"`）。
+
+<Warning>
+  **当仓库中有多个 OpenAPI 规范时，请始终包含规范的文件路径。**
+
+  Mintlify 会上传文档仓库中的每个 OpenAPI 规范，即使 `docs.json` 没有引用它。如果 MDX 页面使用 `openapi: "METHOD /path"` 而没有文件路径，Mintlify 会在所有已上传的规范中查找匹配的操作。如果多个规范包含相同的方法和路径，则按文件名字母顺序的第一个匹配项为准。
+
+  为避免错误匹配，请在 frontmatter 中包含文件路径，改为从 `docs.json` 生成页面，或删除不再需要的规范。
+</Warning>
+
+要为规范中的每个端点创建 MDX 文件，请使用 Mintlify [scraper](https://www.npmjs.com/package/@mintlify/scraping)。添加 `-o` 选择输出文件夹。如果不添加，文件会生成在当前目录中。
+
+```bash
+npx @mintlify/scraping@latest openapi-file <path-to-openapi-file> -o <folder-name>
+```
+
+要将现有的 MDX 端点页面改回自动生成的页面，请参阅[将 MDX API 页面迁移到 OpenAPI](/zh/guides/migrating-from-mdx)。
+
+<div id="create-pages-for-data-models">
+  ## 为数据模型创建页面
+</div>
+
+使用 frontmatter 字段 `openapi-schema`，为规范 `components.schemas` 中的 schema 创建页面。
+
+```mdx
+---
+openapi-schema: OrderItem
+---
+```
+
+如果多个规范中的 schema 同名，请包含文件路径：
+
+```mdx
+---
+openapi-schema: en-schema.json OrderItem
+---
+```

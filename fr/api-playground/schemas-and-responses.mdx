@@ -1,0 +1,330 @@
+---
+title: "Décrire les schémas et les réponses"
+sidebarTitle: "Schémas et réponses"
+description: "Documentez des schémas flexibles, des champs conditionnels, des téléversements de fichiers, plusieurs exemples de réponse, des réponses en streaming, des webhooks et des callbacks dans votre spécification OpenAPI."
+keywords: ["oneOf", "anyOf", "allOf", "composition de schémas", "exigences conditionnelles", "exemples de réponse", "téléversement de fichiers", "multipart", "streaming", "webhooks", "callbacks"]
+---
+
+Les pages d'endpoints et le playground d'API affichent tout ce que décrit votre spécification OpenAPI. Cette page couvre les parties d'une spécification qui modifient la façon dont Mintlify affiche les requêtes et les réponses : schémas composés, champs conditionnels, téléversements de fichiers, exemples et types de contenu de réponse, webhooks et callbacks.
+
+<div id="combine-schemas">
+  ## Combiner des schémas
+</div>
+
+OpenAPI fournit des mots-clés pour combiner des schémas :
+
+- `allOf` : combine plusieurs schémas, par exemple pour fusionner des objets ou étendre un schéma de base. Fonctionne comme un opérateur `and`.
+- `anyOf` : accepte les données correspondant à l'un des schémas fournis. Fonctionne comme un opérateur `or`.
+- `oneOf` : accepte les données correspondant à exactement un des schémas fournis. Fonctionne comme un opérateur `exclusive-or`.
+
+Mintlify traite `oneOf` et `anyOf` de manière identique et ne prend pas en charge le mot-clé `not`. Pour les spécifications détaillées de ces mots-clés, consultez [oneOf, anyOf, allOf, not](https://swagger.io/docs/specification/data-models/oneof-anyof-allof-not/) dans la documentation OpenAPI.
+
+<div id="merge-objects-with-allof">
+  ### Fusionner des objets avec `allOf`
+</div>
+
+Lorsque vous combinez deux schémas d'objet avec `allOf`, Mintlify fusionne les propriétés des deux en un seul objet. C'est utile avec les [composants](https://swagger.io/docs/specification/components/) réutilisables d'OpenAPI.
+
+```yaml
+org_with_users:
+  allOf:
+    - $ref: '#/components/schemas/Org'
+    - type: object
+      properties:
+        users:
+          type: array
+          description: An array containing all users in the organization
+# ...
+components:
+  schemas:
+    Org:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the organization
+```
+
+<ParamField body="org_with_users" type="object">
+  <Expandable>
+    <ParamField body="id" type="string">
+      L'ID de l'organisation
+    </ParamField>
+    <ParamField body="users" type="object[]">
+      Un tableau contenant tous les utilisateurs de l'organisation
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<div id="offer-options-with-oneof-and-anyof">
+  ### Proposer des options avec `oneOf` et `anyOf`
+</div>
+
+Lorsque vous utilisez `oneOf` ou `anyOf`, les options s'affichent dans un conteneur à onglets. Indiquez un champ `title` dans chaque sous-schéma pour nommer les onglets. Par exemple, voici comment afficher deux types d'adresses de livraison :
+
+```yaml
+delivery_address:
+  oneOf:
+    - title: StreetAddress
+      type: object
+      properties:
+        address_line_1:
+          type: string
+          description: The street address of the recipient
+        # ...
+    - title: POBox
+      type: object
+      properties:
+        box_number:
+          type: string
+          description: The number of the PO Box
+        # ...
+```
+
+<ParamField body="delivery_address" type="object">
+  <div className="mt-4 rounded-xl border border-gray-100 px-4 pb-4 pt-2 dark:border-white/10">
+    <Tabs>
+      <Tab title="StreetAddress">
+        <ParamField body="address_line_1" type="string">
+          L'adresse postale du domicile
+        </ParamField>
+      </Tab>
+      <Tab title="POBox">
+        <ParamField body="box_number" type="string">
+          Le numéro de la boîte postale
+        </ParamField>
+      </Tab>
+    </Tabs>
+  </div>
+</ParamField>
+
+Les champs de type `any` ou `undefined` s'affichent de la même manière que les schémas `oneOf`, avec un sélecteur qui permet aux utilisateurs de choisir une forme concrète avant d'envoyer une requête.
+
+<div id="conditional-requirements">
+  ## Exigences conditionnelles
+</div>
+
+Dans OpenAPI 3.1, vous pouvez rendre une propriété obligatoire uniquement dans certains cas avec les mots-clés `if`, `then`, `else`, `dependentRequired` et `dependentSchemas`. Mintlify lit ces mots-clés et étiquette chaque champ concerné sur la page de l'endpoint avec une pastille **required** suivie de sa condition.
+
+Par exemple, ce schéma exige un numéro de carte pour les paiements par carte, un numéro de compte pour tous les autres moyens de paiement, et un nom d'entreprise lorsque la requête inclut un identifiant fiscal :
+
+```yaml
+Payment:
+  type: object
+  required:
+    - method
+  properties:
+    method:
+      type: string
+      enum: [card, bank_transfer]
+    card_number:
+      type: string
+    account_number:
+      type: string
+    tax_id:
+      type: string
+    company_name:
+      type: string
+  if:
+    properties:
+      method:
+        const: card
+  then:
+    required:
+      - card_number
+  else:
+    required:
+      - account_number
+  dependentRequired:
+    tax_id:
+      - company_name
+```
+
+La page de l'endpoint étiquette ces champs :
+
+- `card_number` : obligatoire si `method` = `card`
+- `account_number` : obligatoire sauf si `method` = `card`
+- `company_name` : obligatoire si `tax_id` est défini
+
+Mintlify résume les conditions qui testent des valeurs précises de propriétés sœurs avec `const` ou `enum`, ou leur présence avec `required`. Si une condition est trop complexe pour être résumée, le champ affiche à la place une pastille **conditionally required**.
+
+<Tip>
+  Un test de propriété dans `if` réussit aussi lorsque la propriété est absente. Pour obtenir une étiquette précise, rendez la propriété testée obligatoire, dans la liste `required` de l'objet ou dans la liste `required` du schéma `if`. Sinon, le champ affiche la pastille **conditionally required**.
+</Tip>
+
+<div id="file-uploads">
+  ## Téléversements de fichiers
+</div>
+
+Pour les spécifications OpenAPI 3.1 et 3.2, définissez un téléversement de fichier comme un schéma de type string avec un `contentMediaType` binaire. Le playground d'API affiche le champ comme un sélecteur de fichier et l'envoie dans une requête `multipart/form-data`.
+
+```json
+{
+  "paths": {
+    "/imports": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "contentMediaType": "application/octet-stream"
+                  }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Vous pouvez utiliser des types de média binaires comme `application/octet-stream`, des images, de l'audio, de la vidéo, des PDF et des archives. Le playground ne traite pas les types de média structurés comme `application/json` comme des téléversements de fichiers.
+
+Utilisez `contentEncoding` pour décrire l'encodage du contenu du fichier. Pour les fichiers encodés en base64, définissez `contentEncoding` sur `base64` ou `base64url`, et le playground traite le champ comme un fichier base64. Pour toute autre valeur ou en l'absence de valeur, le playground utilise la gestion des fichiers binaires. Une valeur `contentEncoding` sans `contentMediaType` binaire reste un champ texte.
+
+Les anciennes valeurs `format: "binary"` et `format: "base64"` restent prises en charge.
+
+<div id="multiple-response-examples">
+  ## Plusieurs exemples de réponse
+</div>
+
+Si votre API renvoie des réponses différentes selon les paramètres d'entrée, le contexte utilisateur ou d'autres conditions de la requête, documentez chacune d'elles avec la propriété `examples` de la réponse.
+
+```yaml
+responses:
+  "200":
+    description: Successful response
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/YourResponseSchema"
+        examples:
+          us:
+            summary: Response for United States
+            value:
+              countryCode: "US"
+              currencyCode: "USD"
+              taxRate: 0.0825
+          gb:
+            summary: Response for United Kingdom
+            value:
+              countryCode: "GB"
+              currencyCode: "GBP"
+              taxRate: 0.20
+```
+
+<div id="response-content-types">
+  ## Types de contenu de réponse
+</div>
+
+Le playground affiche les réponses en fonction de l'en-tête `Content-Type` renvoyé par votre API :
+
+- **Images** (`image/*`) : affichées en ligne.
+- **Audio** (`audio/*`) : affiché avec un lecteur audio.
+- **Vidéo** (`video/*`) : affichée avec un lecteur vidéo.
+- **Toutes les autres réponses** : affichées dans un bloc de code.
+
+Pour afficher un lecteur audio dans un exemple de réponse, définissez le type de contenu de la réponse sur `audio/*` et utilisez l'URL d'un fichier audio comme valeur d'exemple :
+
+```yaml
+responses:
+  "200":
+    description: Audio file generated successfully
+    content:
+      audio/mpeg:
+        schema:
+          type: string
+          format: binary
+        examples:
+          sample:
+            summary: Sample audio output
+            value: "https://example.com/sample-audio.mp3"
+```
+
+<div id="streaming-responses">
+  ### Réponses en streaming
+</div>
+
+Si les réponses d'un endpoint déclarent un type de média de streaming, le playground affiche la réponse au fur et à mesure qu'elle arrive au lieu d'attendre la fin de la requête. Les types de média de streaming sont `text/event-stream`, `application/jsonl`, `application/x-ndjson`, `application/json-seq` et `multipart/mixed`. Les requêtes avec un corps `multipart/form-data` ne sont pas diffusées en streaming.
+
+Pendant la diffusion de la réponse, le panneau de réponse affiche **Streaming…** et le bouton d'envoi devient **Stop**. Cliquez sur **Stop** pour mettre fin à la requête. Le playground conserve les données reçues et affiche **Stream stopped**.
+
+Le playground affiche un corps diffusé en texte brut, sans mise en forme JSON. Un stream peut aussi se terminer plus tôt :
+
+- Le playground arrête la lecture après 10 Mo et affiche **Stream truncated at 10 MB**.
+- Si la connexion se ferme avant la fin du stream, le playground affiche **Stream interrupted**.
+- Lorsque le [proxy](/fr/api-playground/configure-playground#send-requests-through-the-proxy) du playground est activé, votre API doit envoyer les en-têtes de réponse dans un délai de 30 secondes, et le proxy met fin au stream après cinq minutes.
+
+<div id="webhooks">
+  ## Webhooks
+</div>
+
+Les webhooks sont des callbacks HTTP que votre API envoie pour notifier des systèmes externes lorsque des événements se produisent. Les documents OpenAPI 3.1 et ultérieurs prennent en charge les webhooks.
+
+Ajoutez un champ `webhooks` à votre document OpenAPI à côté du champ `paths`. Pour en savoir plus sur la définition des webhooks, consultez [Webhooks](https://spec.openapis.org/oas/v3.2.0#oas-webhooks) dans la spécification OpenAPI.
+
+Pour créer une page MDX pour un webhook, utilisez `webhook` au lieu d'une méthode HTTP dans le frontmatter `openapi` :
+
+```mdx
+---
+title: "Order updated webhook"
+description: "Triggered when an order is updated"
+openapi: "openapi.json webhook orderUpdated"
+---
+```
+
+Le nom du webhook doit correspondre exactement à la clé du champ `webhooks` de votre spécification OpenAPI.
+
+<div id="callbacks">
+  ## Callbacks
+</div>
+
+Les callbacks décrivent les requêtes hors bande que votre API envoie à une URL fournie par l'appelant, comme des notifications d'événements liées à une opération précise. Lorsqu'une opération définit des `callbacks`, la page de l'endpoint les affiche dans une section repliable entre les sections du corps de la requête et de la réponse. Chaque callback affiche sa méthode HTTP et son expression, et utilise la même mise en page de corps et de réponse que l'opération parente.
+
+Pour en savoir plus sur la définition des callbacks, consultez [Callback object](https://spec.openapis.org/oas/v3.2.0#callback-object) dans la spécification OpenAPI.
+
+```yaml
+paths:
+  /subscribe:
+    post:
+      summary: Subscribe to events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callbackUrl:
+                  type: string
+                  format: uri
+      responses:
+        "201":
+          description: Subscription created
+      callbacks:
+        orderUpdated:
+          "{$request.body#/callbackUrl}":
+            post:
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        orderId:
+                          type: string
+                        status:
+                          type: string
+              responses:
+                "200":
+                  description: Callback received
+```
