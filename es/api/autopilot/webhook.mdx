@@ -1,0 +1,67 @@
+---
+title: "Activar webhook de Autopilot"
+openapi: "/es/admin-openapi.json POST /v2/autopilot/{projectId}/webhook"
+keywords: ["autopilot", "webhook", "trigger", "prompt", "CI"]
+---
+
+Usa este endpoint para iniciar una ejecución de [Autopilot](/es/autopilot) desde tus propias herramientas. Cada solicitud pone en cola una ejecución que sigue el `prompt` del cuerpo de la solicitud, con el mismo contexto, las mismas habilidades y la misma configuración de revisión que las demás ejecuciones de Autopilot.
+
+Autopilot debe estar habilitado para el proyecto.
+
+<div id="use-cases">
+  ## Casos de uso
+</div>
+
+- **Scripts de publicación**: Indica a Autopilot qué se publicó cuando creas una etiqueta o publicas una nueva versión de un SDK.
+- **Pipelines CI/CD**: Pide a Autopilot que revise la documentación después de un despliegue o de una fusión a `main`.
+- **Herramientas internas**: Envía solicitudes de documentación desde dashboards internos, herramientas de soporte o tareas programadas que ya ejecutas.
+
+<div id="get-the-webhook-url-and-auth-header">
+  ## Obtén la URL del webhook y el encabezado de autenticación
+</div>
+
+Abre la página [Autopilot](https://app.mintlify.com/products/autopilot) de tu dashboard. La sección **Webhook** muestra la URL completa del webhook y una acción **Copy auth header** para la plantilla del encabezado `Authorization: Bearer <api-key>`.
+
+Sustituye `<api-key>` por una clave de API de organización sin caducar con acceso de escritura. Crea o gestiona claves en la página [API keys](https://app.mintlify.com/settings/organization/api-keys).
+
+<div id="example">
+  ## Ejemplo
+</div>
+
+Pide a Autopilot que documente cada publicación desde una GitHub Action:
+
+```yaml .github/workflows/autopilot-release.yml
+on:
+  release:
+    types: [published]
+
+jobs:
+  autopilot:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST \
+            "https://api.mintlify.com/v2/autopilot/$PROJECT_ID/webhook" \
+            -H "Authorization: Bearer ${{ secrets.MINTLIFY_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg tag "$TAG" '{prompt: "Release \($tag) was published. Update the changelog and any docs it affects."}')"
+        env:
+          PROJECT_ID: ${{ vars.MINTLIFY_PROJECT_ID }}
+          TAG: ${{ github.event.release.tag_name }}
+```
+
+<div id="what-happens-after-a-request">
+  ## Qué ocurre después de una solicitud
+</div>
+
+Autopilot trabaja en el prompt como en cualquier otra ejecución. Cuando abre o actualiza una solicitud de extracción, asigna revisores y notifica a tu equipo de la misma forma que lo hace con los cambios de código. Cada ejecución aparece como su propio hilo en la página de Autopilot.
+
+Si Autopilot está en pausa, la ejecución espera hasta que reanudes Autopilot.
+
+<div id="rate-limits-and-credits">
+  ## Límites de tasa y créditos
+</div>
+
+Este endpoint comparte un límite de tasa con [Trigger update](/es/api/update/trigger), [Activar automatización](/es/api/automations/trigger) y [Activar webhook de automatización](/es/api/automations/webhook): hasta 10 solicitudes cada 10 segundos por organización.
+
+Una ejecución cuesta 250 créditos cuando abre o actualiza una solicitud de extracción. Consulta [Créditos de Autopilot](/es/autopilot#credits).
