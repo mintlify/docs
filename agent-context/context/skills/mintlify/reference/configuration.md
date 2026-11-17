@@ -364,7 +364,7 @@ Global content variables substituted at build time using `{{variableName}}` synt
 }
 ```
 
-Keys can contain letters, digits, `_`, `-`, and `.`. Keys are case-sensitive: a placeholder must match a key exactly. Values are plain strings; HTML tags in values are stripped. Use in any `.mdx` file:
+Keys can contain letters, digits, `_`, `-`, and `.`; use camelCase, because `mint broken-links` reports a parse error for pages that use a hyphenated name. Keys are case-sensitive: a placeholder must match a key exactly. Values are plain strings; HTML tags in values are stripped. Use in the content of any page or snippet, but not in frontmatter such as `title` and `description`:
 
 ```mdx
 The current API version is {{apiVersion}}.
