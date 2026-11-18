@@ -18,6 +18,14 @@ Check every fact against the product, not against other docs pages, because othe
 
 If you can't verify a fact, list it under areas of uncertainty in your report. Never guess.
 
+Vague sentences are tempting to fix by adding a specific number, setting name, or behavior. Only add a specific you've verified. If you can't verify it, cut the vague sentence or list the gap. Don't replace it with a guess that sounds concrete.
+
+## What not to edit
+
+A phrase that matches a rule isn't a finding until you've read the sentence around it. For example, "actually" that corrects what the reader expects is fine, and a three-item list with three real items is fine.
+
+Don't change code blocks, frontmatter values other than `title`, `description`, and `keywords`, quoted examples of bad writing, or UI labels quoted exactly from the product. Report findings in them instead.
+
 ## Review order
 
 Review your own drafts the same way you review anyone else's. Cut first, then check the structure, then the sentences. Rewriting a sentence is wasted work if the sentence shouldn't be on the page.
@@ -29,6 +37,7 @@ Review your own drafts the same way you review anyone else's. Cut first, then ch
 5. **Check formatting and components** against `style-guide/formatting-and-components.md` and terms against `style-guide/word-list.md`.
 6. **Apply the findings.** If the person you're working with wrote or edited prose in this conversation, don't change their sentences. Report those findings and ask once whether to apply them.
 7. **Review the edited page again** from the top, steps 1 to 5. Your edits create new problems. For example, turning a paragraph into a list can leave several short paragraphs in a row.
+8. **Check your diff.** Read the diff against the original. Every changed line must fix a finding you can name. Revert any change that doesn't, such as rewording a sentence that was already fine. Do one more round of fixes at most. If findings remain after that, report them instead of editing again.
 
 Before you hand the page back, check it for every mistake you've already been corrected on, including corrections earlier in the conversation.
 
@@ -40,7 +49,7 @@ List one change per line, grouped by file:
 - The rule the change fixes.
 - The text before and after the change, or "cut" for a step 2 finding.
 
-Include the fixes from step 7, then list areas of uncertainty.
+Include the fixes from steps 7 and 8. Then list findings you didn't fix and why, such as findings in code or quoted text. Then list areas of uncertainty.
 
 ## When Vale is wrong
 
