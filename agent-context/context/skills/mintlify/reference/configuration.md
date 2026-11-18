@@ -88,8 +88,8 @@ The SKILL.md file lists common frontmatter fields. Here are the supported fields
 | `filterTagMatch` | string | Changelog tag filter matching: `any` (default, updates with at least one selected tag plus untagged updates) or `all` (only updates with every selected tag). |
 | `thumbnail` | object | Per-page social thumbnail override (see Thumbnails). |
 | `canonical`, `robots`, `og:*`, `twitter:*` | string | Page-level SEO meta tags; override `seo.metatags`. |
-| `verification` | object | Base pages only. `status`: `verified`, `outdated`, or `not_verified`. `expiresAt`: ISO 8601 date and time when a verified page's verification ends; omit it to stay verified indefinitely. The editor writes this key when someone verifies a page; editing the file directly records no verifier and sends no inbox notification. |
-| `metadata` | object | Base pages only. The page's owner and custom properties, written by the editor. |
+| `verification` | object | `status`: `verified`, `outdated`, or `not_verified`. `expiresAt`: ISO 8601 date and time when a verified page's verification ends; omit it to stay verified indefinitely. The editor writes this key when someone verifies a page; editing the file directly records no verifier and sends no inbox notification. |
+| `metadata` | object | The page's owner and custom properties, written by the editor. |
 
 Any other key is accepted as custom frontmatter (e.g. `product: "API"`).
 
@@ -364,7 +364,7 @@ Global content variables substituted at build time using `{{variableName}}` synt
 }
 ```
 
-Keys can contain letters, digits, `_`, `-`, and `.`. Keys are case-sensitive: a placeholder must match a key exactly. Values are plain strings; HTML tags in values are stripped. Use in any `.mdx` file:
+Keys can contain letters, digits, `_`, `-`, and `.`; use camelCase, because `mint broken-links` reports a parse error for pages that use a hyphenated name. Keys are case-sensitive: a placeholder must match a key exactly. Values are plain strings; HTML tags in values are stripped. Use in the content of any page or snippet, but not in frontmatter such as `title` and `description`:
 
 ```mdx
 The current API version is {{apiVersion}}.
