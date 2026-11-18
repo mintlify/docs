@@ -18,7 +18,7 @@ Usa la API de exportación estática para prerenderizar tu sitio de forma progra
 Las exportaciones estáticas usan URLs `.html` que coinciden con los archivos del paquete. Por ejemplo, `/guides/getting-started` se convierte en `/guides/getting-started.html`. Esto sucede de forma automática y no requiere configuración.
 
 <Note>
-  Las URLs canónicas y las del sitemap siguen sin extensión. CloudFront resuelve estas URLs automáticamente, pero otros hostings estáticos pueden requerir reglas de reescritura.
+  Las URLs canónicas y las del sitemap siguen sin extensión. Si tu hosting no sirve `/guides/getting-started.html` en `/guides/getting-started`, agrega una regla de reescritura que asigne las rutas sin extensión al archivo `.html` correspondiente.
 </Note>
 
 <div id="how-static-export-works">
@@ -40,20 +40,6 @@ Una exportación estática se ejecuta como un trabajo asíncrono. Inicias el tra
   </Step>
 </Steps>
 
-<div id="feature-support-by-deployment">
-  ## Compatibilidad de funciones por tipo de despliegue
-</div>
-
-Las funciones disponibles dependen de cómo alojes tu despliegue. Los despliegues aislados (air-gapped) no tienen acceso saliente a la red, por lo que cualquier función que dependa de los servicios en la nube de Mintlify no está disponible. Las funciones etiquetadas como **Configurable** tienen distinta disponibilidad según la configuración de tu entorno.
-
-| Función | Cloud | Alojado por el cliente | Air-gapped |
-| --- | :---: | :---: | :---: |
-| Búsqueda en la documentación | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
-| Asistente de IA | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
-| Analíticas web | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
-| Playground de API ("Try it") | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | Configurable |
-| Paquete de exportación estática | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> |
-
 <div id="endpoints">
   ## Endpoints
 </div>
@@ -69,44 +55,44 @@ Autentica las solicitudes con tu clave de API de administrador. Genera una clave
 
 Copia tu ID de proyecto desde la misma página y úsalo como el parámetro de ruta `projectId`.
 
-<div id="deploy-the-bundle-to-your-enterprise-helm-chart">
-  ## Desplegar el paquete en tu Helm chart de Enterprise
+<div id="host-the-bundle">
+  ## Alojar el paquete
 </div>
 
-Mintlify autoalojado se implementa con el Helm chart de Mintlify Enterprise. Una vez que un trabajo de exportación estática se completa, apuntas el chart al `bundleUrl` y el despliegue lo sirve desde tu propia infraestructura.
+El paquete es un archivo `.tar.gz`. Extráelo y sube los archivos a cualquier hosting de archivos estáticos o CDN.
 
 <Steps>
-  <Step title="Añade la referencia al paquete en tus values">
-    Configura los campos de exportación estática en tu `values.yaml` con el `bundleUrl` devuelto por [Obtener estado del trabajo de exportación estática](/es/api/static-export/get-job-status). El chart descarga el paquete al iniciarse y lo sirve como la versión activa.
-
-    ```yaml values.yaml
-    staticExport:
-      enabled: true
-      # Presigned S3 link returned by the Get static export job status endpoint.
-      bundleUrl: "https://mintlify-static-export-outputs-prod.s3.amazonaws.com/6520f3a1c9b1a20012ab34cd/export.tar.gz"
-      # Optional: pin to a specific export version for reproducible rollouts.
-      version: "2024-06-01"
-    ```
-  </Step>
-  <Step title="Despliega el chart">
-    Aplica los values actualizados con `helm upgrade`. El despliegue descarga el paquete, lo intercambia como el sitio en vivo y lo sirve desde tu clúster.
+  <Step title="Descargar el paquete">
+    Establece `BUNDLE_URL` con el `bundleUrl` que devuelve [Obtener estado del trabajo de exportación estática](/es/api/static-export/get-job-status) y descarga el archivo antes de `expiresAt`.
 
     ```bash
-    helm upgrade --install mintlify mintlify/enterprise \
-      --namespace mintlify \
-      --create-namespace \
-      -f values.yaml
+    curl -sS --fail -o export.tar.gz "$BUNDLE_URL"
     ```
+  </Step>
+  <Step title="Extraer el archivo">
+    ```bash
+    mkdir -p site
+    tar -xzf export.tar.gz -C site
+    ```
+  </Step>
+  <Step title="Subir los archivos a tu hosting">
+    Sube el contenido de `site` a tu hosting estático o CDN. Por ejemplo, para sincronizar los archivos con un bucket de Amazon S3 cuyo nombre está en `BUCKET_NAME`:
+
+    ```bash
+    aws s3 sync site "s3://$BUCKET_NAME" --delete
+    ```
+
+    Si tu hosting no sirve URLs sin extensión, agrega la regla de reescritura descrita en [URLs de páginas en paquetes estáticos](#page-urls-in-static-bundles).
   </Step>
 </Steps>
 
-Dado que los enlaces prefirmados expiran, vuelve a consultar el estado del trabajo y a ejecutar la actualización siempre que publiques contenido nuevo, o automatiza el ciclo con GitHub Actions.
+Para publicar contenido nuevo, inicia un nuevo trabajo de exportación y repite estos pasos, o automatízalos con una GitHub Action.
 
 <div id="automate-with-a-github-action">
   ## Automatizar con una GitHub Action
 </div>
 
-La siguiente plantilla de workflow ejecuta todo el ciclo de exportación de forma programada o bajo demanda. Inicia un trabajo, espera hasta que la exportación se complete y despliega el nuevo `bundleUrl` en el Helm chart.
+La siguiente plantilla de workflow ejecuta todo el ciclo de exportación de forma programada o bajo demanda. Inicia un trabajo, espera hasta que la exportación se complete, descarga y extrae el paquete y, por último, sincroniza los archivos con un bucket de S3.
 
 ```yaml .github/workflows/static-export.yml
 name: Publish static export
@@ -118,6 +104,7 @@ on:
 
 env:
   PROJECT_ID: proj_your_project_id
+  BUCKET_NAME: your-docs-bucket
 
 jobs:
   export:
@@ -126,7 +113,7 @@ jobs:
       - name: Start static export job
         id: start
         run: |
-          JOB_ID=$(curl -s -X POST \
+          JOB_ID=$(curl -sS --fail-with-body -X POST \
             https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs \
             -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.jobId')
           echo "job_id=$JOB_ID" >> "$GITHUB_OUTPUT"
@@ -135,7 +122,7 @@ jobs:
         id: bundle
         run: |
           for i in $(seq 1 60); do
-            RESPONSE=$(curl -s \
+            RESPONSE=$(curl -sS --fail-with-body \
               https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs/${{ steps.start.outputs.job_id }} \
               -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}")
             STATUS=$(echo "$RESPONSE" | jq -r '.status')
@@ -151,12 +138,14 @@ jobs:
           echo "Timed out waiting for the export job to complete." >&2
           exit 1
 
-      - name: Deploy to the Helm chart
+      - name: Download and extract the bundle
         run: |
-          helm upgrade --install mintlify mintlify/enterprise \
-            --namespace mintlify \
-            --set staticExport.enabled=true \
-            --set staticExport.bundleUrl="${{ steps.bundle.outputs.bundle_url }}"
+          curl -sS --fail -o export.tar.gz "${{ steps.bundle.outputs.bundle_url }}"
+          mkdir -p site
+          tar -xzf export.tar.gz -C site
+
+      - name: Sync the files to S3
+        run: aws s3 sync site "s3://${{ env.BUCKET_NAME }}" --delete
 ```
 
-Guarda tu clave de API de administrador como el secret de repositorio `MINTLIFY_ADMIN_KEY` y establece `PROJECT_ID` con el ID de tu proyecto. Antes de desplegar, configura las credenciales del clúster, por ejemplo con `azure/setup-helm` y tu archivo de configuración de Kubernetes (`kubeconfig`).
+Guarda tu clave de API de administrador como el secret de repositorio `MINTLIFY_ADMIN_KEY`, establece `PROJECT_ID` con el ID de tu proyecto y `BUCKET_NAME` con tu bucket. Antes del paso de sincronización, agrega credenciales de AWS al job, por ejemplo con la acción `aws-actions/configure-aws-credentials`. Para desplegar en otro hosting, reemplaza el paso de sincronización por el comando de carga de ese hosting.
