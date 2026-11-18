@@ -313,7 +313,7 @@ Version properties:
 
 Each language entry can include its own `banner`, `footer`, and `navbar` configuration overrides.
 
-For regional variants, add an ISO 3166-1 alpha-2 region to a two-letter supported language code (not `cn` or `jp`), such as `en-GB`, `es-MX`, or `de-CH`. Use `es-419` for Latin American Spanish. Region codes are not case-sensitive. Name the content directory after the regional code, such as `en-gb/`. Interface text uses the base language, so `es-MX` pages show the Spanish interface.
+For regional variants, add an ISO 3166-1 alpha-2 region to a supported language code (not `cn` or `jp`), such as `en-GB`, `es-MX`, or `de-CH`. Use `es-419` for Latin American Spanish. Region codes are not case-sensitive. Name the content directory after the regional code, such as `en-gb/`. Interface text uses the base language, so `es-MX` pages show the Spanish interface.
 
 To redirect visitors to the language matching their browser's `Accept-Language` header, choose an **Auto-route by language** option in the **Language routing** section of the dashboard Site settings page (`https://app.mintlify.com/settings/project/site`): **Off** (default), **Homepage only** (redirects the site root), or **Pages without a language** (also redirects unprefixed page URLs such as `/quickstart` to their translation, never `/fr/quickstart`; takes effect after the next deployment, unavailable with authentication). If a visitor picks a language with the language switcher, Mintlify remembers their choice and stops auto-routing them. If no published language matches the visitor's browser preferences, Mintlify serves the default language.
 
