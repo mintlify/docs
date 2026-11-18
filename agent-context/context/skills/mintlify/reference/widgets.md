@@ -16,7 +16,6 @@ Build a widget when the reader understands faster by changing something and watc
 | Numbers with a shape (benchmarks, trends, distributions, before and after) | An SVG chart with hover values |
 | UI or visual behavior (a component, an animation, a layout, an interaction) | A live, working version of it |
 | Options to compare | One widget with a toggle between them |
-| A walkthrough to present (a launch, a review, a demo) | A slide deck: one slide at a time, Back and Next buttons, arrow keys and a progress bar |
 
 Prefer a widget over Mermaid, screenshots of charts, and screen recordings whenever a row above fits. A page about a UI component shows the component working, not a recording of it. Keep Mermaid for a static graph the user asks for, or when the site already uses Mermaid for that kind of diagram.
 
@@ -58,10 +57,12 @@ export const BackoffCalculator = () => {
 
 ## Larger widgets
 
-A widget can grow to several hundred lines spread across many exports. In the editor, each widget tag in the page runs in its own sandbox together with every `export const` and `export function` on the page.
+When a page covers more than one idea, build one small widget per idea first. When a single idea needs more code than one component holds comfortably, split that widget into several exports. In the editor, each widget tag in the page runs in its own sandbox together with every `export const` and `export function` on the page.
 
 - Write every top-level statement as an export: sub-components, custom hooks (`export const useTween = (target) => { ... }`), pure helpers, data arrays and `Intl.NumberFormat` instances are all `export const`. MDX treats only lines that start with `import` or `export` as code, so a top-level `const` shows up as page text and is undefined inside the widget.
+- Each export is another invisible block in the visual editor, so a split widget multiplies the Backspace and source-mode problems described in Where the code goes. Keep all of a widget's exports together at the end of the file.
 - All exports share one page scope. Give the exports that belong to one widget the same short prefix (`RbData`, `RbBar`, `useRbTween`) so two widgets on a page can't collide.
+- Treat exported data as read-only. Copy an exported array before you sort or change it (`[...RbData].sort(...)`): on the site, a change to the original reaches every widget on the page that uses it, while in the editor each widget has its own copy.
 - Inside widget code, components are ordinary React. Sub-components take any props, including functions, JSX and `{...rest}`. The literal-values rule applies only to the tags you place in the page body.
 - Write a control that several widgets need, such as a button, toggle or slider, once as an export and use it in each of them.
 - Sub-components run inside their widget's sandbox, so they don't count toward the 10 widgets the editor runs at a time.
@@ -70,7 +71,7 @@ A widget can grow to several hundred lines spread across many exports. In the ed
 
 - React hooks without importing them: `useState`, `useEffect`, `useRef`, `useMemo`, `useCallback`, `useReducer`, `useLayoutEffect`, `useId` and the other built-in hooks, plus `React`.
 - HTML elements, inline SVG, `<canvas>`, form controls such as `<input type="range">`, `<select>` and `<button>`.
-- Browser APIs inside `useEffect`, `useLayoutEffect` and event handlers, with cleanup: `requestAnimationFrame`, `ResizeObserver`, `matchMedia`, `performance.now()`, pointer and keyboard events, canvas 2D, fullscreen. Measure your own elements through refs (`getBoundingClientRect`, `offsetWidth`) in `useLayoutEffect`, and check `typeof ResizeObserver !== "undefined"` before you use it.
+- Browser APIs inside `useEffect`, `useLayoutEffect` and event handlers, with cleanup: `requestAnimationFrame`, `ResizeObserver`, `matchMedia`, `performance.now()`, pointer and keyboard events, canvas 2D, fullscreen. Measure your own elements through refs (`getBoundingClientRect`, `offsetWidth`) in `useLayoutEffect`.
 - Animation: CSS transitions driven by state (`transform`, `width`, `opacity`), or a `requestAnimationFrame` tween for counters and playheads. When `window.matchMedia("(prefers-reduced-motion: reduce)").matches` is true, jump to the end state, and add `motion-reduce:transition-none` next to Tailwind transitions.
 - An embedded hosted app: `<iframe src="https://..." style={{ width: "100%", height: 480 }} />`. The embedded page loads with its own network access, so hosted playgrounds, sandboxes and demos work. Use only URLs the user gave you or that come from the project.
 - A charting or graphics library, only when hand-written SVG or canvas would be much worse: add a `<script>` element in `useEffect` that loads one exact pinned version from `https://cdn.jsdelivr.net/npm/` or `https://cdnjs.cloudflare.com/ajax/libs/`, then use its global after it loads. The library must not fetch anything after loading.
@@ -87,7 +88,7 @@ Each of these breaks a widget in the editor, on the site, or both.
 - Stay inside the widget's root element: no `document.querySelector` outside your own refs, no `window.parent` or `window.top`, and no global CSS. Page-level `<style>` blocks and the site's custom CSS don't reach widgets in the editor.
 - No `position: fixed`. The editor clips anything drawn outside the widget's box, so keep tooltips and popovers inside the root element.
 - Links inside a widget don't navigate in the editor. Put links in the surrounding prose.
-- Keep each export under about 300 lines; split a larger widget as described in Larger widgets. The editor runs at most 10 widgets at a time and pauses the rest until they scroll into view.
+- Keep each component under about 300 lines. When a widget outgrows that, split it by idea into separate widgets first, and into exports only when one idea still needs more; see Larger widgets, above. The editor runs at most 10 widgets at a time and pauses the rest until they scroll into view.
 
 ## Styling
 
@@ -234,7 +235,7 @@ The latency numbers in this example are placeholders. In a real page, take them 
 
 ### Widget split into exports
 
-A larger widget split into prefixed exports: data, a formatter, a custom hook, a sub-component that takes a function prop, and the widget itself. Only `<RankedBars />` goes in the page body.
+Build times for three services, at p50 and p95, ranked longest first. The widget is split into prefixed exports: data, a formatter, a custom hook, a sub-component that takes a function prop, and the widget itself. Only `<RankedBars />` goes in the page body.
 
 ```jsx
 export const RbData = [
