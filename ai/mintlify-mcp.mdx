@@ -82,7 +82,7 @@ claude mcp add --transport http mintlify-knowledge https://mcp.mintlify.com --he
 
 ## How editing works
 
-Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `read_page_history`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`. The admin MCP can only access private pages in [bases](/base/index). In docs projects, private page requests return `private_pages_unavailable`.
+Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `read_page_history`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`. The admin MCP can only access private pages in [knowledge bases](/base/index). In sites, private page requests return `private_pages_unavailable`.
 
 The flow is:
 
@@ -128,7 +128,7 @@ The AI tool acts as you on the deploy branch:
 - **`discard` reverts only your changes.** It returns `discardedChanges` with the number of changes it reverted. Other people's changes and the branch itself stay untouched.
 - **`status` lists only your changes.**
 
-A [base](/base/index) has no docs site, so it has no publish step. When `list_deployments` returns `projectType: "workspace"`, the project is a base, and Mintlify commits edits to the deploy branch automatically, including uploaded images.
+A [knowledge base](/base/index) has no published site, so it has no publish step. When `list_deployments` returns `projectType: "workspace"`, the project is a knowledge base, and Mintlify commits edits to the deploy branch automatically, including uploaded images.
 
 Mintlify tracks changes per page. If you and someone else both edited the same page, `publish` publishes the whole page and `discard` reverts the whole page, including the other person's edits.
 
@@ -139,7 +139,7 @@ Mintlify refuses edits to the deploy branch, and changes nothing, when any of th
 - Editing the deploy branch is locked in the dashboard editor.
 - You connected with a client or machine-to-machine token instead of an OAuth login. These tokens aren't tied to a user, so they have no "own" changes.
 
-Mintlify checks these conditions on every edit and caches your branch protection rules for up to 30 seconds. Comment tools still work on the deploy branch when edits to it are refused. If your deploy branch starts requiring a pull request after you edit it, `publish` returns `branch_protected` and your changes stay pending. Open the dashboard editor to move them to a new branch.
+Mintlify checks these conditions on every edit and caches your branch protection rules for up to 30 seconds. Comment tools still work on the deploy branch when edits to it are refused. If your deploy branch starts requiring a pull request after you edit it, `publish` returns `branch_protected` and your changes stay pending. Open the dashboard editor to move them to a new branch. The same happens if [Always require branches](/editor/settings#always-require-branches) is on and you aren't an admin.
 
 ### Projects with auto publish
 
@@ -291,7 +291,7 @@ Read tools:
 - **`get_deployment_settings`**: Read a project's dashboard settings, Git sources, custom hostname status, and source checks in one call. Slack configuration and snippets are opt-in.
 - **`get_analytics_report`**: Read a prebuilt analytics report, such as page views, popular pages, referrals, feedback, assistant chats, or search quality. Select the report with `request.report`. Large results paginate with `maxRows` and `rowOffset`. For custom queries, use `query_analytics`.
 - **`get_analytics_schema`**: Read the tables, events, and SQL rules that `query_analytics` accepts. The AI tool calls it once before writing a query.
-- **`query_analytics`**: Run one read-only `SELECT` query on your site's analytics, such as page views, search, assistant, feedback, and agent and human traffic. Results are already scoped to the project. If analytics queries aren't enabled for the project, both analytics query tools return a `not_enabled` error.
+- **`query_analytics`**: Run one read-only `SELECT` query on your site's analytics, such as page views, search, assistant, feedback, and traffic. Results are already scoped to the project. If analytics queries aren't enabled for the project, both analytics query tools return a `not_enabled` error.
 - **`get_workflows`**: List automations, get one automation, or page through its runs.
 - **`list_repos_and_prs`**: List connected repositories, a repository's pull requests, or available integrations to use in an automation.
 
@@ -315,15 +315,15 @@ Write tools return the project's updated state under `state`, so the AI tool can
 
 These tools appear only when your project [requires review before publishing](/editor/review#require-review-before-publishing). They work on your deploy branch and don't take a `branch`.
 
-- **`list_review_requests`**: List the open review requests on your deploy branch. Each request includes its `requester`, its `reviewers` and their `state`, and its `pages`. Each page has a `path`, `title`, and `approval` of `approved`, `pending`, or `stale` if the page changed after approval. Changes that don't belong to a page, such as navigation and site settings, appear as one item titled `Site changes`.
+- **`list_review_requests`**: List the open review requests on your deploy branch. Each request includes its `requester`, its `reviewers` and their `state`, and its `pages`. Each page has a `path`, `title`, and `approval` of `approved`, `pending`, or `stale` if the page changed after approval and needs another review. Changes that don't belong to a page, such as navigation and site settings, appear as one item titled `Site changes`.
 - **`request_review`**: Ask reviewers to approve your pending changes. Pass up to 100 `pages` in the same forms as `read`, and the `reviewers`, each as an `email` or a `role`. `role: "admin"` asks every admin. `role: "editor"` asks every publisher, or every editor if your organization doesn't have the publisher role. If you have pending changes that don't belong to a page and no other open request includes them, Mintlify adds the `Site changes` item to the request. Mintlify only asks active members, other than you, who can approve. Each reviewer gets an email and an [inbox](/dashboard/inbox) item. Errors include `no_pending_changes` when a page has nothing to review and `no_reviewers` when no one who can approve matches `reviewers`.
 - **`withdraw_review_request`**: Withdraw a review request you made by `requestId`. Pass a `reviewer` email to remove only that reviewer. Removing the last reviewer withdraws the request. The pages keep their pending changes.
 - **`approve_review_request`**: Approve someone else's review request by `requestId`, like clicking **Approve** in the editor. The admin MCP tells the AI tool to approve only when you ask it to approve that specific request, and to confirm the requester and pages with you first. Returns `own_request` for your own request, `own_branch` for a branch you created, `not_reviewer` if your role can't approve, and `changed` if the changes were edited since the AI tool read them.
-- **`publish_review_request`**: Publish an approved review request by `requestId`, with a `title` for the commit message, like publishing a teammate's approved changes in the editor. Admins and publishers can publish. The admin MCP tells the AI tool to publish only when you ask it to publish that specific request. Returns `not_approved` until the current version of every page is approved, `navigation_held` while another open request holds navigation changes that this request needs, `not_allowed` if your role can't publish, and `merge_required` for a request on a branch, which publishes when its pull request merges. Follow the returned `deployment` with `deployment_status`.
+- **`publish_review_request`**: Publish an approved review request by `requestId`, with a `title` for the commit message, like publishing a teammate's approved changes in the editor. Admins and publishers can publish. The admin MCP tells the AI tool to publish only when you ask it to publish that specific request. Returns `not_approved` until every page has the approvals it needs, `navigation_held` while another open request holds navigation changes that this request needs, `not_allowed` if your role can't publish, and `merge_required` for a request on a branch, which publishes when its pull request merges. Follow the returned `deployment` with `deployment_status`.
 
 ### Branches and publishing
 
-- **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name, projectType}`. `projectType` is `site` for a docs site or `workspace` for a base. Call this to discover which `subdomain` to pass.
+- **`list_deployments`**: List the projects your connection can access, returning each `{subdomain, name, projectType}`. `projectType` is `site` for a site or `workspace` for a knowledge base. Call this to discover which `subdomain` to pass.
 - **`create_branch`**: Start a new branch off your deploy branch, or off the existing branch you pass as `from`, with a `title` that also names its pull request. Returns the `branchName` to pass as `branch`. See [Work on a branch](#work-on-a-branch). You don't need it to [edit the deploy branch directly](#edit-the-deploy-branch-directly).
 - **`list_branches`**: List Git branches available for a project's repository, with optional `query` filtering. Returns the branch names, total count, and the deploy branch. Pass any of them as `branch`.
 - **`status`**: List the edited files, changed `docs.json` keys, and pending navigation diff on `branch`, or on your deploy branch when you omit it. On the deploy branch, lists only your changes.
