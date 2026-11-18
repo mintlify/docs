@@ -9,7 +9,7 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
   // aliases fr-ca and ja-jp. Update this when the schema changes.
   const SUPPORTED_LANGUAGE_CODES = [
     "ar", "ca", "cn", "cs", "da", "de", "en", "es", "fi", "fr", "fr-CA", "he", "hi", "hu", "id", "it", "ja",
-    "ja-JP", "jp", "ko", "lv", "nl", "no", "pl", "pt", "pt-BR", "ro", "ru", "sv", "tr", "uk", "uz", "vi",
+    "ja-JP", "jp", "ko", "lv", "nb", "nl", "no", "pl", "pt", "pt-BR", "ro", "ru", "sv", "tr", "uk", "uz", "vi",
     "zh", "zh-CN", "zh-Hans", "zh-Hant", "zh-TW",
   ]
   // Common languages come first as defaults, then the rest, so default names don't repeat.

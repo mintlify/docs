@@ -24,7 +24,7 @@ Use this when asked to make docs private, require login, show pages only to cust
    - Auth works only on a custom domain or `<subdomain>.mintlify.site`, not on a custom subpath (`example.com/docs`).
 2. Decide full vs partial. With auth on, every page requires login. Make pages public with `public: true` in frontmatter or `"public": true` on a navigation group in `docs.json`.
 3. Restrict pages to groups (OAuth or JWT only): add `groups: [...]` to page frontmatter. The reader needs at least one listed group; others get a 404. Groups come from the user data `groups` field. For API reference use `x-mint.groups` on operations, paths, properties, `oneOf` variants, and `x-mint-enum` for enum values.
-4. Personalize without restricting access: dashboard **Site** page, **Personalization** section (shared session, JWT, or OAuth). Personalization is Enterprise on the pricing page and is mutually exclusive with full authentication (JWT and OAuth auth already include it). It works on custom subpaths. JWT personalization signs with ES256 (auth JWT uses EdDSA).
+4. Personalize without restricting access: dashboard **Site** page, **Personalization** section (shared session or OAuth). Personalization is Enterprise on the pricing page and is mutually exclusive with full authentication (JWT and OAuth auth already include it). It works on custom subpaths.
    - `content` fields render via `{user.field}` in MDX. `user` is `{}` when signed out, so use optional chaining.
    - `apiPlaygroundInputs` (`header`, `query`, `cookie`, `server`, `path`) prefills the playground. Keys must match the OpenAPI spec names and the endpoint's security scheme.
    - With personalization, `groups` only filters navigation. Direct URLs still open.
@@ -35,11 +35,11 @@ Use this when asked to make docs private, require login, show pages only to cust
 ## Rules
 
 - `hidden: true` is not access control. Anyone with the URL can open the page. Use auth plus `groups` for anything sensitive.
-- `<Visibility for="signed-in">` and group rules only hide content in the browser; the content is still sent. Put sensitive content on its own page with `groups` frontmatter.
+- With auth, `<Visibility for="signed-in">` and group content is sent only to matching readers. With personalization only, it is hidden in the browser but still sent.
 - Personalization `groups` are not access control either. Only Access-page auth (OAuth/JWT) enforces `groups`.
 - `groups` frontmatter requires OAuth or JWT. Password and Private auth have no groups.
 - Use a static `for` value on `<Visibility>`. Computed values are dropped from Markdown output.
-- Markdown views (`.md` URLs) and `llms-full.txt` always get the signed-out view: `signed-out` and `agents` content is included, `signed-in` and `groups` content is removed.
+- Markdown views (`.md` URLs) and `llms-full.txt` include `signed-out` and `agents` content and remove `signed-in` and all `groups` content, even rules with only `excludes`.
 - Do not set `hidden: false` on pages inside a hidden group or tab; it puts them back into search, sitemaps, and AI context. Remove the field instead.
 - Hiding the only version (or the version holding all pages) empties site search.
 - Do not use `/mcp` or `/authed/mcp` as navigation paths; they are reserved.
@@ -48,12 +48,12 @@ Use this when asked to make docs private, require login, show pages only to cust
 
 ## How gated content behaves
 
-- Search and assistant: respect user groups.
+- Search and assistant: respect user groups, including sign-in and group `<Visibility>` sections. The MCP servers and the search and page content APIs filter those sections the same way.
 - llms.txt / llms-full.txt: fully authenticated sites put them behind login; partial auth serves them publicly with public pages only.
 - MCP: `/mcp` serves public content. With auth, the authenticated server is `/authed/mcp` (scoped to each user's groups); fully authenticated sites must enable it before users can connect. Programmatic access uses client credentials from the **Docs MCP** section of project settings (optional groups, not editable later). Admin API keys do not work for MCP.
 - skill.md: skills with `groups` frontmatter appear only to signed-in users in those groups (others get 404). On authenticated sites, signed-out visitors see only skills with `public: true`.
 - Sitemap: unavailable on fully authenticated sites; public pages only with partial auth.
-- Previews (Pro or Enterprise): public by default. Restricting them needs Enterprise. If the site requires auth, preview auth is forced on.
+- Previews (paid plan): public by default. Restricting them needs Enterprise. If the site requires auth, preview auth is forced on: reviewers sign in as Mintlify org members, not with the site's auth method.
 - `hidden: true`: excluded from search, sitemap, indexing, assistant, llms.txt. Override with `searchable: true` on a hidden tab or group, or `seo.indexing: "all"`.
 
 ## Examples

@@ -8,7 +8,26 @@ boost: 3
 Mintlify uses access tokens and webhooks to authenticate and sync changes between GitLab and Mintlify.
 
 - Mintlify uses access tokens to pull information from GitLab.
-- GitLab uses webhooks to notify Mintlify when you make changes, which enables preview deployments for merge requests.
+- GitLab uses webhooks to notify Mintlify when you make changes, which enables preview deployments for merge requests. Mintlify adds the webhook to your project when you connect it.
+
+## Features available for GitLab repositories
+
+Mintlify supports gitlab.com and self-hosted GitLab instances. After you connect your project, the following features work on GitLab:
+
+- Deployments when you push to your deploy branch, and [preview deployments](/deploy/preview-deployments) for merge requests.
+- The [editor](/editor/publish), including branches, reviews, comments, and publishing.
+- [Autopilot](/autopilot) and [automations](/automations), after you connect your projects through GitLab OAuth.
+- [Multiple repositories](/deploy/multi-repo) in one project, if every repository is on GitLab.
+
+Some features work differently or aren't available on GitLab:
+
+| Feature | On GitLab |
+| --- | --- |
+| [CI checks](/deploy/ci) | Not available. CI checks run on GitHub repositories only. |
+| [Git LFS](/create/files#large-files-with-git-lfs) | Not available. Mintlify downloads Git LFS files from GitHub repositories only. |
+| [Autopilot](/autopilot#review-suggestions) | Autopilot doesn't respond to comments on merge requests. To ask for changes, send a message in the suggestion on the Autopilot page. |
+| [Automations](/automations) | Automations require a paid GitLab tier. Mintlify doesn't assign reviewers to merge requests, so assign them yourself. |
+| [Self-hosted GitLab](/deploy/gitlab-self-hosted) | Autopilot and automations require you to register an OAuth application on your instance. |
 
 ## Set up the connection
 
@@ -38,10 +57,12 @@ When you open [Git Settings](https://app.mintlify.com/settings/project/git-setti
 
     Configure the token with these settings:
     - **Name**: Mintlify
-    - **Role**: Maintainer (required for private repos)
+    - **Role**: Maintainer
     - **Scopes**: `api` and `read_api`
 
     Click **Create project access token** and copy the token.
+
+    When you save a new token, Mintlify checks it first. If the token doesn't have the `api` scope or can't publish to your deploy branch, Mintlify rejects it with the message "This GitLab token can't publish changes. Use a project access token with the Maintainer role and the api scope."
 
     <Note>
       If Project Access Tokens are not available, you can use a Personal Access Token instead. Personal Access Tokens expire, so you must update them when they do.
@@ -50,10 +71,10 @@ When you open [Git Settings](https://app.mintlify.com/settings/project/git-setti
   <Step title="Connect your repository">
     Back in the setup wizard, fill in the following fields:
 
-    - **GitLab instance URL**: Leave blank for `gitlab.com`, or enter your self-hosted instance URL (for example, `https://gitlab.your-domain.com`). Your instance must be publicly accessible for Mintlify to reach it. The URL must use `https://` on the default port 443 and can't include a username or password.
     - **Project ID**: The project ID from your GitLab project settings.
-    - **GitLab deployment token**: The access token you generated.
     - **Branch**: Select the branch to deploy your documentation from.
+    - **Deployment token**: The access token you generated.
+    - **Self-hosted GitLab instance**: Leave off for `gitlab.com`. For a self-hosted instance, turn it on and enter your instance URL in **GitLab instance URL**, for example, `https://gitlab.example.com`. Your instance must be publicly accessible for Mintlify to reach it. The URL must use `https://` on the default port 443 and can't include a username or password.
 
     Click **Connect**.
     <Frame>
@@ -84,6 +105,14 @@ If your project shows unexpected behavior, such as missing branch options or sta
 
 Webhooks notify Mintlify when you push changes so that deployments trigger
 automatically.
+
+When you save your GitLab connection, Mintlify uses your access token to add the webhook to your project for you. Each Mintlify project connected to the same GitLab project gets its own webhook.
+
+When you save the connection again, Mintlify keeps the webhook it added. If that webhook was deleted or its URL changed, Mintlify adds a new one.
+
+If Mintlify can't add the webhook, for example because the token doesn't have the Maintainer role, the dashboard opens the **Add the GitLab webhook** dialog. The dialog shows the webhook URL and secret token to copy, and an **Open GitLab webhooks** link to your project's webhook settings.
+
+Either save the connection again with a token that has the Maintainer role and `api` scope, or follow these steps to create the webhook manually with the values from the dialog.
 
 <Steps>
   <Step title="Add new webhook">
@@ -121,3 +150,24 @@ automatically.
 
   </Step>
 </Steps>
+
+## Fix connection warnings
+
+Mintlify checks your access token and webhook when you open [Git Settings](https://app.mintlify.com/settings/project/git-settings). If either one stops working, Git Settings shows a warning at the top of your GitLab settings, and pushes don't deploy until you fix it. Only members who can edit Git settings see the warning.
+
+| Warning | How to fix it |
+| --- | --- |
+| Your access token expired, someone revoked it, GitLab no longer accepts it, or it can no longer open the project | Create a new token with the Maintainer role and the `api` scope, enter it in **Deployment token**, and save. |
+| The Mintlify webhook is missing from the project | Click **Set up webhook** to open the **Add the GitLab webhook** dialog, then [create the webhook](#create-the-webhook) in GitLab with the values from the dialog. |
+| GitLab turned off the Mintlify webhook after failed deliveries | Click **Open GitLab webhooks** and turn the webhook back on in GitLab. |
+| The Mintlify webhook has push events turned off | Click **Open GitLab webhooks** and turn on **Push events** for the webhook in GitLab. |
+
+Webhook warnings also show when Mintlify last received a webhook from your project. Mintlify checks the connection again after you save your settings and when you return to the browser tab with Git Settings open, so the warning clears once you fix the problem.
+
+## Deployment status in GitLab
+
+Mintlify reports the status of your deployments in GitLab, so you can see whether a build succeeded without opening the dashboard.
+
+When you open a merge request against your deploy branch, Mintlify comments on it with the status of its [preview deployment](/deploy/preview-deployments). If the preview fails, the comment includes the reason for the failure.
+
+When you push to your deploy branch, Mintlify adds a **Mintlify Deployment (`<subdomain>`)** commit status to the pushed commit. The status shows whether the production deployment is running, succeeded, or failed, and links to your docs site. Its description explains the result, such as the reason a deployment failed.

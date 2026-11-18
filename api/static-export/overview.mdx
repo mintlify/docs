@@ -16,7 +16,7 @@ Use the static export API to programmatically pre-render your site into a self-c
 Static exports use `.html` URLs that match the files in the bundle. For example, `/guides/getting-started` becomes `/guides/getting-started.html`. This happens automatically and requires no configuration.
 
 <Note>
-  Canonical and sitemap URLs remain extensionless. CloudFront resolves these URLs automatically, but other static hosts may require rewrite rules.
+  Canonical and sitemap URLs stay extensionless. If your host doesn't serve `/guides/getting-started.html` at `/guides/getting-started`, add a rewrite rule that maps extensionless paths to the matching `.html` file.
 </Note>
 
 ## How static export works
@@ -36,18 +36,6 @@ A static export runs as an asynchronous job. You start the job for a project, th
   </Step>
 </Steps>
 
-## Feature support by deployment
-
-Which features are available depends on how you host your deployment. Air-gapped deployments have no outbound network access, so anything that relies on Mintlify's cloud services is unavailable. Features labeled **Configurable** have different availability depending on your environment's setup.
-
-| Feature | Cloud | Client-hosted | Air-gapped |
-| --- | :---: | :---: | :---: |
-| Documentation search | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
-| AI assistant | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
-| Web analytics | <Icon icon="check" color="#16a34a" /> | Configurable | <Icon icon="x" color="#dc2626" /> |
-| API playground ("Try it") | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | Configurable |
-| Static export bundle | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> | <Icon icon="check" color="#16a34a" /> |
-
 ## Endpoints
 
 - [Start static export job](/api/static-export/start-job): Queue a static export job for a project.
@@ -59,40 +47,40 @@ Authenticate requests with your admin API key. Generate an admin API key on the 
 
 Copy your project ID from the same page and use it as the `projectId` path parameter.
 
-## Deploy the bundle to your Enterprise Helm chart
+## Host the bundle
 
-Self-hosted Mintlify deploys with the Helm chart in the [`mintlify/enterprise`](https://github.com/mintlify/enterprise) repository. Once a static export job completes, you point the chart at the `bundleUrl` and the deployment serves it from your own infrastructure.
+The bundle is a `.tar.gz` archive. Extract it and upload the files to any static file host or CDN.
 
 <Steps>
-  <Step title="Add the bundle reference to your values">
-    Set the static export fields in your `values.yaml` to the `bundleUrl` returned by [Get static export job status](/api/static-export/get-job-status). The chart fetches the bundle on startup and serves it as the active version.
-
-    ```yaml values.yaml
-    staticExport:
-      enabled: true
-      # Presigned S3 link returned by the Get static export job status endpoint.
-      bundleUrl: "https://mintlify-static-export-outputs-prod.s3.amazonaws.com/6520f3a1c9b1a20012ab34cd/export.tar.gz"
-      # Optional: pin to a specific export version for reproducible rollouts.
-      version: "2024-06-01"
-    ```
-  </Step>
-  <Step title="Roll out the chart">
-    Apply the updated values with a `helm upgrade`. The deployment downloads the bundle, swaps it in as the live site, and serves it from your cluster.
+  <Step title="Download the bundle">
+    Set `BUNDLE_URL` to the `bundleUrl` that [Get static export job status](/api/static-export/get-job-status) returns, then download the archive before `expiresAt`.
 
     ```bash
-    helm upgrade --install mintlify mintlify/enterprise \
-      --namespace mintlify \
-      --create-namespace \
-      -f values.yaml
+    curl -sS --fail -o export.tar.gz "$BUNDLE_URL"
     ```
+  </Step>
+  <Step title="Extract the archive">
+    ```bash
+    mkdir -p site
+    tar -xzf export.tar.gz -C site
+    ```
+  </Step>
+  <Step title="Upload the files to your host">
+    Upload the contents of `site` to your static host or CDN. For example, to sync the files to an Amazon S3 bucket named in `BUCKET_NAME`:
+
+    ```bash
+    aws s3 sync site "s3://$BUCKET_NAME" --delete
+    ```
+
+    If your host doesn't serve extensionless URLs, add the rewrite rule described in [Page URLs in static bundles](#page-urls-in-static-bundles).
   </Step>
 </Steps>
 
-Because presigned links expire, re-fetch the job status and re-run the upgrade whenever you publish new content or automate the loop with GitHub Actions.
+To publish new content, start a new export job and repeat these steps, or automate them with a GitHub Action.
 
 ## Automate with a GitHub Action
 
-The following template workflow runs the full export loop on a schedule or on demand. It starts a job, polls until the export completes, then rolls the new `bundleUrl` into the Helm chart.
+The following template workflow runs the full export loop on a schedule or on demand. It starts a job, polls until the export completes, downloads and extracts the bundle, then syncs the files to an S3 bucket.
 
 ```yaml .github/workflows/static-export.yml
 name: Publish static export
@@ -104,6 +92,7 @@ on:
 
 env:
   PROJECT_ID: proj_your_project_id
+  BUCKET_NAME: your-docs-bucket
 
 jobs:
   export:
@@ -112,7 +101,7 @@ jobs:
       - name: Start static export job
         id: start
         run: |
-          JOB_ID=$(curl -s -X POST \
+          JOB_ID=$(curl -sS --fail-with-body -X POST \
             https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs \
             -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}" | jq -r '.jobId')
           echo "job_id=$JOB_ID" >> "$GITHUB_OUTPUT"
@@ -121,7 +110,7 @@ jobs:
         id: bundle
         run: |
           for i in $(seq 1 60); do
-            RESPONSE=$(curl -s \
+            RESPONSE=$(curl -sS --fail-with-body \
               https://api.mintlify.com/v1/static-export/${{ env.PROJECT_ID }}/jobs/${{ steps.start.outputs.job_id }} \
               -H "Authorization: Bearer ${{ secrets.MINTLIFY_ADMIN_KEY }}")
             STATUS=$(echo "$RESPONSE" | jq -r '.status')
@@ -137,12 +126,14 @@ jobs:
           echo "Timed out waiting for the export job to complete." >&2
           exit 1
 
-      - name: Deploy to the Helm chart
+      - name: Download and extract the bundle
         run: |
-          helm upgrade --install mintlify mintlify/enterprise \
-            --namespace mintlify \
-            --set staticExport.enabled=true \
-            --set staticExport.bundleUrl="${{ steps.bundle.outputs.bundle_url }}"
+          curl -sS --fail -o export.tar.gz "${{ steps.bundle.outputs.bundle_url }}"
+          mkdir -p site
+          tar -xzf export.tar.gz -C site
+
+      - name: Sync the files to S3
+        run: aws s3 sync site "s3://${{ env.BUCKET_NAME }}" --delete
 ```
 
-Store your admin API key as the `MINTLIFY_ADMIN_KEY` repository secret and set `PROJECT_ID` to your project's ID. Before deploying, configure cluster credentials, for example with `azure/setup-helm` and your Kubernetes configuration file (`kubeconfig`).
+Store your admin API key as the `MINTLIFY_ADMIN_KEY` repository secret, set `PROJECT_ID` to your project's ID, and set `BUCKET_NAME` to your bucket. Before the sync step, add AWS credentials to the job, for example with the `aws-actions/configure-aws-credentials` action. To deploy to a different host, replace the sync step with that host's upload command.

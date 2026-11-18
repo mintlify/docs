@@ -20,7 +20,7 @@
       "post": {
         "summary": "Créer une tâche d’agent (v1)",
         "deprecated": true,
-        "description": "Obsolète : utilisez plutôt [v2 create agent job](/api/agent/v2/create-agent-job). Crée une nouvelle tâche d’agent capable de générer et de modifier de la documentation à partir des messages fournis et des informations de branche.\n\nAuthentifiez-vous avec une clé d'API administrateur.",
+        "description": "Obsolète : utilisez plutôt une [automatisation personnalisée avec un déclencheur webhook](/fr/api/automations/webhook). Crée une nouvelle tâche d’agent capable de générer et de modifier de la documentation à partir des messages fournis et des informations de branche.\n\nAuthentifiez-vous avec une clé d'API administrateur.",
         "parameters": [
           {
             "name": "projectId",
@@ -437,7 +437,8 @@
     "/v2/agent/{projectId}/job": {
       "post": {
         "summary": "Créer une tâche d’agent",
-        "description": "Crée une nouvelle tâche d’agent qui s’exécute en arrière-plan. La tâche traite le prompt de manière asynchrone. Interrogez le point de terminaison get job pour suivre sa progression. Si l’agent modifie les fichiers avec succès, une pull request (demande de fusion) est automatiquement créée.\n\nAuthentifiez-vous avec une clé d'API administrateur.",
+        "deprecated": true,
+        "description": "Obsolète : utilisez plutôt une [automatisation personnalisée avec un déclencheur webhook](/fr/api/automations/webhook). Crée une nouvelle tâche d’agent qui s’exécute en arrière-plan. La tâche traite le prompt de manière asynchrone. Interrogez le point de terminaison get job pour suivre sa progression. Si l’agent modifie les fichiers avec succès, une pull request (demande de fusion) est automatiquement créée.\n\nAuthentifiez-vous avec une clé d'API administrateur.",
         "parameters": [
           {
             "name": "projectId",
@@ -762,6 +763,114 @@
           },
           "503": {
             "description": "La vérification des crédits a échoué. Réessayez la requête.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/autopilot/{projectId}/webhook": {
+      "post": {
+        "summary": "Déclencher le webhook Autopilot",
+        "description": "Lance une exécution d'Autopilot qui suit le prompt du corps de la requête. Utile pour demander à Autopilot de mettre à jour votre documentation depuis des pipelines CI/CD, des scripts de publication ou des outils internes.\n\nAuthentifiez-vous avec une clé d'API d'organisation disposant d'un accès en écriture.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "L'ID de votre projet. Copiez-le depuis la page [API keys](https://app.mintlify.com/settings/organization/api-keys) de votre tableau de bord."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "Instructions pour Autopilot, comme ce qui a changé et ce qu'il faut mettre à jour dans votre documentation."
+                  }
+                }
+              },
+              "example": {
+                "prompt": "We released v2.4 of the CLI. Add the new --watch flag to the CLI reference."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Exécution d'Autopilot mise en file d'attente avec succès.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Toujours `true` lorsque l'exécution est en file d'attente."
+                    },
+                    "runId": {
+                      "type": "string",
+                      "description": "L'ID de l'exécution d'Autopilot mise en file d'attente."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Le prompt est manquant, vide ou dépasse 20 000 caractères, ou l'ID du projet est mal formé.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "La clé d'API est manquante ou invalide, ou votre forfait n'inclut pas Autopilot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Votre clé d'API n'a pas d'accès en écriture, ou votre requête provient d'une adresse IP qui ne figure pas dans la liste d'autorisation de votre clé d'API."
+          },
+          "404": {
+            "description": "Le projet n'existe pas ou n'appartient pas à votre organisation, ou Autopilot n'est pas configuré pour le projet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Vous avez dépassé la limite de débit de 10 requêtes toutes les 10 secondes par organisation. Cette limite est partagée avec les points de terminaison de déclenchement de déploiement, de déclenchement d'automatisation et de webhook d'automatisation."
+          },
+          "500": {
+            "description": "L'exécution d'Autopilot n'a pas pu être mise en file d'attente en raison d'une erreur serveur inattendue.",
             "content": {
               "application/json": {
                 "schema": {

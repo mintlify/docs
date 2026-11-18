@@ -100,9 +100,11 @@ mint deploy [flags]
 | `--org-name` | Organization display name. |
 | `--directory` | Documentation directory for the site. Defaults to the current directory. |
 | `--new` | Create another site instead of reusing the site for this directory. |
-| `--email` | Email address to create a claim link for. Can't be combined with `--github`. |
+| `--email` | Also print a claim link, prefilled with this Mintlify account email. Can't be combined with `--github` or `--push`. |
 | `--github` | Trust the current GitHub repository to deploy the site and write `.github/workflows/mintlify.yml`. |
 | `--force` | With `--github`, overwrite an existing workflow file that has different contents. |
+| `--knowledge-base` | Create a [knowledge base](/base/index), which you edit in the Mintlify editor, instead of a site. Can't be combined with `--github`. Replaces the deprecated `--base` flag. |
+| `--push` | With `--knowledge-base`, rebase the clone in the given directory onto `main` and push it to the knowledge base. For example, `--push ./my-knowledge-base`. |
 
 Run the command again from the same directory to get a fresh write token for the same site. In GitHub Actions, `mint deploy` pushes the checked-out commit to a site that trusts the repository. The workflow needs the `id-token: write` permission.
 
@@ -117,6 +119,9 @@ mint deploy --email you@example.com
 
 # Deploy from GitHub Actions on every push to the default branch
 mint deploy --github --subdomain my-docs
+
+# Create a knowledge base
+mint deploy --knowledge-base --subdomain my-knowledge-base
 ```
 
 ---
@@ -131,20 +136,20 @@ mint claim [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--email` | Email address to create a claim link for. |
-| `--code` | Code from the claim page that finishes the claim. |
+| `--email` | Email of the claimer's Mintlify account, if known, to prefill the sign-in. Optional. |
+| `--code` | Code from an older claim link that showed one. Finishes that claim. |
 | `--directory` | Documentation directory used for `mint deploy`. Defaults to the current directory. |
 
-Run `mint claim --email` to get a claim link. After the site owner opens the link and signs in, run `mint claim --code` with the code from the claim page. `--email` and `--code` can't be combined.
+Run `mint claim` to get a claim link. The site owner opens it, signs in with any account, and clicks **Confirm**; the site moves into a new organization in their account. `--email` and `--code` can't be combined.
 
 ### Examples
 
 ```bash
 # Get a claim link
-mint claim --email you@example.com
+mint claim
 
-# Finish the claim
-mint claim --code ABCDEFGH
+# Prefill the sign-in with a known email
+mint claim --email you@example.com
 ```
 
 ---
@@ -157,7 +162,7 @@ Authenticate with your Mintlify account.
 mint login
 ```
 
-Opens a browser window to complete authentication. If the browser does not open, the CLI displays a URL to open manually and a prompt to paste the authorization code. Credentials save in `~/.config/mintlify/config.json`.
+Opens a browser window to complete authentication. If the browser does not open, the CLI displays a URL to open manually and a prompt to paste the authorization code. The CLI stores your credentials in your operating system's credential store, such as Keychain on macOS.
 
 If you have more than one project, the CLI prompts you to select a default after you sign in. You can change the default project later with `mint config set subdomain <subdomain>`.
 
@@ -379,12 +384,12 @@ mint agent setup [flags]
 | `--global`, `-g` | Set up agents for your user account instead of the current project. Defaults to `false`. |
 
 <Note>
-  `mint agent setup` requires Node.js 22.20 or later and npm.
+  `mint agent setup` requires Node.js 22.20 or later and npm. The CLI doesn't run on Node.js 25.
 </Note>
 
 Without an interactive terminal, the command configures the agents it detects. If it detects none, pass `--agent`.
 
-The command adds an MCP server named `mintlify-admin` with the URL `https://mcp.mintlify.com` to each agent's configuration file.
+The command adds an MCP server named `mintlify` with the URL `https://mcp.mintlify.com` to each agent's configuration file.
 
 | Agent | Project file | User account file (`--global`) |
 | --- | --- | --- |
@@ -392,15 +397,17 @@ The command adds an MCP server named `mintlify-admin` with the URL `https://mcp.
 | Codex | `.codex/config.toml` | `~/.codex/config.toml`, or `config.toml` in `CODEX_HOME` when set |
 | Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` |
 
-If your Codex configuration defines `mcp_servers` as an inline table, setup can't add an entry to it and stops with an error. Add a `mintlify-admin` entry with `url = "https://mcp.mintlify.com"` to the inline table yourself.
+If your Codex configuration defines `mcp_servers` as an inline table, setup can't add an entry to it and stops with an error. Add a `mintlify` entry with `url = "https://mcp.mintlify.com"` to the inline table yourself.
 
 If `CLAUDE_CONFIG_DIR` is set, `--global` setup for Claude Code stops with an error. Add the server with the Claude Code CLI instead:
 
 ```bash
-claude mcp add --scope user --transport http mintlify-admin https://mcp.mintlify.com
+claude mcp add --scope user --transport http mintlify https://mcp.mintlify.com
 ```
 
-Setup keeps your existing configuration and skips an agent that already has a matching `mintlify-admin` entry. If a `mintlify-admin` entry has a different configuration, or a configuration file can't be parsed, setup stops before it installs skills. Rename or remove the conflicting entry, then run the command again.
+Setup keeps your existing configuration and skips an agent that already has a matching `mintlify` entry. If a `mintlify` entry has a different configuration, or a configuration file can't be parsed, setup stops before it installs skills. Rename or remove the conflicting entry, then run the command again.
+
+Setup only looks for an entry named `mintlify`. If an agent already connects to the admin MCP under another name, such as `mintlify-admin`, setup adds a second entry. Remove one of them so the agent doesn't connect to the admin MCP twice.
 
 Rerunning the command refreshes the installed skills and replaces any local edits you made to them.
 
@@ -486,6 +493,7 @@ mint config <subcommand> <key> [value]
 | `subdomain` | Default documentation subdomain. | `mint dev`, `mint analytics`, `mint add-domain`, `mint score` |
 | `dateFrom` | Default start date for analytics queries. | `mint analytics` |
 | `dateTo` | Default end date for analytics queries. | `mint analytics` |
+| `autoUpdate` | Set to `false` to turn off [automatic updates](/cli/install#automatic-updates). | All commands |
 
 ---
 
@@ -503,6 +511,8 @@ The command checks Markdown links and images, including reference-style links su
 
 Links without a leading `/`, such as `quickstart` or `../quickstart`, resolve from the directory of the page that contains them, the same way a browser resolves them. To link from the root of your site, start the path with `/`.
 
+Root-relative links that keep the `.mdx` extension, such as `/quickstart.mdx`, report as broken because Mintlify serves pages without the extension. Remove the extension, or add a [redirect](/create/redirects) from the `.mdx` path to the page. Relative links such as `./quickstart.mdx` in Markdown links and `href` values are fine because Mintlify removes the extension, but reference-style link definitions such as `[id]: ./quickstart.mdx` keep it and report as broken.
+
 For links without a leading `/` and anchor links (`#`) inside a snippet, the command checks each page that renders the snippet. The command reports one of these links only if it is broken on at least one of those pages. With `--check-anchors`, headings inside a snippet count as anchors on the pages that render it.
 
 | Flag | Description |
@@ -512,6 +522,7 @@ For links without a leading `/` and anchor links (`#`) inside a snippet, the com
 | `--check-external` | Also check external URLs for broken links. |
 | `--check-redirects` | Also check that redirect destinations in `docs.json` resolve to valid paths. |
 | `--check-snippets` | Also check that snippet import paths resolve to existing files. |
+| `--links-to` | List every internal link that points to a page instead of checking for broken links. |
 
 Pass `--files` to limit the check to specific pages. This is useful for validating a single page you just edited or scoping checks to a directory in CI. When `--files` is set with `--check-external`, only external URLs on the selected pages are fetched.
 
@@ -525,6 +536,22 @@ mint broken-links --files "guides/**/*.mdx"
 # Pass multiple paths
 mint broken-links --files introduction.mdx "guides/**/*.mdx"
 ```
+
+### Find links to a page
+
+Pass `--links-to` with a page path to list every internal link that points to that page, with the file and line of each link. Use it when you move, rename, or delete a page to find the links you need to update.
+
+The command matches links by the page they resolve to, so relative links and links with a file extension also match. Add an anchor, such as `/guides/setup#install`, to list only links to that section.
+
+```bash
+# List links to a page
+mint broken-links --links-to /guides/setup
+
+# List links to a section of a page
+mint broken-links --links-to /guides/setup#install
+```
+
+Combine `--links-to` with `--files` to search only specific pages. The command exits with code `0` whether or not it finds links. Pass a page path, not a full URL or an anchor on its own.
 
 ---
 
@@ -555,7 +582,7 @@ mint validate [flags]
 
 `mint validate` runs a set of rules against your pages, snippets, navigation, and OpenAPI specifications, then runs a strict build. Findings print grouped by file, with the line, column, and rule name for each one when available.
 
-The `duplicate-h1`, `unknown-component`, `katex`, and `foreign-syntax` rules report warnings, so their findings don't fail the run. The other rules report errors.
+The `duplicate-h1`, `katex`, `foreign-syntax`, and `url-collision` rules report warnings, so their findings don't fail the run. The other rules report errors.
 
 The strict build runs only when no rule reports an error and at least one selected rule needs the build. If a rule reports an error, the command skips the build and tells you to fix the errors first. Warnings that the build can't attribute to a rule fail the run as `build-failed` errors.
 
@@ -565,12 +592,15 @@ The strict build runs only when no rule reports an error and at least one select
 | `void-tags` | `content` | Reports HTML void elements, such as `<br>`, `<img>`, `<source>`, and `<input>`, that aren't self-closed. MDX can't parse them unless you write them self-closed, for example `<br />` or `<source />`. `--fix` can self-close them for you. |
 | `duplicate-h1` | `content` | Reports a page whose first heading is an H1 that repeats the frontmatter `title`. Skips pages with `mode` set to `custom` or `frame`. `--fix` removes the heading, unless it has a custom `{#id}` or links in your site point to its anchor. In that case, remove it by hand and update the links. |
 | `unknown-component` | `content` | Reports JSX components on a page that aren't built in, imported, or exported on that page. `--fix` adds an import when a matching file such as `snippets/<Name>.jsx` or `snippets/<Name>.tsx` exists. |
+| `undefined-variable` | `content` | Reports `{{variableName}}` placeholders in pages and snippets that the `variables` object in `docs.json` doesn't define. Skips code. |
+| `missing-snippet` | `content` | Reports `<Snippet file="...">` tags whose snippet file doesn't exist, after Mintlify replaces any `docs.json` variables in the path. |
 | `katex` | `content` | Reports inline or block math that KaTeX can't render. Ignores currency amounts such as `$5`. |
 | `foreign-syntax` | `content` | Reports syntax from other documentation frameworks that Mintlify doesn't render, such as `:::` admonitions, Liquid tags, Hugo shortcodes, and `[[wiki links]]`. Each finding names the Mintlify replacement. Runs on files MDX can't parse and skips code. |
 | `missing-file` | `content` | Reports imported files that don't exist. Needs the build. |
 | `import-error` | `content` | Reports imports in pages and snippets that don't resolve. Needs the build. |
 | `missing-nav-page` | `nav` | Reports pages in your navigation that have no file. Needs the build. |
 | `package-import` | `config` | Reports npm package imports that are undeclared or conflict. Needs the build. |
+| `url-collision` | `config` | Reports generated pages whose names differ only by case from another name, so they get a new URL. See [GraphQL setup](/api-playground/graphql-setup). Needs the build. |
 | `build-failed` | `config` | Reports a strict build failure that no other rule explains. Needs the build. |
 | `openapi-spec` | `openapi` | Reports OpenAPI specifications in `docs.json` or `mint.json` that don't parse or validate, with overlays applied. |
 | `openapi-build` | `openapi` | Reports OpenAPI pages the build could not generate. Needs the build. |
@@ -785,7 +815,7 @@ mint migrate [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--from` | Add the instructions for a specific source platform to the overview. Accepts `confluence`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
+| `--from` | Add the instructions for a specific source platform to the overview. Accepts `confluence`, `custom`, `dita`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
 | `--topic` | Print the detailed instructions for one step of the migration workflow instead of the overview. Accepts `discovery` (inventory the source pages), `conversion` (convert pages to MDX), `navigation` (build `docs.json` navigation and redirects), `api` (migrate an API reference), `changelog` (migrate a changelog), or `verify` (check the finished migration). |
 | `--agent` | Start a coding agent in the current directory and have it run the migration. Accepts `claude`, `codex`, `cursor`, or `gemini`. Combine with `--from` to include a platform guide. |
 | `--claude` | Alias for `--agent claude`. |
@@ -822,13 +852,13 @@ mint new [directory] [flags]
 | `--name` | Project name. The CLI prompts for this if not provided in interactive mode. |
 | `--theme` | Project [theme](/customize/themes). The CLI prompts for this if not provided in interactive mode. |
 | `--template` | Pre-defined template. The CLI prompts for this if not provided in interactive mode. |
-| `--force` | Overwrite the directory without prompting. |
+| `--force` | In non-interactive mode, overwrite a directory that isn't empty. Without this flag, `mint new` doesn't create anything in a directory that isn't empty. |
 
 ---
 
 ## `mint update`
 
-Update the CLI to the latest version.
+Update the CLI and the local preview client to the latest versions.
 
 ```bash
 mint update
@@ -842,6 +872,31 @@ Display the current CLI and client versions.
 
 ```bash
 mint version
+```
+
+---
+
+## `mint feedback`
+
+Send feedback to the Mintlify team. You don't need to sign in. Never include API keys, tokens, passwords, or other secrets in the message.
+
+```bash
+mint feedback <message> --category <category> --client-id <id>
+```
+
+| Argument | Description |
+| --- | --- |
+| `message` | The feedback to send. |
+
+| Flag | Description |
+| --- | --- |
+| `--category` | Required. One of `bug`, `docs`, or `idea`. |
+| `--client-id` | Required. An ID for this report, so the Mintlify team can tell retries of the same report apart. |
+
+### Examples
+
+```bash
+mint feedback "mint dev crashes on a missing image" --category bug --client-id 7f3a
 ```
 
 ---

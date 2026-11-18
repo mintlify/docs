@@ -20,7 +20,7 @@
       "post": {
         "summary": "创建代理任务（v1）",
         "deprecated": true,
-        "description": "已废弃：请改用 [v2 create agent job](/api/agent/v2/create-agent-job)。此操作会创建一个新的代理任务，该任务可根据提供的消息和 Git branch 信息生成并编辑文档。\n\n使用管理员 API 密钥进行身份验证。",
+        "description": "已废弃：请改用[使用 webhook 触发器的自定义自动化](/zh/api/automations/webhook)。此操作会创建一个新的代理任务，该任务可根据提供的消息和 Git branch 信息生成并编辑文档。\n\n使用管理员 API 密钥进行身份验证。",
         "parameters": [
           {
             "name": "projectId",
@@ -437,7 +437,8 @@
     "/v2/agent/{projectId}/job": {
       "post": {
         "summary": "创建代理任务",
-        "description": "创建一个在后台运行的新代理作业。该作业会异步处理提示词。轮询 get job 端点以跟踪进度。如果代理成功编辑文件，则会自动创建拉取请求（PR；亦称“合并请求”/Merge Request）。\n\n使用管理员 API 密钥进行身份验证。",
+        "deprecated": true,
+        "description": "已废弃：请改用[使用 webhook 触发器的自定义自动化](/zh/api/automations/webhook)。创建一个在后台运行的新代理作业。该作业会异步处理提示词。轮询 get job 端点以跟踪进度。如果代理成功编辑文件，则会自动创建拉取请求（PR；亦称“合并请求”/Merge Request）。\n\n使用管理员 API 密钥进行身份验证。",
         "parameters": [
           {
             "name": "projectId",
@@ -762,6 +763,114 @@
           },
           "503": {
             "description": "额度检查失败。请重试该请求。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/autopilot/{projectId}/webhook": {
+      "post": {
+        "summary": "触发 Autopilot webhook",
+        "description": "启动一次按照请求体中 prompt 执行的 Autopilot 运行。适用于从 CI/CD 流水线、发布脚本或内部工具中让 Autopilot 更新你的文档。\n\n使用具有写入权限的组织 API 密钥进行身份验证。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "你的项目 ID。可在控制台的 [API keys](https://app.mintlify.com/settings/organization/api-keys) 页面复制。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "给 Autopilot 的指令，例如发生了哪些变化以及需要在文档中更新什么。"
+                  }
+                }
+              },
+              "example": {
+                "prompt": "We released v2.4 of the CLI. Add the new --watch flag to the CLI reference."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Autopilot 运行已成功加入队列。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "运行加入队列时始终为 `true`。"
+                    },
+                    "runId": {
+                      "type": "string",
+                      "description": "已加入队列的 Autopilot 运行的 ID。"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "prompt 缺失、为空或超过 20,000 个字符，或项目 ID 格式不正确。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API 密钥缺失或无效，或你的套餐不包含 Autopilot。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "你的 API 密钥没有写入权限，或你的请求来自不在 API 密钥允许列表中的 IP 地址。"
+          },
+          "404": {
+            "description": "项目不存在或不属于你的组织，或该项目未设置 Autopilot。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "你已超出每个组织每 10 秒 10 次请求的速率限制。此限制由触发部署、触发自动化和自动化 webhook 端点共享。"
+          },
+          "500": {
+            "description": "由于意外的服务器错误，无法将 Autopilot 运行加入队列。",
             "content": {
               "application/json": {
                 "schema": {

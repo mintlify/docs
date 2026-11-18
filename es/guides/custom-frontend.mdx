@@ -18,11 +18,11 @@ Esta guía te guía paso a paso para configurar un proyecto headless de Mintlify
 |---------|--------------|-------|
 | Mintlify components | Included | Usa componentes como `<Card>`, `<Steps>` y `<Tabs>` en tus archivos MDX sin importarlos. |
 | Content processing | Included | La integración `@mintlify/astro` lee tu `docs.json` y los archivos MDX y los procesa en tiempo de compilación. |
-| Search | Included | El componente `SearchBar` se conecta a la API de búsqueda de Mintlify usando el subdominio de tu proyecto. |
-| AI assistant | Included | El componente `Assistant` proporciona una interfaz de chat con IA impulsada por tu contenido. |
+| Search | Included | El componente `SearchBar` consulta la API de búsqueda de Mintlify a través de una ruta de servidor en tu sitio. |
+| AI assistant | Included | El componente `Assistant` proporciona una interfaz de chat con IA impulsada por tu contenido. Llama a la API del assistant de Mintlify a través de una ruta de servidor en tu sitio. |
 | Layouts and styling | Custom build | Header, footer, barra lateral, tabla de contenidos, plantillas de página y todo el CSS. La plantilla inicial incluye ejemplos construidos con Tailwind CSS. |
 | Routing and navigation | Custom build | Una ruta comodín de Astro renderiza cada página. Usa `resolvePageData()` y `unwrapNav()` de `@mintlify/astro/helpers` para resolver el estado de navegación desde `docs.json`. |
-| Deployment and hosting | Custom build | Despliega tu sitio de Astro en cualquier proveedor de alojamiento. |
+| Deployment and hosting | Custom build | Despliega tu sitio de Astro en un servicio de alojamiento que ejecute Node.js, o cambia al adaptador de Astro de tu proveedor. |
 | SEO | You build | Las meta tags, las etiquetas Open Graph, el sitemap y `robots.txt` son tu responsabilidad. |
 | Third-party integrations | Custom build | Agrega integraciones directamente a tu diseño de Astro. Las herramientas configuradas en `docs.json` para proyectos alojados no aplican en modo headless. |
 | `llms.txt`, `llms-full.txt`, and `skill.md` | Custom build | Para proyectos headless, debes generar y servir estos archivos tú mismo. |
@@ -43,6 +43,7 @@ Esta guía te guía paso a paso para configurar un proyecto headless de Mintlify
 * Una [cuenta de GitHub](https://github.com)
 * [Node.js](https://nodejs.org) v20.17.0 o posterior (se recomiendan las versiones LTS)
 * Familiaridad con [Astro](https://docs.astro.build)
+* Un proveedor de alojamiento que ejecute código del lado del servidor, como Node.js, para la búsqueda y el assistant
 
 <div id="set-up-your-project">
   ## Configura tu proyecto
@@ -75,12 +76,16 @@ Esta guía te guía paso a paso para configurar un proyecto headless de Mintlify
 
     ```bash .env
     PUBLIC_MINTLIFY_SUBDOMAIN=your-subdomain
-    PUBLIC_MINTLIFY_ASSISTANT_KEY=your-assistant-api-key
+    MINTLIFY_ASSISTANT_KEY=mint_dsc_your_key_here
     ```
 
     Tu subdominio es el nombre de dominio de tu proyecto. Es la parte de la URL de tu dashboard que aparece después del nombre de la organización. Por ejemplo, si la URL de tu dashboard es `https://app.mintlify.com/org-name/domain-name`, tu subdominio es `domain-name`.
 
     Genera una clave de API del assistant en la página [API keys](https://app.mintlify.com/settings/organization/api-keys) de tu dashboard. Esta clave de API del assistant empieza por `mint_dsc_`.
+
+    <Warning>
+      No añadas el prefijo `PUBLIC_` a `MINTLIFY_ASSISTANT_KEY`. Astro incluye las variables `PUBLIC_` en el código del cliente. Cualquiera que copie la clave de tu sitio puede usar tus créditos del assistant y leer las páginas protegidas de tu proyecto.
+    </Warning>
   </Step>
 
   <Step title="Inicia el servidor de desarrollo">
@@ -109,17 +114,30 @@ La integración conecta tres partes: el sistema de compilación de Astro, el con
 Configura la integración `mintlify()` en `astro.config.mjs` con la ruta a tu directorio de documentación:
 
 ```javascript astro.config.mjs
-import { defineConfig } from 'astro/config';
+import { defineConfig, envField } from 'astro/config';
 import react from '@astrojs/react';
 import mdx from '@astrojs/mdx';
 import { mintlify } from '@mintlify/astro';
+import node from '@astrojs/node';
 
 export default defineConfig({
+  adapter: node({ mode: 'standalone' }),
+  env: {
+    schema: {
+      MINTLIFY_ASSISTANT_KEY: envField.string({
+        context: 'server',
+        access: 'secret',
+        optional: true,
+      }),
+    },
+  },
   integrations: [mintlify({ docsDir: './docs' }), react(), mdx()],
 });
 ```
 
 En tiempo de compilación, la integración lee tu `docs.json` y los archivos MDX desde la ruta `docsDir` y los procesa en `.mintlify/docs/`, donde las colecciones de contenido de Astro los incorporan.
+
+Astro prerrenderiza tus páginas como HTML estático. El adaptador de Node.js las sirve y ejecuta las rutas de servidor para la búsqueda y el assistant. El esquema `env` declara `MINTLIFY_ASSISTANT_KEY` como un secreto del servidor, por lo que el servidor la lee en tiempo de ejecución y Astro nunca la escribe en el resultado de la compilación.
 
 <div id="content-structure">
   ### Estructura del contenido
@@ -169,12 +187,29 @@ Archivos clave para personalizar:
   ## Conectar la búsqueda y el assistant
 </div>
 
-La plantilla inicial incluye componentes de búsqueda y assistant que se conectan a las API de Mintlify usando las variables de entorno que configuras durante la configuración inicial.
+La plantilla inicial incluye componentes de búsqueda y assistant que se conectan a las API de Mintlify a través de rutas de servidor en tu sitio. El navegador nunca llama directamente a las API de Mintlify, por lo que tu clave de API del assistant permanece en tu servidor.
 
-* **Search**: El componente `SearchBar` en `src/components/SearchBar.tsx` realiza consultas a la API de búsqueda de Mintlify.
-* **Assistant**: El componente `Assistant` en `src/components/Assistant/` proporciona una interfaz de chat con IA que responde preguntas usando el contenido de tu documentación.
+* **Search**: El componente `SearchBar` en `src/components/SearchBar.tsx` envía las consultas a la ruta `/api/search`.
+* **Assistant**: El componente `Assistant` en `src/components/Assistant/` proporciona una interfaz de chat con IA que responde preguntas usando el contenido de tu documentación. Envía los mensajes a la ruta `/api/assistant`, que transmite la respuesta de vuelta.
 
-Ambos requieren las variables de entorno `PUBLIC_MINTLIFY_SUBDOMAIN` y `PUBLIC_MINTLIFY_ASSISTANT_KEY`.
+Ambas rutas se encuentran en `src/pages/api/` y necesitan las variables de entorno `PUBLIC_MINTLIFY_SUBDOMAIN` y `MINTLIFY_ASSISTANT_KEY`. Cada ruta añade tu clave de API a la solicitud y la reenvía a Mintlify. Las rutas establecen las opciones de la solicitud, como los filtros de búsqueda, para que los visitantes no puedan cambiarlas.
+
+Cualquiera que pueda abrir tu sitio puede llamar a estas rutas, y cada llamada usa tus créditos del assistant.
+
+<div id="deploy-your-site">
+  ## Despliega tu sitio
+</div>
+
+La plantilla inicial usa el [adaptador de Node.js](https://docs.astro.build/en/guides/integrations-guide/node/), por lo que puedes desplegarla en cualquier servicio de alojamiento que ejecute un servidor Node.js. Compila el sitio e inicia el servidor:
+
+```bash
+npm run build
+npm run start
+```
+
+Define `PUBLIC_MINTLIFY_SUBDOMAIN` antes de compilar. Define `MINTLIFY_ASSISTANT_KEY` en las variables de entorno de tu proveedor de alojamiento. El servidor de producción no lee tu archivo `.env`.
+
+Para desplegar en una plataforma como Vercel, Netlify o Cloudflare, reemplaza el adaptador de Node.js en `astro.config.mjs` por el [adaptador de Astro](https://docs.astro.build/en/guides/on-demand-rendering/) de esa plataforma. La búsqueda y el assistant no funcionan sin un adaptador.
 
 <div id="next-steps">
   ## Próximos pasos
@@ -184,4 +219,4 @@ Después de configurar tu proyecto:
 
 1. Reemplaza el contenido inicial en `docs/` con tus propios archivos MDX y la configuración `docs.json`.
 2. Personaliza los diseños y estilos para que se ajusten a tu sistema de diseño.
-3. Despliega tu sitio de Astro en tu proveedor de alojamiento preferido.
+3. [Despliega tu sitio](#deploy-your-site) en tu proveedor de alojamiento.

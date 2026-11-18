@@ -20,7 +20,7 @@
       "post": {
         "summary": "Create agent job (v1)",
         "deprecated": true,
-        "description": "Deprecated: use [v2 create agent job](/api/agent/v2/create-agent-job) instead. Creates a new agent job that can generate and edit documentation based on provided messages and branch information.\n\nAuthenticate with an admin API key.",
+        "description": "Deprecated: use a [custom automation with a webhook trigger](/api/automations/webhook) instead. Creates a new agent job that can generate and edit documentation based on provided messages and branch information.\n\nAuthenticate with an admin API key.",
         "parameters": [
           {
             "name": "projectId",
@@ -400,7 +400,8 @@
     "/v2/agent/{projectId}/job": {
       "post": {
         "summary": "Create agent job",
-        "description": "Creates a new agent job that runs in the background. The job processes the prompt asynchronously. Poll the get job endpoint to track progress. If the agent edits files successfully, a pull request is automatically created.\n\nAuthenticate with an admin API key.",
+        "deprecated": true,
+        "description": "Deprecated: use a [custom automation with a webhook trigger](/api/automations/webhook) instead. Creates a new agent job that runs in the background. The job processes the prompt asynchronously. Poll the get job endpoint to track progress. If the agent edits files successfully, a pull request is automatically created.\n\nAuthenticate with an admin API key.",
         "parameters": [
           {
             "name": "projectId",
@@ -721,6 +722,114 @@
           },
           "503": {
             "description": "Credit check failed. Retry the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/autopilot/{projectId}/webhook": {
+      "post": {
+        "summary": "Trigger Autopilot webhook",
+        "description": "Starts an Autopilot run that follows the prompt in the request body. Useful for asking Autopilot to update your docs from CI/CD pipelines, release scripts, or internal tools.\n\nAuthenticate with an organization API key that has write access.",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your project ID. Copy it from the [API keys](https://app.mintlify.com/settings/organization/api-keys) page in your dashboard."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "prompt"
+                ],
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "Instructions for Autopilot, such as what changed and what to update in your docs."
+                  }
+                }
+              },
+              "example": {
+                "prompt": "We released v2.4 of the CLI. Add the new --watch flag to the CLI reference."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Autopilot run queued successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Always `true` when the run is queued."
+                    },
+                    "runId": {
+                      "type": "string",
+                      "description": "The ID of the queued Autopilot run."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The prompt is missing, empty, or longer than 20,000 characters, or the project ID is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing or invalid, or your plan doesn't include Autopilot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Your API key doesn't have write access, or your request came from an IP address that isn't on your API key's allowlist."
+          },
+          "404": {
+            "description": "The project doesn't exist or doesn't belong to your organization, or Autopilot is not set up for the project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomationWebhookError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "You exceeded the rate limit of 10 requests per 10 seconds per organization. This limit is shared with the trigger deployment, trigger automation, and automation webhook endpoints."
+          },
+          "500": {
+            "description": "The Autopilot run could not be queued because of an unexpected server error.",
             "content": {
               "application/json": {
                 "schema": {

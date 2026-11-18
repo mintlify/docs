@@ -1,94 +1,195 @@
 ---
-title: "Créer un message de l’Assistant (v1)"
-openapi: /fr/discovery-openapi.json POST /v1/assistant/{domain}/message
-tag: "Obsolète"
-keywords: [ "message de l’Assistant", "intégration", "chat", "intégrer", "ai sdk v4" ]
+title: "Créer un message de l'Assistant"
+openapi: /fr/discovery-openapi.json POST /v2/assistant/{domain}/message
+keywords:
+  [
+    "assistant message",
+    "embed",
+    "chat",
+    "intégrer",
+    "v2",
+    "ai sdk v5",
+    "ai sdk v6"
+  ]
 ---
 
-<Badge color="orange">Obsolète</Badge>
+<Note>
+  L'endpoint assistant message v1 n'est plus disponible. Les requêtes vers cet endpoint renvoient `410 Gone`.
 
-<Info>
-  Le point de terminaison assistant message v1 est compatible avec **AI SDK v4**. Si vous utilisez AI SDK v5 ou une version ultérieure, utilisez plutôt le [point de terminaison assistant message v2](/fr/api/assistant/create-assistant-message-v2).
-</Info>
+  Migrez toute intégration qui appelle l'endpoint v1 vers cet endpoint v2. Consultez [Migrer depuis la v1](#migrate-from-v1).
+</Note>
+
+<div id="compatibility">
+  ## Compatibilité
+</div>
+
+L'endpoint assistant message est compatible avec **AI SDK v5+**. Si votre intégration utilise l'AI SDK v4, passez à l'AI SDK v5 ou à une version ultérieure pour utiliser cet endpoint.
 
 <div id="integration-with-usechat">
   ## Intégration avec `useChat`
 </div>
 
-Le hook `useChat` du SDK AI de Vercel est la méthode recommandée pour intégrer l’API de l’Assistant à votre application.
+Le hook `useChat` de l&#39;AI SDK de Vercel est la méthode recommandée pour intégrer l&#39;API Assistant dans votre application.
 
 <Steps>
-  <Step title="Installer le SDK AI v4">
+  <Step title="Installer l'AI SDK">
     ```bash
-    npm i ai@^4.1.15
+    npm i ai@^6 @ai-sdk/react
     ```
   </Step>
 
-  <Step title="Utiliser le hook">
-    ```tsx
-    import { useChat } from 'ai/react';
+  <Step title="Ajouter une route proxy">
+    Créez une route côté serveur qui ajoute votre clé d'API de l'Assistant à chaque requête et la transmet à `https://api.mintlify.com/discovery/v2/assistant/{domain}/message`. Stockez la clé dans une variable d'environnement côté serveur.
 
-    function MyComponent({ domain }) {
-      const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-        api: `https://api.mintlify.com/discovery/v1/assistant/${domain}/message`,
-        headers: {
-          'Authorization': `Bearer ${process.env.PUBLIC_MINTLIFY_ASSISTANT_KEY}`,
-        },
-        body: {
-          fp: 'anonymous',
-          retrievalPageSize: 5,
-          context: [
-            {
-              type: 'code',
-              value: 'const example = "code snippet";',
-              elementId: 'code-block-1',
-            },
-          ],
-        },
-        streamProtocol: 'data',
-        sendExtraMessageFields: true,
+    N'appelez pas l'endpoint directement depuis le navigateur. Toute personne qui extrait la clé de votre code client peut utiliser vos crédits d'Assistant et lire du contenu protégé par authentification. Consultez [Clé d'API de l'Assistant](/fr/api/introduction#assistant-api-key).
+
+    Pour une route proxy complète dans Next.js, consultez [Créer un assistant de documentation in‑app](/fr/guides/assistant-embed).
+  </Step>
+
+  <Step title="Utiliser le hook">
+    Pointez `useChat` vers votre route proxy.
+
+    ```tsx
+    import { useState } from "react";
+    import { useChat } from "@ai-sdk/react";
+    import { DefaultChatTransport } from "ai";
+
+    function MyComponent() {
+      const [input, setInput] = useState("");
+
+      const { messages, sendMessage } = useChat({
+        transport: new DefaultChatTransport({
+          api: "/api/assistant",
+          body: {
+            fp: "anonymous",
+            retrievalPageSize: 5,
+            context: [
+              {
+                type: "code",
+                value: 'const example = "code snippet";',
+                elementId: "code-block-1",
+              },
+            ],
+          },
+        }),
       });
 
       return (
         <div>
           {messages.map((message) => (
             <div key={message.id}>
-              {message.role === 'user' ? 'Utilisateur : ' : 'Assistant : '}
-              {message.content}
+              {message.role === "user" ? "User: " : "Assistant: "}
+              {message.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.text)
+                .join("")}
             </div>
           ))}
-          <form onSubmit={handleSubmit}>
-            <input value={input} onChange={handleInputChange} />
-            <button type="submit">Envoyer</button>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (input.trim()) {
+                sendMessage({ text: input });
+                setInput("");
+              }
+            }}
+          >
+            <input value={input} onChange={(e) => setInput(e.target.value)} />
+            <button type="submit">Send</button>
           </form>
         </div>
       );
     }
     ```
 
-    **Configuration requise pour Mintlify :**
+    **Configuration requise :**
 
-    * `streamProtocol: 'data'` - Requis pour les réponses en streaming.
-    * `sendExtraMessageFields: true` - Requis pour envoyer les métadonnées des messages.
-    * `body.fp` - Identifiant d’empreinte (utilisez &#39;anonymous&#39; ou un identifiant utilisateur).
-    * `body.retrievalPageSize` - Nombre de résultats de recherche à utiliser (recommandé : 5).
+    * `transport` - Utilisez `DefaultChatTransport` avec `api` défini sur votre route proxy.
+    * `body.fp` - Identifiant d’empreinte (utilisez `'anonymous'` ou un identifiant utilisateur unique).
+    * `body.retrievalPageSize` - Nombre de résultats de recherche à utiliser (recommandé : 5).
 
-    **Configuration optionnelle :**
+    **Configuration optionnelle :**
 
-    * `body.context` - Tableau d’informations contextuelles à fournir à l’Assistant. Chaque objet de contexte contient :
+    * `body.context` - Tableau d’informations contextuelles à fournir à l’Assistant. Chaque objet de contexte contient :
       * `type` - Soit `'code'` soit `'textSelection'`.
-      * `value` - L’extrait de code ou le texte sélectionné.
+      * `value` - Le morceau de code ou le contenu textuel sélectionné.
+      * `path` (optionnel) - Chemin vers le fichier source ou la page.
       * `elementId` (optionnel) - Identifiant de l’élément d’interface contenant le contexte.
-    * `body.currentPath` - Le chemin de la page actuellement consultée par l’utilisateur. Lorsqu’il est fourni, l’Assistant utilise ce contexte pour donner des réponses plus pertinentes. Longueur maximale : 200 caractères.
+    * `body.currentPath` - Chemin de la page que l’utilisateur est en train de consulter. Lorsqu’il est fourni, l’Assistant utilise ce contexte pour fournir des réponses plus pertinentes. Longueur maximale : 200 caractères.
   </Step>
 </Steps>
 
-Consultez [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) dans la documentation du SDK AI pour en savoir plus.
+Voir [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) et [Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport) dans la documentation de l&#39;AI SDK pour plus de détails.
+
+<div id="migrate-from-v1">
+  ## Migrer depuis la v1
+</div>
+
+Le point de terminaison v1 n'est plus pris en charge et renvoie `410 Gone`. Pour migrer, remplacez l'URL `/discovery/v1/assistant/{domain}/message` par `/discovery/v2/assistant/{domain}/message`, puis mettez à jour vos messages et la gestion du flux.
+
+Votre clé API et ces champs du corps ne changent pas : `fp`, `threadId`, `threadKey`, `regenerate`, `retrievalPageSize`, `filter`, `context` et `currentPath`.
+
+<div id="if-you-use-usechat">
+  ### Si vous utilisez `useChat`
+</div>
+
+Passez à AI SDK v5 ou ultérieur et utilisez `DefaultChatTransport` comme indiqué dans [Intégration avec `useChat`](#integration-with-usechat). Supprimez `streamProtocol` et `sendExtraMessageFields`. Ils ne sont pas nécessaires en v2. Affichez les messages à partir de `message.parts` au lieu de `message.content`.
+
+<div id="if-you-call-the-api-directly">
+  ### Si vous appelez l'API directement
+</div>
+
+**Les messages utilisent `parts` au lieu de `content`.** Supprimez la chaîne `content` et envoyez le texte sous forme de partie texte. Le rôle `data` n'est plus accepté.
+
+<CodeGroup>
+
+```json v1
+{
+  "id": "msg_1",
+  "role": "user",
+  "content": "How do I get started?",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+```json v2
+{
+  "id": "msg_1",
+  "role": "user",
+  "parts": [{ "type": "text", "text": "How do I get started?" }]
+}
+```
+
+</CodeGroup>
+
+**Les pièces jointes sont des parties `file`.** Remplacez `experimental_attachments` par des entrées dans `parts`.
+
+<CodeGroup>
+
+```json v1
+{
+  "experimental_attachments": [
+    { "name": "screenshot.png", "contentType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+```json v2
+{
+  "parts": [
+    { "type": "file", "filename": "screenshot.png", "mediaType": "image/png", "url": "data:image/png;base64,..." }
+  ]
+}
+```
+
+</CodeGroup>
+
+**Les réponses sont diffusées sous forme de server-sent events.** La v1 renvoie le data stream d'AI SDK v4, composé de lignes `0:"..."`. La v2 renvoie le [UI message stream](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#ui-message-stream) d'AI SDK. Chaque événement est une ligne JSON `data: {...}`, le texte arrive dans des événements `text-delta` et le flux se termine par `data: [DONE]`. Les en-têtes de réponse `X-Thread-Id`, `X-Thread-Key` et `X-Message-Id` restent inchangés.
 
 <div id="rate-limits">
   ## Limites de débit
 </div>
 
-L’API de l’Assistant applique la limite suivante :
+L'API Assistant est soumise à la limite suivante :
 
 * 10 000 requêtes par organisation Mintlify et par heure

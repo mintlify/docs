@@ -105,9 +105,11 @@ mint deploy [flags]
 | `--org-name` | Nom d'affichage de l'organisation. |
 | `--directory` | Répertoire de documentation du site. Par défaut, le répertoire courant. |
 | `--new` | Créer un autre site au lieu de réutiliser le site associé à ce répertoire. |
-| `--email` | Adresse e-mail pour laquelle créer un lien de revendication. Ne peut pas être combiné avec `--github`. |
+| `--email` | Affiche aussi un lien de revendication, prérempli avec cette adresse e-mail de compte Mintlify. Ne peut pas être combiné avec `--github` ni `--push`. |
 | `--github` | Autoriser le dépôt GitHub actuel à déployer le site et écrire `.github/workflows/mintlify.yml`. |
 | `--force` | Avec `--github`, écraser un fichier de workflow existant dont le contenu est différent. |
+| `--knowledge-base` | Créer une [base de connaissances](/fr/base/index), que vous modifiez dans l'éditeur Mintlify, au lieu d'un site. Ne peut pas être combiné avec `--github`. Remplace le flag obsolète `--base`. |
+| `--push` | Avec `--knowledge-base`, rebaser le clone du répertoire indiqué sur `main` et le pousser vers la base de connaissances. Par exemple, `--push ./my-knowledge-base`. |
 
 Exécutez à nouveau la commande depuis le même répertoire pour obtenir un nouveau jeton d'écriture pour le même site. Dans GitHub Actions, `mint deploy` pousse le commit extrait vers un site qui fait confiance au dépôt. Le workflow nécessite la permission `id-token: write`.
 
@@ -124,6 +126,9 @@ mint deploy --email you@example.com
 
 # Déployer depuis GitHub Actions à chaque push sur la branche par défaut
 mint deploy --github --subdomain my-docs
+
+# Créer une base de connaissances
+mint deploy --knowledge-base --subdomain my-knowledge-base
 ```
 
 ---
@@ -140,11 +145,11 @@ mint claim [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--email` | Adresse e-mail pour laquelle créer un lien de revendication. |
-| `--code` | Code de la page de revendication qui finalise la revendication. |
+| `--email` | Adresse e-mail du compte Mintlify de la personne qui revendique, si elle est connue, pour préremplir la connexion. Facultatif. |
+| `--code` | Code d'un ancien lien de revendication qui en affichait un. Finalise cette revendication. |
 | `--directory` | Répertoire de documentation utilisé pour `mint deploy`. Par défaut, le répertoire courant. |
 
-Exécutez `mint claim --email` pour obtenir un lien de revendication. Une fois que le propriétaire du site a ouvert le lien et s'est connecté, exécutez `mint claim --code` avec le code affiché sur la page de revendication. `--email` et `--code` ne peuvent pas être combinés.
+Exécutez `mint claim` pour obtenir un lien de revendication. Le propriétaire du site l'ouvre, se connecte avec n'importe quel compte et clique sur **Confirm** ; le site est déplacé dans une nouvelle organisation de son compte. `--email` et `--code` ne peuvent pas être combinés.
 
 <div id="examples">
   ### Exemples
@@ -152,10 +157,10 @@ Exécutez `mint claim --email` pour obtenir un lien de revendication. Une fois q
 
 ```bash
 # Obtenir un lien de revendication
-mint claim --email you@example.com
+mint claim
 
-# Finaliser la revendication
-mint claim --code ABCDEFGH
+# Préremplir la connexion avec une adresse e-mail connue
+mint claim --email you@example.com
 ```
 
 ---
@@ -170,7 +175,7 @@ S'authentifier avec votre compte Mintlify.
 mint login
 ```
 
-Ouvre une fenêtre de navigateur pour compléter l'authentification. Si le navigateur ne s'ouvre pas, la CLI affiche une URL à ouvrir manuellement et un champ pour coller le code d'autorisation. Les identifiants sont enregistrés dans `~/.config/mintlify/config.json`.
+Ouvre une fenêtre de navigateur pour compléter l'authentification. Si le navigateur ne s'ouvre pas, la CLI affiche une URL à ouvrir manuellement et un champ pour coller le code d'autorisation. La CLI stocke vos identifiants dans le gestionnaire d'identifiants de votre système d'exploitation, comme le Trousseau sur macOS.
 
 Si vous avez plus d'un projet, la CLI vous invite à sélectionner un projet par défaut après la connexion. Vous pouvez modifier le projet par défaut ultérieurement avec `mint config set subdomain <subdomain>`.
 
@@ -422,12 +427,12 @@ mint agent setup [flags]
 | `--global`, `-g` | Configurer les agents pour votre compte utilisateur plutôt que pour le projet actuel. La valeur par défaut est `false`. |
 
 <Note>
-  `mint agent setup` nécessite Node.js 22.20 ou une version ultérieure ainsi que npm.
+  `mint agent setup` nécessite Node.js 22.20 ou une version ultérieure ainsi que npm. La CLI ne fonctionne pas sous Node.js 25.
 </Note>
 
 Sans terminal interactif, la commande configure les agents qu'elle détecte. Si elle n'en détecte aucun, passez `--agent`.
 
-La commande ajoute un serveur MCP nommé `mintlify-admin` avec l'URL `https://mcp.mintlify.com` au fichier de configuration de chaque agent.
+La commande ajoute un serveur MCP nommé `mintlify` avec l'URL `https://mcp.mintlify.com` au fichier de configuration de chaque agent.
 
 | Agent | Fichier du projet | Fichier du compte utilisateur (`--global`) |
 | --- | --- | --- |
@@ -435,15 +440,17 @@ La commande ajoute un serveur MCP nommé `mintlify-admin` avec l'URL `https://mc
 | Codex | `.codex/config.toml` | `~/.codex/config.toml`, ou `config.toml` dans `CODEX_HOME` lorsque cette variable est définie |
 | Cursor | `.cursor/mcp.json` | `~/.cursor/mcp.json` |
 
-Si votre configuration Codex définit `mcp_servers` comme une table inline, la configuration ne peut pas y ajouter d'entrée et s'arrête avec une erreur. Ajoutez vous-même une entrée `mintlify-admin` avec `url = "https://mcp.mintlify.com"` à la table inline.
+Si votre configuration Codex définit `mcp_servers` comme une table inline, la configuration ne peut pas y ajouter d'entrée et s'arrête avec une erreur. Ajoutez vous-même une entrée `mintlify` avec `url = "https://mcp.mintlify.com"` à la table inline.
 
 Si `CLAUDE_CONFIG_DIR` est défini, la configuration `--global` pour Claude Code s'arrête avec une erreur. Ajoutez plutôt le serveur avec la CLI Claude Code :
 
 ```bash
-claude mcp add --scope user --transport http mintlify-admin https://mcp.mintlify.com
+claude mcp add --scope user --transport http mintlify https://mcp.mintlify.com
 ```
 
-La configuration conserve votre configuration existante et ignore un agent qui possède déjà une entrée `mintlify-admin` correspondante. Si une entrée `mintlify-admin` a une configuration différente, ou si un fichier de configuration ne peut pas être analysé, la configuration s'arrête avant d'installer les compétences. Renommez ou supprimez l'entrée en conflit, puis exécutez à nouveau la commande.
+La configuration conserve votre configuration existante et ignore un agent qui possède déjà une entrée `mintlify` correspondante. Si une entrée `mintlify` a une configuration différente, ou si un fichier de configuration ne peut pas être analysé, la configuration s'arrête avant d'installer les compétences. Renommez ou supprimez l'entrée en conflit, puis exécutez à nouveau la commande.
+
+La configuration recherche uniquement une entrée nommée `mintlify`. Si un agent se connecte déjà à l'Admin MCP sous un autre nom, comme `mintlify-admin`, la configuration ajoute une seconde entrée. Supprimez l'une d'elles pour que l'agent ne se connecte pas deux fois à l'Admin MCP.
 
 Relancer la commande actualise les compétences installées et remplace toutes les modifications locales que vous y avez apportées.
 
@@ -539,6 +546,7 @@ mint config <subcommand> <key> [value]
 | `subdomain` | Sous-domaine par défaut de la documentation. | `mint dev`, `mint analytics`, `mint add-domain`, `mint score` |
 | `dateFrom` | Date de début par défaut pour les requêtes d'analytics. | `mint analytics` |
 | `dateTo` | Date de fin par défaut pour les requêtes d'analytics. | `mint analytics` |
+| `autoUpdate` | Définissez sur `false` pour désactiver les [mises à jour automatiques](/fr/cli/install#automatic-updates). | Toutes les commandes |
 
 ---
 
@@ -557,6 +565,8 @@ La commande analyse les liens des fichiers `.mdx` et `.md` et exclut les fichier
 La commande vérifie les liens et images Markdown, y compris les liens de style référence comme `[text][id]`. Elle vérifie aussi le `href` des composants `<a>` et `<Card>` ainsi que le `src` des balises `<img>` et `<source>`, qu'ils soient écrits sous forme de chaîne simple ou de valeur fixe entre accolades, comme `href={"/quickstart"}`. Les valeurs calculées à partir de variables ne sont pas vérifiées.
 
 Les liens sans `/` initial, comme `quickstart` ou `../quickstart`, sont résolus à partir du répertoire de la page qui les contient, de la même manière qu'un navigateur les résout. Pour créer un lien depuis la racine de votre site, commencez le chemin par `/`.
+
+Les liens relatifs à la racine qui conservent l'extension `.mdx`, comme `/quickstart.mdx`, sont signalés comme cassés, car Mintlify sert les pages sans l'extension. Supprimez l'extension ou ajoutez une [redirection](/fr/create/redirects) du chemin `.mdx` vers la page. Les liens relatifs comme `./quickstart.mdx` dans les liens Markdown et les valeurs `href` fonctionnent, car Mintlify supprime l'extension, mais les définitions de liens de style référence comme `[id]: ./quickstart.mdx` la conservent et sont signalées comme cassées.
 
 Pour les liens sans `/` initial et les liens d'ancre (`#`) à l'intérieur d'un snippet, la commande vérifie chaque page qui affiche le snippet. La commande signale un de ces liens uniquement s'il est cassé sur au moins une de ces pages. Avec `--check-anchors`, les titres à l'intérieur d'un snippet comptent comme des ancres sur les pages qui l'affichent.
 
@@ -614,7 +624,7 @@ mint validate [flags]
 
 `mint validate` exécute un ensemble de règles sur vos pages, snippets, navigation et spécifications OpenAPI, puis lance une compilation stricte. Les résultats s'affichent regroupés par fichier, avec la ligne, la colonne et le nom de la règle pour chacun lorsqu'ils sont disponibles.
 
-Les règles `duplicate-h1`, `unknown-component`, `katex` et `foreign-syntax` signalent des avertissements : leurs résultats ne font donc pas échouer l'exécution. Les autres règles signalent des erreurs.
+Les règles `duplicate-h1`, `katex`, `foreign-syntax` et `url-collision` signalent des avertissements : leurs résultats ne font donc pas échouer l'exécution. Les autres règles signalent des erreurs.
 
 La compilation stricte ne s'exécute que si aucune règle ne signale d'erreur et qu'au moins une règle sélectionnée a besoin de la compilation. Si une règle signale une erreur, la commande ignore la compilation et vous demande de corriger d'abord les erreurs. Les avertissements que la compilation ne peut pas attribuer à une règle font échouer l'exécution en tant qu'erreurs `build-failed`.
 
@@ -624,12 +634,15 @@ La compilation stricte ne s'exécute que si aucune règle ne signale d'erreur et
 | `void-tags` | `content` | Signale les éléments vides HTML, comme `<br>`, `<img>`, `<source>` et `<input>`, qui ne sont pas auto-fermants. MDX ne peut pas les analyser à moins que vous ne les écriviez sous forme auto-fermante, par exemple `<br />` ou `<source />`. `--fix` peut les fermer automatiquement pour vous. |
 | `duplicate-h1` | `content` | Signale une page dont le premier titre est un H1 qui répète le `title` du frontmatter. Ignore les pages dont `mode` est défini sur `custom` ou `frame`. `--fix` supprime le titre, sauf s'il possède un `{#id}` personnalisé ou si des liens de votre site pointent vers son ancre. Dans ce cas, supprimez-le manuellement et mettez à jour les liens. |
 | `unknown-component` | `content` | Signale les composants JSX d'une page qui ne sont ni intégrés, ni importés, ni exportés sur cette page. `--fix` ajoute un import lorsqu'un fichier correspondant, comme `snippets/<Name>.jsx` ou `snippets/<Name>.tsx`, existe. |
+| `undefined-variable` | `content` | Signale les espaces réservés `{{variableName}}` dans les pages et les snippets que l'objet `variables` de `docs.json` ne définit pas. Ignore le code. |
+| `missing-snippet` | `content` | Signale les balises `<Snippet file="...">` dont le fichier de snippet n'existe pas, après que Mintlify a remplacé les variables de `docs.json` dans le chemin. |
 | `katex` | `content` | Signale les formules mathématiques en ligne ou en bloc que KaTeX ne peut pas afficher. Ignore les montants monétaires comme `$5`. |
 | `foreign-syntax` | `content` | Signale la syntaxe d'autres frameworks de documentation que Mintlify n'affiche pas, comme les admonitions `:::`, les balises Liquid, les shortcodes Hugo et les `[[wiki links]]`. Chaque résultat indique l'équivalent Mintlify. S'exécute sur les fichiers que MDX ne peut pas analyser et ignore le code. |
 | `missing-file` | `content` | Signale les fichiers importés qui n'existent pas. Nécessite la compilation. |
 | `import-error` | `content` | Signale les imports dans les pages et les snippets qui ne se résolvent pas. Nécessite la compilation. |
 | `missing-nav-page` | `nav` | Signale les pages de votre navigation qui n'ont pas de fichier. Nécessite la compilation. |
 | `package-import` | `config` | Signale les imports de paquets npm non déclarés ou en conflit. Nécessite la compilation. |
+| `url-collision` | `config` | Signale les pages générées dont le nom ne diffère d'un autre nom que par la casse, de sorte qu'elles reçoivent une nouvelle URL. Consultez [Configuration de GraphQL](/fr/api-playground/graphql-setup). Nécessite la compilation. |
 | `build-failed` | `config` | Signale un échec de la compilation stricte qu'aucune autre règle n'explique. Nécessite la compilation. |
 | `openapi-spec` | `openapi` | Signale les spécifications OpenAPI dans `docs.json` ou `mint.json` qui ne s'analysent pas ou ne se valident pas, overlays appliqués. |
 | `openapi-build` | `openapi` | Signale les pages OpenAPI que la compilation n'a pas pu générer. Nécessite la compilation. |
@@ -858,7 +871,7 @@ mint migrate [flags]
 
 | Flag | Description |
 | --- | --- |
-| `--from` | Ajoute à la vue d'ensemble les instructions pour une plateforme source spécifique. Accepte `confluence`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
+| `--from` | Ajoute à la vue d'ensemble les instructions pour une plateforme source spécifique. Accepte `confluence`, `custom`, `dita`, `docsify`, `document360`, `docus`, `docusaurus`, `fern`, `fumadocs`, `gitbook`, `github-wiki`, `jekyll`, `mdbook`, `mkdocs`, `nextra`, `notion`, `nuxt`, `pdf`, `readme`, `redocly`, `starlight`, `vitepress`, `vuepress`. |
 | `--topic` | Affiche les instructions détaillées d'une étape du workflow de migration au lieu de la vue d'ensemble. Accepte `discovery` (inventorier les pages sources), `conversion` (convertir les pages en MDX), `navigation` (créer la navigation et les redirections de `docs.json`), `api` (migrer une référence d'API), `changelog` (migrer un changelog) ou `verify` (vérifier la migration terminée). |
 | `--agent` | Lance un agent de programmation dans le répertoire actuel pour qu'il exécute la migration. Accepte `claude`, `codex`, `cursor` ou `gemini`. Combinez-le avec `--from` pour inclure un guide de plateforme. |
 | `--claude` | Alias de `--agent claude`. |
@@ -899,7 +912,7 @@ mint new [directory] [flags]
 | `--name` | Nom du projet. La CLI le demande s'il n'est pas fourni en mode interactif. |
 | `--theme` | [Thème](/fr/customize/themes) du projet. La CLI le demande s'il n'est pas fourni en mode interactif. |
 | `--template` | Modèle prédéfini. La CLI le demande s'il n'est pas fourni en mode interactif. |
-| `--force` | Écraser le répertoire sans confirmation. |
+| `--force` | En mode non interactif, écraser un répertoire qui n'est pas vide. Sans ce flag, `mint new` ne crée rien dans un répertoire qui n'est pas vide. |
 
 ---
 
@@ -907,7 +920,7 @@ mint new [directory] [flags]
   ## `mint update`
 </div>
 
-Mettre à jour la CLI vers la dernière version.
+Mettre à jour la CLI et le client de prévisualisation local vers les dernières versions.
 
 ```bash
 mint update
@@ -923,6 +936,35 @@ Afficher les versions actuelles de la CLI et du client.
 
 ```bash
 mint version
+```
+
+---
+
+<div id="mint-feedback">
+  ## `mint feedback`
+</div>
+
+Envoyer des commentaires à l'équipe Mintlify. Vous n'avez pas besoin de vous connecter. N'incluez jamais de clés d'API, de jetons, de mots de passe ou d'autres secrets dans le message.
+
+```bash
+mint feedback <message> --category <category> --client-id <id>
+```
+
+| Argument | Description |
+| --- | --- |
+| `message` | Les commentaires à envoyer. |
+
+| Flag | Description |
+| --- | --- |
+| `--category` | Obligatoire. L'une des valeurs `bug`, `docs` ou `idea`. |
+| `--client-id` | Obligatoire. Un ID pour ce rapport, afin que l'équipe Mintlify puisse distinguer les nouvelles tentatives d'un même rapport. |
+
+<div id="examples">
+  ### Exemples
+</div>
+
+```bash
+mint feedback "mint dev crashes on a missing image" --category bug --client-id 7f3a
 ```
 
 ---

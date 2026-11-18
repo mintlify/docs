@@ -18,11 +18,11 @@ Ce guide vous accompagne pour configurer un projet Mintlify headless à partir d
 |---------|--------------|-------|
 | Mintlify components | Included | Utilisez des composants comme `<Card>`, `<Steps>` et `<Tabs>` dans vos fichiers MDX sans les importer. |
 | Content processing | Included | L'intégration `@mintlify/astro` lit votre `docs.json` et vos fichiers MDX et les traite au moment de la compilation. |
-| Search | Included | Le composant `SearchBar` se connecte à l'API de recherche de Mintlify en utilisant le sous-domaine de votre projet. |
-| AI assistant | Included | Le composant `Assistant` fournit une interface de chat IA alimentée par votre contenu. |
+| Search | Included | Le composant `SearchBar` interroge l'API de recherche de Mintlify via une route serveur de votre site. |
+| AI assistant | Included | Le composant `Assistant` fournit une interface de chat IA alimentée par votre contenu. Il appelle l'API de l'Assistant de Mintlify via une route serveur de votre site. |
 | Layouts and styling | Custom build | En-tête, pied de page, barre latérale, table des matières, modèles de page et tout le CSS. Le template de démarrage inclut des exemples construits avec Tailwind CSS. |
 | Routing and navigation | Custom build | Une route générique Astro affiche chaque page. Utilisez `resolvePageData()` et `unwrapNav()` de `@mintlify/astro/helpers` pour résoudre l'état de navigation depuis `docs.json`. |
-| Deployment and hosting | Custom build | Déployez votre site Astro sur n'importe quel hébergeur. |
+| Deployment and hosting | Custom build | Déployez votre site Astro sur un hébergeur qui exécute Node.js, ou passez à l'adaptateur Astro de votre hébergeur. |
 | SEO | You build | Les balises meta, les balises Open Graph, le sitemap et `robots.txt` sont de votre responsabilité. |
 | Third-party integrations | Custom build | Ajoutez les intégrations directement à votre mise en page Astro. Les outils configurés dans `docs.json` pour les projets hébergés ne s'appliquent pas en mode headless. |
 | `llms.txt`, `llms-full.txt`, and `skill.md` | Custom build | Pour les projets headless, vous devez générer et servir ces fichiers vous-même. |
@@ -43,6 +43,7 @@ Ce guide vous accompagne pour configurer un projet Mintlify headless à partir d
 * Un [compte GitHub](https://github.com)
 * [Node.js](https://nodejs.org) v20.17.0 ou version ultérieure (versions LTS recommandées)
 * Des connaissances de base en [Astro](https://docs.astro.build)
+* Un hébergeur qui exécute du code côté serveur, comme Node.js, pour la recherche et l’Assistant
 
 <div id="set-up-your-project">
   ## Configurer votre projet
@@ -75,12 +76,16 @@ Ce guide vous accompagne pour configurer un projet Mintlify headless à partir d
 
     ```bash .env
     PUBLIC_MINTLIFY_SUBDOMAIN=your-subdomain
-    PUBLIC_MINTLIFY_ASSISTANT_KEY=your-assistant-api-key
+    MINTLIFY_ASSISTANT_KEY=mint_dsc_your_key_here
     ```
 
     Votre sous-domaine correspond au nom de domaine de votre projet. C’est la partie de l’URL de votre tableau de bord après le nom de l’organisation. Par exemple, si l’URL de votre tableau de bord est `https://app.mintlify.com/org-name/domain-name`, votre sous-domaine est `domain-name`.
 
     Générez une clé d’API de l’Assistant sur la page [API keys](https://app.mintlify.com/settings/organization/api-keys) de votre tableau de bord. La clé d’API de l’Assistant commence par `mint_dsc_`.
+
+    <Warning>
+      N’ajoutez pas le préfixe `PUBLIC_` à `MINTLIFY_ASSISTANT_KEY`. Astro intègre les variables `PUBLIC_` dans le code client. Toute personne qui copie la clé depuis votre site peut utiliser vos crédits de l’Assistant et lire les pages protégées de votre projet.
+    </Warning>
   </Step>
 
   <Step title="Démarrer le serveur de développement">
@@ -109,17 +114,30 @@ L’intégration relie trois éléments : le système de build Astro, votre con
 Configurez l’intégration `mintlify()` dans `astro.config.mjs` avec le chemin d’accès à votre répertoire de documentation :
 
 ```javascript astro.config.mjs
-import { defineConfig } from 'astro/config';
+import { defineConfig, envField } from 'astro/config';
 import react from '@astrojs/react';
 import mdx from '@astrojs/mdx';
 import { mintlify } from '@mintlify/astro';
+import node from '@astrojs/node';
 
 export default defineConfig({
+  adapter: node({ mode: 'standalone' }),
+  env: {
+    schema: {
+      MINTLIFY_ASSISTANT_KEY: envField.string({
+        context: 'server',
+        access: 'secret',
+        optional: true,
+      }),
+    },
+  },
   integrations: [mintlify({ docsDir: './docs' }), react(), mdx()],
 });
 ```
 
 Au moment de la compilation, l’intégration lit votre `docs.json` et vos fichiers MDX à partir du chemin `docsDir` et les transforme dans `.mintlify/docs/`, où les collections de contenu d’Astro les chargent.
+
+Astro pré-rend vos pages en HTML statique. L’adaptateur Node.js les sert et exécute les routes serveur pour la recherche et l’Assistant. Le schéma `env` déclare `MINTLIFY_ASSISTANT_KEY` comme secret serveur : le serveur la lit à l’exécution et Astro ne l’écrit jamais dans le résultat de la compilation.
 
 <div id="content-structure">
   ### Structure du contenu
@@ -169,12 +187,29 @@ Fichiers clés à personnaliser :
   ## Connecter la recherche et l’Assistant
 </div>
 
-Le modèle de démarrage inclut des composants de recherche et d’Assistant qui se connectent aux API de Mintlify à l’aide des variables d’environnement que vous configurez lors de la mise en place.
+Le modèle de démarrage inclut des composants de recherche et d’Assistant qui se connectent aux API de Mintlify via des routes serveur de votre site. Le navigateur n’appelle jamais directement les API de Mintlify, votre clé d’API de l’Assistant reste donc sur votre serveur.
 
-* **Search** : le composant `SearchBar` dans `src/components/SearchBar.tsx` interroge l’API de recherche de Mintlify.
-* **Assistant** : le composant `Assistant` dans `src/components/Assistant/` fournit une interface de chat IA qui répond aux questions en utilisant le contenu de votre documentation.
+* **Search** : le composant `SearchBar` dans `src/components/SearchBar.tsx` envoie les requêtes à la route `/api/search`.
+* **Assistant** : le composant `Assistant` dans `src/components/Assistant/` fournit une interface de chat IA qui répond aux questions en utilisant le contenu de votre documentation. Il envoie les messages à la route `/api/assistant`, qui renvoie la réponse en streaming.
 
-Les deux nécessitent les variables d’environnement `PUBLIC_MINTLIFY_SUBDOMAIN` et `PUBLIC_MINTLIFY_ASSISTANT_KEY`.
+Les deux routes se trouvent dans `src/pages/api/` et nécessitent les variables d’environnement `PUBLIC_MINTLIFY_SUBDOMAIN` et `MINTLIFY_ASSISTANT_KEY`. Chaque route ajoute votre clé d’API à la requête et la transmet à Mintlify. Les routes définissent les options de la requête, comme les filtres de recherche, afin que les visiteurs ne puissent pas les modifier.
+
+Toute personne pouvant ouvrir votre site peut appeler ces routes, et chaque appel consomme vos crédits de l’Assistant.
+
+<div id="deploy-your-site">
+  ## Déployer votre site
+</div>
+
+Le modèle de démarrage utilise l’[adaptateur Node.js](https://docs.astro.build/en/guides/integrations-guide/node/), vous pouvez donc le déployer sur n’importe quel hébergeur qui exécute un serveur Node.js. Compilez le site et démarrez le serveur :
+
+```bash
+npm run build
+npm run start
+```
+
+Définissez `PUBLIC_MINTLIFY_SUBDOMAIN` avant la compilation. Définissez `MINTLIFY_ASSISTANT_KEY` dans les variables d’environnement de votre hébergeur. Le serveur de production ne lit pas votre fichier `.env`.
+
+Pour déployer sur une plateforme comme Vercel, Netlify ou Cloudflare, remplacez l’adaptateur Node.js dans `astro.config.mjs` par l’[adaptateur Astro](https://docs.astro.build/en/guides/on-demand-rendering/) de cette plateforme. La recherche et l’Assistant ne fonctionnent pas sans adaptateur.
 
 <div id="next-steps">
   ## Prochaines étapes
@@ -184,4 +219,4 @@ Après avoir configuré votre projet :
 
 1. Remplacez le contenu initial dans `docs/` par vos propres fichiers MDX et la configuration `docs.json`.
 2. Personnalisez les mises en page et les styles pour les adapter à votre système de conception.
-3. Déployez votre site Astro sur l’hébergeur de votre choix.
+3. [Déployez votre site](#deploy-your-site) sur votre hébergeur.
