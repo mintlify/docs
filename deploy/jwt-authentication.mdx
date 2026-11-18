@@ -1,0 +1,132 @@
+---
+title: "JWT authentication"
+sidebarTitle: "JWT"
+description: "Sign readers in to your documentation from your own login flow with signed JWTs, with optional group-based access and API playground prefilling."
+keywords: ["JWT", "JSON Web Token", "EdDSA", "custom login", "login URL", "jwt-callback"]
+---
+
+<Info>
+  JWT authentication requires an [Enterprise plan](https://mintlify.com/pricing?ref=authentication).
+</Info>
+
+JWT authentication signs readers in to your documentation from your own login flow. After a reader signs in to your product, your backend creates a signed JWT and redirects the reader to your docs. Use it when you have a custom authentication system or want your docs behind the same login as your product.
+
+With JWT, you can also restrict pages to [groups](/deploy/groups), [personalize content](/create/personalization), and prefill API playground inputs for each reader.
+
+## Prerequisites
+
+- An authentication system that can generate JWTs and sign them with the EdDSA algorithm.
+- A backend service that can create redirect URLs.
+
+## Set up JWT authentication
+
+<Steps>
+  <Step title="Generate a private key.">
+    1. In your dashboard, go to [Access](https://app.mintlify.com/settings/project/authentication).
+    2. Set **Visibility** to **Private**.
+    3. Set **Method** to **Custom**.
+    4. Click **JWT**.
+    5. Enter the URL of your existing login flow.
+    6. To offer more than one login flow, click **Add login URL** and enter a display name and URL for each option. You can configure up to 10 login URLs.
+    7. Click **Save**.
+    8. Click **Generate new key**.
+    9. Store your key securely where your backend can access it.
+
+    After you generate a private key, your site redeploys. When it finishes deploying, anyone who visits your site must sign in to your JWT authentication system to read your content.
+  </Step>
+  <Step title="Integrate Mintlify authentication into your login flow.">
+    Modify your existing login flow to include these steps after user authentication:
+
+    * Create a JWT containing the authenticated user's info in the [user data format](/deploy/user-data-format).
+    * Sign the JWT with your secret key, using the EdDSA algorithm.
+    * Create a redirect URL back to the `/login/jwt-callback` path of your docs, including the JWT as the hash.
+  </Step>
+</Steps>
+
+When JWT authentication has one login URL, unauthenticated visitors redirect to it automatically. With two or more named login URLs, visitors first see a selection page and then continue to the selected login flow. Multiple login URLs work with both full and partial authentication. Mintlify forwards the validated `redirect` parameter so the visitor returns to the documentation page they originally requested.
+
+To keep some pages readable without signing in, [make them public](/deploy/authentication-setup#make-pages-public).
+
+## Example
+
+You host your documentation at `docs.example.com` with an existing authentication system at `example.com`. You want to extend your login flow to grant access to the docs while keeping your docs separate from your dashboard (or you don't have a dashboard).
+
+Create a login endpoint at `https://example.com/docs-login` that extends your existing authentication.
+
+After verifying user credentials:
+* Generate a JWT with user data in Mintlify's format.
+* Sign the JWT and redirect to `https://docs.example.com/login/jwt-callback#{SIGNED_JWT}`.
+
+<CodeGroup>
+```ts TypeScript
+import * as jose from 'jose';
+import { Request, Response } from 'express';
+
+const TWO_WEEKS_IN_MS = 1000 * 60 * 60 * 24 * 7 * 2;
+const DOCS_HOST = 'docs.example.com';
+
+const signingKey = await jose.importPKCS8(process.env.MINTLIFY_PRIVATE_KEY, 'EdDSA');
+
+export async function handleRequest(req: Request, res: Response) {
+  const user = {
+    host: DOCS_HOST, // Must match your docs URL
+    sub: String(res.locals.user.id), // Stable user ID for analytics
+    expiresAt: Math.floor((Date.now() + TWO_WEEKS_IN_MS) / 1000), // 2 week session expiration
+    groups: res.locals.user.groups,
+    apiPlaygroundInputs: {
+      header: {
+        "Authorization": `Bearer ${res.locals.user.apiKey}`,
+      },
+    },
+  };
+
+  const jwt = await new jose.SignJWT(user)
+    .setProtectedHeader({ alg: 'EdDSA' })
+    .setExpirationTime('10 s') // 10 second JWT expiration
+    .sign(signingKey);
+
+  return res.redirect(`https://${DOCS_HOST}/login/jwt-callback#${jwt}`);
+}
+```
+
+```python Python
+import jwt # pyjwt
+import os
+
+from datetime import datetime, timedelta
+from fastapi.responses import RedirectResponse
+
+private_key = os.getenv(MINTLIFY_JWT_PEM_SECRET_NAME, '')
+DOCS_HOST = 'docs.example.com'
+
+@router.get('/auth')
+async def return_mintlify_auth_status(current_user):
+  jwt_token = jwt.encode(
+    payload={
+      'host': DOCS_HOST, # Must match your docs URL
+      'sub': str(current_user.id), # Stable user ID for analytics
+      'exp': int((datetime.now() + timedelta(seconds=10)).timestamp()),    # 10 second JWT expiration
+      'expiresAt': int((datetime.now() + timedelta(weeks=2)).timestamp()), # 2 week session expiration
+      'groups': ['admin'] if current_user.is_admin else [],
+      'apiPlaygroundInputs': {
+        'header': {
+          'Authorization': f'Bearer {current_user.api_key}',
+        },
+      },
+    },
+    key=private_key,
+    algorithm='EdDSA'
+  )
+
+  return RedirectResponse(url=f'https://{DOCS_HOST}/login/jwt-callback#{jwt_token}', status_code=302)
+```
+</CodeGroup>
+
+## Redirect unauthenticated users
+
+When an unauthenticated user tries to access a protected page, the redirect to your login URL preserves the user's intended destination.
+
+1. User attempts to visit a protected page: `https://docs.example.com/quickstart`.
+2. Redirect to your login URL with a redirect query parameter: `https://example.com/docs-login?redirect=%2Fquickstart`.
+3. After authentication, redirect to `https://docs.example.com/login/jwt-callback?redirect=%2Fquickstart#{SIGNED_JWT}`.
+4. User lands in their original destination.
