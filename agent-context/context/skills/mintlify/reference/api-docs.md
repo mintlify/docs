@@ -259,7 +259,7 @@ The `api` key in `docs.json` controls API sources, the playground, code examples
 - `url`: Set to `"full"` to show the base URL when there's only one. By default, a single base URL is hidden, and several base URLs show as a selector.
 - `examples.languages`: Supported values — `bash` (cURL), `python`, `javascript`, `node`, `php`, `go`, `java`, `ruby`, `powershell`, `swift`, `csharp`, `dotnet`, `typescript`, `c`, `c++`, `kotlin`, `rust`, `dart`.
 - `examples.defaults`: `"required"` or `"all"` (include optional params).
-- `examples.prefill`: Pre-fill playground fields with spec example values. Default: `false`.
+- `examples.prefill`: Pre-fill playground fields (request body and path, query, header, and cookie parameters) with spec example values. Parameters use `x-default`, then the parameter's `example` or first `examples` entry, then the schema's `example` or `examples`, then `default`. Default: `false`.
 - `examples.autogenerate`: Generate code samples from API specs. Default: `true`.
 - `mdx.auth.method`: `"bearer"`, `"basic"`, `"key"`, `"cobo"`.
 - `mdx.auth.name`: Header name for the API key with `"key"`, such as `x-api-key`. Defaults to `Key` when unset.
