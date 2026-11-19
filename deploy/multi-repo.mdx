@@ -266,48 +266,65 @@ If `acme/api-docs` defines its own `navigation.anchors`, Mintlify replaces the `
 
 ## Preview multiple repositories locally
 
-Use `mint dev --workspace` to preview a multi-repository project on your computer before you push. The [CLI](/cli/install) combines local copies of your repositories into one preview. Each source's pages appear under its URL path, and the base source's theme and styles apply to every page. Navigation, `sourceRef` entries, variables, and redirects merge the same way they do in a deployment.
+Use `mint dev --multi-repo` to preview a multi-repository project on your computer before you push. The [CLI](/cli/install) combines local copies of your repositories into one preview. Each source's pages appear under its URL path, and the base source's theme, global styles, and site settings apply to every page. Navigation, `sourceRef` entries, variables, and redirects merge the same way they do in a deployment.
 
-<Warning>
-  `--workspace` is experimental. The manifest format may change in future CLI versions.
-</Warning>
-
-Before you start, clone each repository source to your computer. Each source directory needs its own `docs.json`.
+Before you start, clone each repository source to your computer. Each source folder needs its own `docs.json`.
 
 <Steps>
-  <Step title="Create a manifest file">
-    Create a JSON file that lists each repository source. For example, save this as `mint-workspace.json`:
-
-    ```json mint-workspace.json
-    {
-      "sources": [
-        { "repo": "acme/product-docs", "directory": "./product-docs", "mountPath": "", "base": true },
-        { "repo": "acme/api-docs", "directory": "./api-docs", "mountPath": "api" }
-      ]
-    }
-    ```
-
-    | Field | Description |
-    | --- | --- |
-    | `repo` | The repository's `owner/repo` identifier. Use the same value in [`sourceRef`](#reference-navigation-from-another-source) entries. |
-    | `directory` | Path to the folder that contains the source's `docs.json`, relative to the manifest file. |
-    | `mountPath` | The source's URL path, such as `api`. Use `""` for the root URL path. |
-    | `base` | Set to `true` on exactly one source to make it the base source. |
-
-    Each `repo` and `mountPath` must be unique.
-  </Step>
   <Step title="Start the preview">
-    Run `mint dev` with the path to your manifest file:
+    From the base repository, run:
 
     ```bash
-    mint dev --workspace mint-workspace.json
+    mint dev --multi-repo
     ```
 
-    The CLI watches every source directory and updates the preview when you add, edit, or delete files in any repository.
+    If you don't have a config file yet, the CLI starts an interactive setup.
+  </Step>
+  <Step title="Follow the setup prompts">
+    Choose the base repository folder and enter its `owner/repo` identifier. The CLI suggests one from the folder's Git remote.
+
+    Optionally, add each other repository: choose its folder, enter its identifier, and enter its URL path. The CLI suggests identifiers from the `sourceRef` values in the base `docs.json`.
+  </Step>
+  <Step title="Confirm and save">
+    Review the mapping of repositories to URL paths and confirm. The CLI saves your choices to `.mint-workspace.local.json` and starts the preview.
+
+    The file holds paths specific to your computer, so add `.mint-workspace.local.json` to your `.gitignore`.
   </Step>
 </Steps>
 
-With `--workspace`, `mint dev` supports the `--port` and `--no-open` flags. Other [`mint dev` flags](/cli/commands#mint-dev), such as `--groups`, don't apply.
+The next time you run `mint dev --multi-repo`, the CLI validates the saved config and starts the preview without prompts. To change your setup, run `mint dev --multi-repo --setup`, which opens the prompts with your saved values filled in.
+
+The CLI watches every source folder and updates the preview when you add, edit, or delete files in any repository. The first run on large repositories can take a while. Later runs reuse the saved workspace.
+
+In multi-repo mode, the preview doesn't open a browser automatically. Pass `--open` to open one. Other [`mint dev` flags](/cli/commands#mint-dev), such as `--port` and `--groups`, work as usual.
+
+### Write the config file yourself
+
+Setup prompts only run in an interactive terminal. In AI agents, CI, and other non-interactive shells, write the config file yourself and pass it with `--workspace`:
+
+```bash
+mint dev --workspace .mint-workspace.local.json --non-interactive
+```
+
+Without `--workspace`, the CLI looks for `.mint-workspace.local.json` in the current folder and its parent folders, stopping at the nearest Git root or your home folder. It doesn't search sibling repositories, so pass `--workspace` with the file's path if the config lives elsewhere.
+
+```json .mint-workspace.local.json
+{
+  "sources": [
+    { "repo": "acme/docs", "directory": ".", "mountPath": "", "base": true },
+    { "repo": "acme/api-docs", "directory": "../api-docs", "mountPath": "api" }
+  ]
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `repo` | The repository's `owner/repo` identifier. Each value must be unique and should match the repository's [`sourceRef`](#reference-navigation-from-another-source) value in navigation. |
+| `directory` | Folder that contains the source's `docs.json`. Relative paths resolve from the config file. Absolute paths and `~/` paths also work. Each folder can appear only once. |
+| `mountPath` | The source's URL path, such as `api`. The base source must use `""`. URL paths cannot overlap. |
+| `base` | Set to `true` on exactly one source to make it the base source. |
+
+The CLI rejects fields not listed here. Run `mint dev --multi-repo --help` to print an example config and field descriptions.
 
 ## Edit sources in the web editor
 
