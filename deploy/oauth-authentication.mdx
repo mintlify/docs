@@ -1,0 +1,112 @@
+---
+title: "OAuth authentication"
+sidebarTitle: "OAuth 2.0"
+description: "Require readers to sign in through your OAuth 2.0 or OIDC provider, with optional group-based access and API playground prefilling."
+keywords: ["OAuth", "OAuth 2.0", "OIDC", "SSO", "identity provider", "Authorization Code Flow", "token claims"]
+---
+
+<Info>
+  OAuth authentication requires an [Enterprise plan](https://mintlify.com/pricing?ref=authentication).
+</Info>
+
+OAuth authentication sends readers to your OAuth 2.0 or OpenID Connect provider to sign in before they can read your site. Use it when your readers already have accounts with your identity provider.
+
+With OAuth, you can also restrict pages to [groups](/deploy/groups), [personalize content](/create/personalization), and prefill API playground inputs for each reader.
+
+## Prerequisites
+
+- An OAuth or OIDC server that supports the Authorization Code Flow.
+- For group-based access or personalization: an API endpoint that accepts OAuth access tokens and returns reader data, or an identity provider that includes groups in its tokens.
+
+## Set up OAuth authentication
+
+<Steps>
+  <Step title="Configure your OAuth settings.">
+    1. In your dashboard, go to [Access](https://app.mintlify.com/settings/project/authentication).
+    2. Set **Visibility** to **Private**.
+    3. Set **Method** to **Custom**.
+    4. Click **OAuth**.
+    5. Configure these fields:
+      * **Authorization URL**: Your OAuth endpoint.
+      * **Client ID**: Your OAuth 2.0 client identifier.
+      * **Client secret**: Your OAuth 2.0 client secret.
+      * **Scopes** (optional): Permissions to request. Copy the **entire** scope string (for example, for a scope like `provider.users.docs`, copy the complete `provider.users.docs`). Use multiple scopes if you need different access levels.
+      * **Additional authorization parameters** (optional): Additional query parameters to add to the initial authorization request.
+      * **Token URL**: Your OAuth token exchange endpoint.
+      * **Info API URL** (optional): Endpoint on your server that Mintlify calls to retrieve user info. Use this field for group-based access control. If omitted, the OAuth flow only verifies identity.
+      * **Logout URL** (optional): The native logout URL for your OAuth provider. When users log out, Mintlify validates the logout redirect against this configured URL for security. The redirect only succeeds if it exactly matches the configured `logoutUrl`. If you do not configure a logout URL, users redirect to `/login`. Mintlify redirects users with a `GET` request and does not append query parameters. Include any parameters (for example, `returnTo`) directly in the URL.
+    6. Click **Save**.
+
+    After you configure your OAuth settings, your site redeploys. When it finishes deploying, anyone who visits your site must sign in to your OAuth provider to read your content.
+  </Step>
+  <Step title="Configure your OAuth server.">
+    1. Copy the **Redirect URL** from your [Access settings](https://app.mintlify.com/settings/project/authentication).
+    2. Add the redirect URL as an authorized redirect URL for your OAuth server.
+  </Step>
+  <Step title="Create your user info endpoint for group access (optional).">
+    To enable group-based access control, create an API endpoint that:
+    * Responds to `GET` requests.
+    * Accepts an `Authorization: Bearer <access_token>` header for authentication.
+    * Returns user data in the [user data format](/deploy/user-data-format).
+
+    Mintlify calls this endpoint with the OAuth access token to retrieve user information. No additional query parameters are sent.
+
+    Add this endpoint URL to the **Info API URL** field in your [Access settings](https://app.mintlify.com/settings/project/authentication).
+  </Step>
+</Steps>
+
+To keep some pages readable without signing in, [make them public](/deploy/authentication-setup#make-pages-public).
+
+## Use groups from OAuth token claims
+
+If your identity provider includes group membership in the ID token or access token, you can use those claims instead of an Info API URL. This option is available for OAuth configurations that use a client secret.
+
+When configuring OAuth token claims for your project, use values such as:
+
+```json
+{
+  "source": "id_token",
+  "groupsClaim": "groups",
+  "groupsDelimiter": ","
+}
+```
+
+* `source`: Selects `id_token` or `access_token`. If you select `id_token`, include the `openid` scope in your OAuth scopes.
+* `groupsClaim`: Identifies the token claim that contains groups. Defaults to `groups`.
+* `groupsDelimiter`: An optional delimiter from 1 to 4 characters. Mintlify uses it only to split string claim values. If the delimiter can be part of a group name, omit `groupsDelimiter`.
+
+For example, with `"groups": "general,client"` and `groupsDelimiter` set to `","`, Mintlify uses `general` and `client` as separate groups.
+
+Mintlify trims whitespace around each group and ignores empty segments. Without `groupsDelimiter`, the complete string is a single group. Array claims are always one group per string item and are not split.
+
+## Example
+
+You host your documentation at `docs.example.com` and you have an existing OAuth server at `auth.example.com` that supports the Authorization Code Flow.
+
+**Configure your OAuth server details** in your dashboard:
+- **Authorization URL**: `https://auth.example.com/authorization`
+- **Client ID**: `ydybo4SD8PR73vzWWd6S0ObH`
+- **Scopes**: `['provider.users.docs']`
+- **Token URL**: `https://auth.example.com/exchange`
+- **Info API URL**: `https://api.example.com/docs/user-info`
+- **Logout URL**: `https://auth.example.com/logout?returnTo=https%3A%2F%2Fdocs.example.com`
+
+**Create a user info endpoint** at `api.example.com/docs/user-info`, which requires an OAuth access token with the `provider.users.docs` scope, and returns:
+
+```json
+{
+  "groups": ["engineering", "admin"],
+  "expiresAt": 1893456000,
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer user_abc123"
+    }
+  }
+}
+```
+
+<Note>
+  Control session length with the `expiresAt` field in your user info response. This is a Unix timestamp (seconds since epoch) indicating when the session should expire. See [User data format](/deploy/user-data-format) for details.
+</Note>
+
+**Configure your OAuth server to allow redirects** to your callback URL.

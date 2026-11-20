@@ -1,0 +1,109 @@
+---
+title: "User data format"
+description: "Reference for the user data your OAuth info endpoint, JWT, or personalization endpoint returns to set session length, groups, personalized content, and API playground inputs."
+keywords: ["user data", "User type", "groups", "expiresAt", "sub", "apiPlaygroundInputs", "info API"]
+---
+
+<Info>
+  OAuth authentication, JWT authentication, and personalization require an [Enterprise plan](https://mintlify.com/pricing?ref=authentication).
+</Info>
+
+When you use [OAuth](/deploy/oauth-authentication) or [JWT](/deploy/jwt-authentication) authentication or standalone [personalization](/create/personalization), your system returns user data that controls session length, group membership, and personalized content.
+
+- **OAuth**: Your Info API URL returns this object, or Mintlify reads groups from your [token claims](/deploy/oauth-authentication#use-groups-from-oauth-token-claims).
+- **JWT**: Your backend puts this object in the JWT payload.
+- **Personalization**: Your Info API returns this object.
+
+<CodeGroup>
+```tsx Format
+type User = {
+  host?: string;
+  sub?: string;
+  expiresAt?: number;
+  groups?: string[];
+  content?: Record<string, any>;
+  apiPlaygroundInputs?: {
+    server?: Record<string, string>;
+    header?: Record<string, unknown>;
+    query?: Record<string, unknown>;
+    cookie?: Record<string, unknown>;
+    path?: Record<string, unknown>;
+  };
+};
+```
+
+```json Example
+{
+  "host": "docs.example.com",
+  "sub": "user_8f3a2c",
+  "expiresAt": 1893456000,
+  "groups": ["admin", "beta-users"],
+  "content": {
+    "firstName": "Jane",
+    "company": "Example Corp"
+  },
+  "apiPlaygroundInputs": {
+    "header": {
+      "Authorization": "Bearer user_abc123"
+    },
+    "server": {
+      "baseUrl": "https://api.example.com"
+    }
+  }
+}
+```
+</CodeGroup>
+
+## Fields
+
+<ParamField path="host" type="string">
+  **Required for JWT authentication.** The hostname of your documentation site. The string must exactly match the domain where you deploy your documentation. Mintlify validates that the JWT's host matches the requesting host to prevent token reuse across different sites.
+</ParamField>
+
+<ParamField path="sub" type="string">
+  A stable, unique identifier for the user. Mintlify reports this value as `user_id` on analytics events for tool calls to your [authenticated MCP server](/ai/model-context-protocol), so you can attribute usage to individual users. Use an opaque ID instead of personal information like an email address.
+
+  For OAuth, Mintlify reads `sub` from your user info API response, or from the token when you [use groups from token claims](/deploy/oauth-authentication#use-groups-from-oauth-token-claims). Most OpenID Connect providers include it by default. For JWT, add `sub` to the JWT payload.
+
+  The value must be a string. Sessions and MCP connections created before you add `sub` don't include it. Users must sign in again and reconnect their MCP clients.
+</ParamField>
+
+<ParamField path="expiresAt" type="number">
+  Session expiration time in seconds since epoch. When the current time passes this value, Mintlify expires the stored user data. The visitor must authenticate again or repeat the identification flow to refresh it.
+
+  <Warning>**For JWT:** This differs from the JWT's `exp` claim, which determines when a JWT is considered invalid. Set the JWT `exp` claim to a short duration (10 seconds or less) for security. Use `expiresAt` for the actual session length (hours to weeks).</Warning>
+</ParamField>
+
+<ParamField path="groups" type="string[]">
+  List of groups the user belongs to. With authentication, pages with matching `groups` in their frontmatter are accessible to this user. With standalone personalization, groups control page and content visibility but do not restrict access to a page's direct URL. See [Control access with groups](/deploy/groups).
+
+  **Example**: A user with `groups: ["admin", "engineering"]` matches content tagged with either the `admin` or `engineering` groups.
+</ParamField>
+
+<ParamField path="content" type="Record<string, any>">
+  Custom data accessible in MDX pages via the `user` variable for [personalized content](/create/personalization#dynamic-mdx-content).
+</ParamField>
+
+<ParamField path="apiPlaygroundInputs" type="object">
+  Prefills API playground fields with user-specific values. When a user authenticates, these values populate the corresponding input fields in the API playground. Users can override prefilled values, and their overrides persist in local storage.
+
+  Mintlify applies only values that match the current endpoint's security scheme.
+
+  <Expandable title="properties">
+    <ParamField path="header" type="Record<string, unknown>">
+      Header values to prefill, keyed by header name.
+    </ParamField>
+    <ParamField path="query" type="Record<string, unknown>">
+      Query parameter values to prefill, keyed by parameter name.
+    </ParamField>
+    <ParamField path="cookie" type="Record<string, unknown>">
+      Cookie values to prefill, keyed by cookie name.
+    </ParamField>
+    <ParamField path="server" type="Record<string, string>">
+      Server variable values to prefill, keyed by variable name.
+    </ParamField>
+    <ParamField path="path" type="Record<string, unknown>">
+      Path parameter values to prefill, keyed by parameter name.
+    </ParamField>
+  </Expandable>
+</ParamField>
