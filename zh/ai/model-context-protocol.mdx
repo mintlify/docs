@@ -22,7 +22,7 @@ Model Context Protocol (MCP，模型上下文协议) 是一个开放协议，用
   ### MCP 服务器的工作方式
 </div>
 
-当 AI 应用连接到你的搜索 MCP 服务器时，它可以根据用户的提示词搜索你的内容，并以 Markdown 格式检索完整页面。这样就不必依赖训练数据中的信息或通用的网页搜索。你的搜索 MCP 服务器可以访问你的 Mintlify 站点上所有已编入索引的内容。
+当 AI 应用连接到你的搜索 MCP 服务器时，它可以根据用户的提示词搜索你的内容，并以 Markdown 格式检索完整页面。这样就不必依赖训练数据中的信息或通用的网页搜索。你的搜索 MCP 服务器可以访问你已编入索引的内容。
 
 - AI 应用在生成回答时可以主动搜索你的内容，即使没有被明确要求去搜索答案。
 - 每次工具调用都发生在生成过程中，因此 AI 应用会使用你站点上的最新信息来生成回答。
@@ -83,174 +83,6 @@ Mintlify 会为你的站点生成一个搜索 MCP 服务器，并将其托管在
 如果你的站点使用身份验证，经过身份验证的搜索 MCP 服务器位于站点 URL 的 `/authed/mcp` 路径下。参见[启用 MCP 认证](#enable-authenticated-mcp)。
 
 Mintlify 将 `/mcp` 和 `/authed/mcp` 路径保留给搜索 MCP 服务器。你不能将它们用于其他导航元素。
-
-<div id="enable-authenticated-mcp">
-  ### 启用 MCP 认证
-</div>
-
-当你的站点配置了[身份验证](/zh/deploy/authentication-setup)时，Mintlify 会自动启用经过身份验证的搜索 MCP 服务器。当用户将你的 MCP 服务器 URL 添加到其 AI 工具时，必须使用现有凭据登录。完成身份验证后，系统会通过重定向将其送回到工具中。MCP 服务器只返回每个用户根据其[用户组](/zh/deploy/authentication-setup)有权访问的内容。
-
-如果你的站点采用部分身份验证，同时包含公开页面和受保护页面，你会有两个搜索 MCP 服务器端点：
-
-- `/mcp`：不需要身份验证。只返回公开内容。将其分享给需要访问公开内容的用户。
-- `/authed/mcp`：始终需要身份验证。根据每个用户的[用户组](/zh/deploy/authentication-setup)返回其有权限访问的内容。将其分享给需要访问受保护内容的用户。
-
-`/authed/mcp` 端点在 `/authed/mcp/oauth/*` 使用自己的 OAuth 流程。为你的 MCP 服务器配置的重定向域名同时适用于 `/mcp` 和 `/authed/mcp`。
-
-Claude、ChatGPT、Cursor 和 Devin 等常用 MCP 客户端始终可以完成与你的 MCP 服务器的身份验证。你无需将这些客户端添加到任何允许列表中。
-
-要让其他基于 Web 的工具连接，请在控制台中添加它们的重定向域名。重定向域名是用户完成身份验证后 AI 工具使用的主机名。除非用户的 AI 工具的重定向域名在此列表中，或该工具属于始终允许的客户端，否则无法完成身份验证。
-
-<Steps>
-  <Step title="打开你的 MCP 配置">
-    在控制台中，前往 [MCP 设置](https://app.mintlify.com/products/mcp)的 **Configure** 部分。
-  </Step>
-  <Step title="添加自定义重定向域名">
-    在 **Redirect URIs** 部分，在 **Allowed domains** 字段中输入域名。点击 **Add domain**。为你希望授予用户访问权限的其他 AI 工具添加重定向域名。只有不在始终允许列表中的客户端才需要添加域名。
-
-    默认情况下，重定向域名使用 `https://`。要允许自定义协议方案，请在域名条目中包含完整协议。例如，原生应用回调 `myapp://callback`。Mintlify 始终会阻止 `javascript:`、`data:` 和 `file:` 等危险协议。
-
-    回环地址 (`localhost`、`127.0.0.1`) 始终受信任，无需添加。
-  </Step>
-</Steps>
-
-允许的域名同时适用于你的搜索 MCP 服务器和[管理员 MCP](/zh/ai/mintlify-mcp)。
-
-<div id="client-credentials">
-  ### 客户端凭据
-</div>
-
-客户端凭据让你无需基于浏览器的登录，即可以编程方式连接到经过身份验证的 MCP 服务器。将客户端凭据用于服务端集成、CI/CD 流水线、自动化工作流，以及任何用户无法完成交互式 OAuth 流程的环境。
-
-客户端凭据针对 `/authed/mcp` 端点进行身份验证。默认情况下，它们会返回公开页面以及未限制到特定用户组的已认证页面中的内容。要让凭据访问限制到[用户组](/zh/deploy/authentication-setup#control-access-with-groups)的页面，请在创建凭据时为其分配用户组。
-
-<Note>
-  MCP 客户端凭据与 [Mintlify API 密钥](/zh/api/introduction)是分开的。管理员 API 密钥和助手 API 密钥用于对 Mintlify REST API 的请求进行身份验证。它们无法用于你的 MCP 服务器的身份验证。要以编程方式调用你的 MCP 服务器，请在[项目设置](https://app.mintlify.com/settings/project/site)的 **Docs MCP** 部分创建客户端凭据。然后用它换取访问令牌。
-</Note>
-
-<Steps>
-  <Step title="创建客户端凭据">
-    1. 在控制台中，前往你的[项目设置](https://app.mintlify.com/settings/project/site)。
-    2. 在 **Docs MCP** 部分，点击 **Generate**。
-    3. 为凭据输入一个标签，用于标识其用途。
-    4. 可选：在 **Groups** 字段中添加该凭据所属的用户组。每输入一个用户组后，按 <kbd>Enter</kbd> 或输入逗号。该凭据可以访问 `groups` frontmatter 中包含其中任一用户组的页面。
-    5. 点击 **Generate**。
-    6. 在 **Secret generated** 对话框中复制 **client ID** 和 **client secret**。控制台只会显示一次 client secret，之后无法再次获取。
-  </Step>
-  <Step title="用凭据换取访问令牌">
-    使用你的 client ID 和 secret 向 MCP 服务器的令牌端点发送 POST 请求。令牌端点位于站点 URL 的 `/authed/mcp/oauth/token` 路径下。
-
-    <CodeGroup>
-    ```bash cURL
-    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
-      -H 'Content-Type: application/x-www-form-urlencoded' \
-      -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET'
-    ```
-
-    ```bash cURL (Basic Auth)
-    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
-      -H 'Content-Type: application/x-www-form-urlencoded' \
-      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
-      -d 'grant_type=client_credentials'
-    ```
-    </CodeGroup>
-
-    响应中包含访问令牌和刷新令牌：
-
-    ```json
-    {
-      "access_token": "eyJhbGciOi...",
-      "token_type": "Bearer",
-      "expires_in": 1209600,
-      "refresh_token": "eyJhbGciOi...",
-      "scope": "mcp:search"
-    }
-    ```
-
-    访问令牌会在 `expires_in` 指定的秒数后过期。当前令牌过期时，使用 `refresh_token` 获取新的访问令牌。
-  </Step>
-  <Step title="连接到 MCP 服务器">
-    连接到 `/authed/mcp` 端点时，将访问令牌用作 bearer token。
-
-    <CodeGroup>
-    ```bash cURL
-    curl -X POST https://your-docs.com/authed/mcp \
-      -H 'Authorization: Bearer ACCESS_TOKEN' \
-      -H 'Content-Type: application/json' \
-      -H 'Accept: application/json, text/event-stream' \
-      -d '{
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-          "protocolVersion": "2025-03-26",
-          "capabilities": {},
-          "clientInfo": {"name": "my-integration", "version": "1.0.0"}
-        }
-      }'
-    ```
-
-    ```bash Claude Code
-    claude mcp add --transport http \
-      my-docs https://your-docs.com/authed/mcp \
-      --header "Authorization: Bearer ACCESS_TOKEN"
-    ```
-    </CodeGroup>
-  </Step>
-</Steps>
-
-<div id="manage-client-credentials">
-  #### 管理客户端凭据
-</div>
-
-你可以在[项目设置](https://app.mintlify.com/settings/project/site)的 **Docs MCP** 部分管理客户端凭据。只有当你的站点使用[身份验证](/zh/deploy/authentication-setup)时，才会显示此部分。
-
-- **查看凭据的用户组**：在凭据列表中查看。没有用户组的凭据不会显示用户组行。
-- **删除凭据**：永久撤销访问权限。此操作无法撤销。
-- **更改凭据的用户组**：使用所需的用户组创建新凭据，更新你的集成，然后删除旧凭据。你无法编辑现有凭据的用户组。
-- **轮换凭据**：创建新凭据，将使用旧凭据的集成更新为新的 client ID 和 secret，然后删除旧凭据。每个凭据都有唯一的 secret，因此在你删除现有凭据之前，创建新凭据不会影响它们。
-
-<Warning>
-  像对待密码一样对待 client secret。不要将其提交到源代码管理中，也不要在客户端代码中公开。使用环境变量或密钥管理工具来存储它们。
-</Warning>
-
-<div id="content-filtering-and-indexing">
-  ## 内容过滤与索引编入
-</div>
-
-你的 MCP 服务器会搜索 Mintlify 从你的项目仓库编入索引的内容。文件处理和搜索索引决定了哪些内容可以通过你的 MCP 服务器获取。
-
-对于需要身份验证的站点，你的 MCP 服务器会为[公开页面](/zh/deploy/authentication-setup#make-pages-public)以及已认证用户根据其[用户组](/zh/deploy/authentication-setup#control-access-with-groups)有权访问的所有页面编入索引。
-
-<div id="file-processing-with-mintignore">
-  ### 使用 `.mintignore` 进行文件处理
-</div>
-
-如果文件匹配 [.mintignore](/zh/organize/mintignore) 规则，Mintlify 不会处理这些文件，也不会为其编入索引。这些文件无法通过你的 MCP 服务器获取。
-
-<div id="search-indexing-with-docsjson">
-  ### 使用 `docs.json` 配置搜索索引
-</div>
-
-默认情况下，Mintlify 只会为 `docs.json` 导航中包含的页面编入索引，供你的 MCP 服务器搜索。
-
-除非你选择为所有页面编入索引，否则 Mintlify 会将[隐藏页面](/zh/organize/hidden-pages) (不在导航中的页面) 排除在搜索索引之外。要在 MCP 服务器的搜索结果中包含隐藏页面，请在 `docs.json` 中添加 `seo.indexing` 属性。
-
-```json
-"seo": {
-    "indexing": "all"
-}
-```
-
-要将特定页面排除在搜索索引之外，请在其 frontmatter 中添加 `noindex: true`。
-
-```mdx
----
-title: "隐藏页面"
-description: "此页面不在导航中，也无法通过搜索访问。"
-noindex: true
----
-```
 
 <div id="use-your-mcp-server">
   ## 使用你的 MCP 服务器
@@ -471,6 +303,172 @@ noindex: true
 - 只连接与你当前工作相关的 MCP 服务器。
 - 在提示词中尽量具体，让 AI 搜索最相关的服务器。
 - 断开当前未使用的服务器，以减少可能的上下文占用。
+
+<div id="enable-authenticated-mcp">
+  ## 启用 MCP 认证
+</div>
+
+当你的站点配置了[身份验证](/zh/deploy/authentication-setup)时，Mintlify 会自动启用经过身份验证的搜索 MCP 服务器。当用户将你的 MCP 服务器 URL 添加到其 AI 工具时，必须使用现有凭据登录。完成身份验证后，系统会通过重定向将其送回到工具中。
+
+如果你的站点采用部分身份验证，同时包含公开页面和受保护页面，你会有两个搜索 MCP 服务器端点：
+
+- `/mcp`：不需要身份验证。只返回公开内容。将其分享给需要访问公开内容的用户。
+- `/authed/mcp`：始终需要身份验证。根据每个用户的[用户组](/zh/deploy/authentication-setup)返回其有权限访问的内容。将其分享给需要访问受保护内容的用户。
+
+`/authed/mcp` 端点在 `/authed/mcp/oauth/*` 使用自己的 OAuth 流程。为你的 MCP 服务器配置的重定向域名同时适用于 `/mcp` 和 `/authed/mcp`。
+
+Claude、ChatGPT、Cursor 和 Devin 等常用 MCP 客户端始终可以完成与你的 MCP 服务器的身份验证。你无需将这些客户端添加到任何允许列表中。
+
+要让其他基于 Web 的工具连接，请在控制台中添加它们的重定向域名。重定向域名是用户完成身份验证后 AI 工具使用的主机名。除非用户的 AI 工具的重定向域名在此列表中，或该工具属于始终允许的客户端，否则无法完成身份验证。
+
+<Steps>
+  <Step title="打开你的 MCP 配置">
+    在控制台中，前往 [MCP 设置](https://app.mintlify.com/products/mcp)的 **Configure** 部分。
+  </Step>
+  <Step title="添加自定义重定向域名">
+    在 **Redirect URIs** 部分，在 **Allowed domains** 字段中输入域名。点击 **Add domain**。为你希望授予用户访问权限的其他 AI 工具添加重定向域名。只有不在始终允许列表中的客户端才需要添加域名。
+
+    默认情况下，重定向域名使用 `https://`。要允许自定义协议方案，请在域名条目中包含完整协议。例如，原生应用回调 `myapp://callback`。Mintlify 始终会阻止 `javascript:`、`data:` 和 `file:` 等危险协议。
+
+    回环地址 (`localhost`、`127.0.0.1`) 始终受信任，无需添加。
+  </Step>
+</Steps>
+
+允许的域名同时适用于你的搜索 MCP 服务器和[管理员 MCP](/zh/ai/mintlify-mcp)。
+
+<div id="client-credentials">
+  ### 客户端凭据
+</div>
+
+客户端凭据让你无需基于浏览器的登录，即可以编程方式连接到经过身份验证的 MCP 服务器。你需要在项目设置的 **Docs MCP** 部分创建客户端凭据，只有当你的站点使用[身份验证](/zh/deploy/authentication-setup)时，才会显示此部分。将客户端凭据用于服务端集成、CI/CD 流水线、自动化工作流，以及任何用户无法完成交互式 OAuth 流程的环境。
+
+客户端凭据针对 `/authed/mcp` 端点进行身份验证。默认情况下，它们会返回公开页面以及未限制到特定用户组的已认证页面中的内容。要让凭据访问限制到[用户组](/zh/deploy/authentication-setup#control-access-with-groups)的页面，请在创建凭据时为其分配用户组。
+
+<Note>
+  MCP 客户端凭据与 [Mintlify API 密钥](/zh/api/introduction)是分开的。管理员 API 密钥和助手 API 密钥用于对 Mintlify REST API 的请求进行身份验证。它们无法用于你的 MCP 服务器的身份验证。
+</Note>
+
+<Steps>
+  <Step title="创建客户端凭据">
+    1. 在控制台中，前往你的[项目设置](https://app.mintlify.com/settings/project/site)。
+    2. 在 **Docs MCP** 部分，点击 **Generate**。
+    3. 为凭据输入一个标签，用于标识其用途。
+    4. 可选：在 **Groups** 字段中添加该凭据所属的用户组。每输入一个用户组后，按 <kbd>Enter</kbd> 或输入逗号。该凭据可以访问 `groups` frontmatter 中包含其中任一用户组的页面。
+    5. 点击 **Generate**。
+    6. 在 **Secret generated** 对话框中复制 **client ID** 和 **client secret**。控制台只会显示一次 client secret，之后无法再次获取。
+  </Step>
+  <Step title="用凭据换取访问令牌">
+    使用你的 client ID 和 secret 向 MCP 服务器的令牌端点发送 POST 请求。令牌端点位于站点 URL 的 `/authed/mcp/oauth/token` 路径下。
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -d 'grant_type=client_credentials&client_id=CLIENT_ID&client_secret=CLIENT_SECRET'
+    ```
+
+    ```bash cURL (Basic Auth)
+    curl -X POST https://your-docs.com/authed/mcp/oauth/token \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      -H 'Authorization: Basic BASE64_CLIENT_ID_COLON_SECRET' \
+      -d 'grant_type=client_credentials'
+    ```
+    </CodeGroup>
+
+    响应中包含访问令牌和刷新令牌：
+
+    ```json
+    {
+      "access_token": "eyJhbGciOi...",
+      "token_type": "Bearer",
+      "expires_in": 1209600,
+      "refresh_token": "eyJhbGciOi...",
+      "scope": "mcp:search"
+    }
+    ```
+
+    访问令牌会在 `expires_in` 指定的秒数后过期。当前令牌过期时，使用 `refresh_token` 获取新的访问令牌。
+  </Step>
+  <Step title="连接到 MCP 服务器">
+    连接到 `/authed/mcp` 端点时，将访问令牌用作 bearer token。
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST https://your-docs.com/authed/mcp \
+      -H 'Authorization: Bearer ACCESS_TOKEN' \
+      -H 'Content-Type: application/json' \
+      -H 'Accept: application/json, text/event-stream' \
+      -d '{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-03-26",
+          "capabilities": {},
+          "clientInfo": {"name": "my-integration", "version": "1.0.0"}
+        }
+      }'
+    ```
+
+    ```bash Claude Code
+    claude mcp add --transport http \
+      my-docs https://your-docs.com/authed/mcp \
+      --header "Authorization: Bearer ACCESS_TOKEN"
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+<div id="manage-client-credentials">
+  #### 管理客户端凭据
+</div>
+
+你可以在[项目设置](https://app.mintlify.com/settings/project/site)的 **Docs MCP** 部分管理客户端凭据。
+
+- **查看凭据的用户组**：在凭据列表中查看。没有用户组的凭据不会显示用户组行。
+- **删除凭据**：永久撤销访问权限。此操作无法撤销。
+- **更改凭据的用户组**：使用所需的用户组创建新凭据，更新你的集成，然后删除旧凭据。你无法编辑现有凭据的用户组。
+- **轮换凭据**：创建新凭据，将使用旧凭据的集成更新为新的 client ID 和 secret，然后删除旧凭据。每个凭据都有唯一的 secret，因此在你删除现有凭据之前，创建新凭据不会影响它们。
+
+<Warning>
+  像对待密码一样对待 client secret。不要将其提交到源代码管理中，也不要在客户端代码中公开。使用环境变量或密钥管理工具来存储它们。
+</Warning>
+
+<div id="content-filtering-and-indexing">
+  ## 内容过滤与索引编入
+</div>
+
+你的 MCP 服务器会搜索 Mintlify 从你的项目仓库编入索引的内容。文件处理和搜索索引决定了哪些内容可以通过你的 MCP 服务器获取。
+
+<div id="file-processing-with-mintignore">
+  ### 使用 `.mintignore` 进行文件处理
+</div>
+
+如果文件匹配 [.mintignore](/zh/organize/mintignore) 规则，Mintlify 不会处理这些文件，也不会为其编入索引。这些文件无法通过你的 MCP 服务器获取。
+
+<div id="search-indexing-with-docsjson">
+  ### 使用 `docs.json` 配置搜索索引
+</div>
+
+默认情况下，Mintlify 只会为 `docs.json` 导航中包含的页面编入索引，供你的 MCP 服务器搜索。
+
+除非你选择为所有页面编入索引，否则 Mintlify 会将[隐藏页面](/zh/organize/hidden-pages) (不在导航中的页面) 排除在搜索索引之外。要在 MCP 服务器的搜索结果中包含隐藏页面，请在 `docs.json` 中添加 `seo.indexing` 属性。
+
+```json
+"seo": {
+    "indexing": "all"
+}
+```
+
+要将特定页面排除在搜索索引之外，请在其 frontmatter 中添加 `noindex: true`。
+
+```mdx
+---
+title: "隐藏页面"
+description: "此页面不在导航中，也无法通过搜索访问。"
+noindex: true
+---
+```
 
 <div id="webmcp">
   ## WebMCP
