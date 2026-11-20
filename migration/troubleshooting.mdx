@@ -1,0 +1,199 @@
+---
+title: "Troubleshoot your migration"
+sidebarTitle: "Troubleshooting"
+description: "Fix common migration problems: incomplete scrapes, leftover platform syntax, missing pages and images, broken links, and API reference gaps."
+keywords:
+  - "migration troubleshooting"
+  - "scraper"
+  - "mint migrate"
+  - "missing pages"
+  - "missing images"
+  - "redirects"
+  - "MDX build error"
+---
+
+Before you work through the issues on this page, run `mint validate` in your Mintlify project. It checks your pages, navigation, and OpenAPI specifications and reports the file that fails. Run `mint broken-links` to find internal links that don't resolve. See [CLI commands](/cli/commands) for all flags.
+
+## Scraper problems
+
+<AccordionGroup>
+  <Accordion title="The scraper overwrote files in my project">
+    The scraper can overwrite existing files. Always run it in a new, empty directory, then copy the output into your Mintlify project.
+
+    ```bash
+    mkdir mintlify-migration
+    cd mintlify-migration
+    ```
+
+    If you ran it inside an existing project, restore the overwritten files from Git before scraping again.
+  </Accordion>
+
+  <Accordion title="The generated navigation is incomplete">
+    Install Puppeteer when you run the scraper. Without it, the scraper fetches pages without a browser and may miss sidebar items that only appear after the page renders.
+
+    ```bash
+    npx -p @mintlify/scraping@latest -p puppeteer mintlify-scrape section https://docs.example.com
+    ```
+
+    After the scrape, compare `docs.json` with your source navigation, such as `sidebars.js` in Docusaurus, `SUMMARY.md` in GitBook, or `_order.yaml` in ReadMe. Check collapsed categories, external links, generated index pages, and pages excluded from the published sidebar.
+  </Accordion>
+
+  <Accordion title="Private or unpublished pages are missing">
+    The scraper only reaches pages that are public. It can't retrieve private sections, unpublished changes, permissions, comments, or revision history.
+
+    Use your platform's export or source repository for that content. See the [platform guides](/migration#platform-guides) for each export method.
+  </Accordion>
+
+  <Accordion title="The scraper picked up pages outside my docs">
+    If your docs live under a path such as `/docs`, limit the scrape with `--filter`:
+
+    ```bash
+    npx -p @mintlify/scraping@latest -p puppeteer mintlify-scrape section https://example.com --filter=/docs
+    ```
+  </Accordion>
+
+  <Accordion title="A single page is missing or converted badly">
+    Scrape that page on its own with the `page` command, then compare the result with your source:
+
+    ```bash
+    npx @mintlify/scraping@latest page https://docs.example.com/getting-started
+    ```
+  </Accordion>
+
+  <Accordion title="The scraper doesn't support my platform">
+    The scraper supports public Docusaurus, ReadMe, and GitBook sites. It doesn't support Fern or Document360. For other platforms, run `mint migrate --from <platform>` to have a coding agent migrate your content, or follow the [manual migration](/migration/manual) workflow.
+  </Accordion>
+</AccordionGroup>
+
+## Coding agent problems
+
+<AccordionGroup>
+  <Accordion title="mint migrate exits with an error about the agent">
+    `mint migrate --agent` starts your agent's command-line tool, so the agent CLI must already be installed. If the Mintlify CLI can't find it, the error message includes the install command. Install the agent CLI and run the command again.
+
+    Supported agents are `claude`, `codex`, `cursor`, and `gemini`.
+  </Accordion>
+
+  <Accordion title="The agent doesn't know how to handle my platform">
+    Pass `--from` with your source platform so the agent receives platform-specific instructions. Run `mint migrate` without flags to see the list of supported platforms.
+
+    To give your agent detailed instructions for one step, use `--topic` with `discovery`, `conversion`, `navigation`, `api`, `changelog`, or `verify`.
+  </Accordion>
+</AccordionGroup>
+
+## Content problems
+
+<AccordionGroup>
+  <Accordion title="Platform syntax renders as plain text or fails the build">
+    Source-platform directives, imports, and templating variables aren't valid in Mintlify MDX. Search your converted files for leftover syntax and replace it with [Mintlify components](/components).
+
+    | Platform | Search for |
+    | --- | --- |
+    | Docusaurus | `@theme`, `@site`, `:::`, `DocCardList`, `useDocusaurusContext`, custom plugin imports |
+    | ReadMe | Magic blocks, variables, glossary references, Custom Block directives |
+    | GitBook | `{%`, `{% end`, `.gitbook/includes`, raw HTML blocks |
+    | Fern | Component imports, unsupported JSX properties, `Versions` and `If` blocks |
+    | Document360 | Raw HTML, snippet and variable references, private notes, widget embeds |
+  </Accordion>
+
+  <Accordion title="A page is missing its title">
+    Every Mintlify page needs frontmatter with at least a `title`:
+
+    ```mdx
+    ---
+    title: "Get started"
+    description: "Install the SDK and make your first request."
+    ---
+    ```
+  </Accordion>
+
+  <Accordion title="A page shows two H1 headings">
+    Mintlify renders the frontmatter `title` as the page H1. Remove any H1 at the start of the page body and start your content at H2.
+  </Accordion>
+
+  <Accordion title="A component has the same name but doesn't render correctly">
+    Components with the same name on different platforms can take different properties. Check each converted component against the Mintlify [component reference](/components) and preview pages that nest components.
+  </Accordion>
+
+  <Accordion title="Custom React components don't work">
+    Custom components don't migrate automatically. For each one, decide whether to replace it with a built-in [component](/components), convert it to a [reusable snippet](/create/reusable-snippets), or rebuild it as a [React component](/customize/react-components).
+  </Accordion>
+
+  <Accordion title="Reusable content is duplicated across pages">
+    Some exports expand reusable blocks into every page that uses them. Compare the copies, then move identical content into a [snippet](/create/reusable-snippets) and import it where you need it.
+  </Accordion>
+</AccordionGroup>
+
+## Navigation problems
+
+<AccordionGroup>
+  <Accordion title="A page exists but doesn't appear in the sidebar">
+    Add the page path to a `pages` array in `docs.json`. Paths don't include the file extension, for example `guides/quickstart` for `guides/quickstart.mdx`.
+
+    Pages left out of navigation on purpose are [hidden pages](/organize/hidden-pages). They stay reachable by URL but are excluded from search, sitemaps, and indexing by default.
+  </Accordion>
+
+  <Accordion title="Group overview pages are missing">
+    Many platforms use an index page for each category, such as `index.md` in ReadMe or a linked category in Docusaurus. Set that page as the group's `root` in `docs.json`. See [Navigation](/organize/navigation).
+  </Accordion>
+
+  <Accordion title="Versions or languages are missing">
+    Inventory and migrate each version and language separately. Map them to Mintlify [versions](/organize/navigation#versions) and [languages](/organize/navigation#languages), and preview each one before launch.
+  </Accordion>
+</AccordionGroup>
+
+## Images and assets
+
+<AccordionGroup>
+  <Accordion title="Images are missing after a ReadMe export">
+    ReadMe's ZIP export doesn't include image files. The Markdown references them by their hosted URL, usually on `files.readme.io`. Download the files and update the references. See [Download images and files](/migration/readme#download-images-and-files).
+  </Accordion>
+
+  <Accordion title="Images still load from my old platform">
+    Copy every asset you own into your Mintlify repository and update its references. Images on your former provider's domain stop working when you shut down that hosting.
+
+    Check Markdown and HTML image references, CSS background images, assets imported by components, and version-specific or language-specific assets.
+  </Accordion>
+
+  <Accordion title="Image paths broke after I reorganized pages">
+    Relative paths change when you move a page. Use root-relative paths such as `/images/diagram.png`, or preserve your former public asset paths. For example, Docusaurus publishes `static/img/logo.png` as `/img/logo.png`.
+  </Accordion>
+</AccordionGroup>
+
+## Links and URLs
+
+<AccordionGroup>
+  <Accordion title="Old URLs return 404 errors">
+    Add a [redirect](/create/redirects) for every published path that changed. Build your URL list from your former site's sitemap rather than from filenames, because slugs, version and language prefixes, and route base paths change URLs.
+  </Accordion>
+
+  <Accordion title="Links to headings no longer work">
+    If inbound links use custom heading IDs, preserve them with Mintlify's custom heading ID syntax:
+
+    ```mdx
+    ## Configure the client {#configure-client}
+    ```
+  </Accordion>
+
+  <Accordion title="Internal links are broken">
+    Run `mint broken-links` to list links that don't resolve. Update each link to the page's new path, or add a redirect from the old path.
+  </Accordion>
+</AccordionGroup>
+
+## API reference problems
+
+<AccordionGroup>
+  <Accordion title="Endpoint pages are missing or incomplete">
+    Use your original OpenAPI or AsyncAPI specification instead of migrating rendered endpoint pages. Add the specification to your repository and configure [OpenAPI-generated pages](/api-playground/openapi-setup).
+
+    Your former platform may have stored descriptions or examples outside the specification. Move that content into the operation descriptions or an adjacent guide.
+  </Accordion>
+
+  <Accordion title="The build fails to load my OpenAPI file">
+    Run `mint validate` to see the underlying error. For common causes and fixes, see [Troubleshoot API pages](/api-playground/troubleshooting).
+  </Accordion>
+</AccordionGroup>
+
+## Get help
+
+If you still can't resolve an issue, [contact support](/contact-support). For hands-on help with a large migration, see [migration services](/migration-services/enterprise).
