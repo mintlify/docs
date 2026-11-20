@@ -29,6 +29,8 @@ Minimal valid `docs.json`:
 
 Top-level `description` (string) sets the site overview used for SEO.
 
+Top-level `themeVersion` (number) sets the theme version: `1` (default) or `2`. Only `"theme": "mint"` has version 2 (Mint theme v2); other themes ignore it.
+
 ### Splitting configuration with `$ref`
 
 Use `$ref` at any level of `docs.json` to load configuration from another JSON file. Useful for splitting large configs or sharing navigation across projects.

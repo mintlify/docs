@@ -2,6 +2,8 @@
 
 Full syntax and props for all Mintlify components.
 
+Mint theme v2 (`"themeVersion": 2`) adds `<List>`, `<Quote>`, `<Table>` parts, and new props on Steps, Columns, Card, links, Tooltip, code fences, and Mermaid. Version 1 ignores them. See [Mint theme v2](https://mintlify.com/docs/customize/theme-v2.md).
+
 ## Styling with className
 
 All built-in components accept a `className` prop (string) except Banner, MDX, Visibility, RequestExample, ResponseExample, Color.Row, and Color.Item. Mintlify merges your classes with the component's own styles. Use Tailwind CSS v3 classes, including arbitrary values such as `w-[350px]`, or class names defined in a custom CSS file. Write class names out in full. Mintlify generates CSS only for class names found in the page source, so runtime-assembled names like `` bg-${color}-500 `` produce no CSS. On `<Tab>`, `className` styles the tab's content panel, not its label in the tab bar.
