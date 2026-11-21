@@ -1,0 +1,164 @@
+---
+title: "从 Document360 迁移"
+description: "将 Document360 的工作区、语言、文章、分类、媒体、可复用内容和 API 参考迁移到 Mintlify。"
+keywords: ["Document360 迁移", "Document360 到 Mintlify", "知识库导出", "项目 ZIP"]
+---
+
+import MigrationLaunchChecklist from "/snippets/zh/migration-launch-checklist.mdx";
+
+将 Document360 项目导出为 ZIP，然后将其工作区、语言、分类和文章转换为 Mintlify 项目。使用 Document360 API 和已发布的站点来审计导出可能未完整表示的内容。
+
+<Note>
+  Mintlify 抓取工具目前不支持 Document360。
+</Note>
+
+<div id="create-a-migration-snapshot">
+  ## 创建迁移快照
+</div>
+
+在导出之前，在 Document360 中创建一个已命名的手动备份。导航到 **Settings > Knowledge base portal > Backup & Restore**。为迁移本身下载一份项目导出。
+
+在 Document360 中，导航到 **Content tools > Import and export > Import and export project**。
+
+<Note>
+  分别有意识地导出每个工作区和语言。单语言导出可以包含在 Markdown 编辑器中创建的文章的 Markdown，以及 WYSIWYG 文章的 HTML。多语言导出无论编辑器类型如何，都使用 JSON。
+</Note>
+
+1. 点击 **Export project**。
+2. 选择导出格式。选择 **JSON** 以进行完整的项目导出。
+3. 在 **Include new or modified articles in** 中，选择 **All**，这样导出就不会限于最近修改过的文章。
+4. 选择每个维护的工作区、语言、分类和子分类。
+5. 选择 **Include media files**。
+6. 点击 **Export**。导出在后台运行，完成后会通知你。
+7. 一旦准备就绪，就从 **Recent files** 下载 ZIP。每次新导出都会覆盖之前的 ZIP。
+8. 将 **All articles** 列表导出为 CSV。这份元数据列表有助于核对标题、发布状态、日期、分类和 URL。
+
+<Tip>
+  保持导出的 ZIP 和 CSV 不变，作为源快照。在迁移期间的任何转换工作，都请在副本上进行。
+</Tip>
+
+<div id="inventory-content-outside-the-export">
+  ## 清点导出之外的内容
+</div>
+
+记录需要单独迁移工作的项目功能。
+
+- Homepage Builder 内容和导航
+- 从页眉、页脚或侧边栏链接的自定义页面
+- Snippet、变量、词汇表术语和模板
+- 自定义 CSS、JavaScript 和集成
+- Reader group、角色、SSO 和私有内容规则
+- 重定向规则和自定义域名
+- 分析、反馈、表单和搜索配置
+- API 参考的源规范
+- Drive 文件、决策树和嵌入的内容
+
+使用已发布的 sitemap 和 Document360 Customer API 将导出与公开及私有内容进行比较。当你需要遍历分类元数据，或恢复难以从导出文件推断的字段时，API 尤其有用。
+
+<div id="recreate-navigation">
+  ## 重建导航
+</div>
+
+将 Document360 的层级映射到 `docs.json`。
+
+| Document360 | Mintlify |
+| --- | --- |
+| Workspace | [Version](/zh/organize/navigation#versions)、[product](/zh/organize/navigation#products)、[tab](/zh/organize/navigation#tabs) 或单独的导航树 |
+| Language | [语言导航元素](/zh/organize/navigation#languages) |
+| 文件夹分类 | 导航分组 |
+| Index 或 page 分类 | 带 `root` 页面的分组 |
+| 文章或子文章 | 页面或嵌套分组 |
+| 自定义页面 | 标准 MDX 页面或自定义布局 |
+| 页眉和页脚导航 | 导航栏链接、anchors、菜单或页脚链接 |
+
+根据读者如何使用工作区来选择映射方式。名为 `v1` 的工作区通常是一个版本，而独立的产品知识库可能更适合映射到 products 或 tabs。有关 Mintlify 导航元素的更多信息，请参见 [导航](/zh/organize/navigation)。
+
+Document360 分类 API 的响应只包含直接子项。如果你使用 API 建立清单，请递归请求每个子分类，并分别为 index 和 page 分类获取内容。
+
+<div id="convert-article-content">
+  ## 转换文章内容
+</div>
+
+将 Markdown 文章复制到 `.mdx` 文件中，并将导出的 HTML 或 JSON 转换为 MDX。添加至少包含 `title` 的 frontmatter，并在有用的场景下保留描述、关键词、发布元数据和 canonical 路由。
+
+检查每种编辑器的平台特定输出：
+
+| Document360 内容 | Mintlify 处理方式 |
+| --- | --- |
+| Info、warning 和 error callouts | 转换为 [Mintlify callouts](/zh/components/callouts)。 |
+| Tabs 和 accordions | 转换为 [`Tabs`](/zh/components/tabs) 或 [`AccordionGroup`](/zh/components/accordions)。 |
+| 分步指南 | 转换为 [`Steps`](/zh/components/steps)。 |
+| 代码 tab | 转换为 [`CodeGroup`](/zh/components/code-groups)。 |
+| 私有笔记 | 移除它们，或将内部指引移出公开文档。 |
+| 文章模板 | 将重复结构转换为起始文件或可复用 snippet。 |
+| 嵌入的表单、视频和小部件 | 用受支持的嵌入、链接或自定义组件替换。 |
+| 决策树 | 重建为指南、分支链接或适当的交互式体验。 |
+
+Document360 和 Mintlify 都将 `title` frontmatter 渲染为页面 H1，因此页面正文从 H2 开始。转换过程中不要添加重复的 H1。
+
+<div id="convert-reusable-content">
+  ## 转换可复用内容
+</div>
+
+在替换之前，先清点变量、snippet、词汇表术语及其每一处使用。
+
+- 将可复用内容块转换为 [Mintlify snippet](/zh/create/reusable-snippets)。
+- 用显式文本、生成的内容或其他可维护的真实来源替换变量。
+- 用链接或受支持的 tooltip 组件替换词汇表 tooltip。
+- 保留特定语言的变体，而不要合并那些只在某一种语言下看起来相同的文本。
+
+同时检查渲染的源站点和导出，以判断每个可复用项呈现为展开的内容，还是平台特定的引用。
+
+<div id="migrate-api-references">
+  ## 迁移 API 参考
+</div>
+
+从每个 Document360 API 参考分类下载原始 OpenAPI 文件，或从同步该规范的系统中获取它。
+
+1. 将原始规范添加到 Mintlify 仓库。
+2. 配置 [OpenAPI 生成的页面](/zh/api-playground/openapi-setup)。
+3. 保留编辑者在导入后添加的自定义端点描述或示例。
+4. 比较标签层级、端点顺序、servers、认证、示例和代码示例。
+5. 用 Mintlify 的部署工作流替换任何 Document360 重同步自动化。
+
+当源规范可用时，不要转换生成的端点文章。
+
+<div id="migrate-media-and-files">
+  ## 迁移媒体和文件
+</div>
+
+在项目导出中包含媒体，并将你拥有的文件复制到 Mintlify 项目仓库中。检查 Document360 Drive 链接、缩略图、SVG、可下载文件、CSS 背景图片以及从外部服务嵌入的内容。
+
+在重新组织页面后更新资源路径。除非你打算继续保留旧的托管环境，否则不要将必需的生产资源留在 Document360 的域名上。
+
+<div id="preserve-urls-and-access-rules">
+  ## 保留 URL 和访问规则
+</div>
+
+Document360 的路由可以包含工作区和语言 slug，以及分类和文章 slug。根据已发布的 sitemap 和导出的文章 CSV 建立 URL 映射，然后为每个变更的路由添加 [redirects](/zh/create/redirects)。
+
+使用 [认证和访问控制](/zh/deploy/authentication-setup) 重建私有文档。创建与你之前访问控制设置相对应的 reader group 和基于角色的限制。在发布站点之前，以每个分组的身份进行测试。
+
+<div id="review-your-migration">
+  ## 检查你的迁移
+</div>
+
+检查导出的 ZIP、文章 CSV、API 清单和已发布的 sitemap 是否一致，然后测试语言切换和每个工作区选择器。
+
+在你转换后的文件中搜索未转换的 Document360 内容：原始 HTML、snippet 和变量引用、私有笔记以及小部件嵌入。
+
+<MigrationLaunchChecklist />
+
+<div id="document360-references">
+  ## Document360 参考资料
+</div>
+
+- [导出项目 ZIP](https://docs.document360.com/help/docs/exporting-your-document360-project-as-a-zip-file-json)
+- [导出所有文章](https://docs.document360.com/help/docs/export-bulk-operations)
+- [备份与恢复](https://docs.document360.com/help/docs/backup-restore)
+- [工作区和语言](https://docs.document360.com/docs/workspaces-languages)
+- [Markdown 编辑器](https://docs.document360.com/docs/markdown-editor)
+- [Snippets](https://docs.document360.com/help/docs/snippets)
+- [管理 API 参考](https://docs.document360.com/docs/manage-api-references)
+- [Category API](https://apidocs.document360.com/v2-api/apidocs/get-category)
+- [自定义页面](https://docs.document360.com/docs/custom-pages)
