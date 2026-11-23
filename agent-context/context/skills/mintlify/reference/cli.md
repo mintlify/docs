@@ -86,7 +86,7 @@ JSON report fields:
 - `mint login` — Authenticate your Mintlify account.
 - `mint logout` — Log out of your account.
 - `mint status` — Show current authentication status (CLI version, email, org, subdomain).
-- `mint signup [flags]` — Create a new Mintlify account from an interactive terminal. Flags: `--firstName`, `--lastName`, `--company`, `--email`; omit any to enter it interactively. Waits until you click the emailed verification link before it logs you in. When an agent runs it, or stdin isn't a TTY, it only prints https://mintlify.com/auth.md and creates no account; agents use `mint deploy` and `mint claim` instead.
+- `mint signup` — Create a new Mintlify account from an interactive terminal. Opens the signup page in the browser, then logs in and prompts for a project like `mint login`. No flags. When an agent runs it, or stdin isn't a TTY, it only prints https://mintlify.com/auth.md and creates no account; agents use `mint deploy` and `mint claim` instead.
 - `mint add-domain <domain> [--basePath <path>]` — Add a custom domain to the current project. Requires `mint login`. Pass `--basePath` to serve the documentation from a subpath such as `/docs`.
 
 ## Analytics
