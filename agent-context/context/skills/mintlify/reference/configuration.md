@@ -81,6 +81,7 @@ The SKILL.md file lists common frontmatter fields. Here are the supported fields
 | `url` | string | External URL. Makes the nav entry link externally. |
 | `timestamp` | boolean | Override global timestamp setting for this page. |
 | `lastUpdatedDate` | string | Explicit "last modified" date (e.g., `"2026-08-13"`). Takes precedence over the Git commit date. |
+| `structuredData` | object or array | Custom schema.org JSON-LD entities appended to the page's structured data `@graph` (e.g., `{ "@type": "SoftwareApplication", "name": "Acme CLI" }`). Each entity needs an `@type`. |
 | `playground` | string | Per-page API playground display: `interactive`, `simple`, `none`, `auth`. Overrides `api.playground.display`. |
 | `public` | boolean | Make this page public on a site with authentication. |
 | `asyncapi` | string | AsyncAPI channel reference for a WebSocket page. |
