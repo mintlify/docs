@@ -1,0 +1,125 @@
+---
+title: "Editar y publicar con el Admin MCP"
+sidebarTitle: "Editar y publicar"
+description: "Cómo las herramientas de IA conectadas al Admin MCP editan tu rama de despliegue o una rama, abren pull requests, publican cambios y comprueban despliegues."
+keywords: ["admin MCP", "branch", "pull request", "publish", "deploy branch", "review", "agentReviewProcess"]
+---
+
+Las herramientas de IA conectadas al [Admin MCP](/es/ai/mintlify-mcp) editan tu contenido en una rama que indicas en cada llamada. Las ediciones en tu rama de despliegue llegan como cambios no publicados, y las ediciones en cualquier otra rama pasan por una pull request. Nada se publica hasta que le pides a la herramienta de IA que publique.
+
+<div id="how-editing-works">
+  ## Cómo funciona la edición
+</div>
+
+Todas las herramientas de contenido aceptan un argumento `branch`. Las herramientas que cambian contenido, como `edit_page`, `create_node`, `update_config`, `publish` y `discard`, lo requieren. Las herramientas de lectura, como `read`, `search`, `read_page_history`, `list_nodes`, `status` y `diff`, usan tu rama de despliegue por defecto cuando lo omites. El Admin MCP no recuerda una rama entre llamadas, así que la herramienta de IA pasa `branch` cada vez. Las solicitudes sobre [páginas privadas](/es/editor/pages#private-pages) no necesitan `branch`. El Admin MCP solo puede acceder a páginas privadas en [bases de conocimiento](/es/base/index). En sitios, las solicitudes sobre páginas privadas devuelven `private_pages_unavailable`.
+
+El flujo es:
+
+<Steps>
+  <Step title="Descubrir proyectos (opcional)">
+    Si tu conexión tiene acceso a más de un proyecto, llama a `list_deployments` para ver qué valores de `subdomain` puedes usar. Omite este paso si tu conexión cubre solo un proyecto.
+  </Step>
+  <Step title="Leer, buscar y editar">
+    La IA usa herramientas como `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node` y `update_config` para realizar cambios. En una conexión de toda la organización, pasa `subdomain` para elegir el proyecto.
+
+    Pasa tu rama de despliegue como `branch` para editarla directamente. Las ediciones llegan como cambios no publicados. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly). Si tu proyecto requiere una pull request, Mintlify rechaza la edición con un mensaje que explica el motivo y no cambia nada. En su lugar, llama a `create_branch` y pasa el `branchName` devuelto como `branch`. Consulta [Trabajar en una rama](#work-on-a-branch).
+  </Step>
+  <Step title="Revisar el diff">
+    Llama a `diff` en cualquier momento para ver exactamente qué ha cambiado en una rama en comparación con tu rama de despliegue. Llama a `status` para obtener un resumen de los archivos editados, las claves de `docs.json` modificadas y los cambios de navegación. Ambas informan sobre tu rama de despliegue cuando omites `branch`. Abre un `editorUrl` en tu panel para ver los mismos cambios renderizados. Cuando `create_node` agrega una página, devuelve un `editorUrl` que abre esa página directamente.
+  </Step>
+  <Step title="Publicar">
+    Llama a `publish` con la `branch` y un `title` para publicar tus ediciones. El Admin MCP indica a la herramienta de IA que llame a `publish` solo cuando le pidas publicar, lanzar o fusionar, así que tus ediciones siguen sin publicar hasta que lo hagas. En tu rama de despliegue, `publish` hace commit de tus propios cambios pendientes. En una rama, `publish` hace commit de todo lo pendiente y devuelve la pull request de la rama, y abre una si no existe. Si vuelves a llamarlo sin nada nuevo que confirmar, devuelve la pull request existente. Si no hay nada que confirmar ni ninguna pull request, `publish` devuelve `no_pending_changes`.
+
+    `publish` no fusiona la pull request a menos que pases `merge: true`. Con `merge: true`, `publish` también fusiona la pull request en tu rama de despliegue y devuelve `merged: true`. Mintlify solo permite la fusión cuando aceptaría ediciones directas en tu rama de despliegue. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly). De lo contrario, `publish` devuelve `merge_not_allowed` con el motivo y deja la pull request abierta para revisión. Pide a la herramienta de IA que fusione solo cuando quieras que los cambios omitan la revisión.
+
+    La respuesta incluye un `editorUrl` que abre la primera página creada o actualizada. Si los cambios solo afectan a la configuración, el enlace abre la rama. Los clientes antiguos aún pueden pasar `mode`, pero `publish` lo ignora.
+  </Step>
+  <Step title="Comprobar el despliegue">
+    Cuando `publish` hace commit en tu rama de despliegue, directamente o al fusionar la pull request, la respuesta incluye un `commitSha` y un objeto `deployment`. Tus cambios no están en vivo en tu sitio hasta que termina el despliegue. Llama a `deployment_status` con el `commitSha` para comprobar el progreso. La herramienta de IA vuelve a comprobarlo aproximadamente cada 30 segundos hasta que `live` sea `true`, o se detiene e informa el `message` si el estado es `failed`, `not_live` o `skipped`.
+  </Step>
+  <Step title="Descartar si es necesario">
+    Llama a `discard` con la `branch` para abandonar tus ediciones. Lo que elimina depende de la rama. Consulta [Editar la rama de despliegue directamente](#edit-the-deploy-branch-directly) y [Trabajar en una rama](#work-on-a-branch).
+  </Step>
+</Steps>
+
+<Tip>
+  Cada llamada indica su propio proyecto y su propia rama, así que puedes trabajar en varios proyectos o ramas en una misma conversación sin cambiar entre ellos.
+</Tip>
+
+<div id="edit-the-deploy-branch-directly">
+  ## Editar la rama de despliegue directamente
+</div>
+
+Cuando nada requiere una pull request, pasa tu rama de despliegue como `branch` y el Admin MCP la edita igual que tú en el [editor del panel](/es/editor/publish). No llamas a `create_branch` y no se crea ninguna pull request.
+
+La herramienta de IA actúa en tu nombre en la rama de despliegue:
+
+- **Las ediciones son visibles en vivo para los colaboradores.** Cualquier otra persona que edite la rama de despliegue en el panel ve los cambios de la IA a medida que ocurren.
+- **`publish` publica solo tus cambios.** Hace commit de tus cambios pendientes directamente en la rama de despliegue, como al hacer clic en **Publish** en el editor. Los cambios no publicados de otras personas siguen pendientes. Tus propias ediciones no publicadas del editor del panel también se publican.
+- **`discard` revierte solo tus cambios.** Devuelve `discardedChanges` con el número de cambios revertidos. Los cambios de otras personas y la propia rama no se modifican.
+- **`status` lista solo tus cambios.**
+
+Una [base de conocimiento](/es/base/index) no tiene sitio publicado, por lo que no tiene paso de publicación. Cuando `list_deployments` devuelve `projectType: "workspace"`, el proyecto es una base de conocimiento y Mintlify confirma automáticamente las ediciones en la rama de despliegue, incluidas las imágenes subidas.
+
+Mintlify registra los cambios por página. Si tú y otra persona editaron la misma página, `publish` publica la página completa y `discard` revierte la página completa, incluidas las ediciones de la otra persona.
+
+Mintlify rechaza las ediciones en la rama de despliegue, y no cambia nada, cuando se cumple alguna de estas condiciones:
+
+- **Enviar directamente a tu rama de despliegue** está desactivado en tu [configuración de publicación](#publishing).
+- La protección de tu rama de despliegue exige pull requests, o Mintlify no puede comprobar tus reglas de protección de ramas.
+- La edición de la rama de despliegue está bloqueada en el editor del panel.
+- Te conectaste con un token de cliente o de máquina a máquina en lugar de un inicio de sesión OAuth. Estos tokens no están vinculados a un usuario, así que no tienen cambios "propios".
+
+Mintlify comprueba estas condiciones en cada edición y guarda en caché tus reglas de protección de ramas durante un máximo de 30 segundos. Las herramientas de comentarios siguen funcionando en la rama de despliegue cuando se rechazan las ediciones. Si tu rama de despliegue empieza a requerir una pull request después de que la edites, `publish` devuelve `branch_protected` y tus cambios siguen pendientes. Abre el editor del panel para moverlos a una nueva rama. Lo mismo ocurre si [Always require branches](/es/editor/settings#always-require-branches) está activado y no eres administrador.
+
+<div id="projects-with-auto-publish">
+  ### Proyectos con publicación automática
+</div>
+
+Si tu proyecto tiene la [publicación automática](/es/editor/settings#auto-publish) activada, el Admin MCP no usa ramas para él. Pasa tu rama de despliegue como `branch`. Mintlify hace commit de tus ediciones en la rama de despliegue automáticamente.
+
+Mintlify rechaza `create_branch` y las llamadas sobre cualquier otra rama en estos proyectos, y no cambia nada. Si tu conexión solo abarca ese proyecto, el Admin MCP no muestra `create_branch` ni `list_branches`.
+
+**Enviar directamente a tu rama de despliegue** y la protección de ramas no bloquean las ediciones en la rama de despliegue en un proyecto con publicación automática. Mintlify rechaza las ediciones cuando la edición de la rama de despliegue está bloqueada en el editor del panel o cuando te conectaste con un token de cliente o de máquina a máquina.
+
+<div id="projects-that-require-review">
+  ### Proyectos que requieren revisión
+</div>
+
+Si tu proyecto [requiere revisión antes de publicar](/es/editor/review#require-review-before-publishing), solo los administradores pueden usar `publish` en tu rama de despliegue. Para cualquier otra persona, `publish` en la rama de despliegue devuelve `review_required` y los cambios siguen pendientes.
+
+En otras ramas, `publish` hace commit de tus cambios y abre una pull request. Los administradores pueden fusionar pull requests en la rama de despliegue con `merge: true`. Los publicadores pueden fusionar una vez que los revisores aprueban todos los cambios de la rama, incluidos sus **Site changes**. Para cualquier otra persona, una fusión devuelve `review_required` y la pull request sigue abierta, así que solicita una revisión en la rama.
+
+Para publicar tus cambios, pide a la herramienta de IA que solicite una revisión. La herramienta de IA llama a `request_review` con las páginas que cambiaste y los revisores que indiques. Después de que un revisor apruebe los cambios, un administrador o publicador los publica desde el editor del panel o con `publish_review_request`. Consulta [Solicitudes de revisión](/es/ai/admin-mcp-tools#review-requests) para ver las herramientas.
+
+<div id="work-on-a-branch">
+  ## Trabajar en una rama
+</div>
+
+Llama a `create_branch` con un `title` cuando tu proyecto requiera una pull request, o cuando quieras una de todos modos. Mintlify crea una nueva rama a partir de tu rama de despliegue, la nombra `<your-name>/<title-slug>` igual que el editor del panel nombra las ramas, y la inicializa a partir de tu contenido publicado. La pull request se abre con este título. Por ejemplo, `create_branch { subdomain: "acme", title: "Add tips page" }`.
+
+Para empezar desde otra rama existente, como una rama de funcionalidad para una actualización grande, pasa su nombre como `from`. Por ejemplo, `create_branch { subdomain: "acme", title: "Add tips page", from: "docs-refresh" }`. Mintlify rechaza las ramas `from` que no existen y no crea nada.
+
+Si tu repositorio está en GitHub, GitLab o Azure Repos, una rama que empiezas desde una rama distinta de tu rama de despliegue se convierte en una [sub-branch](/es/editor/publish#sub-branches), y su pull request apunta a la rama `from` en lugar de a tu rama de despliegue.
+
+`create_branch` devuelve el `branchName`, la `baseBranch` y el `baseSha` desde los que empezó, una `note` y un `editorUrl` que puedes abrir para seguir el progreso en el editor del panel. Pasa el `branchName` como `branch` en todas las llamadas posteriores.
+
+Para trabajar en una rama existente, pasa su nombre como `branch`. Llama a `list_branches` para descubrir las ramas del repositorio de un proyecto. Mintlify rechaza las llamadas sobre ramas que no existen.
+
+En una rama, Mintlify hace commit de tus ediciones automáticamente, aproximadamente 15 segundos después del último cambio. Esto incluye el contenido de las páginas, los cambios de navegación y las actualizaciones de `docs.json`. El primer commit abre una pull request contra tu rama de despliegue, o contra la rama `from` en el caso de una sub-branch. La pull request se abre como borrador si [Create draft pull requests by default](/es/editor/settings#create-draft-pull-requests-by-default) está activado. Nada llega a tu rama de despliegue hasta que alguien hace merge de los cambios en ella.
+
+`discard` en una rama distinta de tu rama de despliegue elimina la rama y cierra su pull request, aunque la rama tenga commits. Equivale a eliminar una rama en el editor del panel. `discard` solo elimina ramas que creaste en Mintlify. Para cualquier otra rama, lo rechaza y no cambia nada.
+
+<div id="publishing">
+  ## Publicación
+</div>
+
+La sección **Publicación** de la página **MCP → Settings** en la barra lateral de tu panel controla si el Admin MCP puede editar tu rama de despliegue sin una pull request. Activa **Enviar directamente a tu rama de despliegue** para que las herramientas de IA editen y publiquen directamente en tu rama de despliegue. Desactívalo para exigir `create_branch` y una pull request en las ediciones del MCP.
+
+Este interruptor comparte el mismo ajuste `agentReviewProcess` que los agentes de Slack y del panel, por lo que cualquier cambio aquí también se aplica a esos flujos.
+
+El interruptor se deshabilita en tres casos:
+
+- **Tu rama de despliegue requiere una pull request.** Si las reglas de protección de rama o las aprobaciones requeridas impiden los push directos, los cambios del MCP siempre pasan por una pull request, independientemente de este ajuste.
+- **Mintlify aloja tu proyecto.** Para los sitios alojados por Mintlify, los cambios del MCP siempre se envían directamente, a menos que la protección de rama aún requiera una pull request.
+- **No eres administrador.** Cambiar este ajuste requiere el [rol de administrador](/es/dashboard/roles) en tu proyecto. Los editores y lectores ven el interruptor deshabilitado con un banner de permisos.

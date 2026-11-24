@@ -1,0 +1,113 @@
+---
+title: "Edit and publish with the admin MCP"
+sidebarTitle: "Edit and publish"
+description: "How AI tools connected to the admin MCP edit your deploy branch or a branch, open pull requests, publish changes, and check deployments."
+keywords: ["admin MCP", "branch", "pull request", "publish", "deploy branch", "review", "agentReviewProcess"]
+---
+
+AI tools connected to the [admin MCP](/ai/mintlify-mcp) edit your content on a branch you name in every call. Edits to your deploy branch land as unpublished changes, and edits to any other branch go through a pull request. Nothing ships until you ask the AI tool to publish.
+
+## How editing works
+
+Every content tool takes a `branch` argument. Tools that change content, such as `edit_page`, `create_node`, `update_config`, `publish`, and `discard`, require it. Read tools, such as `read`, `search`, `read_page_history`, `list_nodes`, `status`, and `diff`, default to your deploy branch when you omit it. The admin MCP doesn't remember a branch between calls, so the AI tool passes `branch` every time. Requests on [private pages](/editor/pages#private-pages) don't need a `branch`. The admin MCP can only access private pages in [knowledge bases](/base/index). In sites, private page requests return `private_pages_unavailable`.
+
+The flow is:
+
+<Steps>
+  <Step title="Discover projects (optional)">
+    If your connection has access to more than one project, call `list_deployments` to see which `subdomain` values you can use. Skip this step if your connection covers only a single project.
+  </Step>
+  <Step title="Read, search, and edit">
+    The AI uses tools like `search`, `read`, `list_nodes`, `edit_page`, `write_page`, `create_node`, and `update_config` to make changes. On an organization-wide connection, pass `subdomain` to choose the project.
+
+    Pass your deploy branch as `branch` to edit it directly. Edits land as unpublished changes. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly). If your project requires a pull request, Mintlify refuses the edit with a message that explains why and changes nothing. Call `create_branch` and pass the returned `branchName` as `branch` instead. See [Work on a branch](#work-on-a-branch).
+  </Step>
+  <Step title="Review the diff">
+    Call `diff` at any time to see exactly what changed on a branch compared to your deploy branch. Call `status` for a summary of edited files, changed `docs.json` keys, and navigation changes. Both report your deploy branch when you omit `branch`. Open an `editorUrl` in your dashboard to see the same changes rendered. When `create_node` adds a page, it returns an `editorUrl` that opens that page directly.
+  </Step>
+  <Step title="Publish">
+    Call `publish` with the `branch` and a `title` to publish your edits. The admin MCP tells the AI tool to call `publish` only when you ask it to publish, ship, or merge, so your edits stay unpublished until you do. On your deploy branch, `publish` commits your own pending changes. On a branch, `publish` commits anything pending and returns the branch's pull request, opening one if none exists. Calling it again with nothing new to commit returns the existing pull request. If there is nothing to commit and no pull request, `publish` returns `no_pending_changes`.
+
+    `publish` doesn't merge the pull request unless you pass `merge: true`. With `merge: true`, `publish` also merges the pull request into your deploy branch and returns `merged: true`. Mintlify only allows the merge when it would accept edits to your deploy branch directly. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly). Otherwise, `publish` returns `merge_not_allowed` with the reason and leaves the pull request open for review. Ask the AI tool to merge only when you want the changes to skip review.
+
+    The response includes an `editorUrl` that opens the first created or updated page. If the changes only touch configuration, the link opens the branch. Older clients can still pass `mode`, but `publish` ignores it.
+  </Step>
+  <Step title="Check the deployment">
+    When `publish` commits to your deploy branch, directly or by merging the pull request, the response includes a `commitSha` and a `deployment` object. Your changes aren't live on your site until the deployment finishes. Call `deployment_status` with the `commitSha` to check progress. The AI tool checks again about every 30 seconds until `live` is `true`, or stops and reports the `message` if the state is `failed`, `not_live`, or `skipped`.
+  </Step>
+  <Step title="Discard if needed">
+    Call `discard` with the `branch` to abandon your edits. What it removes depends on the branch. See [Edit the deploy branch directly](#edit-the-deploy-branch-directly) and [Work on a branch](#work-on-a-branch).
+  </Step>
+</Steps>
+
+<Tip>
+  Each call names its own project and branch, so you can work across several projects or branches in one conversation without switching between them.
+</Tip>
+
+## Edit the deploy branch directly
+
+When nothing requires a pull request, pass your deploy branch as `branch` and the admin MCP edits it the same way you do in the [dashboard editor](/editor/publish). You don't call `create_branch`, and you don't get a pull request.
+
+The AI tool acts as you on the deploy branch:
+
+- **Edits are live to collaborators.** Anyone else editing the deploy branch in the dashboard sees the AI's changes as they happen.
+- **`publish` publishes only your changes.** It commits your pending changes straight to the deploy branch, like clicking **Publish** in the editor. Other people's unpublished changes stay pending. Your own unpublished edits from the dashboard editor publish too.
+- **`discard` reverts only your changes.** It returns `discardedChanges` with the number of changes it reverted. Other people's changes and the branch itself stay untouched.
+- **`status` lists only your changes.**
+
+A [knowledge base](/base/index) has no published site, so it has no publish step. When `list_deployments` returns `projectType: "workspace"`, the project is a knowledge base, and Mintlify commits edits to the deploy branch automatically, including uploaded images.
+
+Mintlify tracks changes per page. If you and someone else both edited the same page, `publish` publishes the whole page and `discard` reverts the whole page, including the other person's edits.
+
+Mintlify refuses edits to the deploy branch, and changes nothing, when any of the following is true:
+
+- **Push directly to your deploy branch** is off in your [publishing settings](#publishing).
+- Branch protection on your deploy branch requires pull requests, or Mintlify can't check your branch protection rules.
+- Editing the deploy branch is locked in the dashboard editor.
+- You connected with a client or machine-to-machine token instead of an OAuth login. These tokens aren't tied to a user, so they have no "own" changes.
+
+Mintlify checks these conditions on every edit and caches your branch protection rules for up to 30 seconds. Comment tools still work on the deploy branch when edits to it are refused. If your deploy branch starts requiring a pull request after you edit it, `publish` returns `branch_protected` and your changes stay pending. Open the dashboard editor to move them to a new branch. The same happens if [Always require branches](/editor/settings#always-require-branches) is on and you aren't an admin.
+
+### Projects with auto publish
+
+If your project has [auto publish](/editor/settings#auto-publish) turned on, the admin MCP doesn't use branches for it. Pass your deploy branch as `branch`. Mintlify commits your edits to the deploy branch automatically.
+
+Mintlify refuses `create_branch` and calls on any other branch in these projects, and changes nothing. If your connection covers only that project, the admin MCP doesn't list `create_branch` or `list_branches`.
+
+**Push directly to your deploy branch** and branch protection don't block deploy branch edits in a project with auto publish. Mintlify refuses edits when editing the deploy branch is locked in the dashboard editor or when you connected with a client or machine-to-machine token.
+
+### Projects that require review
+
+If your project [requires review before publishing](/editor/review#require-review-before-publishing), only admins can `publish` to your deploy branch. For anyone else, `publish` on the deploy branch returns `review_required` and changes stay pending.
+
+On other branches, `publish` commits your changes and opens a pull request. Admins can merge pull requests into the deploy branch with `merge: true`. Publishers can merge once reviewers approve every change on the branch, including its **Site changes**. For anyone else, a merge returns `review_required` and the pull request stays open, so request a review on the branch instead.
+
+To get your changes published, ask the AI tool to request a review. The AI tool calls `request_review` with the pages you changed and the reviewers you name. After a reviewer approves the changes, an admin or publisher publishes them from the dashboard editor or with `publish_review_request`. See [Review requests](/ai/admin-mcp-tools#review-requests) for the tools.
+
+## Work on a branch
+
+Call `create_branch` with a `title` when your project requires a pull request, or when you want one anyway. Mintlify starts a new branch off your deploy branch, names it `<your-name>/<title-slug>` the same way the dashboard editor names branches, and seeds it from your published content. The pull request opens with this title. For example, `create_branch { subdomain: "acme", title: "Add tips page" }`.
+
+To start from another existing branch instead, such as a feature branch for a large update, pass its name as `from`. For example, `create_branch { subdomain: "acme", title: "Add tips page", from: "docs-refresh" }`. Mintlify refuses `from` branches that don't exist and creates nothing.
+
+If your repository is on GitHub, GitLab, or Azure Repos, a branch you start from a branch other than your deploy branch becomes a [sub-branch](/editor/publish#sub-branches), and its pull request targets the `from` branch instead of your deploy branch.
+
+`create_branch` returns the `branchName`, the `baseBranch` and `baseSha` it started from, a `note`, and an `editorUrl` you can open to follow along in the dashboard editor. Pass the `branchName` as `branch` in every later call.
+
+To work on an existing branch, pass its name as `branch`. Call `list_branches` to discover branches in a project's repository. Mintlify refuses calls on branches that don't exist.
+
+On a branch, Mintlify commits your edits automatically, about 15 seconds after the last change. This includes page content, navigation changes, and `docs.json` updates. The first commit opens a pull request against your deploy branch, or against the `from` branch for a sub-branch. The pull request opens as a draft if [Create draft pull requests by default](/editor/settings#create-draft-pull-requests-by-default) is on. Nothing reaches your deploy branch until someone merges the changes into it.
+
+`discard` on a branch other than your deploy branch deletes the branch and closes its pull request, even if the branch has commits. This matches deleting a branch in the dashboard editor. `discard` only deletes branches you created in Mintlify. For any other branch, it refuses and changes nothing.
+
+## Publishing
+
+The **Publishing** section on the **MCP → Settings** page in your dashboard sidebar controls whether the admin MCP can edit your deploy branch without a pull request. Toggle **Push directly to your deploy branch** on to let AI tools edit and publish to your deploy branch directly. Toggle it off to require `create_branch` and a pull request for MCP edits.
+
+This toggle shares the same `agentReviewProcess` setting as the Slack and dashboard agent, so any change here also applies to those flows.
+
+The toggle is disabled in three cases:
+
+- **Your deploy branch requires a pull request.** If branch protection rules or required approvals prevent direct pushes, MCP changes always go through a pull request regardless of this setting.
+- **Mintlify hosts your project.** For Mintlify-hosted sites, MCP changes always push directly, unless branch protection still requires a pull request.
+- **You aren't an admin.** Changing this setting requires the [admin role](/dashboard/roles) on your project. Editors and viewers see the toggle disabled with a permission banner.

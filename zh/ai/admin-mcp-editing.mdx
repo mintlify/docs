@@ -1,0 +1,125 @@
+---
+title: "使用管理员 MCP 编辑和发布"
+sidebarTitle: "编辑和发布"
+description: "连接到管理员 MCP 的 AI 工具如何编辑你的部署 branch 或其他 branch、提交拉取请求、发布更改以及检查部署。"
+keywords: ["admin MCP", "branch", "pull request", "publish", "deploy branch", "review", "agentReviewProcess"]
+---
+
+连接到[管理员 MCP](/zh/ai/mintlify-mcp) 的 AI 工具会在你每次调用时指定的 branch 上编辑内容。对部署 branch 的编辑会作为未发布的更改落在该 branch 上，对其他任何 branch 的编辑则通过拉取请求进行。在你要求 AI 工具发布之前，任何更改都不会上线。
+
+<div id="how-editing-works">
+  ## 编辑的工作方式
+</div>
+
+每个内容工具都接受 `branch` 参数。会更改内容的工具（例如 `edit_page`、`create_node`、`update_config`、`publish` 和 `discard`）必须传入该参数。读取类工具（例如 `read`、`search`、`read_page_history`、`list_nodes`、`status` 和 `diff`）在省略该参数时默认使用你的部署 branch。管理员 MCP 不会在调用之间记住 branch，因此 AI 工具每次都会传入 `branch`。针对[私有页面](/zh/editor/pages#private-pages)的请求不需要 `branch`。管理员 MCP 只能访问[知识库](/zh/base/index)中的私有页面。在站点中，私有页面请求会返回 `private_pages_unavailable`。
+
+流程如下：
+
+<Steps>
+  <Step title="发现项目（可选）">
+    如果你的连接可以访问多个项目，请调用 `list_deployments` 以查看可用的 `subdomain` 值。如果你的连接仅覆盖单个项目，请跳过此步骤。
+  </Step>
+  <Step title="读取、搜索和编辑">
+    AI 使用 `search`、`read`、`list_nodes`、`edit_page`、`write_page`、`create_node` 和 `update_config` 等工具进行更改。在组织范围的连接上，请传入 `subdomain` 来选择项目。
+
+    将部署 branch 作为 `branch` 传入即可直接编辑它。编辑会作为未发布的更改落在该 branch 上。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)。如果你的项目要求拉取请求，Mintlify 会拒绝该编辑并返回说明原因的消息，且不会做任何更改。此时请调用 `create_branch`，并将返回的 `branchName` 作为 `branch` 传入。参见[在 branch 上工作](#work-on-a-branch)。
+  </Step>
+  <Step title="审查差异">
+    随时调用 `diff` 查看某个 branch 与你的部署 branch 相比发生了哪些更改。调用 `status` 可获取已编辑文件、已更改的 `docs.json` 键和导航更改的摘要。省略 `branch` 时，两者都会报告你的部署 branch。在控制台中打开 `editorUrl`，可以看到相同更改的渲染效果。当 `create_node` 添加页面时，会返回一个直接打开该页面的 `editorUrl`。
+  </Step>
+  <Step title="发布">
+    调用 `publish` 并传入 `branch` 和 `title` 以发布你的编辑。管理员 MCP 会告知 AI 工具，仅在你要求其发布、上线或合并时才调用 `publish`，因此在你提出要求之前，你的编辑会保持未发布状态。在部署 branch 上，`publish` 会提交你自己的待处理更改。在 branch 上，`publish` 会提交所有待处理内容并返回该 branch 的拉取请求，如果还没有拉取请求则会创建一个。在没有新内容可提交时再次调用，会返回现有的拉取请求。如果既没有可提交的内容也没有拉取请求，`publish` 会返回 `no_pending_changes`。
+
+    除非你传入 `merge: true`，否则 `publish` 不会合并拉取请求。传入 `merge: true` 时，`publish` 还会将拉取请求合并到你的部署 branch，并返回 `merged: true`。只有在 Mintlify 接受直接编辑你的部署 branch 时，才允许合并。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)。否则，`publish` 会返回 `merge_not_allowed` 及原因，并保持拉取请求为打开状态以供审核。只有在你希望更改跳过审核时，才让 AI 工具执行合并。
+
+    响应中包含一个 `editorUrl`，用于打开第一个新建或更新的页面。如果更改只涉及配置，该链接会打开 branch。旧版客户端仍可传入 `mode`，但 `publish` 会忽略它。
+  </Step>
+  <Step title="检查部署">
+    当 `publish` 提交到你的部署 branch 时（无论是直接提交还是通过合并拉取请求），响应中会包含一个 `commitSha` 和一个 `deployment` 对象。在部署完成之前，你的更改不会在站点上线。使用 `commitSha` 调用 `deployment_status` 以检查进度。AI 工具大约每 30 秒检查一次，直到 `live` 为 `true`；如果状态为 `failed`、`not_live` 或 `skipped`，则停止并报告 `message`。
+  </Step>
+  <Step title="按需丢弃">
+    调用 `discard` 并传入 `branch` 以放弃你的编辑。它会删除哪些内容取决于该 branch。参见[直接编辑部署 branch](#edit-the-deploy-branch-directly)和[在 branch 上工作](#work-on-a-branch)。
+  </Step>
+</Steps>
+
+<Tip>
+  每次调用都会指定其项目和 branch，因此你可以在同一个对话中处理多个项目或 branch，而无需在它们之间切换。
+</Tip>
+
+<div id="edit-the-deploy-branch-directly">
+  ## 直接编辑部署 branch
+</div>
+
+当没有任何条件要求拉取请求时，将部署 branch 作为 `branch` 传入，管理员 MCP 就会像你在[控制台编辑器](/zh/editor/publish)中一样编辑它。你无需调用 `create_branch`，也不会创建拉取请求。
+
+在部署 branch 上，AI 工具以你的身份操作：
+
+- **编辑对协作者实时可见。** 在控制台中编辑部署 branch 的其他人会实时看到 AI 的更改。
+- **`publish` 只发布你的更改。** 它将你的待处理更改直接提交到部署 branch，效果等同于在编辑器中点击 **Publish**。其他人未发布的更改保持待处理状态。你在控制台编辑器中未发布的编辑也会一并发布。
+- **`discard` 只撤销你的更改。** 它返回 `discardedChanges`，表示撤销的更改数量。其他人的更改和 branch 本身不受影响。
+- **`status` 只列出你的更改。**
+
+[知识库](/zh/base/index)没有已发布的站点，因此没有发布步骤。当 `list_deployments` 返回 `projectType: "workspace"` 时，该项目即为知识库，Mintlify 会自动将编辑提交到部署 branch，包括上传的图片。
+
+Mintlify 按页面跟踪更改。如果你和其他人编辑了同一页面，`publish` 会发布整个页面，`discard` 会撤销整个页面，包括其他人的编辑。
+
+在以下任一情况下，Mintlify 会拒绝对部署 branch 的编辑，且不会做任何更改：
+
+- 你的[发布设置](#publishing)中关闭了 **直接推送到你的部署 branch**。
+- 部署 branch 的保护规则要求拉取请求，或 Mintlify 无法检查你的 branch 保护规则。
+- 部署 branch 的编辑在控制台编辑器中被锁定。
+- 你使用客户端令牌或机器到机器令牌连接，而不是 OAuth 登录。这些令牌未关联到用户，因此没有"自己的"更改。
+
+Mintlify 会在每次编辑时检查这些条件，并将你的 branch 保护规则缓存最多 30 秒。当对部署 branch 的编辑被拒绝时，评论工具仍可在其上使用。如果你编辑部署 branch 之后它开始要求拉取请求，`publish` 会返回 `branch_protected`，你的更改保持待处理状态。请打开控制台编辑器，将这些更改移到新的 branch。如果 [Always require branches](/zh/editor/settings#always-require-branches) 已开启且你不是管理员，也会出现同样的情况。
+
+<div id="projects-with-auto-publish">
+  ### 启用自动发布的项目
+</div>
+
+如果你的项目启用了[自动发布](/zh/editor/settings#auto-publish)，管理员 MCP 不会为该项目使用 branch。请将你的部署 branch 作为 `branch` 传入。Mintlify 会自动将你的编辑提交到部署 branch。
+
+在这些项目中，Mintlify 会拒绝 `create_branch` 以及针对任何其他 branch 的调用，且不会做任何更改。如果你的连接仅涵盖该项目，管理员 MCP 不会列出 `create_branch` 或 `list_branches`。
+
+在启用自动发布的项目中，**直接推送到你的部署 branch** 和 branch 保护规则不会阻止对部署 branch 的编辑。当部署 branch 的编辑在控制台编辑器中被锁定，或者你使用客户端令牌或机器到机器令牌连接时，Mintlify 会拒绝编辑。
+
+<div id="projects-that-require-review">
+  ### 要求审阅的项目
+</div>
+
+如果你的项目[要求发布前审阅](/zh/editor/review#require-review-before-publishing)，只有管理员可以对部署 branch 使用 `publish`。对于其他任何人，在部署 branch 上调用 `publish` 会返回 `review_required`，更改保持待处理状态。
+
+在其他 branch 上，`publish` 会提交你的更改并打开拉取请求。管理员可以使用 `merge: true` 将拉取请求合并到部署 branch。在审阅者批准了 branch 上的所有更改（包括其 **Site changes**）后，发布者也可以合并。对于其他任何人，合并会返回 `review_required`，拉取请求保持打开状态，因此请改为在该 branch 上请求审阅。
+
+要发布你的更改，请让 AI 工具请求审阅。AI 工具会使用你更改的页面和你指定的审阅者调用 `request_review`。审阅者批准更改后，管理员或发布者会在控制台编辑器中或通过 `publish_review_request` 发布这些更改。相关工具请参见[审阅请求](/zh/ai/admin-mcp-tools#review-requests)。
+
+<div id="work-on-a-branch">
+  ## 在 branch 上工作
+</div>
+
+当你的项目要求拉取请求，或者你本身就想要一个拉取请求时，请调用 `create_branch` 并传入 `title`。Mintlify 会从部署 branch 创建一个新的 branch，按照与控制台编辑器相同的方式将其命名为 `<your-name>/<title-slug>`，并基于你已发布的内容进行初始化。拉取请求会以此标题打开。例如 `create_branch { subdomain: "acme", title: "Add tips page" }`。
+
+如果要改为从另一个现有 branch 开始（例如用于大型更新的功能 branch），请将其名称作为 `from` 传入。例如 `create_branch { subdomain: "acme", title: "Add tips page", from: "docs-refresh" }`。如果 `from` branch 不存在，Mintlify 会拒绝请求，且不会创建任何内容。
+
+如果你的仓库位于 GitHub、GitLab 或 Azure Repos 上，从部署 branch 以外的 branch 开始创建的 branch 会成为[子分支](/zh/editor/publish#sub-branches)，其拉取请求以 `from` branch 而不是部署 branch 为目标。
+
+`create_branch` 返回 `branchName`、起始的 `baseBranch` 和 `baseSha`、一个 `note`，以及一个可在控制台编辑器中实时跟进的 `editorUrl`。在之后的每次调用中，将 `branchName` 作为 `branch` 传入。
+
+要在现有 branch 上工作，请将其名称作为 `branch` 传入。调用 `list_branches` 可发现项目仓库中的 branch。Mintlify 会拒绝针对不存在的 branch 的调用。
+
+在 branch 上，Mintlify 会在最后一次更改约 15 秒后自动提交你的编辑，包括页面内容、导航更改和 `docs.json` 更新。首次提交会打开一个针对部署 branch 的拉取请求；对于子分支，则针对 `from` branch。如果启用了[默认创建草稿 pull request](/zh/editor/settings#create-draft-pull-requests-by-default)，拉取请求会以草稿形式打开。在有人将这些更改合并到你的部署 branch 之前，任何更改都不会进入其中。
+
+在部署 branch 以外的 branch 上，`discard` 会删除该 branch 并关闭其拉取请求，即使该 branch 已有提交。这与在控制台编辑器中删除 branch 的效果相同。`discard` 只会删除你在 Mintlify 中创建的 branch。对于其他 branch，它会拒绝操作且不做任何更改。
+
+<div id="publishing">
+  ## 发布
+</div>
+
+控制台侧边栏中 **MCP → Settings** 页面上的 **发布** 部分用于控制管理员 MCP 是否可以在不使用拉取请求的情况下编辑你的部署 branch。开启 **直接推送到你的部署 branch**，AI 工具即可直接编辑并发布到你的部署 branch。关闭它，MCP 编辑将需要 `create_branch` 和拉取请求。
+
+此开关与 Slack 和控制台代理共享相同的 `agentReviewProcess` 设置，因此在这里所做的任何更改都会同样应用于那些流程。
+
+以下三种情况下该开关会被禁用：
+
+- **你的部署 branch 需要拉取请求。** 如果 branch 保护规则或必需的审批阻止了直接推送，那么无论此设置如何，MCP 更改都会始终通过拉取请求进行。
+- **Mintlify 托管你的项目。** 对于由 Mintlify 托管的站点，MCP 更改会始终直接推送，除非 branch 保护仍然要求拉取请求。
+- **你不是管理员。** 更改此设置需要项目的[管理员角色](/zh/dashboard/roles)。编辑者和查看者会看到该开关被禁用，并显示权限横幅。
