@@ -8,10 +8,10 @@ export const NavigationBuilder = ({ CodeBlockComponent }) => {
   // Supported codes from the language enum in https://mintlify.com/docs.json, minus the lowercase
   // aliases fr-ca and ja-jp. Update this when the schema changes.
   const SUPPORTED_LANGUAGE_CODES = [
-    "am", "ar", "bho", "bn", "ca", "cn", "cs", "da", "de", "en", "es", "fi", "fil", "fr", "fr-CA", "gu", "ha",
-    "he", "hi", "hu", "id", "it", "ja", "ja-JP", "jp", "kn", "ko", "lv", "ml", "mr", "nb", "nl", "no", "pl",
-    "pt", "pt-BR", "ro", "ru", "sv", "sw", "ta", "te", "th", "tr", "uk", "uz", "vi", "zh", "zh-CN", "zh-Hans",
-    "zh-Hant", "zh-TW",
+    "am", "ar", "bg", "bho", "bn", "ca", "cn", "cs", "da", "de", "el", "en", "es", "et", "fi", "fil", "fr",
+    "fr-CA", "ga", "gu", "ha", "he", "hi", "hr", "hu", "id", "is", "it", "ja", "ja-JP", "jp", "kn", "ko",
+    "lb", "lt", "lv", "ml", "mr", "mt", "nb", "nl", "no", "pl", "pt", "pt-BR", "ro", "ru", "sk", "sl", "sr",
+    "sv", "sw", "ta", "te", "th", "tr", "uk", "uz", "vi", "zh", "zh-CN", "zh-Hans", "zh-Hant", "zh-TW",
   ]
   // Common languages come first as defaults, then the rest, so default names don't repeat.
   const COMMON_LANGUAGE_CODES = ["en", "es", "fr", "de", "ja", "zh", "ko", "pt-BR"]
